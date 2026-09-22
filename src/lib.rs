@@ -81,7 +81,7 @@ pub struct Generator {
     config: GeneratorConfig,
     /// Iteration-friendly view of the same preferred pronunciations.
     /// The corpus trie remains authoritative for Exact mode.
-    fuzzy_words: Vec<approx::FuzzyWord>,
+    fuzzy_lexicon: approx::FuzzyLexicon,
 }
 
 impl Generator {
@@ -95,18 +95,18 @@ impl Generator {
         // stays around 50k words. Avoid building a second 280k-word view
         // for callers that explicitly request an unfiltered Exact-only
         // corpus (the integration corpus probes do this).
-        let fuzzy_words = if config.max_rarity.is_some()
+        let fuzzy_lexicon = if config.max_rarity.is_some()
             || matches!(config.mode, SearchMode::Approximate { .. })
         {
             approx::build_lexicon(json, &corpus, config.max_rarity)
         } else {
-            Vec::new()
+            approx::FuzzyLexicon::empty()
         };
 
         Ok(Self {
             corpus,
             config,
-            fuzzy_words,
+            fuzzy_lexicon,
         })
     }
 
@@ -187,7 +187,7 @@ impl Generator {
         let target_words = target_word_set(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
-        if n == 0 || self.fuzzy_words.is_empty() {
+        if n == 0 || self.fuzzy_lexicon.is_empty() {
             return Vec::new();
         }
 
@@ -196,8 +196,7 @@ impl Generator {
         // Build this expensive lattice once.
         let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
             .map(|p| {
-                approx::matches_at(
-                    &self.fuzzy_words,
+                self.fuzzy_lexicon.matches_at(
                     &chars,
                     p,
                     per_word_budget,
@@ -230,7 +229,7 @@ impl Generator {
                     if m.cost > remaining + 1e-9 {
                         continue;
                     }
-                    let word = &self.fuzzy_words[m.word_idx];
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
                     let next = partial.extend_fuzzy(word, m.consumed, m.cost);
                     let q = p + m.consumed;
                     if q > n {
