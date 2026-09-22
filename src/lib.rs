@@ -858,4 +858,71 @@ mod tests {
         let n = boundary_novelty(&clue, &target, 14, false);
         assert!((n - 2.0 / 3.0).abs() < 1e-9);
     }
+
+    #[test]
+    fn acceptance_sequences_are_reachable_in_fuzzy_lattice() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+        fn check(target: &str, expected: &[&str]) {
+            let g = Generator::from_json(
+                CORPUS_JSON,
+                GeneratorConfig {
+                    mode: SearchMode::approximate(),
+                    ..GeneratorConfig::default()
+                },
+            )
+            .unwrap();
+
+            let (ipa, _) = transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+
+            // Keep every acoustically valid alignment of the required
+            // word sequence. This checks matcher/budget reachability
+            // independently of phrase-beam pruning.
+            let mut states = vec![(0usize, 0.0f64)];
+            for &wanted in expected {
+                let mut next = Vec::new();
+                let mut seen = HashSet::new();
+
+                for &(pos, total) in &states {
+                    if pos >= chars.len() {
+                        continue;
+                    }
+                    for m in g
+                        .fuzzy_lexicon
+                        .matches_at(&chars, pos, 0.5, 1)
+                    {
+                        let word = g.fuzzy_lexicon.word(m.word_idx);
+                        if word.word.eq_ignore_ascii_case(wanted)
+                            && total + m.cost <= 1.5 + 1e-9
+                            && seen.insert((pos + m.consumed, (total + m.cost).to_bits()))
+                        {
+                            next.push((pos + m.consumed, total + m.cost));
+                        }
+                    }
+                }
+
+                assert!(
+                    !next.is_empty(),
+                    "{target:?}: required word {wanted:?} has no continuation after states {states:?}"
+                );
+                states = next;
+            }
+
+            assert!(
+                states.iter().any(|&(pos, _)| pos == chars.len()),
+                "{target:?}: required sequence ends at {states:?}, target len {}",
+                chars.len()
+            );
+        }
+
+        check(
+            "It's just a stupid game",
+            &["hits", "justice", "dupe", "hid", "came"],
+        );
+        check(
+            "recognize speech",
+            &["wreck", "a", "nice", "beach"],
+        );
+    }
 }
