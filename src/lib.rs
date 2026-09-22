@@ -491,7 +491,6 @@ impl Partial {
             novelty,
             familiarity,
             word_novelty,
-            similarity,
         }
     }
 
@@ -525,7 +524,6 @@ struct Metrics {
     novelty: f64,
     familiarity: f64,
     word_novelty: f64,
-    similarity: f64,
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between target
