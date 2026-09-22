@@ -39,7 +39,7 @@ Options:
                      match the target. Defaults are sensible; tune with the next
                      two flags if needed.
   --per-word-budget COST   Approximate-mode: max substitution cost per clue word
-                           (default 0.5).
+                           (default 0.75).
   --total-budget COST      Approximate-mode: max total substitution cost (default 1.5).
   --transcribe       Print the target's IPA stream and exit.
   --help             This message.
@@ -57,7 +57,7 @@ fn main() -> ExitCode {
         mode: SearchMode::Exact,
         ..GeneratorConfig::default()
     };
-    let mut approximate_per_word = 0.5_f64;
+    let mut approximate_per_word = 0.75_f64;
     let mut approximate_total = 1.5_f64;
     let mut transcribe_only = false;
 
@@ -79,8 +79,10 @@ fn main() -> ExitCode {
             }
             "--min-word-len" => {
                 args.remove(0);
-                config.min_word_ipa_chars =
-                    args.remove(0).parse::<usize>().unwrap_or(config.min_word_ipa_chars);
+                config.min_word_ipa_chars = args
+                    .remove(0)
+                    .parse::<usize>()
+                    .unwrap_or(config.min_word_ipa_chars);
             }
             "--approximate" => {
                 args.remove(0);
@@ -91,7 +93,10 @@ fn main() -> ExitCode {
             }
             "--per-word-budget" => {
                 args.remove(0);
-                approximate_per_word = args.remove(0).parse::<f64>().unwrap_or(approximate_per_word);
+                approximate_per_word = args
+                    .remove(0)
+                    .parse::<f64>()
+                    .unwrap_or(approximate_per_word);
                 if matches!(config.mode, SearchMode::Approximate { .. }) {
                     config.mode = SearchMode::Approximate {
                         per_word_budget: approximate_per_word,
