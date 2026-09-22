@@ -30,6 +30,7 @@ worker.onmessage = (event) => {
   const msg = event.data;
   if (msg.type === "ready") {
     ready = true;
+    goBtn.disabled = false;
     setStatus("");
     return;
   }
@@ -42,7 +43,8 @@ worker.onmessage = (event) => {
   }
   if (msg.type === "error") {
     busy = false;
-    goBtn.disabled = false;
+    ready = false;
+    goBtn.disabled = true;
     setStatus("");
     showError(msg.message);
   }
@@ -50,7 +52,8 @@ worker.onmessage = (event) => {
 
 worker.onerror = (event) => {
   busy = false;
-  goBtn.disabled = false;
+  ready = false;
+  goBtn.disabled = true;
   setStatus("");
   showError(`Worker failed: ${event.message || "unknown error"}`);
 };
@@ -78,7 +81,6 @@ function renderResult({ ipa, clues }) {
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!ready) {
-    setStatus("Engine still loading…");
     return;
   }
   if (busy) return;
