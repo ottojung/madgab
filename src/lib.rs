@@ -237,21 +237,27 @@ impl Generator {
                     }
                     beam[q].push(next);
 
-                    // Keep temporary fan-in roomy, but periodically
-                    // collapse it with the same multi-objective policy
-                    // used at expansion time.
+                    // Intermediate hypotheses must stay tight for
+                    // interactive search. Completed hypotheses are
+                    // different: they will never be expanded again, so
+                    // retain a much larger bounded pool and let the real
+                    // final scorer + diversity selector decide among
+                    // them. Premature completion pruning loses exactly
+                    // the globally-good parses beam search is meant to
+                    // approximate.
                     let keep = if q == n {
                         self.config
-                            .beam_width
-                            .max(self.config.top_n.saturating_mul(4))
+                            .top_n
+                            .saturating_mul(128)
+                            .max(1024)
+                            .min(8192)
                     } else {
-                        self.config.beam_width
-                    }
-                    .max(1);
-                    if beam[q].len() > keep.saturating_mul(6) {
+                        self.config.beam_width.max(1)
+                    };
+                    if beam[q].len() > keep.saturating_mul(2) {
                         let reduced = prune_partials(
                             std::mem::take(&mut beam[q]),
-                            keep.saturating_mul(2),
+                            keep,
                             &target_boundaries,
                             &target_words,
                             n,
@@ -264,9 +270,10 @@ impl Generator {
 
         let final_keep = self
             .config
-            .beam_width
-            .max(self.config.top_n.saturating_mul(4))
-            .max(self.config.top_n);
+            .top_n
+            .saturating_mul(128)
+            .max(1024)
+            .min(8192);
         let completed = prune_partials(
             std::mem::take(&mut beam[n]),
             final_keep,
