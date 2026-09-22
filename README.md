@@ -44,6 +44,27 @@ cargo build --release
 ./target/release/madgab "I love you"
 ```
 
+## Browser / WASM
+
+The same generator runs in the browser via a `wasm-bindgen` wrapper
+(`src/wasm.rs` over `Generator`). The static UI in `web/` — target
+input, exact/approximate toggle, top-N selector, per-clue scores, plus
+loading and error states — runs generation in a Web Worker so the page
+stays responsive.
+
+```
+# local preview (requires wasm-pack + a wasm target)
+wasm-pack build --target web --out-dir web/pkg
+python3 -m http.server -d web 8000
+# → http://localhost:8000
+```
+
+The `Pages` workflow (`.github/workflows/pages.yml`) builds the same
+bundle on every `main` push (or manual `workflow_dispatch`) and deploys
+`web/` to GitHub Pages. Note: the Pages environment must already be
+enabled for the repo — the workflow intentionally does not try to
+enable it via `configure-pages` + `GITHUB_TOKEN`.
+
 ## CLI
 
 ```

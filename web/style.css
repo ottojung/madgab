@@ -1,0 +1,12 @@
+:root { color-scheme: light dark; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
+main { max-width: 42rem; margin: 0 auto; }
+.tagline { color: gray; }
+.field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
+.field span { font-size: 0.85rem; font-weight: 600; }
+input, select, button { font: inherit; padding: 0.4rem 0.6rem; }
+.row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
+#status { font-style: italic; }
+#error { color: crimson; }
+.score { font-variant-numeric: tabular-nums; color: gray; }
+#ipa { font-weight: 400; color: gray; font-size: 1rem; }

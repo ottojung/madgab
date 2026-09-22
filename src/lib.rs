@@ -24,9 +24,13 @@
 use std::collections::HashSet;
 
 use phonetics::transcriptions::{Corpus, Pronunciation};
+use serde::Serialize;
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
 
 /// One candidate Mad Gab clue.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Clue {
     /// The clue as a space-joined English phrase.
     pub phrase: String,
@@ -40,7 +44,7 @@ pub struct Clue {
 }
 
 /// One word inside a candidate clue.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ClueWord {
     /// English headword.
     pub word: String,
@@ -151,6 +155,13 @@ impl Generator {
     /// Configuration in effect.
     pub fn config(&self) -> &GeneratorConfig {
         &self.config
+    }
+
+    /// Replace the search configuration (beam width, top N, mode…).
+    /// The parsed corpus/trie is untouched, so this is cheap — the
+    /// wasm wrapper uses it per `generate` call.
+    pub fn set_config(&mut self, config: GeneratorConfig) {
+        self.config = config;
     }
 
     /// Generate ranked clue candidates for `target`.
