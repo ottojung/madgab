@@ -309,7 +309,7 @@ impl Generator {
         }
 
         const SPAN_AXIS_KEEP: usize = 12;
-        const SEG_STATE_KEEP: usize = 8;
+        const SEG_STATE_KEEP: usize = 12;
         const SEGMENTATION_KEEP: usize = 96;
         const LEXICAL_BEAM: usize = 96;
 
