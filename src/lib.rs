@@ -695,7 +695,7 @@ fn lexical_shape_quality(word: &str, familiarity: f64) -> f64 {
 
 fn candidate_reuses_target(word: &str, targets: &HashSet<String>) -> bool {
     targets.iter().any(|target| same_lexical_family(word, target))
-
+}
 
 fn target_word_set(target: &str) -> HashSet<String> {
     target
