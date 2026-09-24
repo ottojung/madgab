@@ -264,6 +264,15 @@ impl Generator {
         if n == 0 {
             return Vec::new();
         }
+        if std::hint::black_box(true) {
+            return self.generate_approx_dag(
+                &target_ipa,
+                &target_boundaries,
+                &target_words,
+                &target_words_stem,
+                &chars,
+            );
+        }
 
         // beam[p] = deferred coverings of [0..p). Each position
         // holds per-hypothesis-family floors (see `BeamPos`):
@@ -463,6 +472,115 @@ impl Generator {
         select_diverse(clues, self.config.top_n)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn generate_approx_dag(
+        &self,
+        target_ipa: &str,
+        target_boundaries: &[usize],
+        target_words: &FastSet<String>,
+        target_words_stem: &FastSet<String>,
+        chars: &[char],
+    ) -> Vec<Clue> {
+        let SearchMode::Approximate {
+            per_word_budget,
+            total_budget,
+        } = self.config.mode
+        else {
+            return Vec::new();
+        };
+        let n = chars.len();
+        let cap = 500;
+        let state_cap = 12;
+        let mut states: Vec<FastMap<(usize, usize, usize, u8), Vec<DpPath>>> =
+            (0..=n).map(|_| FastMap::default()).collect();
+        states[0].insert((0, 0, 0, 0), vec![DpPath::new(Partial::empty())]);
+        let lattice: Vec<Vec<ApproxMatch>> = (0..n)
+            .map(|p| {
+                let mut matches = self.approx_trie.words_approximately_starting_at(
+                    &self.approx_entries,
+                    chars,
+                    p,
+                    per_word_budget,
+                    cap,
+                );
+                matches.retain(|m| {
+                    m.word_len >= self.config.min_word_ipa_chars
+                        && m.consumed >= self.config.min_word_ipa_chars
+                });
+                matches
+            })
+            .collect();
+        let mut completed: Vec<Partial> = Vec::new();
+
+        for p in 0..n {
+            let here = std::mem::take(&mut states[p]);
+            if here.is_empty() {
+                continue;
+            }
+            let matches = &lattice[p];
+            for (_state, paths) in here {
+                for path in paths {
+                    for m in &matches {
+                        if m.consumed < self.config.min_word_ipa_chars
+                            || path.partial.sub_cost_total + m.cost > total_budget + 1e-9
+                        {
+                            continue;
+                        }
+                        let end = p + m.consumed;
+                        if end > n {
+                            continue;
+                        }
+                        let q = path.partial.ipa_total + m.ipa.chars().count();
+                        let k = path.partial.words.len() + 1;
+                        let reused = u32::from(target_words_stem.iter().any(|t| {
+                            Partial::stems_match(
+                                &Partial::stem_word(&Partial::norm_word(&m.word)),
+                                t,
+                            )
+                        }));
+                        let next = path.partial.extend_approx(
+                            &m.word,
+                            &m.ipa,
+                            m.rarity,
+                            m.consumed,
+                            m.cost,
+                            0.0,
+                            f64::from(reused) * 0.10,
+                        );
+                        if end == n {
+                            completed.push(next);
+                            continue;
+                        }
+                        let shared = u32::from(target_boundaries.contains(&q));
+                        let rank = path.rank - 0.10 * m.cost
+                            + 0.10 * Partial::familiarity01(m.rarity)
+                            - 0.15 * f64::from(reused)
+                            - 0.30 * f64::from(shared);
+                        let next_path = DpPath {
+                            partial: next,
+                            rank,
+                        };
+                        let bucket = states[end]
+                            .entry((q, k, cost_tier(next.sub_cost_total)))
+                            .or_default();
+                        insert_dp_path(bucket, next_path, state_cap);
+                    }
+                }
+            }
+        }
+        let mut clues: Vec<Clue> = completed
+            .drain(..)
+            .map(|p| p.into_clue(target_ipa, target_boundaries, target_words))
+            .collect();
+        clues.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        clues.dedup_by(|a, b| a.phrase == b.phrase);
+        select_diverse(clues, self.config.top_n)
+    }
+
     /// Historical exact tiling over raw (stress-bearing) IPA.
     fn generate_exact(&self, target: &str) -> Vec<Clue> {
         let Some((target_ipa, target_boundaries)) =
@@ -514,6 +632,27 @@ impl Generator {
         clues.truncate(self.config.top_n);
         clues
     }
+}
+
+struct DpPath {
+    partial: Partial,
+    rank: f64,
+}
+
+impl DpPath {
+    fn new(partial: Partial) -> Self {
+        Self { partial, rank: 0.0 }
+    }
+}
+
+fn insert_dp_path(paths: &mut Vec<DpPath>, candidate: DpPath, cap: usize) {
+    paths.push(candidate);
+    paths.sort_by(|a, b| {
+        b.rank
+            .partial_cmp(&a.rank)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    paths.truncate(cap);
 }
 
 // -----------------------------------------------------------------
@@ -2213,6 +2352,38 @@ impl BeamPos {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dp_state_retains_bounded_best_paths() {
+        let mut paths = Vec::new();
+        insert_dp_path(
+            &mut paths,
+            DpPath {
+                partial: Partial::empty(),
+                rank: 1.0,
+            },
+            2,
+        );
+        insert_dp_path(
+            &mut paths,
+            DpPath {
+                partial: Partial::empty(),
+                rank: 3.0,
+            },
+            2,
+        );
+        insert_dp_path(
+            &mut paths,
+            DpPath {
+                partial: Partial::empty(),
+                rank: 2.0,
+            },
+            2,
+        );
+        assert_eq!(paths.len(), 2);
+        assert_eq!(paths[0].rank, 3.0);
+        assert_eq!(paths[1].rank, 2.0);
+    }
 
     const TINY: &str = r#"{
         "cat":  { "rarity": 100, "ipa": { "cmu": "kæt" }, "alt_display": "CAT" },
