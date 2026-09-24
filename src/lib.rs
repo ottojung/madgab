@@ -664,6 +664,35 @@ fn normalized_word(word: &str) -> String {
         .collect()
 }
 
+fn novelty_stem(word: &str) -> String {
+    let mut s = normalized_word(word);
+    for suffix in ["ing", "ies", "ed", "es", "s", "d"] {
+        if s.len() > suffix.len() + 2 && s.ends_with(suffix) {
+            s.truncate(s.len() - suffix.len());
+            if suffix == "ies" { s.push('y'); }
+            break;
+        }
+    }
+    s
+}
+
+fn same_lexical_family(a: &str, b: &str) -> bool {
+    let a = novelty_stem(a);
+    let b = novelty_stem(b);
+    a == b
+}
+
+fn lexical_shape_quality(word: &str, familiarity: f64) -> f64 {
+    let w = normalized_word(word);
+    match w.chars().count() {
+        0 => 0.0,
+        1 if w == "a" || w == "i" => 1.0,
+        1 => 0.05,
+        2 => 0.35 + 0.55 * familiarity,
+        _ => 1.0,
+    }
+}
+
 fn target_word_set(target: &str) -> HashSet<String> {
     target
         .split_whitespace()
