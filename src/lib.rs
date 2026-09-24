@@ -274,13 +274,326 @@ impl Generator {
             .saturating_mul(128)
             .max(1024)
             .min(8192);
-        let completed = prune_partials(
+        let mut completed = prune_partials(
             std::mem::take(&mut beam[n]),
             final_keep,
             &target_boundaries,
             &target_words,
             n,
         );
+
+        // Recovery search: decouple segmentation survival from lexical
+        // survival.  The ordinary beam is deliberately tight and fast,
+        // but a locally mediocre word can otherwise erase an excellent
+        // global resegmentation.  First retain a small set of promising
+        // target-span structures; only then explore lexical alternatives
+        // inside each retained structure.
+        #[derive(Clone)]
+        struct SpanEdge {
+            end: usize,
+            matches: Vec<approx::FuzzyMatch>,
+            min_cost: f64,
+            max_familiarity: f64,
+            min_reused: usize,
+            max_ipa_len: usize,
+        }
+
+        #[derive(Clone)]
+        struct SegPath {
+            spans: Vec<(usize, usize)>,
+            min_cost: f64,
+            max_familiarity_sum: f64,
+            min_reused: usize,
+            max_ipa_len_sum: usize,
+            rank: f64,
+        }
+
+        const SPAN_AXIS_KEEP: usize = 12;
+        const SEG_STATE_KEEP: usize = 8;
+        const SEGMENTATION_KEEP: usize = 96;
+        const LEXICAL_BEAM: usize = 96;
+
+        let target_inner: HashSet<usize> = target_boundaries
+            .iter()
+            .copied()
+            .filter(|&b| b < n)
+            .collect();
+
+        let mut span_lattice: Vec<Vec<SpanEdge>> =
+            (0..n).map(|_| Vec::new()).collect();
+
+        for p in 0..n {
+            let mut grouped: std::collections::BTreeMap<
+                usize,
+                Vec<approx::FuzzyMatch>,
+            > = std::collections::BTreeMap::new();
+            for &m in &lattice[p] {
+                let end = p + m.consumed;
+                if end <= n {
+                    grouped.entry(end).or_default().push(m);
+                }
+            }
+
+            for (end, matches) in grouped {
+                let quality = |m: &approx::FuzzyMatch| {
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
+                    let familiarity = word_familiarity(word.rarity);
+                    let reused =
+                        target_words.contains(&normalized_word(&word.word));
+                    -0.1125 * m.cost
+                        + 0.15 * familiarity
+                        - if reused { 0.10 } else { 0.0 }
+                        + 0.01 * (word.ipa_len.min(8) as f64)
+                };
+
+                // A span shortlist is a portfolio, not simply the
+                // cheapest N words.  This preserves near-homophones that
+                // are strong on a different quality axis.
+                let mut selected = Vec::new();
+                let mut seen_words = HashSet::new();
+
+                let mut by_cost = matches.clone();
+                by_cost.sort_by(|a, b| {
+                    a.cost
+                        .partial_cmp(&b.cost)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                for m in by_cost.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut by_familiarity = matches.clone();
+                by_familiarity.sort_by(|a, b| {
+                    cmp_desc(
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(a.word_idx).rarity,
+                        ),
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(b.word_idx).rarity,
+                        ),
+                    )
+                });
+                for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut by_quality = matches;
+                by_quality.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+                for m in by_quality.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+                selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+
+                if selected.is_empty() {
+                    continue;
+                }
+
+                let min_cost = selected
+                    .iter()
+                    .map(|m| m.cost)
+                    .fold(f64::INFINITY, f64::min);
+                let max_familiarity = selected
+                    .iter()
+                    .map(|m| {
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(m.word_idx).rarity,
+                        )
+                    })
+                    .fold(0.0, f64::max);
+                let min_reused = usize::from(selected.iter().all(|m| {
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
+                    target_words.contains(&normalized_word(&word.word))
+                }));
+                let max_ipa_len = selected
+                    .iter()
+                    .map(|m| self.fuzzy_lexicon.word(m.word_idx).ipa_len)
+                    .max()
+                    .unwrap_or(0);
+
+                span_lattice[p].push(SpanEdge {
+                    end,
+                    matches: selected,
+                    min_cost,
+                    max_familiarity,
+                    min_reused,
+                    max_ipa_len,
+                });
+            }
+        }
+
+        // Structural DP.  For a fixed (position, word count, number of
+        // shared target boundaries), all future structural possibilities
+        // are identical.  Keep only a handful of strongest lexical
+        // upper-bound representatives in each such state.
+        let max_words = n.min(
+            target_boundaries
+                .len()
+                .saturating_mul(3)
+                .saturating_add(2)
+                .max(4),
+        );
+        let mut seg_states: Vec<
+            HashMap<(usize, usize), Vec<SegPath>>,
+        > = (0..=n).map(|_| HashMap::new()).collect();
+        seg_states[0].insert(
+            (0, 0),
+            vec![SegPath {
+                spans: Vec::new(),
+                min_cost: 0.0,
+                max_familiarity_sum: 0.0,
+                min_reused: 0,
+                max_ipa_len_sum: 0,
+                rank: 0.0,
+            }],
+        );
+
+        for p in 0..n {
+            let here = std::mem::take(&mut seg_states[p]);
+            for ((word_count, shared), paths) in here {
+                for path in paths {
+                    for edge in &span_lattice[p] {
+                        let next_words = word_count + 1;
+                        if next_words > max_words
+                            || path.min_cost + edge.min_cost
+                                > total_budget + 1e-9
+                        {
+                            continue;
+                        }
+
+                        let next_shared = shared
+                            + usize::from(
+                                edge.end < n
+                                    && target_inner.contains(&edge.end),
+                            );
+                        let mut spans = path.spans.clone();
+                        spans.push((p, edge.end));
+
+                        let min_cost = path.min_cost + edge.min_cost;
+                        let max_familiarity_sum =
+                            path.max_familiarity_sum
+                                + edge.max_familiarity;
+                        let min_reused =
+                            path.min_reused + edge.min_reused;
+                        let max_ipa_len_sum =
+                            path.max_ipa_len_sum + edge.max_ipa_len;
+                        let denom = next_words as f64;
+                        let rank = -0.1125 * min_cost
+                            + 0.15 * max_familiarity_sum / denom
+                            - 0.10 * min_reused as f64 / denom
+                            + 0.05
+                                * (max_ipa_len_sum as f64
+                                    / (4.0 * denom))
+                                    .min(1.0);
+
+                        let bucket = seg_states[edge.end]
+                            .entry((next_words, next_shared))
+                            .or_default();
+                        bucket.push(SegPath {
+                            spans,
+                            min_cost,
+                            max_familiarity_sum,
+                            min_reused,
+                            max_ipa_len_sum,
+                            rank,
+                        });
+                        bucket.sort_by(|a, b| cmp_desc(a.rank, b.rank));
+                        bucket.truncate(SEG_STATE_KEEP);
+                    }
+                }
+            }
+        }
+
+        let target_inner_count = target_inner.len();
+        let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
+        for ((word_count, shared), paths) in
+            std::mem::take(&mut seg_states[n])
+        {
+            if word_count == 0 {
+                continue;
+            }
+            let clue_inner = word_count.saturating_sub(1);
+            let union = target_inner_count + clue_inner - shared;
+            let novelty = if union == 0 {
+                0.0
+            } else {
+                1.0 - shared as f64 / union as f64
+            };
+            let denom = word_count as f64;
+            for path in paths {
+                let upper = 0.45
+                    * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
+                    + 0.25 * novelty
+                    + 0.10
+                        * (1.0
+                            - path.min_reused as f64 / denom)
+                    + 0.15 * path.max_familiarity_sum / denom
+                    + 0.05
+                        * (path.max_ipa_len_sum as f64
+                            / (4.0 * denom))
+                            .min(1.0);
+                segmentations.push((upper, path));
+            }
+        }
+        segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
+        segmentations.truncate(SEGMENTATION_KEEP);
+
+        // Lexical search is now local to one retained segmentation, so
+        // words no longer compete with thousands of unrelated boundary
+        // structures.  Reuse the existing multi-objective pruning to
+        // preserve acoustic, familiarity, and lexical-novelty tradeoffs.
+        let mut recovered = Vec::new();
+        for (_, segmentation) in segmentations {
+            let mut lexical = vec![Partial::empty()];
+            for &(start, end) in &segmentation.spans {
+                let Some(edge) = span_lattice[start]
+                    .iter()
+                    .find(|edge| edge.end == end)
+                else {
+                    lexical.clear();
+                    break;
+                };
+
+                let mut next = Vec::with_capacity(
+                    lexical.len().saturating_mul(edge.matches.len()),
+                );
+                for partial in &lexical {
+                    let remaining =
+                        total_budget - partial.sub_cost_total;
+                    for m in &edge.matches {
+                        if m.cost > remaining + 1e-9 {
+                            continue;
+                        }
+                        let word =
+                            self.fuzzy_lexicon.word(m.word_idx);
+                        next.push(partial.extend_fuzzy(
+                            word,
+                            m.consumed,
+                            m.cost,
+                        ));
+                    }
+                }
+
+                lexical = prune_partials(
+                    next,
+                    LEXICAL_BEAM,
+                    &target_boundaries,
+                    &target_words,
+                    n,
+                );
+                if lexical.is_empty() {
+                    break;
+                }
+            }
+            recovered.extend(lexical);
+        }
+
+        completed.extend(recovered);
         self.finish(
             completed,
             &target_ipa,
@@ -784,22 +1097,24 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
 
     let mut remaining: Vec<usize> = (0..clues.len()).collect();
     let mut picked = Vec::with_capacity(top_n.min(clues.len()));
+    let mut max_overlap = vec![0.0_f64; clues.len()];
 
     while picked.len() < top_n && !remaining.is_empty() {
+        if let Some(&last) = picked.last() {
+            for &i in &remaining {
+                let word_overlap =
+                    directional_overlap(&word_sets[i], &word_sets[last]);
+                let bigram_overlap =
+                    directional_overlap(&bigrams[i], &bigrams[last]);
+                let overlap = 0.5 * word_overlap + 0.5 * bigram_overlap;
+                max_overlap[i] = max_overlap[i].max(overlap);
+            }
+        }
+
         let mut best_pos = 0;
         let mut best_value = f64::NEG_INFINITY;
-
         for (pos, &i) in remaining.iter().enumerate() {
-            let mut max_overlap: f64 = 0.0;
-            for &j in &picked {
-                let word_overlap =
-                    directional_overlap(&word_sets[i], &word_sets[j]);
-                let bigram_overlap =
-                    directional_overlap(&bigrams[i], &bigrams[j]);
-                max_overlap = max_overlap.max(0.5 * word_overlap + 0.5 * bigram_overlap);
-            }
-
-            let value = clues[i].score - MMR_LAMBDA * max_overlap;
+            let value = clues[i].score - MMR_LAMBDA * max_overlap[i];
             if value > best_value {
                 best_value = value;
                 best_pos = pos;
