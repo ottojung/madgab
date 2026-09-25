@@ -1,30 +1,15 @@
 //! Mad Gab puzzle generator.
 //!
-//! Mad Gab takes an English phrase and re-presents it as a sequence of
-//! different English words whose concatenated pronunciation is similar
-//! to the original. "It's just a stupid game" becomes "Hits Justice
-//! Dupe Hid Came" — same phoneme stream, totally different lexical
-//! parse.
-//!
-//! This crate's [`Generator`] takes a target phrase and returns a
-//! ranked list of candidate clues. It leans on three capabilities
-//! from `phonetics-rs`:
-//!
-//!   * `Corpus::transcribe` to turn the target into an IPA string
-//!   * `Corpus::trie::words_starting_at` to enumerate every English
-//!     word whose IPA matches a given prefix of the target
-//!   * `phonetics::similarity` to score how close a candidate clue
-//!     sounds to the target
-//!
-//! The search itself is a beam-DP over phoneme positions: at each
-//! position we keep the best K coverings reachable so far, and at
-//! each step we extend each beam entry by every word in the trie
-//! that fits. Polynomial time in the phoneme stream length.
+//! The generator searches for English word sequences whose connected
+//! pronunciation is close to a target phrase while preferring a
+//! genuinely different lexical/word-boundary parse.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use phonetics::transcriptions::{Corpus, Pronunciation};
 use serde::Serialize;
+
+mod approx;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
@@ -32,55 +17,34 @@ pub mod wasm;
 /// One candidate Mad Gab clue.
 #[derive(Debug, Clone, Serialize)]
 pub struct Clue {
-    /// The clue as a space-joined English phrase.
     pub phrase: String,
-    /// The IPA stream the clue covers. Always equal to the target's
-    /// IPA in [`SearchMode::Exact`] mode.
     pub ipa: String,
-    /// Per-word components, in order.
     pub words: Vec<ClueWord>,
-    /// Composite score in [0, 1] — higher is a better Mad Gab clue.
+    /// Composite score in [0, 1] — higher is better.
     pub score: f64,
 }
 
 /// One word inside a candidate clue.
 #[derive(Debug, Clone, Serialize)]
 pub struct ClueWord {
-    /// English headword.
     pub word: String,
-    /// IPA span this word's transcription covers (which may differ
-    /// from the target's span in Approximate mode).
     pub ipa: String,
-    /// Frequency rank from the corpus, if known.
     pub rarity: Option<f64>,
-    /// Accumulated substitution cost relative to the target's span
-    /// of the IPA stream this word covers. Always 0.0 in Exact mode.
+    /// Phonetic edit cost against the target span consumed by this word.
     pub sub_cost: f64,
 }
 
 /// Search behavior.
 #[derive(Debug, Clone, Copy)]
 pub enum SearchMode {
-    /// Each clue word's IPA must exactly match its span of the
-    /// target stream. The clue is a re-syllabification of the same
-    /// phonemes; phonetic similarity is by construction 1.0.
     Exact,
-    /// Each clue word's IPA is allowed to differ from its span of
-    /// the target by up to `per_word_budget` of accumulated
-    /// phonetic-distance cost; the whole clue's accumulated cost is
-    /// capped at `total_budget`. Lets the generator find clues
-    /// whose phonemes don't exactly match — /t/→/d/, /ɪ/→/i/, etc.
     Approximate {
-        /// Maximum substitution cost per single trie-walked word.
         per_word_budget: f64,
-        /// Maximum substitution cost summed across the whole clue.
         total_budget: f64,
     },
 }
 
 impl SearchMode {
-    /// A sensible Approximate default — small per-word slack with a
-    /// total cap that still keeps the clue recognizable.
     pub fn approximate() -> Self {
         Self::Approximate {
             per_word_budget: 0.5,
@@ -89,24 +53,13 @@ impl SearchMode {
     }
 }
 
-/// Search configuration. Defaults are tuned for an interactive
-/// `madgab "..."` invocation.
+/// Search configuration.
 #[derive(Debug, Clone)]
 pub struct GeneratorConfig {
-    /// Number of clue candidates kept per beam position. Higher =
-    /// better quality but quadratically more memory and time.
     pub beam_width: usize,
-    /// How many candidates to return.
     pub top_n: usize,
-    /// Maximum corpus rarity (= least common word allowed). Lower
-    /// values mean a smaller, faster-to-build trie and clues that
-    /// use more familiar vocabulary. None loads everything.
     pub max_rarity: Option<f64>,
-    /// Search mode (only Exact is implemented for v0.1.0).
     pub mode: SearchMode,
-    /// Reject clue words shorter than this many IPA characters.
-    /// Without a floor, the beam fills with degenerate
-    /// single-vowel paths like "a a a a a a a".
     pub min_word_ipa_chars: usize,
 }
 
@@ -115,185 +68,651 @@ impl Default for GeneratorConfig {
         Self {
             beam_width: 64,
             top_n: 10,
-            // The rebuilt fused corpus ranks ~280k words; the cap
-            // covers roughly the top 20% by frequency, which is wide
-            // enough to keep canonical Mad Gab clue words like
-            // "dupe" (rank ~40k) but tight enough to keep the trie
-            // small.
             max_rarity: Some(50_000.0),
             mode: SearchMode::Exact,
-            // 1 keeps legitimate single-segment morphemes ("a", "I",
-            // interjections like "uh", "ah", "sh") in play. The
-            // corpus build filters out fragment-only entries
-            // ('s, 't, 'd) so we don't pay for them in noise.
             min_word_ipa_chars: 1,
         }
     }
 }
 
-/// A reusable Mad Gab generator. Build once from a corpus; ask for
-/// many phrases.
+/// A reusable Mad Gab generator.
 pub struct Generator {
     corpus: Corpus,
     config: GeneratorConfig,
+    /// Iteration-friendly view of the same preferred pronunciations.
+    /// The corpus trie remains authoritative for Exact mode.
+    fuzzy_lexicon: approx::FuzzyLexicon,
 }
 
 impl Generator {
-    /// Build a generator from raw corpus JSON. The JSON shape is the
-    /// one `phonetics::transcriptions::Corpus` expects.
-    pub fn from_json(json: &str, config: GeneratorConfig) -> Result<Self, phonetics::transcriptions::Error> {
+    pub fn from_json(
+        json: &str,
+        config: GeneratorConfig,
+    ) -> Result<Self, phonetics::transcriptions::Error> {
         let corpus = Corpus::from_json(json, config.max_rarity)?;
-        Ok(Self { corpus, config })
+
+        // The common/default configuration is rarity-bounded, so this
+        // stays around 50k words. Avoid building a second 280k-word view
+        // for callers that explicitly request an unfiltered Exact-only
+        // corpus (the integration corpus probes do this).
+        let fuzzy_lexicon = if config.max_rarity.is_some()
+            || matches!(config.mode, SearchMode::Approximate { .. })
+        {
+            approx::build_lexicon(json, &corpus, config.max_rarity)
+        } else {
+            approx::FuzzyLexicon::empty()
+        };
+
+        Ok(Self {
+            corpus,
+            config,
+            fuzzy_lexicon,
+        })
     }
 
-    /// Access the underlying corpus (handy for transcription
-    /// debugging and tests).
     pub fn corpus(&self) -> &Corpus {
         &self.corpus
     }
 
-    /// Configuration in effect.
     pub fn config(&self) -> &GeneratorConfig {
         &self.config
     }
 
-    /// Replace the search configuration (beam width, top N, mode…).
-    /// The parsed corpus/trie is untouched, so this is cheap — the
-    /// wasm wrapper uses it per `generate` call.
     pub fn set_config(&mut self, config: GeneratorConfig) {
         self.config = config;
     }
 
-    /// Generate ranked clue candidates for `target`.
-    ///
-    /// Returns an empty Vec if the target's IPA stream has no
-    /// complete coverings under the current corpus / config.
+    /// Generate ranked clue candidates for target.
     pub fn generate(&self, target: &str) -> Vec<Clue> {
-        let Some((target_ipa, target_boundaries)) = transcribe_with_boundaries(&self.corpus, target) else {
+        match self.config.mode {
+            SearchMode::Exact => self.generate_exact(target),
+            SearchMode::Approximate {
+                per_word_budget,
+                total_budget,
+            } => self.generate_approximate(target, per_word_budget, total_budget),
+        }
+    }
+
+    fn generate_exact(&self, target: &str) -> Vec<Clue> {
+        let Some((target_ipa, target_boundaries)) =
+            transcribe_with_boundaries(&self.corpus, target, false)
+        else {
             return Vec::new();
         };
-        let target_words: HashSet<String> = target
-            .split_whitespace()
-            .map(|w| w.to_lowercase().trim_end_matches(['.', ',', '!', '?']).to_string())
-            .collect();
+        let target_words = target_word_set(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 {
             return Vec::new();
         }
 
-        // beam[p] = best K partial coverings of [0..p).
         let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
         beam[0].push(Partial::empty());
-
-        // Total-cost cap for Approximate mode; serves as a hard
-        // prune on partials that have already overshot the budget.
-        let total_budget = match self.config.mode {
-            SearchMode::Exact => 0.0,
-            SearchMode::Approximate { total_budget, .. } => total_budget,
-        };
 
         for p in 0..n {
             if beam[p].is_empty() {
                 continue;
             }
-            // Take ownership of the beam-at-p so we can mutate beam[p..] freely.
             let here = std::mem::take(&mut beam[p]);
             for partial in &here {
-                let remaining_budget = total_budget - partial.sub_cost_total;
-                match self.config.mode {
-                    SearchMode::Exact => {
-                        for (consumed, pronunciation) in self.corpus.trie.words_starting_at(&chars, p) {
-                            if consumed < self.config.min_word_ipa_chars {
-                                continue;
-                            }
-                            let next = partial.extend(pronunciation, consumed, 0.0);
-                            insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
-                        }
+                for (consumed, pronunciation) in self.corpus.trie.words_starting_at(&chars, p) {
+                    if pronunciation.ipa.chars().count() < self.config.min_word_ipa_chars {
+                        continue;
                     }
-                    SearchMode::Approximate { per_word_budget, .. } => {
-                        let budget = per_word_budget.min(remaining_budget.max(0.0));
-                        if budget <= 0.0 {
-                            // Falling back to exact-only walk when the
-                            // remaining budget is exhausted.
-                            for (consumed, pronunciation) in self.corpus.trie.words_starting_at(&chars, p) {
-                                if consumed < self.config.min_word_ipa_chars {
-                                    continue;
-                                }
-                                let next = partial.extend(pronunciation, consumed, 0.0);
-                                insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
-                            }
-                            continue;
-                        }
-                        let matches = self.corpus.trie.words_approximately_starting_at(
-                            &chars,
-                            p,
-                            budget,
-                            |target_c, trie_c| {
-                                phonetics::distance(&target_c.to_string(), &trie_c.to_string())
-                            },
+                    let next = partial.extend_pronunciation(pronunciation, consumed, 0.0);
+                    insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
+                }
+            }
+        }
+
+        self.finish(
+            std::mem::take(&mut beam[n]),
+            &target_ipa,
+            &target_boundaries,
+            &target_words,
+        )
+    }
+
+    fn generate_approximate(
+        &self,
+        target: &str,
+        per_word_budget: f64,
+        total_budget: f64,
+    ) -> Vec<Clue> {
+        let Some((target_ipa, target_boundaries)) =
+            transcribe_with_boundaries(&self.corpus, target, true)
+        else {
+            return Vec::new();
+        };
+        let target_words = target_word_set(target);
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        if n == 0 || self.fuzzy_lexicon.is_empty() {
+            return Vec::new();
+        }
+
+        // Candidate word/span alignments depend only on the target and
+        // per-word edit budget, not on a particular beam hypothesis.
+        // Build this expensive lattice once.
+        let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
+            .map(|p| {
+                self.fuzzy_lexicon.matches_at(
+                    &chars,
+                    p,
+                    per_word_budget,
+                    self.config.min_word_ipa_chars,
+                )
+            })
+            .collect();
+
+        let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
+        beam[0].push(Partial::empty());
+
+        for p in 0..n {
+            if beam[p].is_empty() {
+                continue;
+            }
+            let here = prune_partials(
+                std::mem::take(&mut beam[p]),
+                self.config.beam_width,
+                &target_boundaries,
+                &target_words,
+                n,
+            );
+
+            for partial in &here {
+                let remaining = total_budget - partial.sub_cost_total;
+                if remaining < -1e-9 {
+                    continue;
+                }
+                for m in &lattice[p] {
+                    if m.cost > remaining + 1e-9 {
+                        continue;
+                    }
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
+                    let next = partial.extend_fuzzy(word, m.consumed, m.cost);
+                    let q = p + m.consumed;
+                    if q > n {
+                        continue;
+                    }
+                    beam[q].push(next);
+
+                    // Intermediate hypotheses must stay tight for
+                    // interactive search. Completed hypotheses are
+                    // different: they will never be expanded again, so
+                    // retain a much larger bounded pool and let the real
+                    // final scorer + diversity selector decide among
+                    // them. Premature completion pruning loses exactly
+                    // the globally-good parses beam search is meant to
+                    // approximate.
+                    let keep = if q == n {
+                        self.config
+                            .top_n
+                            .saturating_mul(128)
+                            .max(1024)
+                            .min(8192)
+                    } else {
+                        self.config.beam_width.max(1)
+                    };
+                    if beam[q].len() > keep.saturating_mul(2) {
+                        let reduced = prune_partials(
+                            std::mem::take(&mut beam[q]),
+                            keep,
+                            &target_boundaries,
+                            &target_words,
+                            n,
                         );
-                        for (consumed, pronunciation, word_cost) in matches {
-                            if consumed < self.config.min_word_ipa_chars {
-                                continue;
-                            }
-                            let next = partial.extend(pronunciation, consumed, word_cost);
-                            insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
-                        }
+                        beam[q] = reduced;
                     }
                 }
             }
         }
 
-        let mut completed = std::mem::take(&mut beam[n]);
-        let mut clues: Vec<Clue> = completed
-            .drain(..)
-            .map(|p| p.into_clue(&target_ipa, &target_boundaries, &target_words))
+        let final_keep = self
+            .config
+            .top_n
+            .saturating_mul(128)
+            .max(1024)
+            .min(8192);
+        let mut completed = prune_partials(
+            std::mem::take(&mut beam[n]),
+            final_keep,
+            &target_boundaries,
+            &target_words,
+            n,
+        );
+
+        // Recovery search: decouple segmentation survival from lexical
+        // survival.  The ordinary beam is deliberately tight and fast,
+        // but a locally mediocre word can otherwise erase an excellent
+        // global resegmentation.  First retain a small set of promising
+        // target-span structures; only then explore lexical alternatives
+        // inside each retained structure.
+        #[derive(Clone)]
+        struct SpanEdge {
+            end: usize,
+            matches: Vec<approx::FuzzyMatch>,
+            min_cost: f64,
+            max_familiarity: f64,
+            min_reused: usize,
+            max_ipa_len: usize,
+        }
+
+        #[derive(Clone)]
+        struct SegPath {
+            spans: Vec<(usize, usize)>,
+            min_cost: f64,
+            max_familiarity_sum: f64,
+            min_reused: usize,
+            max_ipa_len_sum: usize,
+            rank: f64,
+        }
+
+        const SPAN_AXIS_KEEP: usize = 12;
+        const SEG_STATE_KEEP: usize = 12;
+        const SEGMENTATION_KEEP: usize = 96;
+        const LEXICAL_BEAM: usize = 96;
+
+        let target_inner: HashSet<usize> = target_boundaries
+            .iter()
+            .copied()
+            .filter(|&b| b < n)
             .collect();
 
-        clues.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        clues.dedup_by(|a, b| a.phrase == b.phrase);
-        clues.truncate(self.config.top_n);
-        clues
+        let mut span_lattice: Vec<Vec<SpanEdge>> =
+            (0..n).map(|_| Vec::new()).collect();
+
+        for p in 0..n {
+            let mut grouped: std::collections::BTreeMap<
+                usize,
+                Vec<approx::FuzzyMatch>,
+            > = std::collections::BTreeMap::new();
+            for &m in &lattice[p] {
+                let end = p + m.consumed;
+                if end <= n {
+                    grouped.entry(end).or_default().push(m);
+                }
+            }
+
+            for (end, matches) in grouped {
+                let quality = |m: &approx::FuzzyMatch| {
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
+                    let familiarity = word_familiarity(word.rarity);
+                    let reused =
+                        target_words.contains(&normalized_word(&word.word));
+                    -0.1125 * m.cost
+                        + 0.15 * familiarity
+                        - if reused { 0.10 } else { 0.0 }
+                        + 0.01 * (word.ipa_len.min(8) as f64)
+                };
+
+                // A span shortlist is a portfolio, not simply the
+                // cheapest N words.  This preserves near-homophones that
+                // are strong on a different quality axis.
+                let mut selected = Vec::new();
+                let mut seen_words = HashSet::new();
+
+                let mut by_cost = matches.clone();
+                by_cost.sort_by(|a, b| {
+                    a.cost
+                        .partial_cmp(&b.cost)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+                for m in by_cost.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut by_familiarity = matches.clone();
+                by_familiarity.sort_by(|a, b| {
+                    cmp_desc(
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(a.word_idx).rarity,
+                        ),
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(b.word_idx).rarity,
+                        ),
+                    )
+                });
+                for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut by_quality = matches;
+                by_quality.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+                for m in by_quality.iter().take(SPAN_AXIS_KEEP) {
+                    if seen_words.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+                selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+
+                if selected.is_empty() {
+                    continue;
+                }
+
+                let min_cost = selected
+                    .iter()
+                    .map(|m| m.cost)
+                    .fold(f64::INFINITY, f64::min);
+                let max_familiarity = selected
+                    .iter()
+                    .map(|m| {
+                        word_familiarity(
+                            self.fuzzy_lexicon.word(m.word_idx).rarity,
+                        )
+                    })
+                    .fold(0.0, f64::max);
+                let min_reused = usize::from(selected.iter().all(|m| {
+                    let word = self.fuzzy_lexicon.word(m.word_idx);
+                    target_words.contains(&normalized_word(&word.word))
+                }));
+                let max_ipa_len = selected
+                    .iter()
+                    .map(|m| self.fuzzy_lexicon.word(m.word_idx).ipa_len)
+                    .max()
+                    .unwrap_or(0);
+
+                span_lattice[p].push(SpanEdge {
+                    end,
+                    matches: selected,
+                    min_cost,
+                    max_familiarity,
+                    min_reused,
+                    max_ipa_len,
+                });
+            }
+        }
+
+        // Structural DP.  For a fixed (position, word count, number of
+        // shared target boundaries), all future structural possibilities
+        // are identical.  Keep only a handful of strongest lexical
+        // upper-bound representatives in each such state.
+        let max_words = n.min(
+            target_boundaries
+                .len()
+                .saturating_mul(3)
+                .saturating_add(2)
+                .max(4),
+        );
+        let mut seg_states: Vec<
+            HashMap<(usize, usize), Vec<SegPath>>,
+        > = (0..=n).map(|_| HashMap::new()).collect();
+        seg_states[0].insert(
+            (0, 0),
+            vec![SegPath {
+                spans: Vec::new(),
+                min_cost: 0.0,
+                max_familiarity_sum: 0.0,
+                min_reused: 0,
+                max_ipa_len_sum: 0,
+                rank: 0.0,
+            }],
+        );
+
+        for p in 0..n {
+            let here = std::mem::take(&mut seg_states[p]);
+            for ((word_count, shared), paths) in here {
+                for path in paths {
+                    for edge in &span_lattice[p] {
+                        let next_words = word_count + 1;
+                        if next_words > max_words
+                            || path.min_cost + edge.min_cost
+                                > total_budget + 1e-9
+                        {
+                            continue;
+                        }
+
+                        let next_shared = shared
+                            + usize::from(
+                                edge.end < n
+                                    && target_inner.contains(&edge.end),
+                            );
+                        let mut spans = path.spans.clone();
+                        spans.push((p, edge.end));
+
+                        let min_cost = path.min_cost + edge.min_cost;
+                        let max_familiarity_sum =
+                            path.max_familiarity_sum
+                                + edge.max_familiarity;
+                        let min_reused =
+                            path.min_reused + edge.min_reused;
+                        let max_ipa_len_sum =
+                            path.max_ipa_len_sum + edge.max_ipa_len;
+                        let denom = next_words as f64;
+                        let rank = -0.1125 * min_cost
+                            + 0.15 * max_familiarity_sum / denom
+                            - 0.10 * min_reused as f64 / denom
+                            + 0.05
+                                * (max_ipa_len_sum as f64
+                                    / (4.0 * denom))
+                                    .min(1.0);
+
+                        let bucket = seg_states[edge.end]
+                            .entry((next_words, next_shared))
+                            .or_default();
+                        bucket.push(SegPath {
+                            spans,
+                            min_cost,
+                            max_familiarity_sum,
+                            min_reused,
+                            max_ipa_len_sum,
+                            rank,
+                        });
+                        bucket.sort_by(|a, b| cmp_desc(a.rank, b.rank));
+                        bucket.truncate(SEG_STATE_KEEP);
+                    }
+                }
+            }
+        }
+
+        let target_inner_count = target_inner.len();
+        let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
+        for ((word_count, shared), paths) in
+            std::mem::take(&mut seg_states[n])
+        {
+            if word_count == 0 {
+                continue;
+            }
+            let clue_inner = word_count.saturating_sub(1);
+            let union = target_inner_count + clue_inner - shared;
+            let novelty = if union == 0 {
+                0.0
+            } else {
+                1.0 - shared as f64 / union as f64
+            };
+            let denom = word_count as f64;
+            for path in paths {
+                let upper = 0.45
+                    * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
+                    + 0.25 * novelty
+                    + 0.10
+                        * (1.0
+                            - path.min_reused as f64 / denom)
+                    + 0.15 * path.max_familiarity_sum / denom
+                    + 0.05
+                        * (path.max_ipa_len_sum as f64
+                            / (4.0 * denom))
+                            .min(1.0);
+                segmentations.push((upper, path));
+            }
+        }
+        segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
+        segmentations.truncate(SEGMENTATION_KEEP);
+
+        // Lexical search is now local to one retained segmentation, so
+        // words no longer compete with thousands of unrelated boundary
+        // structures.  Reuse the existing multi-objective pruning to
+        // preserve acoustic, familiarity, and lexical-novelty tradeoffs.
+        let mut recovered = Vec::new();
+        for (_, segmentation) in segmentations {
+            let mut lexical = vec![Partial::empty()];
+            for &(start, end) in &segmentation.spans {
+                let Some(edge) = span_lattice[start]
+                    .iter()
+                    .find(|edge| edge.end == end)
+                else {
+                    lexical.clear();
+                    break;
+                };
+
+                let mut next = Vec::with_capacity(
+                    lexical.len().saturating_mul(edge.matches.len()),
+                );
+                for partial in &lexical {
+                    let remaining =
+                        total_budget - partial.sub_cost_total;
+                    for m in &edge.matches {
+                        if m.cost > remaining + 1e-9 {
+                            continue;
+                        }
+                        let word =
+                            self.fuzzy_lexicon.word(m.word_idx);
+                        next.push(partial.extend_fuzzy(
+                            word,
+                            m.consumed,
+                            m.cost,
+                        ));
+                    }
+                }
+
+                lexical = prune_partials(
+                    next,
+                    LEXICAL_BEAM,
+                    &target_boundaries,
+                    &target_words,
+                    n,
+                );
+                if lexical.is_empty() {
+                    break;
+                }
+            }
+            recovered.extend(lexical);
+        }
+
+        completed.extend(recovered);
+        self.finish(
+            completed,
+            &target_ipa,
+            &target_boundaries,
+            &target_words,
+        )
+    }
+
+    fn finish(
+        &self,
+        completed: Vec<Partial>,
+        target_ipa: &str,
+        target_boundaries: &[usize],
+        target_words: &HashSet<String>,
+    ) -> Vec<Clue> {
+        let mut clues: Vec<Clue> = completed
+            .into_iter()
+            .map(|p| p.into_clue(target_ipa, target_boundaries, target_words))
+            .collect();
+
+        clues.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.phrase.cmp(&b.phrase))
+        });
+
+        let mut seen = HashSet::new();
+        clues.retain(|c| seen.insert(c.phrase.to_lowercase()));
+        select_diverse(clues, self.config.top_n)
     }
 }
 
 // -----------------------------------------------------------------
-// Internals
+// Transcription and scoring
 // -----------------------------------------------------------------
 
-/// Like `Corpus::transcribe` but also returns the running set of
-/// char offsets at each word boundary, so we can later score how
-/// much a candidate clue rearranges them.
-fn transcribe_with_boundaries(corpus: &Corpus, phrase: &str) -> Option<(String, Vec<usize>)> {
+fn transcribe_with_boundaries(
+    corpus: &Corpus,
+    phrase: &str,
+    normalize: bool,
+) -> Option<(String, Vec<usize>)> {
     let mut out = String::new();
-    let mut boundaries: Vec<usize> = Vec::new();
+    let mut boundaries = Vec::new();
     for word in phrase.split_whitespace() {
-        let key = word
-            .to_lowercase()
-            .trim_end_matches(['.', ',', '!', '?', ';', ':'])
-            .to_string();
+        let key = clean_input_word(word);
         let ipa = corpus.preferred_ipa(&key)?;
-        out.push_str(ipa);
+        if normalize {
+            out.push_str(&approx::normalize_ipa(ipa));
+        } else {
+            out.push_str(ipa);
+        }
         boundaries.push(out.chars().count());
     }
     Some((out, boundaries))
 }
 
-/// A partially-constructed clue: the words chosen so far plus the
-/// running cheap score used to prune the beam. Boundaries (the
-/// per-word char-offset cuts) are derived from `words` at scoring
-/// time.
+fn clean_input_word(word: &str) -> String {
+    word.to_lowercase()
+        .trim_end_matches(['.', ',', '!', '?', ';', ':'])
+        .to_string()
+}
+
+fn normalized_word(word: &str) -> String {
+    word.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+fn novelty_stem(word: &str) -> String {
+    let mut s = normalized_word(word);
+    for suffix in ["ing", "ies", "ed", "es", "s", "d"] {
+        if s.len() > suffix.len() + 2 && s.ends_with(suffix) {
+            s.truncate(s.len() - suffix.len());
+            if suffix == "ies" { s.push('y'); }
+            break;
+        }
+    }
+    s
+}
+
+fn same_lexical_family(a: &str, b: &str) -> bool {
+    let a = novelty_stem(a);
+    let b = novelty_stem(b);
+    a == b
+}
+
+fn lexical_shape_quality(word: &str, familiarity: f64) -> f64 {
+    let w = normalized_word(word);
+    match w.chars().count() {
+        0 => 0.0,
+        1 if w == "a" || w == "i" => 1.0,
+        1 => 0.05,
+        2 => 0.35 + 0.55 * familiarity,
+        _ => 1.0,
+    }
+}
+
+fn candidate_reuses_target(word: &str, targets: &HashSet<String>) -> bool {
+    targets.iter().any(|target| same_lexical_family(word, target))
+}
+
+fn target_word_set(target: &str) -> HashSet<String> {
+    target
+        .split_whitespace()
+        .map(normalized_word)
+        .collect()
+}
+
 #[derive(Debug, Clone)]
 struct Partial {
     words: Vec<ClueWord>,
-    /// Accumulated substitution cost across all words so far.
-    /// Always zero in Exact mode.
     sub_cost_total: f64,
-    /// Running cheap score (per-word rarity penalties plus word-length
-    /// bonuses) used only to prune the beam. The final Clue score
-    /// replaces this with the full novelty-aware computation.
     cheap_score: f64,
+    /// Target-stream offsets consumed at clue word boundaries.
+    cuts: Vec<usize>,
+    /// Stable path key for duplicate suppression in approximate beams.
+    key: String,
 }
 
 impl Partial {
@@ -302,71 +721,110 @@ impl Partial {
             words: Vec::new(),
             sub_cost_total: 0.0,
             cheap_score: 0.0,
+            cuts: Vec::new(),
+            key: String::new(),
         }
     }
 
-    fn extend(&self, p: &Pronunciation, _consumed: usize, word_sub_cost: f64) -> Self {
-        let len = p.ipa.chars().count();
+    fn extend_pronunciation(
+        &self,
+        p: &Pronunciation,
+        consumed: usize,
+        word_sub_cost: f64,
+    ) -> Self {
+        self.extend_parts(&p.word, &p.ipa, p.rarity, consumed, word_sub_cost)
+    }
+
+    fn extend_fuzzy(
+        &self,
+        word: &approx::FuzzyWord,
+        consumed: usize,
+        word_sub_cost: f64,
+    ) -> Self {
+        self.extend_parts(
+            &word.word,
+            &word.ipa,
+            word.rarity,
+            consumed,
+            word_sub_cost,
+        )
+    }
+
+    fn extend_parts(
+        &self,
+        word: &str,
+        ipa: &str,
+        rarity: Option<f64>,
+        consumed: usize,
+        word_sub_cost: f64,
+    ) -> Self {
+        let len = ipa.chars().count();
         let word_bonus = (len as f64).min(6.0) / 6.0;
-        let rarity_penalty = match p.rarity {
+        let rarity_penalty = match rarity {
             Some(r) if r > 5_000.0 => -((r / 50_000.0).min(1.0)),
             _ => 0.0,
         };
-        // Approximate-mode penalty: each unit of substitution cost
-        // shaves cheap_score so the beam prefers closer matches.
-        let approx_penalty = word_sub_cost;
+
+        let mut words = self.words.clone();
+        words.push(ClueWord {
+            word: word.to_string(),
+            ipa: ipa.to_string(),
+            rarity,
+            sub_cost: word_sub_cost,
+        });
+
+        let mut cuts = self.cuts.clone();
+        let end = cuts.last().copied().unwrap_or(0) + consumed;
+        cuts.push(end);
+
+        let step_key = format!("{}\u{1f}{}", word.to_lowercase(), ipa);
+        let key = if self.key.is_empty() {
+            step_key
+        } else {
+            format!("{} {}", self.key, step_key)
+        };
+
         Self {
-            words: {
-                let mut w = self.words.clone();
-                w.push(ClueWord {
-                    word: p.word.clone(),
-                    ipa: p.ipa.clone(),
-                    rarity: p.rarity,
-                    sub_cost: word_sub_cost,
-                });
-                w
-            },
+            words,
             sub_cost_total: self.sub_cost_total + word_sub_cost,
-            cheap_score: self.cheap_score + word_bonus + rarity_penalty - approx_penalty,
+            cheap_score: self.cheap_score + word_bonus + rarity_penalty - word_sub_cost,
+            cuts,
+            key,
         }
     }
 
-    fn into_clue(self, target_ipa: &str, target_boundaries: &[usize], target_words: &HashSet<String>) -> Clue {
-        // Reconstruct the clue's boundary set.
-        let mut cum = 0_usize;
-        let mut clue_boundaries: Vec<usize> = Vec::with_capacity(self.words.len());
-        for w in &self.words {
-            cum += w.ipa.chars().count();
-            clue_boundaries.push(cum);
-        }
+    fn metrics(
+        &self,
+        target_boundaries: &[usize],
+        target_words: &HashSet<String>,
+        total_len: usize,
+        partial: bool,
+    ) -> Metrics {
+        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let novelty = boundary_novelty(
+            &self.cuts,
+            target_boundaries,
+            total_len,
+            partial,
+        );
 
-        // Novelty: how few of the target's word boundaries the clue
-        // also has. Boundary at the end of the phrase is shared by
-        // construction, so exclude it.
-        let target_inner: HashSet<usize> = target_boundaries
-            .iter()
-            .copied()
-            .filter(|b| *b < cum)
-            .collect();
-        let clue_inner: HashSet<usize> = clue_boundaries
-            .iter()
-            .copied()
-            .filter(|b| *b < cum)
-            .collect();
-        let shared = target_inner.intersection(&clue_inner).count() as f64;
-        let denom = target_inner.len().max(1) as f64;
-        let novelty = 1.0 - (shared / denom);
-
-        // Word-novelty: penalty if the clue reuses any target word.
         let reused = self
             .words
             .iter()
-            .filter(|w| target_words.contains(&w.word.to_lowercase()))
+            .filter(|w| target_words.contains(&normalized_word(&w.word)))
             .count() as f64;
-        let word_novelty = 1.0 - (reused / self.words.len().max(1) as f64);
+        let word_novelty = 1.0 - reused / self.words.len().max(1) as f64;
 
-        // Word-length signal: prefer fewer/longer words, the
-        // signature of a real Mad Gab clue.
+        let familiarity = if self.words.is_empty() {
+            0.0
+        } else {
+            self.words
+                .iter()
+                .map(|w| word_familiarity(w.rarity))
+                .sum::<f64>()
+                / self.words.len() as f64
+        };
+
         let avg_word_ipa_len = self
             .words
             .iter()
@@ -375,20 +833,37 @@ impl Partial {
             / self.words.len().max(1) as f64;
         let length_signal = (avg_word_ipa_len / 4.0).min(1.0);
 
-        // Approximate-mode similarity: penalize total substitution
-        // cost. In Exact mode sub_cost_total is 0, so similarity is
-        // exactly 1.0 and this term is constant — the discrimination
-        // remains on the novelty/length axes as before.
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let combined = 0.45 * similarity
+            + 0.25 * novelty
+            + 0.10 * word_novelty
+            + 0.15 * familiarity
+            + 0.05 * length_signal;
 
-        let score =
-              0.40 * similarity
-            + 0.35 * novelty
-            + 0.15 * word_novelty
-            + 0.10 * length_signal;
+        Metrics {
+            combined,
+            novelty,
+            familiarity,
+            word_novelty,
+        }
+    }
 
+    fn into_clue(
+        self,
+        target_ipa: &str,
+        target_boundaries: &[usize],
+        target_words: &HashSet<String>,
+    ) -> Clue {
+        let total_len = target_ipa.chars().count();
+        let score = self
+            .metrics(target_boundaries, target_words, total_len, false)
+            .combined;
         Clue {
-            phrase: self.words.iter().map(|w| w.word.as_str()).collect::<Vec<_>>().join(" "),
+            phrase: self
+                .words
+                .iter()
+                .map(|w| w.word.as_str())
+                .collect::<Vec<_>>()
+                .join(" "),
             ipa: target_ipa.to_string(),
             words: self.words,
             score,
@@ -396,23 +871,304 @@ impl Partial {
     }
 }
 
-/// Insert `candidate` into a top-K beam, keeping the K highest-cheap-
-/// score entries. Stable enough for our purposes.
+#[derive(Debug, Clone, Copy)]
+struct Metrics {
+    combined: f64,
+    novelty: f64,
+    familiarity: f64,
+    word_novelty: f64,
+}
+
+/// Symmetric segmentation novelty: Jaccard distance between target
+/// inner word boundaries and clue inner boundaries.
+///
+/// The old score only asked which target boundaries disappeared. It
+/// therefore gave zero novelty to a useful split that preserved an
+/// original boundary (for example splitting one target word into
+/// several clue words). Jaccard distance rewards both added and
+/// removed boundaries.
+fn boundary_novelty(
+    cuts: &[usize],
+    target_boundaries: &[usize],
+    total_len: usize,
+    partial: bool,
+) -> f64 {
+    let covered = cuts.last().copied().unwrap_or(0);
+
+    let target_inner: HashSet<usize> = target_boundaries
+        .iter()
+        .copied()
+        .filter(|&b| {
+            b < total_len && (!partial || b <= covered)
+        })
+        .collect();
+    let clue_inner: HashSet<usize> = cuts
+        .iter()
+        .copied()
+        .filter(|&c| c < total_len)
+        .collect();
+
+    let union = target_inner.union(&clue_inner).count();
+    if union == 0 {
+        return 0.0;
+    }
+    let shared = target_inner.intersection(&clue_inner).count();
+    1.0 - shared as f64 / union as f64
+}
+
+fn word_familiarity(rarity: Option<f64>) -> f64 {
+    let Some(r) = rarity.filter(|r| r.is_finite() && *r > 0.0) else {
+        return 0.0;
+    };
+    let lo = 100.0_f64.log10();
+    let hi = 50_000.0_f64.log10();
+    (1.0 - (r.max(1.0).log10() - lo) / (hi - lo)).clamp(0.0, 1.0)
+}
+
+// -----------------------------------------------------------------
+// Beam retention
+// -----------------------------------------------------------------
+
+/// Exact mode keeps its original cheap top-K behavior.
 fn insert_top_k(beam: &mut Vec<Partial>, candidate: Partial, k: usize) {
+    if k == 0 {
+        return;
+    }
     if beam.len() < k {
         beam.push(candidate);
         return;
     }
-    // Find the weakest entry; replace if the candidate is stronger.
     let (worst_idx, worst_score) = beam
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| a.cheap_score.partial_cmp(&b.cheap_score).unwrap_or(std::cmp::Ordering::Equal))
+        .min_by(|(_, a), (_, b)| {
+            a.cheap_score
+                .partial_cmp(&b.cheap_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
         .map(|(i, p)| (i, p.cheap_score))
         .unwrap();
     if candidate.cheap_score > worst_score {
         beam[worst_idx] = candidate;
     }
+}
+
+/// Approximate mode keeps a bounded *portfolio* rather than a single
+/// scalar top-K. This matters because a locally expensive word can be
+/// the key to a globally excellent resegmentation.
+///
+/// We reserve representatives across segmentation-depth / cost cells,
+/// then fill the rest round-robin from independent objective rankings:
+/// overall score, boundary novelty, lexical familiarity, phonetic cost,
+/// and target-word novelty.
+fn prune_partials(
+    candidates: Vec<Partial>,
+    k: usize,
+    target_boundaries: &[usize],
+    target_words: &HashSet<String>,
+    total_len: usize,
+) -> Vec<Partial> {
+    if k == 0 || candidates.is_empty() {
+        return Vec::new();
+    }
+
+    // Exact path duplicates (same words + same pronunciations) can be
+    // generated through multiple edit alignments. Keep the better one.
+    let mut dedup: HashMap<String, Partial> = HashMap::new();
+    for candidate in candidates {
+        match dedup.get(&candidate.key) {
+            Some(old)
+                if old
+                    .metrics(target_boundaries, target_words, total_len, true)
+                    .combined
+                    >= candidate
+                        .metrics(target_boundaries, target_words, total_len, true)
+                        .combined => {}
+            _ => {
+                dedup.insert(candidate.key.clone(), candidate);
+            }
+        }
+    }
+
+    let items: Vec<Partial> = dedup.into_values().collect();
+    if items.len() <= k {
+        return items;
+    }
+
+    let metrics: Vec<Metrics> = items
+        .iter()
+        .map(|p| p.metrics(target_boundaries, target_words, total_len, true))
+        .collect();
+
+    let mut selected = HashSet::new();
+
+    // First protect up to two representatives from each structural
+    // (word-count, acoustic-cost-band) cell. This prevents the huge
+    // family of zero-cost/local optima from erasing every moderately
+    // edited resegmentation.
+    let mut cells: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    for (i, p) in items.iter().enumerate() {
+        let band = ((p.sub_cost_total / 0.25) + 1e-9).floor() as usize;
+        cells
+            .entry((p.words.len().min(16), band.min(16)))
+            .or_default()
+            .push(i);
+    }
+    let mut protected = Vec::new();
+    for members in cells.values_mut() {
+        members.sort_by(|&a, &b| {
+            metrics[b]
+                .combined
+                .partial_cmp(&metrics[a].combined)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        protected.extend(members.iter().take(2).copied());
+    }
+    protected.sort_by(|&a, &b| {
+        metrics[b]
+            .combined
+            .partial_cmp(&metrics[a].combined)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for i in protected.into_iter().take(k / 2) {
+        selected.insert(i);
+    }
+
+    let mut orders: Vec<Vec<usize>> = Vec::new();
+    let indices: Vec<usize> = (0..items.len()).collect();
+
+    let mut combined = indices.clone();
+    combined.sort_by(|&a, &b| cmp_desc(metrics[a].combined, metrics[b].combined));
+    orders.push(combined);
+
+    let mut novelty = indices.clone();
+    novelty.sort_by(|&a, &b| cmp_desc(metrics[a].novelty, metrics[b].novelty));
+    orders.push(novelty);
+
+    let mut familiarity = indices.clone();
+    familiarity.sort_by(|&a, &b| cmp_desc(metrics[a].familiarity, metrics[b].familiarity));
+    orders.push(familiarity);
+
+    let mut acoustic = indices.clone();
+    acoustic.sort_by(|&a, &b| {
+        items[a]
+            .sub_cost_total
+            .partial_cmp(&items[b].sub_cost_total)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    orders.push(acoustic);
+
+    let mut lexical = indices;
+    lexical.sort_by(|&a, &b| cmp_desc(metrics[a].word_novelty, metrics[b].word_novelty));
+    orders.push(lexical);
+
+    let mut rank = 0;
+    while selected.len() < k {
+        let mut added = false;
+        for order in &orders {
+            if let Some(&i) = order.get(rank) {
+                added |= selected.insert(i);
+                if selected.len() == k {
+                    break;
+                }
+            }
+        }
+        if !added && orders.iter().all(|o| rank >= o.len()) {
+            break;
+        }
+        rank += 1;
+    }
+
+    let mut out: Vec<Partial> = selected.into_iter().map(|i| items[i].clone()).collect();
+    out.sort_by(|a, b| {
+        let am = a.metrics(target_boundaries, target_words, total_len, true);
+        let bm = b.metrics(target_boundaries, target_words, total_len, true);
+        cmp_desc(am.combined, bm.combined)
+    });
+    out
+}
+
+fn cmp_desc(a: f64, b: f64) -> std::cmp::Ordering {
+    b.partial_cmp(&a).unwrap_or(std::cmp::Ordering::Equal)
+}
+
+// -----------------------------------------------------------------
+// Final proposal diversity
+// -----------------------------------------------------------------
+
+const MMR_LAMBDA: f64 = 0.20;
+
+fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
+    if top_n == 0 || clues.is_empty() {
+        return Vec::new();
+    }
+    if clues.len() <= top_n {
+        return clues;
+    }
+
+    let words: Vec<Vec<String>> = clues
+        .iter()
+        .map(|c| {
+            c.phrase
+                .split_whitespace()
+                .map(normalized_word)
+                .collect()
+        })
+        .collect();
+
+    let bigrams: Vec<HashSet<String>> = words
+        .iter()
+        .map(|ws| {
+            ws.windows(2)
+                .map(|w| format!("{} {}", w[0], w[1]))
+                .collect()
+        })
+        .collect();
+
+    let word_sets: Vec<HashSet<String>> =
+        words.iter().map(|ws| ws.iter().cloned().collect()).collect();
+
+    let mut remaining: Vec<usize> = (0..clues.len()).collect();
+    let mut picked = Vec::with_capacity(top_n.min(clues.len()));
+    let mut max_overlap = vec![0.0_f64; clues.len()];
+
+    while picked.len() < top_n && !remaining.is_empty() {
+        if let Some(&last) = picked.last() {
+            for &i in &remaining {
+                let word_overlap =
+                    directional_overlap(&word_sets[i], &word_sets[last]);
+                let bigram_overlap =
+                    directional_overlap(&bigrams[i], &bigrams[last]);
+                let overlap = 0.5 * word_overlap + 0.5 * bigram_overlap;
+                max_overlap[i] = max_overlap[i].max(overlap);
+            }
+        }
+
+        let mut best_pos = 0;
+        let mut best_value = f64::NEG_INFINITY;
+        for (pos, &i) in remaining.iter().enumerate() {
+            let value = clues[i].score - MMR_LAMBDA * max_overlap[i];
+            if value > best_value {
+                best_value = value;
+                best_pos = pos;
+            }
+        }
+
+        picked.push(remaining.remove(best_pos));
+    }
+
+    let mut slots: Vec<Option<Clue>> = clues.into_iter().map(Some).collect();
+    picked
+        .into_iter()
+        .map(|i| slots[i].take().expect("picked once"))
+        .collect()
+}
+
+fn directional_overlap(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
+    if a.is_empty() {
+        return 0.0;
+    }
+    a.intersection(b).count() as f64 / a.len() as f64
 }
 
 #[cfg(test)]
@@ -439,18 +1195,89 @@ mod tests {
             ..GeneratorConfig::default()
         };
         let g = Generator::from_json(TINY, cfg).unwrap();
-        // "cat" IPA = "kæt". Completions whose word IPAs concatenate
-        // to "kæt": just the single word "cat" itself (in our tiny
-        // corpus). "ka" + "t" doesn't work — "t" alone isn't a word.
         let clues = g.generate("cat");
-        assert!(!clues.is_empty(), "expected at least one covering");
+        assert!(!clues.is_empty());
         assert!(clues.iter().any(|c| c.phrase == "cat"));
     }
 
     #[test]
     fn empty_when_target_word_unknown() {
         let g = Generator::from_json(TINY, GeneratorConfig::default()).unwrap();
-        let clues = g.generate("orange");
-        assert!(clues.is_empty());
+        assert!(g.generate("orange").is_empty());
+    }
+
+    #[test]
+    fn jaccard_boundary_novelty_rewards_added_cuts() {
+        let target = vec![9, 14];
+        let clue = vec![3, 4, 9, 14];
+        let n = boundary_novelty(&clue, &target, 14, false);
+        assert!((n - 2.0 / 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn acceptance_sequences_are_reachable_in_fuzzy_lattice() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+        fn check(target: &str, expected: &[&str]) {
+            let g = Generator::from_json(
+                CORPUS_JSON,
+                GeneratorConfig {
+                    mode: SearchMode::approximate(),
+                    ..GeneratorConfig::default()
+                },
+            )
+            .unwrap();
+
+            let (ipa, _) = transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+
+            // Keep every acoustically valid alignment of the required
+            // word sequence. This checks matcher/budget reachability
+            // independently of phrase-beam pruning.
+            let mut states = vec![(0usize, 0.0f64)];
+            for &wanted in expected {
+                let mut next = Vec::new();
+                let mut seen = HashSet::new();
+
+                for &(pos, total) in &states {
+                    if pos >= chars.len() {
+                        continue;
+                    }
+                    for m in g
+                        .fuzzy_lexicon
+                        .matches_at(&chars, pos, 0.5, 1)
+                    {
+                        let word = g.fuzzy_lexicon.word(m.word_idx);
+                        if word.word.eq_ignore_ascii_case(wanted)
+                            && total + m.cost <= 1.5 + 1e-9
+                            && seen.insert((pos + m.consumed, (total + m.cost).to_bits()))
+                        {
+                            next.push((pos + m.consumed, total + m.cost));
+                        }
+                    }
+                }
+
+                assert!(
+                    !next.is_empty(),
+                    "{target:?}: required word {wanted:?} has no continuation after states {states:?}"
+                );
+                states = next;
+            }
+
+            assert!(
+                states.iter().any(|&(pos, _)| pos == chars.len()),
+                "{target:?}: required sequence ends at {states:?}, target len {}",
+                chars.len()
+            );
+        }
+
+        check(
+            "It's just a stupid game",
+            &["hits", "justice", "dupe", "hid", "came"],
+        );
+        check(
+            "recognize speech",
+            &["wreck", "a", "nice", "beach"],
+        );
     }
 }
