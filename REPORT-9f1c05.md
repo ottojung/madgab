@@ -64,8 +64,14 @@ also showing it is *budget-admissible* (per-word 0.2/0.0/0.15/0.3695/0.4, total
 0.79990129077367222. So the loss is in enumeration, on both sides of the
 `PUNCH` merge, and my pre-`PUNCH` and their post-`PUNCH` measurements agree.
 
-**Consequence, stated as scope rather than worked around: the aggregation-form
-question can only speak to what happens *after* a wording is enumerated.** The
+**Consequence, stated as scope rather than worked around.** **No aggregation
+form, no axis weight and no re-ranking of any kind can surface a wording the
+enumeration never offers to the pool.** The objective is a *ranking* function: it
+orders candidates that already exist and has no power to bring one into being.
+For this target nothing is enumerated, so the question of how to combine the axes
+never arises, and any report presenting a form as a milestone route would be
+wrong. The aggregation-form question can only speak to what happens *after* a
+wording is enumerated. The
 objective is a *ranking* function; it has no power to bring a candidate into
 existence. For this target nothing is enumerated, so no aggregation form can
 surface it, and any report that presented one as a milestone route would be
@@ -510,8 +516,13 @@ address either.
 **VERDICT: AGGREGATION IS NOT THE GATE.**
 
 1. **It is not a milestone route, and no form in this report is proposed as
-   one.** The wording is not enumerated (§0), and an aggregation form is a
-   ranking function with no power to enumerate. `d4a90b` shows the loss is in
+   one. No aggregation form, weight change or re-ranking can surface a wording
+   the enumeration never offers to the pool.** `w-d4a90b` measured the second
+   canonical example absent from **all 17 827 candidates at `--top 50`** on the
+   post-`PUNCH` head (`git show 2860b57:REPORT-d4a90b.md`, branch
+   `origin/madgab-postpunch-measure`), and this front measures it absent from all
+   13 471 / 14 561 / 17 913 on the pre-`PUNCH` base (§0). The objective ranks
+   candidates that already exist; it has no power to create one. `d4a90b` shows the loss is in
    the search's retention/enumeration, and its implementation front
    (`1c3e77`/`madgab-enum-1c3e77`) and measurement arm (`5d2a91`) are the live
    work there. I did not touch their branches or worktrees.
@@ -536,7 +547,17 @@ address either.
    `recognize speech` at raw rank 27 / visible position 28 with margin
    **+0.001267657** on this base, green in the suite, and I propose no change
    that could move it.
-5. **No re-baseline is proposed.** `approximate_output_is_locked` is green and
+5. **The general quality use of this measurement is a post-enumeration ranking
+   question, not a milestone route.** Once enumeration is fixed, the form family
+   is worth re-measuring for its own sake: OFF-B and OFF-C are the principled
+   ways to stop a saturated axis from absorbing 0.45 of the weight mass, and
+   their cost is now quantified rather than guessed (38 and 42 of 50 visible
+   churn, deficit widened to −0.214515960 and −0.247432033). That is a general
+   approximate-quality question for a post-enumeration front. It must be
+   branched from `1dab2d0` or later, re-measured against `PUNCH`, and re-priced
+   against the guard's 0.0013 of margin. It is **not** a route to
+   `approximate_finds_classic_madgab_resegmentation`.
+6. **No re-baseline is proposed.** `approximate_output_is_locked` is green and
    unmodified on both arms; §5 shows side by side what a rescaling would cost
    it, and nothing here argues for one.
 
