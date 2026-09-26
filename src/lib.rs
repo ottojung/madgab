@@ -299,14 +299,55 @@ fn next_branch_stage(current: usize, widest: usize) -> Option<usize> {
 /// it as one.  The assertion in
 /// `tests::the_coverage_sweep_starts_where_the_traversal_stops` is scoped to
 /// the first stage for the same reason.
-fn sweep_index(width: usize, per: usize, nth: usize, phase: usize) -> Option<usize> {
+fn sweep_index(
+    width: usize,
+    per: usize,
+    nth: usize,
+    member: usize,
+    phase: usize,
+) -> Option<usize> {
     let floor = LEXICAL_BRANCH_STAGE_0;
     if width <= floor {
         return None;
     }
     let span = width - floor;
     let stride = span.div_ceil(per.max(1));
-    Some(floor + (nth * stride + phase) % span)
+    Some(floor + (nth * stride + member + sweep_rate(member, span) * phase) % span)
+}
+
+/// The rate at which the `nth` deep slot of a shape class rotates as the
+/// traversal's phase advances.
+///
+/// Member 0 keeps the rate the whole class used to share, and each further
+/// member rotates at the next rate that is **coprime to the span**, so:
+///
+/// - each member's own index, taken over a run of phases, covers its whole
+///   list above the floor — a rate sharing a factor with the span would
+///   visit only the residues reachable by that factor, which is exactly the
+///   confinement this rule exists to remove; and
+/// - the rates are *not* all equal, so a class does not rotate as a rigid
+///   block: the offsets between its members' indices are themselves a
+///   function of the phase, and a set of deep coordinates at unrelated ranks
+///   is therefore reachable instead of only a set at adjacent ranks.
+fn sweep_rate(nth: usize, span: usize) -> usize {
+    let mut rate = 1usize;
+    for _ in 0..nth {
+        let mut candidate = rate + 1;
+        while gcd(candidate, span) != 1 {
+            candidate += 1;
+        }
+        rate = candidate;
+    }
+    rate
+}
+
+fn gcd(mut a: usize, mut b: usize) -> usize {
+    while b != 0 {
+        let t = a % b;
+        a = b;
+        b = t;
+    }
+    a
 }
 
 /// The index tuples the coverage reserve emits for one segmentation.
@@ -357,24 +398,34 @@ fn coverage_tuples(
             if out.len() >= reserve {
                 return out;
             }
-            // One index serves the whole subset, and it has to be legal in
-            // every member of it, so the subset is swept at the stride of
-            // its *narrowest* slot.
+            // One *rate* serves the whole subset, but each member draws its
+            // own index from it, so the subset's coordinates are at
+            // unrelated ranks rather than one shared rank.  The index has to
+            // be legal in every member, so each is taken modulo the span of
+            // the subset's *narrowest* slot.
             let narrowest = combo
                 .iter()
                 .map(|&slot| slot_widths[slot])
                 .min()
                 .unwrap_or(0);
-            let Some(at) = sweep_index(narrowest, reserve, out.len(), phase)
+            let Some(_) = sweep_index(narrowest, reserve, out.len(), 0, phase)
             else {
                 continue;
             };
-            if combo.iter().any(|&slot| at >= slot_widths[slot]) {
-                continue;
-            }
             let mut tuple = vec![0usize; depth];
-            for &slot in &combo {
+            let mut legal = true;
+            for (member, &slot) in combo.iter().enumerate() {
+                let Some(at) =
+                    sweep_index(narrowest, reserve, out.len(), member, phase)
+                else {
+                    legal = false;
+                    break;
+                };
                 tuple[slot] = at;
+            }
+            if !legal || combo.iter().any(|&slot| tuple[slot] >= slot_widths[slot])
+            {
+                continue;
             }
             out.push(tuple);
         }
@@ -3993,7 +4044,7 @@ mod tests {
         for width in 0..=SPAN_SHORTLIST {
             let mut seen: HashSet<usize> = HashSet::new();
             for phase in 0..SPAN_SHORTLIST {
-                let Some(at) = sweep_index(width, 16, 0, phase) else {
+                let Some(at) = sweep_index(width, 16, 0, 0, phase) else {
                     assert!(
                         width <= LEXICAL_BRANCH_STAGE_0,
                         "width {width} has no index the traversal misses"
@@ -4129,9 +4180,20 @@ mod tests {
                     for (slot, &i) in tuple.iter().enumerate() {
                         assert!(i < widths[slot], "slot {slot} of {tuple:?}");
                     }
-                    // The deep coordinates of a subset share one index, and
-                    // every other slot keeps the traversal's own best.
-                    assert!(deep.windows(2).all(|w| w[0] == w[1]));
+                    // A subset's deep coordinates are at pairwise
+                    // unrelated ranks, so a shape class can place a set of
+                    // deep alternatives in different slots at coordinates
+                    // that are not one shared rank; every other slot keeps
+                    // the traversal's own best.
+                    let span = SPAN_SHORTLIST - LEXICAL_BRANCH_STAGE_0;
+                    assert!(
+                        deep.windows(2).all(|w| w[0] != w[1]),
+                        "{tuple:?} re-used one rank for the whole class"
+                    );
+                    assert!(
+                        deep.len() < span,
+                        "{tuple:?}: too few indices to pair the class"
+                    );
                 }
                 // Breadth before depth: a reserve smaller than the number
                 // of single-slot classes still touches every slot.
@@ -4179,7 +4241,7 @@ mod tests {
             // Two consecutive rotations are enough to cover any remainder.
             let mut seen: HashSet<usize> = HashSet::new();
             for phase in 0..(span + per) {
-                if let Some(at) = sweep_index(width, per, 0, phase) {
+                if let Some(at) = sweep_index(width, per, 0, 0, phase) {
                     seen.insert(at);
                 }
             }
@@ -4188,6 +4250,118 @@ mod tests {
                 span,
                 "width {width} (span {span}, per {per}): the sweep left a gap"
             );
+        }
+    }
+
+    /// The coverage reserve can *express* a set of deep alternatives at
+    /// unrelated ranks, and over a run of phases it can reach every index of
+    /// every slot's list above the floor.
+    ///
+    /// Both halves are properties of the enumeration, not of any target, so
+    /// the widths here are synthetic and identical and no word appears.
+    ///
+    /// The second half is what the rule has always claimed and is asserted
+    /// for every slot; the first half is the one the previous rule could not
+    /// satisfy, because it gave every member of a shape class *one* index and
+    /// so forced a set of deep alternatives onto a single rank no matter how
+    /// many of them were asked for.
+    #[test]
+    fn the_coverage_sweep_covers_each_slot_and_pairs_its_class_members() {
+        let per = EMIT_PROFILE_RESERVE;
+        for depth in 1..=6usize {
+            let widths = vec![SPAN_SHORTLIST; depth];
+            let span = SPAN_SHORTLIST - LEXICAL_BRANCH_STAGE_0;
+            // A run of phases as long as the widest list's span: the point is
+            // that *every* rate the rule uses is coprime to the span, so no
+            // slot is confined to a residue class however long the run.
+            let mut placed: Vec<HashSet<usize>> = vec![HashSet::new(); depth];
+            let mut paired = 0usize;
+            for phase in 0..span {
+                for tuple in coverage_tuples(
+                    &widths,
+                    per,
+                    EMIT_PROFILE_MAX_DEEP,
+                    phase,
+                ) {
+                    let deep: Vec<usize> = tuple
+                        .iter()
+                        .copied()
+                        .filter(|&i| i != 0)
+                        .collect();
+                    for (slot, &i) in tuple.iter().enumerate() {
+                        if i != 0 {
+                            placed[slot].insert(i);
+                        }
+                    }
+                    if deep.len() >= 2 && deep.windows(2).all(|w| w[0] != w[1]) {
+                        paired += 1;
+                    }
+                }
+            }
+            for slot in 0..depth {
+                assert_eq!(
+                    placed[slot].len(),
+                    span,
+                    "depth {depth} slot {slot}: the reserve reached {} of the \
+                     slot's {span} indices above the floor",
+                    placed[slot].len()
+                );
+            }
+            if depth >= 2 {
+                assert!(
+                    paired > 0,
+                    "depth {depth}: no emitted tuple put its deep \
+                     coordinates at pairwise different ranks"
+                );
+            }
+        }
+    }
+
+    /// The narrower claim the schedule has to keep to earn the wider one: a
+    /// single phase's spend is still spread over the list rather than spent
+    /// on one window of it, so a structure the traversal funds *once* is not
+    /// reduced to the ranks adjacent to that one phase's start.
+    #[test]
+    fn one_phase_of_the_coverage_sweep_is_spread_over_the_list() {
+        let per = EMIT_PROFILE_RESERVE;
+        for width in (LEXICAL_BRANCH_STAGE_0 * 2)..=SPAN_SHORTLIST {
+            let mut seen: HashSet<usize> = HashSet::new();
+            for nth in 0..per {
+                for member in 0..=EMIT_PROFILE_MAX_DEEP {
+                    if let Some(at) = sweep_index(width, per, nth, member, 0) {
+                        seen.insert(at);
+                    }
+                }
+            }
+            // One phase draws at most `per * (EMIT_PROFILE_MAX_DEEP + 1)`
+            // indices, so the honest claim is that the draw is *spread* and
+            // not a window: a third of the list's indices are in play from a
+            // single phase.  A schedule that advanced every draw by one
+            // instead of by the span's stride would put all of them in a
+            // window and fail this.
+            let span = width - LEXICAL_BRANCH_STAGE_0;
+            assert!(
+                seen.len() * 3 >= span,
+                "width {width} (span {span}): one phase spent on {} \
+                 distinct indices, i.e. one window of the list",
+                seen.len()
+            );
+        }
+    }
+
+    /// The rates are coprime to the span, which is what makes the per-slot
+    /// coverage above a property of every width rather than of the widths
+    /// that happen to divide evenly.
+    #[test]
+    fn every_sweep_rate_is_coprime_to_the_span_it_is_used_on() {
+        for span in 1..=SPAN_SHORTLIST - LEXICAL_BRANCH_STAGE_0 {
+            for member in 0..=EMIT_PROFILE_MAX_DEEP {
+                assert_eq!(
+                    gcd(sweep_rate(member, span), span),
+                    1,
+                    "span {span} member {member}"
+                );
+            }
         }
     }
 
