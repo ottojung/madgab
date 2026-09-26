@@ -1697,6 +1697,11 @@ impl Generator {
         target_boundaries: &[usize],
         target_syllables: usize,
     ) -> Vec<Clue> {
+        // zz_scratch (SCRATCH BRANCH ONLY -- never lands).
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(tag) = std::env::var("MADGAB_AXIS_DUMP") {
+            eprintln!("AXIS_TARGET_BOUNDARIES\t{tag}\t{:?}", target_boundaries);
+        }
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| {
@@ -2238,6 +2243,9 @@ impl Partial {
             word_novelty,
             rhythm,
             content,
+            similarity,
+            shape: shape_quality,
+            closed_penalty,
         }
     }
 
@@ -2248,9 +2256,29 @@ impl Partial {
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
-        let score = self
-            .metrics(target_boundaries, target_syllables, total_len, false)
-            .combined;
+        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
+        let score = m.combined;
+
+        // zz_scratch (SCRATCH BRANCH ONLY -- never lands): dump the
+        // per-candidate axis decomposition of the whole retained pool so
+        // the per-axis spread table can be recomputed here rather than
+        // inherited from another front's numbers.
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(_tag) = std::env::var("MADGAB_AXIS_DUMP") {
+            eprintln!(
+                "AXIS\t{:.17}\t{:.17}\t{:.17}\t{:.17}\t{:.17}\t{:.17}\t{:.17}\t{:.17}\t{:?}\t{:?}",
+                score,
+                m.similarity,
+                m.novelty,
+                m.word_novelty,
+                m.familiarity,
+                m.rhythm,
+                m.shape,
+                m.closed_penalty,
+                self.cuts.to_vec(),
+                self.words().map(|w| w.word.as_str()).collect::<Vec<_>>().join(" ")
+            );
+        }
         let words: Vec<ClueWord> = self.words().cloned().collect();
         Clue {
             phrase: words
@@ -2320,6 +2348,10 @@ struct Metrics {
     rhythm: f64,
     /// Share of the clue's words that are content words, in [0, 1].
     content: f64,
+    // zz_scratch: the remaining raw axes, for the per-axis spread table.
+    similarity: f64,
+    shape: f64,
+    closed_penalty: f64,
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between the
