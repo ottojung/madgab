@@ -1749,6 +1749,17 @@ impl Generator {
             }
         }
 
+        // ZZ_POOL_OUT: scratch measurement hook (scratch branch only).
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
+            use std::fmt::Write as _;
+            let mut out = String::new();
+            for (i, c) in clues.iter().enumerate() {
+                let _ = writeln!(out, "{}\t{:.17}\t{:?}\t{:?}", i, c.score, c.phrase, c.cuts);
+            }
+            std::fs::write(&path, out).expect("zz pool dump");
+        }
+
         select_diverse(clues, self.config.top_n)
     }
 }
