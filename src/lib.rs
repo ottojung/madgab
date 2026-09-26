@@ -407,14 +407,17 @@ fn coverage_tuples(
     // small to afford every shape still touches every slot, as it always did.
     // Every later round then offers one class of each *deeper* shape in turn,
     // so a reserve that cannot afford all of them pays for a spread of depths
-    // rather than for the whole of one of them.  A class's `nth` draw widens
-    // its own sweep (`per = nth + 1`), so a class that survives several
-    // rounds gets several distinct points rather than a repeat of its first.
+    // rather than for the whole of one of them.  A class that survives
+    // several rounds therefore gets several distinct points rather than a
+    // repeat of its first: a draw's `nth` is its position in the reserve and
+    // its `per` is the reserve itself, so consecutive tuples of one
+    // segmentation still land on different indices of the same sweep and one
+    // class's sweep is as dense over each of its slots' lists as it always was.
     for combo in &by_depth[0] {
         if out.len() >= reserve {
             return out;
         }
-        if let Some(tuple) = profile_tuple(slot_widths, combo, 0, phase) {
+        if let Some(tuple) = profile_tuple(slot_widths, combo, out.len(), reserve, phase) {
             out.push(tuple);
         }
     }
@@ -430,7 +433,7 @@ fn coverage_tuples(
             let Some(combo) = by_depth[k].get(drawn[k]) else {
                 continue;
             };
-            if let Some(tuple) = profile_tuple(slot_widths, combo, drawn[k], phase) {
+            if let Some(tuple) = profile_tuple(slot_widths, combo, out.len(), reserve, phase) {
                 out.push(tuple);
             }
             drawn[k] += 1;
@@ -439,8 +442,18 @@ fn coverage_tuples(
     out
 }
 
-/// One point of one shape class: the class's `nth` sweep, with every slot of
-/// the class sweeping *its own* list at *its own* width and rotation.
+/// One point of one shape class: the class's `nth` sweep, with the class's
+/// *first* slot on the sweep the shared-index rule gave it and every other
+/// slot of the class on *its own*, at its own width and its own rotation.
+///
+/// The first slot is the continuity clause, and it is what makes this a
+/// widening rather than a reshuffle.  The shared-index rule swept the class at
+/// the stride of its narrowest slot and wrote that one index into every member,
+/// so the index its first slot received is a function of the class's *widths*
+/// alone.  Keeping exactly that index for the first slot means no alternative
+/// the old rule could reach stops being reachable — the reserve is a superset
+/// of the coverage it had, one coordinate at a time — while the other slots
+/// stop being copies of it, which is what turns a diagonal into a point.
 ///
 /// `None` when any member slot is no wider than the traversal's opening width,
 /// which is the same "drop out rather than invent an index" rule
@@ -451,18 +464,30 @@ fn profile_tuple(
     slot_widths: &[usize],
     combo: &[usize],
     nth: usize,
+    per: usize,
     phase: usize,
 ) -> Option<Vec<usize>> {
-    let per = nth + 1;
     let mut tuple = vec![0usize; slot_widths.len()];
-    for &slot in combo {
-        let at = sweep_index(
+    // The stride the shared-index rule used for this class, kept for its
+    // first slot.  It has to be legal in that slot, so the class drops out
+    // when it is not.
+    let narrowest = combo
+        .iter()
+        .map(|&slot| slot_widths[slot])
+        .min()
+        .unwrap_or(0);
+    let head = sweep_index(narrowest, per, nth, phase)?;
+    if head >= slot_widths[combo[0]] {
+        return None;
+    }
+    tuple[combo[0]] = head;
+    for &slot in &combo[1..] {
+        tuple[slot] = sweep_index(
             slot_widths[slot],
             per,
             nth,
             phase.wrapping_add(slot.wrapping_mul(COVERAGE_SLOT_ROTATION)),
         )?;
-        tuple[slot] = at;
     }
     Some(tuple)
 }
