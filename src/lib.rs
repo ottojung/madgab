@@ -308,10 +308,11 @@ impl Generator {
             rank: f64,
         }
 
-        const SPAN_AXIS_KEEP: usize = 12;
-        const SEG_STATE_KEEP: usize = 12;
-        const SEGMENTATION_KEEP: usize = 96;
-        const LEXICAL_BEAM: usize = 96;
+        const SPAN_AXIS_KEEP: usize = 16;
+        const SEG_STATE_KEEP: usize = 8;
+        const SEGMENTATION_KEEP: usize = 64;
+        const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 256;
+        const LEXICAL_HEAP_POP_LIMIT: usize = 4096;
 
         let target_inner: HashSet<usize> = target_boundaries
             .iter()
@@ -543,54 +544,141 @@ impl Generator {
         segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
         segmentations.truncate(SEGMENTATION_KEEP);
 
-        // Lexical search is now local to one retained segmentation, so
-        // words no longer compete with thousands of unrelated boundary
-        // structures.  Reuse the existing multi-objective pruning to
-        // preserve acoustic, familiarity, and lexical-novelty tradeoffs.
+        // For a fixed segmentation, boundary novelty and word count are
+        // constant. Rank lexical alternatives by the additive part of
+        // the actual final score and enumerate the best Cartesian-product
+        // combinations with a bounded heap instead of repeatedly pruning
+        // partial phrases.
         let mut recovered = Vec::new();
         for (_, segmentation) in segmentations {
-            let mut lexical = vec![Partial::empty()];
+            let word_count = segmentation.spans.len().max(1) as f64;
+            let mut alternatives: Vec<Vec<approx::FuzzyMatch>> =
+                Vec::with_capacity(segmentation.spans.len());
+            let mut possible = true;
+
             for &(start, end) in &segmentation.spans {
                 let Some(edge) = span_lattice[start]
                     .iter()
                     .find(|edge| edge.end == end)
                 else {
-                    lexical.clear();
+                    possible = false;
                     break;
                 };
 
-                let mut next = Vec::with_capacity(
-                    lexical.len().saturating_mul(edge.matches.len()),
-                );
-                for partial in &lexical {
-                    let remaining =
-                        total_budget - partial.sub_cost_total;
-                    for m in &edge.matches {
-                        if m.cost > remaining + 1e-9 {
-                            continue;
-                        }
-                        let word =
-                            self.fuzzy_lexicon.word(m.word_idx);
-                        next.push(partial.extend_fuzzy(
+                let mut matches = edge.matches.clone();
+                matches.sort_by(|a, b| {
+                    let rank = |m: &approx::FuzzyMatch| {
+                        let word = self.fuzzy_lexicon.word(m.word_idx);
+                        let reused = target_words
+                            .contains(&normalized_word(&word.word));
+                        -0.1125 * m.cost
+                            - if reused {
+                                0.10 / word_count
+                            } else {
+                                0.0
+                            }
+                            + 0.15
+                                * word_familiarity(word.rarity)
+                                / word_count
+                            + 0.0125
+                                * word.ipa_len.min(4) as f64
+                                / word_count
+                    };
+                    cmp_desc(rank(a), rank(b)).then_with(|| {
+                        self.fuzzy_lexicon
+                            .word(a.word_idx)
+                            .word
+                            .cmp(&self.fuzzy_lexicon.word(b.word_idx).word)
+                    })
+                });
+                alternatives.push(matches);
+            }
+
+            if !possible || alternatives.iter().any(Vec::is_empty) {
+                continue;
+            }
+
+            let combination_rank = |indices: &[usize]| -> f64 {
+                indices
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &index)| {
+                        let m = &alternatives[slot][index];
+                        let word = self.fuzzy_lexicon.word(m.word_idx);
+                        let reused = target_words
+                            .contains(&normalized_word(&word.word));
+                        -0.1125 * m.cost
+                            - if reused {
+                                0.10 / word_count
+                            } else {
+                                0.0
+                            }
+                            + 0.15
+                                * word_familiarity(word.rarity)
+                                / word_count
+                            + 0.0125
+                                * word.ipa_len.min(4) as f64
+                                / word_count
+                    })
+                    .sum::<f64>()
+            };
+
+            let quantized =
+                |score: f64| -> i64 { (score * 1_000_000_000.0).round() as i64 };
+            let first = vec![0usize; alternatives.len()];
+            let mut heap = std::collections::BinaryHeap::new();
+            heap.push((quantized(combination_rank(&first)), first.clone()));
+            let mut seen = HashSet::new();
+            seen.insert(first);
+
+            let mut emitted = 0usize;
+            let mut popped = 0usize;
+            while let Some((_rank, indices)) = heap.pop() {
+                popped += 1;
+
+                let total_cost: f64 = indices
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &index)| alternatives[slot][index].cost)
+                    .sum();
+
+                if total_cost <= total_budget + 1e-9 {
+                    let mut partial = Partial::empty();
+                    for (slot, &index) in indices.iter().enumerate() {
+                        let m = &alternatives[slot][index];
+                        let word = self.fuzzy_lexicon.word(m.word_idx);
+                        partial = partial.extend_fuzzy(
                             word,
                             m.consumed,
                             m.cost,
-                        ));
+                        );
+                    }
+                    recovered.push(partial);
+                    emitted += 1;
+                    if emitted >= LEXICAL_COMBINATIONS_PER_SEGMENTATION {
+                        break;
                     }
                 }
 
-                lexical = prune_partials(
-                    next,
-                    LEXICAL_BEAM,
-                    &target_boundaries,
-                    &target_words,
-                    n,
-                );
-                if lexical.is_empty() {
+                if popped >= LEXICAL_HEAP_POP_LIMIT {
                     break;
                 }
+
+                for slot in 0..indices.len() {
+                    let next_index = indices[slot] + 1;
+                    if next_index >= alternatives[slot].len() {
+                        continue;
+                    }
+                    let mut next = indices.clone();
+                    next[slot] = next_index;
+                    if seen.insert(next.clone()) {
+                        heap.push((
+                            quantized(combination_rank(&next)),
+                            next,
+                        ));
+                    }
+                }
             }
-            recovered.extend(lexical);
         }
 
         completed.extend(recovered);
@@ -1131,6 +1219,9 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     let mut remaining: Vec<usize> = (0..clues.len()).collect();
     let mut picked = Vec::with_capacity(top_n.min(clues.len()));
     let mut max_overlap = vec![0.0_f64; clues.len()];
+    let cutoff_index = top_n.saturating_sub(1).min(clues.len() - 1);
+    let score_scale =
+        (clues[0].score - clues[cutoff_index].score).max(1e-6);
 
     while picked.len() < top_n && !remaining.is_empty() {
         if let Some(&last) = picked.last() {
@@ -1147,7 +1238,8 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         let mut best_pos = 0;
         let mut best_value = f64::NEG_INFINITY;
         for (pos, &i) in remaining.iter().enumerate() {
-            let value = clues[i].score - MMR_LAMBDA * max_overlap[i];
+            let value =
+                clues[i].score - MMR_LAMBDA * score_scale * max_overlap[i];
             if value > best_value {
                 best_value = value;
                 best_pos = pos;
