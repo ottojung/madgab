@@ -364,6 +364,57 @@ fn approximate_pool_reaches_alternatives_past_the_opening_slot_width() {
     }
 }
 
+/// A resegmentation with more slots than a *uniform* opening width can walk
+/// to a leaf of must still contribute wordings to the pool.
+///
+/// The lexical traversal is a best-first walk over the product of its
+/// slots' candidate lists, so it reaches its first wording only after it
+/// has expanded the whole subtree above the all-cheapest leaf: at opening
+/// width `w` over `d` slots that is `1 + w + ... + w^(d-1)` nodes.  With
+/// one width for every segmentation that series is a function of the
+/// target's shape alone, and past a handful of slots it exceeds the
+/// per-segmentation pop limit — so those segmentations are not *poorly*
+/// funded, they are funded with a budget that cannot be spent at all: the
+/// walk exhausts the pop limit having emitted nothing.  Measured on the
+/// default release path at `w = 10` and a 4 000-pop limit, 27 of 256
+/// retained segmentations emit no wording at all on one four-word target
+/// and 109 on a six-word one.
+///
+/// So the opening width is derived from the pop limit and the slot count
+/// (see `affordable_opening_width` in `src/lib.rs`), and the property this
+/// asserts is the external consequence: wordings of seven-slot
+/// resegmentations of an ordinary target that the uniform width cannot
+/// reach at all.  Each wording below was measured **absent from the
+/// parent's pool** for this target and present in this one's; the target
+/// and the wordings are ordinary English, not either acceptance example,
+/// and nothing in `src/` knows them.
+///
+/// The honest limit of the claim: what is asserted is *reach*, not
+/// quality — these are low-scoring wordings of a resegmentation the
+/// ordinary beam does not want, and the win they witness is that the walk
+/// spends its pops on wordings at all.  The number of *distinct* deep
+/// resegventions in the pool does fall slightly (47 to 32 of six slots or
+/// more for this target), because the same pops now go to fewer, funded
+/// structures; see `docs/work/items/w-1c3e77.md`.
+#[test]
+fn approximate_pool_reaches_resegmentations_deeper_than_one_walk() {
+    for (target, wording) in [
+        ("she sells sea shells", "see if a law thus ish l.'s"),
+        ("she sells sea shells", "see ish a law this ish l.'s"),
+        ("she sells sea shells", "see ish air law this ish l.'s"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p == wording),
+            "{target}: {wording:?} missing, so a resegmentation deeper than \
+             one uniform-width walk covers contributed no wording at all; \
+             pool had {} clues, e.g. {:?}",
+            pool.len(),
+            &pool[..pool.len().min(8)]
+        );
+    }
+}
+
 /// A clue's resegmentation, as the search aligned it.
 ///
 /// This reads [\"madgab::Clue::cuts\"] rather than re-deriving offsets
