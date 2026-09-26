@@ -1,0 +1,194 @@
+diff --git a/rev-9f1c05-pristine/src/lib.rs b/rev-9f1c05-apply/src/lib.rs
+index b5fdd31..170b648 100644
+--- a/rev-9f1c05-pristine/src/lib.rs
++++ b/rev-9f1c05-apply/src/lib.rs
+@@ -1508,6 +1508,35 @@ impl Generator {
+                 }
+                 Some(partial)
+             };
++
++            // THROWAWAY-MEASUREMENT-HARNESS (front 9f1c05; this \`git
++            // archive\` extraction only).  Presence-tested injection gate,
++            // identical in shape to the dump arm: when
++            // \`MADGAB_AGG_INJECT\` is set, its value is read as a list of
++            // \`<seg_index>,<i>,<i>,...\` records and the named index tuple
++            // for the named segmentation is pushed into the pool through the
++            // ordinary \`build\` below, so the *production* scorer and the
++            // production \`select_diverse\` can be asked what they make of a
++            // wording the search never emitted.  No word, phrase, target or
++            // dictionary entry is named in this code and nothing branches on
++            // it beyond reading the environment.
++            if std::env::var_os("MADGAB_AGG_INJECT").is_some() {
++                if let Ok(spec) = std::env::var("MADGAB_AGG_INJECT") {
++                    for part in spec.split(';') {
++                        let mut it = part.split(',');
++                        let Ok(want) = it.next().unwrap_or("").trim().parse::<usize>()
++                        else { continue; };
++                        if want != index { continue; }
++                        let t: Vec<usize> =
++                            it.filter_map(|x| x.trim().parse::<usize>().ok()).collect();
++                        if t.len() == slots.len()
++                            && t.iter().enumerate().all(|(k, &i)| i < slots[k].len())
++                        {
++                            if let Some(p) = build(&t) { recovered.push(p); }
++                        }
++                    }
++                }
++            }
+             let profile_allowance =
+                 EMIT_PROFILE_RESERVE.min(emit_allowance);
+             let mut profile_emitted = 0usize;
+@@ -2404,13 +2433,91 @@ impl Partial {
+         };
+         let closed_penalty = closed_class_penalty(self.closed as f64, words as f64);
+ 
+-        let combined = axes::SIMILARITY * similarity
+-            + axes::NOVELTY * novelty
+-            + axes::WORD_NOVELTY * word_novelty
+-            + axes::FAMILIARITY * familiarity
+-            + axes::RHYTHM * rhythm
+-            + axes::SHAPE * shape_quality
+-            + axes::CLOSED_CLASS * closed_penalty;
++        // THROWAWAY-MEASUREMENT-HARNESS (front 9f1c05; this `git archive`
++        // extraction only, never on a branch).  Re-expresses how the seven
++        // axis values are COMBINED, at the single point where the objective
++        // is evaluated.  `MADGAB_AGG_FORM` is read as a small integer naming
++        // one of a fixed, enumerated list of general forms; there is no
++        // phrase, word, substring, target, dictionary or corpus lookup
++        // anywhere in it, and no form is keyed to any input.  Unset (or any
++        // value outside 1..=3) the control arm is byte-identical to
++        // production: one `var_os` miss, no allocation, no branch taken.
++        //
++        // NOTE the deliberate incompleteness, reported in REPORT-9f1c05.md:
++        // this changes `combined` only.  `span_score_bound`,
++        // `partial_span_score` and `complete_span_score` still shadow the
++        // OLD objective, so the span_bound/incumbent cut at :1194 is no
++        // longer sound for a non-affine form.  That is exactly the hazard
++        // front 9a41d3 hit, and the pool-size collapse it causes is one of
++        // the quantities this harness is asked to measure.
++        let form: u32 = std::env::var("MADGAB_AGG_FORM")
++            .ok()
++            .and_then(|s| s.trim().parse().ok())
++            .unwrap_or(0);
++        let combined = match form {
++            1 => {
++                // F3: weighted geometric mean.  Sum -> product with the
++                // weights as exponents: one collapsed axis can no longer be
++                // bought off by a strong one.  Each axis is in [0,1] and the
++                // weights sum to 1, so the result is in [0,1].
++                let mut lp = 0.0f64;
++                for (w, v) in [
++                    (axes::SIMILARITY, similarity),
++                    (axes::NOVELTY, novelty),
++                    (axes::WORD_NOVELTY, word_novelty),
++                    (axes::FAMILIARITY, familiarity),
++                    (axes::RHYTHM, rhythm),
++                    (axes::SHAPE, shape_quality),
++                    // CLOSED_CLASS is a penalty: contribute its complement.
++                    (axes::CLOSED_CLASS, 1.0 - closed_penalty),
++                ] {
++                    lp += w * (v.max(1e-6)).ln();
++                }
++                lp.exp()
++            }
++            2 => {
++                // F6: a hard, parameter-free gate on the content-word
++                // signal.  A clue that reuses no target word competes; one
++                // that does does not.  Threshold 1.0 is the axis's own range
++                // end, not a tuned constant.
++                let gated = if word_novelty >= 1.0 - 1e-9 { 1.0 } else { 0.0 };
++                0.5 * gated
++                    + 0.5 * (axes::SIMILARITY * similarity
++                        + axes::NOVELTY * novelty
++                        + axes::WORD_NOVELTY * word_novelty
++                        + axes::FAMILIARITY * familiarity
++                        + axes::RHYTHM * rhythm
++                        + axes::SHAPE * shape_quality
++                        + axes::CLOSED_CLASS * closed_penalty)
++            }
++            3 => {
++                // F4b: strict lexicographic over a FIXED, input-independent
++                // axis priority (acoustic fit first, then familiarity, then
++                // content-word signal, then shape, then the rest).  The
++                // extreme member of the "tiered" family: the top axis
++                // dominates absolutely and the rest only break its ties.
++                // Encoded as a scalar by a fixed radix; 1e-3 keeps the
++                // level-6 term at 1e-18, far below the 1e-12 print
++                // precision the tests compare at.
++                const E: f64 = 1e-3;
++                let prim = [similarity, familiarity, word_novelty,
++                            shape_quality, novelty, rhythm, 1.0 - closed_penalty];
++                let mut acc = 0.0f64;
++                for v in prim.iter().rev() {
++                    acc = v + E * acc;
++                }
++                acc
++            }
++            _ => {
++                axes::SIMILARITY * similarity
++                    + axes::NOVELTY * novelty
++                    + axes::WORD_NOVELTY * word_novelty
++                    + axes::FAMILIARITY * familiarity
++                    + axes::RHYTHM * rhythm
++                    + axes::SHAPE * shape_quality
++                    + axes::CLOSED_CLASS * closed_penalty
++            }
++        };
+ 
+         Metrics {
+             combined,
+@@ -2432,6 +2539,54 @@ impl Partial {
+         let score = self
+             .metrics(target_boundaries, target_syllables, total_len, false)
+             .combined;
++        // THROWAWAY-MEASUREMENT-HARNESS (front 9f1c05; this `git archive`
++        // extraction only, never on a branch).  Second-pass visible-list
++        // dump: presence-tested, and gated on the *content* of
++        // MADGAB_AGG_VIS, which is the newline-separated list of phrases
++        // the first pass reported as visible.  Emits the same seven axis
++        // values the first pass would have, but only for those phrases, so
++        // the offline census can read closed-class share and boundary
++        // novelty off the *visible* list rather than off the raw band.
++        // No word or phrase is named here; the set comes from the
++        // environment, and unset the hunk is a single `var_os` miss.
++        if std::env::var_os("MADGAB_AGG_VIS").is_some() {
++            let words: Vec<ClueWord> = self.words().cloned().collect();
++            let phrase = words
++                .iter()
++                .map(|w| w.word.as_str())
++                .collect::<Vec<_>>()
++                .join(" ");
++            if let Ok(list) = std::env::var("MADGAB_AGG_VIS") {
++                if list.lines().any(|l| l.trim().eq_ignore_ascii_case(&phrase)) {
++                    let words_f = self.word_count() as f64;
++                    let similarity =
++                        (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
++                    let novelty = boundary_novelty(
++                        &self.cuts, target_boundaries, total_len, false);
++                    let word_novelty =
++                        1.0 - self.reused_count as f64 / words_f.max(1.0);
++                    let familiarity = if words_f == 0.0 {
++                        0.0
++                    } else {
++                        self.familiarity_sum / words_f
++                    };
++                    let rhythm = rhythm_match(self.syllables, target_syllables);
++                    let shape_quality = if words_f == 0.0 {
++                        0.0
++                    } else {
++                        self.shape_sum / words_f
++                    };
++                    let closed_penalty =
++                        closed_class_penalty(self.closed as f64, words_f);
++                    eprintln!(
++                        "AGGVIS\t{}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}",
++                        phrase.replace('\t', " "),
++                        similarity, novelty, word_novelty, familiarity, rhythm,
++                        shape_quality, closed_penalty, score,
++                    );
++                }
++            }
++        }
+         let words: Vec<ClueWord> = self.words().cloned().collect();
+         Clue {
+             phrase: words

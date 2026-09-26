@@ -1,0 +1,87 @@
+diff --git a/rev-9f1c05-pristine/src/lib.rs b/rev-9f1c05-dump/src/lib.rs
+index b5fdd31..086bae0 100644
+--- a/rev-9f1c05-pristine/src/lib.rs
++++ b/rev-9f1c05-dump/src/lib.rs
+@@ -1508,6 +1508,44 @@ impl Generator {
+                 }
+                 Some(partial)
+             };
++
++            // THROWAWAY-MEASUREMENT-HARNESS (front 9f1c05; this
++            // `git archive` extraction only, never on a branch).  Presence-
++            // tested injection gate: when `MADGAB_AGG_INJECT` is *set* (its
++            // value is never interpreted except as a list of
++            // `<seg_index>,<i>,<i>,...` records, exactly as the earlier
++            // front's probe did), push that one index tuple for that
++            // segmentation into the pool through the ordinary `build`
++            // below, so the *production* scorer and the *production*
++            // `select_diverse` can be asked what they make of a wording the
++            // search never emitted.  No word, phrase or target is named
++            // anywhere in this code; the tuple comes wholly from the
++            // environment and `index` is the loop's own segmentation
++            // index.  Unset, this is a single `var_os` miss.
++            if std::env::var_os("MADGAB_AGG_INJECT").is_some() {
++                if let Ok(spec) = std::env::var("MADGAB_AGG_INJECT") {
++                    for part in spec.split(';') {
++                        let mut it = part.split(',');
++                        let Ok(want) = it.next().unwrap_or("").trim().parse::<usize>()
++                        else {
++                            continue;
++                        };
++                        if want != index {
++                            continue;
++                        }
++                        let t: Vec<usize> = it
++                            .filter_map(|x| x.trim().parse::<usize>().ok())
++                            .collect();
++                        if t.len() == slots.len()
++                            && t.iter().enumerate().all(|(k, &i)| i < slots[k].len())
++                        {
++                            if let Some(p) = build(&t) {
++                                recovered.push(p);
++                            }
++                        }
++                    }
++                }
++            }
+             let profile_allowance =
+                 EMIT_PROFILE_RESERVE.min(emit_allowance);
+             let mut profile_emitted = 0usize;
+@@ -2432,6 +2470,37 @@ impl Partial {
+         let score = self
+             .metrics(target_boundaries, target_syllables, total_len, false)
+             .combined;
++        // THROWAWAY-MEASUREMENT-HARNESS (front 9f1c05; present only in this
++        // `git archive` extraction, never on a branch).  Presence-tested
++        // dump switch: the variable's presence is tested, its value is never
++        // read, and nothing branches on it.  Emits one line per retained
++        // clue, i.e. one line per deduplicated pool member, carrying the
++        // seven axis values whose `axes::`-weighted sum is `score`.  The
++        // final field is `score` itself so the harness can verify that the
++        // dumped vector reproduces the production score to 1e-9.
++        if std::env::var_os("MADGAB_AGG_DUMP").is_some() {
++            let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
++            let novelty = boundary_novelty(&self.cuts, target_boundaries, total_len, false);
++            let reused = self.reused_count as f64;
++            let words_f = self.word_count() as f64;
++            let word_novelty = 1.0 - reused / words_f.max(1.0);
++            let familiarity = if words_f == 0.0 { 0.0 } else { self.familiarity_sum / words_f };
++            let rhythm = rhythm_match(self.syllables, target_syllables);
++            let shape_quality = if words_f == 0.0 { 0.0 } else { self.shape_sum / words_f };
++            let closed_penalty = closed_class_penalty(self.closed as f64, words_f);
++            let words: Vec<ClueWord> = self.words().cloned().collect();
++            let phrase = words
++                .iter()
++                .map(|w| w.word.as_str())
++                .collect::<Vec<_>>()
++                .join(" ");
++            let joined = phrase.replace('\t', " ");
++            eprintln!(
++                "AGGDUMP\t{joined}\t{similarity:.12}\t{novelty:.12}\t{word_novelty:.12}\t{familiarity:.12}\t{rhythm:.12}\t{shape_quality:.12}\t{closed_penalty:.12}\t{score:.12}\t{}\t{}",
++                self.syllables,
++                phrase_signature(&phrase),
++            );
++        }
+         let words: Vec<ClueWord> = self.words().cloned().collect();
+         Clue {
+             phrase: words

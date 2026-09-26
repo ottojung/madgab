@@ -1,0 +1,49 @@
+id	target	pool@50	form	visibleChurn/50	kept	axesMatched	fullReseg/50	salad/50	poolDelta
+01	"It's just a stupid game"	17913	F0 linear (control)	0	50	50	0	0	0
+01	"It's just a stupid game"	17913	F2 hard gate on WORD_NOVELTY	0	50	50	0	0	9
+01	"It's just a stupid game"	17913	F3 strict lexicographic	50	0	50	0	16	-112
+02	"recognize speech"	15908	F0 linear (control)	0	50	50	44	0	0
+02	"recognize speech"	15908	F2 hard gate on WORD_NOVELTY	0	50	50	44	0	-272
+02	"recognize speech"	15908	F3 strict lexicographic	50	0	50	25	0	-81
+03	"I love you"	9338	F0 linear (control)	0	50	50	50	0	0
+03	"I love you"	9338	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	1
+03	"I love you"	9338	F3 strict lexicographic	47	3	50	30	10	-785
+04	"the cat sat on the mat"	16255	F0 linear (control)	0	50	50	29	0	0
+04	"the cat sat on the mat"	16255	F2 hard gate on WORD_NOVELTY	0	50	50	29	0	134
+04	"the cat sat on the mat"	16255	F3 strict lexicographic	50	0	50	0	50	430
+05	"when the rain finally stopped"	15609	F0 linear (control)	0	50	50	31	0	0
+05	"when the rain finally stopped"	15609	F2 hard gate on WORD_NOVELTY	0	50	50	31	0	-711
+05	"when the rain finally stopped"	15609	F3 strict lexicographic	50	0	50	0	26	-59
+06	"an old man in a big hat"	13041	F0 linear (control)	0	50	50	35	0	0
+06	"an old man in a big hat"	13041	F2 hard gate on WORD_NOVELTY	0	50	50	35	0	68
+06	"an old man in a big hat"	13041	F3 strict lexicographic	50	0	50	0	14	-419
+07	"what are you going to do"	14548	F0 linear (control)	0	50	50	49	0	0
+07	"what are you going to do"	14548	F2 hard gate on WORD_NOVELTY	0	50	50	49	0	-269
+07	"what are you going to do"	14548	F3 strict lexicographic	50	0	50	0	40	392
+08	"there is no way to know"	20119	F0 linear (control)	0	50	50	50	0	0
+08	"there is no way to know"	20119	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	18
+08	"there is no way to know"	20119	F3 strict lexicographic	50	0	50	0	30	-19
+09	"she had a lot of money"	13341	F0 linear (control)	0	50	50	50	0	0
+09	"she had a lot of money"	13341	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	37
+09	"she had a lot of money"	13341	F3 strict lexicographic	50	0	50	0	50	14
+10	"a whole lot of trouble"	16169	F0 linear (control)	0	50	50	50	0	0
+10	"a whole lot of trouble"	16169	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	-8
+10	"a whole lot of trouble"	16169	F3 strict lexicographic	50	0	50	0	13	-14
+11	"he was a big fat man"	19168	F0 linear (control)	0	50	50	50	0	0
+11	"he was a big fat man"	19168	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	21
+11	"he was a big fat man"	19168	F3 strict lexicographic	50	0	50	0	19	59
+12	"my brother has a red car"	15649	F0 linear (control)	0	50	50	50	0	0
+12	"my brother has a red car"	15649	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	83
+12	"my brother has a red car"	15649	F3 strict lexicographic	50	0	50	0	26	-615
+13	"put it back on the shelf"	15642	F0 linear (control)	0	50	50	50	0	0
+13	"put it back on the shelf"	15642	F2 hard gate on WORD_NOVELTY	0	50	50	50	0	1
+13	"put it back on the shelf"	15642	F3 strict lexicographic	50	0	50	0	43	-255
+14	"the other seven"	20023	F0 linear (control)	0	50	50	15	0	0
+14	"the other seven"	20023	F2 hard gate on WORD_NOVELTY	0	50	50	15	0	-22
+14	"the other seven"	20023	F3 strict lexicographic	50	0	50	0	16	-100
+15	"the quick brown fox jumps"	17091	F0 linear (control)	0	50	50	36	0	0
+15	"the quick brown fox jumps"	17091	F2 hard gate on WORD_NOVELTY	0	50	50	36	0	-31
+15	"the quick brown fox jumps"	17091	F3 strict lexicographic	50	0	50	0	0	-189
+16	"the mad gab for kids"	18474	F0 linear (control)	0	50	50	0	0	0
+16	"the mad gab for kids"	18474	F2 hard gate on WORD_NOVELTY	0	50	50	0	0	-234
+16	"the mad gab for kids"	18474	F3 strict lexicographic	50	0	50	0	13	405

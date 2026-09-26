@@ -1,0 +1,19 @@
+# canonical target, injected pool 17914 @ --top 50
+# control OFF-A: rank 9865 score 0.819901291 cutoff 0.915691888 margin -0.095790597 bandWidth 0.009495
+form	name	rank	score	cutoff	margin	bandWidth	churn50	reseg50	salad50	maxScore
+OFF-A	F0 linear (production control)	9865	0.819901291	0.915691888	-0.095790597	0.009495	0	0	0	0.925187
+OFF-B	F1 within-target z-normalisation (mass preserved)	10234	0.756911384	0.971427344	-0.214515960	0.028573	38	0	0	1.000000
+OFF-C	F2 within-target rank percentile	10037	0.281613912	0.529045944	-0.247432033	0.052730	42	1	0	0.581776
+OFF-D	F3 weighted geometric mean (soft-min)	10017	0.783632720	0.919844569	-0.136211849	0.022086	13	0	7	0.941930
+OFF-E	F4 tiered: primary varying axis gates, the rest break ties	12264	0.753799003	0.858161244	-0.104362241	0.004644	39	0	0	0.862806
+OFF-F	F5 saturated-axis masking (drop dead mass, renormalise live axes)	9865	0.712957644	0.796253816	-0.083296172	0.008256	0	0	0	0.804510
+OFF-G	F6 hard gate on WORD_NOVELTY (full-resegmentation requirement)	7380	0.420994589	0.957845944	-0.536851355	0.004747	0	0	0	0.962593
+
+# per-axis standing of the requested wording inside the emitted pool of 17914
+SIM     clue 0.720120 poolPct 37.87 | band50 min 0.772178 max 0.874692 | clue<bandMin? YES | clue>bandMax? no
+NOV     clue 0.666667 poolPct 15.99 | band50 min 1.000000 max 1.000000 | clue<bandMin? YES | clue>bandMax? no
+WNOV    clue 1.000000 poolPct 28.46 | band50 min 1.000000 max 1.000000 | clue<bandMin? no | clue>bandMax? no
+FAM     clue 0.398713 poolPct 10.15 | band50 min 0.526273 max 0.829959 | clue<bandMin? YES | clue>bandMax? no
+RHY     clue 1.000000 poolPct 38.03 | band50 min 1.000000 max 1.000000 | clue<bandMin? no | clue>bandMax? no
+SHAPE   clue 1.000000 poolPct 60.45 | band50 min 0.897458 max 1.000000 | clue<bandMin? no | clue>bandMax? no
+CLOSED  clue 0.000000 poolPct 0.00 | band50 min 0.000000 max 0.040000 | clue<bandMin? no | clue>bandMax? no

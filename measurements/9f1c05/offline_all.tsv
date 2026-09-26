@@ -1,0 +1,113 @@
+id	target	pool@50	form	rank	score	cutoff	margin	bandWidth	inBand
+01	"It's just a stupid game"	17913	F0	-1		0.915691888	ABSENT	0.00949	no
+01	"It's just a stupid game"	17913	F1	-1		0.971429823	ABSENT	0.02857	no
+01	"It's just a stupid game"	17913	F2	-1		0.529053149	ABSENT	0.05273	no
+01	"It's just a stupid game"	17913	F3	-1		0.919844569	ABSENT	0.02209	no
+01	"It's just a stupid game"	17913	F4	-1		0.858161244	ABSENT	0.00464	no
+01	"It's just a stupid game"	17913	F5	-1		0.796253816	ABSENT	0.00826	no
+01	"It's just a stupid game"	17913	F6	-1		0.957845944	ABSENT	0.00475	no
+02	"recognize speech"	15908	F0	-1		0.917045726	ABSENT	0.00455	no
+02	"recognize speech"	15908	F1	-1		0.960111796	ABSENT	0.03989	no
+02	"recognize speech"	15908	F2	-1		0.550597221	ABSENT	0.01693	no
+02	"recognize speech"	15908	F3	-1		0.927375464	ABSENT	4.79984	no
+02	"recognize speech"	15908	F4	-1		0.856980860	ABSENT	0.00319	no
+02	"recognize speech"	15908	F5	-1		0.797431066	ABSENT	0.00396	no
+02	"recognize speech"	15908	F6	-1		0.958522863	ABSENT	0.00228	no
+03	"I love you"	9338	F0	-1		0.929630926	ABSENT	0.00870	no
+03	"I love you"	9338	F1	-1		0.940974529	ABSENT	0.05903	no
+03	"I love you"	9338	F2	-1		0.551124558	ABSENT	0.02060	no
+03	"I love you"	9338	F3	-1		5.621884965	ABSENT	1.79708	no
+03	"I love you"	9338	F4	-1		0.863534483	ABSENT	0.00470	no
+03	"I love you"	9338	F5	-1		0.808374718	ABSENT	0.00757	no
+03	"I love you"	9338	F6	-1		0.964815463	ABSENT	0.00435	no
+04	"the cat sat on the mat"	16255	F0	-1		0.893683280	ABSENT	0.00401	no
+04	"the cat sat on the mat"	16255	F1	-1		0.976786940	ABSENT	0.02321	no
+04	"the cat sat on the mat"	16255	F2	-1		0.449849268	ABSENT	0.02418	no
+04	"the cat sat on the mat"	16255	F3	-1		1.044410386	ABSENT	6.05885	no
+04	"the cat sat on the mat"	16255	F4	-1		0.850318805	ABSENT	0.00399	no
+04	"the cat sat on the mat"	16255	F5	-1		0.777115895	ABSENT	0.00349	no
+04	"the cat sat on the mat"	16255	F6	-1		0.946841640	ABSENT	0.00201	no
+05	"when the rain finally stopped"	15609	F0	-1		0.914965805	ABSENT	0.01057	no
+05	"when the rain finally stopped"	15609	F1	-1		0.983156640	ABSENT	0.01684	no
+05	"when the rain finally stopped"	15609	F2	-1		0.494685418	ABSENT	0.04006	no
+05	"when the rain finally stopped"	15609	F3	-1		0.927043958	ABSENT	0.05707	no
+05	"when the rain finally stopped"	15609	F4	-1		0.853463754	ABSENT	0.00350	no
+05	"when the rain finally stopped"	15609	F5	-1		0.795622439	ABSENT	0.00919	no
+05	"when the rain finally stopped"	15609	F6	-1		0.957482902	ABSENT	0.00528	no
+06	"an old man in a big hat"	13041	F0	-1		0.887714116	ABSENT	0.00289	no
+06	"an old man in a big hat"	13041	F1	-1		0.984286140	ABSENT	0.01571	no
+06	"an old man in a big hat"	13041	F2	-1		0.526625767	ABSENT	0.02052	no
+06	"an old man in a big hat"	13041	F3	-1		0.887514539	ABSENT	0.06294	no
+06	"an old man in a big hat"	13041	F4	-1		0.855815560	ABSENT	0.00179	no
+06	"an old man in a big hat"	13041	F5	-1		0.771925318	ABSENT	0.00251	no
+06	"an old man in a big hat"	13041	F6	-1		0.943857058	ABSENT	0.00145	no
+07	"what are you going to do"	14548	F0	-1		0.905780912	ABSENT	0.00481	no
+07	"what are you going to do"	14548	F1	-1		0.976396818	ABSENT	0.02360	no
+07	"what are you going to do"	14548	F2	-1		0.518264934	ABSENT	0.02743	no
+07	"what are you going to do"	14548	F3	-1		0.916483286	ABSENT	5.35421	no
+07	"what are you going to do"	14548	F4	-1		0.857775821	ABSENT	0.00428	no
+07	"what are you going to do"	14548	F5	-1		0.787635576	ABSENT	0.00418	no
+07	"what are you going to do"	14548	F6	-1		0.952890456	ABSENT	0.00241	no
+08	"there is no way to know"	20119	F0	-1		0.918311609	ABSENT	0.01078	no
+08	"there is no way to know"	20119	F1	-1		0.974180726	ABSENT	0.02582	no
+08	"there is no way to know"	20119	F2	-1		0.477149816	ABSENT	0.02784	no
+08	"there is no way to know"	20119	F3	-1		0.937518372	ABSENT	0.03959	no
+08	"there is no way to know"	20119	F4	-1		0.862396655	ABSENT	0.00791	no
+08	"there is no way to know"	20119	F5	-1		0.798531834	ABSENT	0.00937	no
+08	"there is no way to know"	20119	F6	-1		0.959155805	ABSENT	0.00539	no
+09	"she had a lot of money"	13341	F0	-1		0.900482379	ABSENT	0.00583	no
+09	"she had a lot of money"	13341	F1	-1		0.969669872	ABSENT	0.03033	no
+09	"she had a lot of money"	13341	F2	-1		0.556056972	ABSENT	0.02202	no
+09	"she had a lot of money"	13341	F3	-1		0.913793309	ABSENT	5.00264	no
+09	"she had a lot of money"	13341	F4	-1		0.859141629	ABSENT	0.00410	no
+09	"she had a lot of money"	13341	F5	-1		0.783028156	ABSENT	0.00507	no
+09	"she had a lot of money"	13341	F6	-1		0.950241190	ABSENT	0.00291	no
+10	"a whole lot of trouble"	16169	F0	-1		0.895695875	ABSENT	0.00808	no
+10	"a whole lot of trouble"	16169	F1	-1		0.974825250	ABSENT	0.02517	no
+10	"a whole lot of trouble"	16169	F2	-1		0.548589807	ABSENT	0.01627	no
+10	"a whole lot of trouble"	16169	F3	-1		0.895329429	ABSENT	0.02051	no
+10	"a whole lot of trouble"	16169	F4	-1		0.856828877	ABSENT	0.00436	no
+10	"a whole lot of trouble"	16169	F5	-1		0.778865979	ABSENT	0.00703	no
+10	"a whole lot of trouble"	16169	F6	-1		0.947847938	ABSENT	0.00404	no
+11	"he was a big fat man"	19168	F0	-1		0.895134791	ABSENT	0.00778	no
+11	"he was a big fat man"	19168	F1	-1		0.971801192	ABSENT	0.02820	no
+11	"he was a big fat man"	19168	F2	-1		0.464457140	ABSENT	0.02702	no
+11	"he was a big fat man"	19168	F3	-1		4.469955291	ABSENT	1.34330	no
+11	"he was a big fat man"	19168	F4	-1		0.856108009	ABSENT	0.00289	no
+11	"he was a big fat man"	19168	F5	-1		0.778378079	ABSENT	0.00677	no
+11	"he was a big fat man"	19168	F6	-1		0.947567395	ABSENT	0.00389	no
+12	"my brother has a red car"	15649	F0	-1		0.894700569	ABSENT	0.00586	no
+12	"my brother has a red car"	15649	F1	-1		0.975707453	ABSENT	0.02429	no
+12	"my brother has a red car"	15649	F2	-1		0.504326431	ABSENT	0.02401	no
+12	"my brother has a red car"	15649	F3	-1		0.916338925	ABSENT	0.06823	no
+12	"my brother has a red car"	15649	F4	-1		0.850871505	ABSENT	0.00684	no
+12	"my brother has a red car"	15649	F5	-1		0.778000495	ABSENT	0.00510	no
+12	"my brother has a red car"	15649	F6	-1		0.947350285	ABSENT	0.00293	no
+13	"put it back on the shelf"	15642	F0	-1		0.894965791	ABSENT	0.00585	no
+13	"put it back on the shelf"	15642	F1	-1		0.964762102	ABSENT	0.03524	no
+13	"put it back on the shelf"	15642	F2	-1		0.479665622	ABSENT	0.02657	no
+13	"put it back on the shelf"	15642	F3	-1		0.896244524	ABSENT	0.08779	no
+13	"put it back on the shelf"	15642	F4	-1		0.854347907	ABSENT	0.00352	no
+13	"put it back on the shelf"	15642	F5	-1		0.778231122	ABSENT	0.00509	no
+13	"put it back on the shelf"	15642	F6	-1		0.947482895	ABSENT	0.00292	no
+14	"the other seven"	20023	F0	-1		0.904297577	ABSENT	0.00975	no
+14	"the other seven"	20023	F1	-1		0.963973155	ABSENT	0.03603	no
+14	"the other seven"	20023	F2	-1		0.512923284	ABSENT	0.04619	no
+14	"the other seven"	20023	F3	-1		0.969534279	ABSENT	6.03168	no
+14	"the other seven"	20023	F4	-1		0.861015221	ABSENT	0.00629	no
+14	"the other seven"	20023	F5	-1		0.786345719	ABSENT	0.00848	no
+14	"the other seven"	20023	F6	-1		0.952148789	ABSENT	0.00487	no
+15	"the quick brown fox jumps"	17091	F0	-1		0.877458718	ABSENT	0.00905	no
+15	"the quick brown fox jumps"	17091	F1	-1		0.978485998	ABSENT	0.02151	no
+15	"the quick brown fox jumps"	17091	F2	-1		0.538101229	ABSENT	0.03649	no
+15	"the quick brown fox jumps"	17091	F3	-1		0.868649394	ABSENT	0.01616	no
+15	"the quick brown fox jumps"	17091	F4	-1		0.847854670	ABSENT	0.00694	no
+15	"the quick brown fox jumps"	17091	F5	-1		0.763007581	ABSENT	0.00787	no
+15	"the quick brown fox jumps"	17091	F6	-1		0.938729359	ABSENT	0.00453	no
+16	"the mad gab for kids"	18474	F0	-1		0.895849567	ABSENT	0.00713	no
+16	"the mad gab for kids"	18474	F1	-1		0.980192090	ABSENT	0.01981	no
+16	"the mad gab for kids"	18474	F2	-1		0.493991230	ABSENT	0.03091	no
+16	"the mad gab for kids"	18474	F3	-1		0.911678915	ABSENT	0.05323	no
+16	"the mad gab for kids"	18474	F4	-1		0.856960695	ABSENT	0.00442	no
+16	"the mad gab for kids"	18474	F5	-1		0.778999624	ABSENT	0.00620	no
+16	"the mad gab for kids"	18474	F6	-1		0.947924784	ABSENT	0.00356	no
