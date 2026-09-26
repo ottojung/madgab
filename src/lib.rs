@@ -473,6 +473,25 @@ impl Generator {
 
     /// Generate ranked clue candidates for target.
     pub fn generate(&self, target: &str) -> Vec<Clue> {
+        self.generate_with_pool(target).0
+    }
+
+    /// The proposals for `target`, and the size of the deduplicated
+    /// candidate pool they were selected from.
+    ///
+    /// The second number is the denominator every reachability claim in
+    /// this project is written against, and it is a property of the
+    /// search rather than of the display policy: it is the length of the
+    /// phrase-deduplicated, score-ordered pool *after* `finish` has
+    /// collapsed duplicate spellings and *before* `select_diverse`
+    /// narrows it to `top_n`.  It is exposed because a membership count
+    /// is only a measurement if the pool is reproducible, and
+    /// reproducibility is not observable from the visible list — a
+    /// run-to-run pool delta of one candidate leaves the visible
+    /// `top_n` byte-identical (see
+    /// [w-6b91d3](../docs/work/items/w-6b91d3.md) and
+    /// `tests/approx_determinism.rs`).
+    pub fn generate_with_pool(&self, target: &str) -> (Vec<Clue>, usize) {
         match self.config.mode {
             SearchMode::Exact => self.generate_exact(target),
             SearchMode::Approximate {
@@ -482,17 +501,17 @@ impl Generator {
         }
     }
 
-    fn generate_exact(&self, target: &str) -> Vec<Clue> {
+    fn generate_exact(&self, target: &str) -> (Vec<Clue>, usize) {
         let Some((target_ipa, target_boundaries, target_syllables)) =
             transcribe_with_boundaries(&self.corpus, target, false)
         else {
-            return Vec::new();
+            return (Vec::new(), 0);
         };
         let target_phrase = TargetPhrase::new(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 {
-            return Vec::new();
+            return (Vec::new(), 0);
         }
 
         let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
@@ -559,17 +578,17 @@ impl Generator {
         target: &str,
         per_word_budget: f64,
         total_budget: f64,
-    ) -> Vec<Clue> {
+    ) -> (Vec<Clue>, usize) {
         let Some((target_ipa, target_boundaries, target_syllables)) =
             transcribe_with_boundaries(&self.corpus, target, true)
         else {
-            return Vec::new();
+            return (Vec::new(), 0);
         };
         let target_phrase = TargetPhrase::new(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 || self.fuzzy_lexicon.is_empty() {
-            return Vec::new();
+            return (Vec::new(), 0);
         }
 
         // Candidate word/span alignments depend only on the target and
@@ -1126,7 +1145,24 @@ impl Generator {
         );
 
         for p in 0..n {
-            let here = std::mem::take(&mut seg_states[p]);
+            // w-6b91d3: the DP state map is a `HashMap`, so its iteration
+            // order is reseeded from `RandomState` on every process and
+            // differs between two runs of the same binary.  Two states
+            // are otherwise interchangeable predecessors here, so the
+            // order is not *observably* wrong — but every path a state
+            // contributes is `push`ed onto its successor's bucket and
+            // that bucket is then `sort_by`'d (stable) and `truncate`d
+            // to `SEG_STATE_KEEP`, so where the surviving set is cut
+            // through a group of exactly-equal `rank`s, *which* of the
+            // tied paths is kept is decided by this iteration order.
+            // That is a run-to-run difference in the pool, not a
+            // difference in the score.  Draining the map in key order
+            // makes the arrival order a function of the state keys
+            // alone, which are unique, so the whole DP is
+            // order-independent from here on.
+            let mut here: Vec<((usize, usize), Vec<SegPath>)> =
+                std::mem::take(&mut seg_states[p]).into_iter().collect();
+            here.sort_by(|(a, _), (b, _)| a.cmp(b));
             for ((word_count, shared), paths) in here {
                 for path in paths {
                     for edge in &span_lattice[p] {
@@ -1171,7 +1207,18 @@ impl Generator {
                             rank: span_partial(next_words, &extended),
                             ..extended
                         });
-                        bucket.sort_by(|a, b| cmp_desc(a.rank, b.rank));
+                        // Same reason as the drain above: `rank` is an
+                        // `f64` proxy that ties exactly, and the sort is
+                        // stable, so the cut through a tied group used to
+                        // be decided by arrival order.  `spans` is unique
+                        // within a state — the DP never records the same
+                        // chain twice — so breaking on it makes this a
+                        // total order and the retained set a function of
+                        // the paths alone.
+                        bucket.sort_by(|a, b| {
+                            cmp_desc(a.rank, b.rank)
+                                .then_with(|| a.spans.cmp(&b.spans))
+                        });
                         bucket.truncate(SEG_STATE_KEEP);
                     }
                 }
@@ -1179,9 +1226,16 @@ impl Generator {
         }
 
         let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
-        for ((word_count, _shared), paths) in
-            std::mem::take(&mut seg_states[n])
-        {
+        // w-6b91d3: the second `HashMap` drain with the same consequence.
+        // The order of `segmentations` is not cosmetic: it becomes
+        // `by_structure` -> `schedule` (see below), which is the order
+        // the emission budget is spent in, so a tie resolved differently
+        // spends the budget on different structures and leaves a
+        // different set of wordings in the pool.
+        let mut final_states: Vec<((usize, usize), Vec<SegPath>)> =
+            std::mem::take(&mut seg_states[n]).into_iter().collect();
+        final_states.sort_by(|(a, _), (b, _)| a.cmp(b));
+        for ((word_count, _shared), paths) in final_states {
             if word_count == 0 {
                 continue;
             }
@@ -1191,7 +1245,13 @@ impl Generator {
                 segmentations.push((span_objective(word_count, &path), path));
             }
         }
-        segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
+        // And the cut is through a group of exactly-equal objectives once
+        // per target, so the tie-break has to be on the key itself: two
+        // complete paths with the same objective are ordered by their
+        // span chain, which is unique.
+        segmentations.sort_by(|a, b| {
+            cmp_desc(a.0, b.0).then_with(|| a.1.spans.cmp(&b.1.spans))
+        });
         segmentations.truncate(SEGMENTATION_KEEP);
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -1816,7 +1876,7 @@ impl Generator {
         target_ipa: &str,
         target_boundaries: &[usize],
         target_syllables: usize,
-    ) -> Vec<Clue> {
+    ) -> (Vec<Clue>, usize) {
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| {
@@ -1841,6 +1901,7 @@ impl Generator {
         // genuinely different ones.
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
+        let pool_size = clues.len();
 
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
@@ -1869,7 +1930,7 @@ impl Generator {
             }
         }
 
-        select_diverse(clues, self.config.top_n)
+        (select_diverse(clues, self.config.top_n), pool_size)
     }
 }
 
