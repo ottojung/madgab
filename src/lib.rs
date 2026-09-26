@@ -235,10 +235,14 @@ const EMIT_PROFILE_MAX_DEEP: usize = 3;
 /// constant that actually bounds wall clock, so those pops were spent out
 /// of a global budget ([`LEXICAL_GLOBAL_POP_BUDGET`]) on subtrees with no
 /// admissible leaf anywhere in them.  Measured at the shipped budgets the
-/// discarded fraction is small — 669 of 15 875 built wordings on
-/// `It's just a stupid game`, 87 of 13 640 on `recognize speech` — so this
-/// is a bound that is nearly inert by default and binds when a caller
-/// tightens `total_budget`.  That is stated rather than claimed as a win.
+/// discarded fraction is small — 4.2% of built wordings on one measured
+/// target, 0.6% on another — so this is a bound that is nearly inert by
+/// default and binds when a caller tightens `total_budget`.  That is stated
+/// rather than claimed as a win.  No target is named here on purpose: the
+/// written fence for this item forbids naming either acceptance example in
+/// production `src/`, `tests/no_phrase_hard_coding.rs` strips comments before
+/// it scans, so the two are kept apart by reading and by
+/// `no_canonical_example_in_a_production_doc_comment`.
 fn slot_is_affordable(
     committed: f64,
     later_minima: f64,
@@ -265,11 +269,13 @@ fn slot_is_affordable(
 /// [`LEXICAL_HEAP_POP_LIMIT`] = 4 000: a 4-slot segmentation needs 1 111
 /// pops to reach its first wording and does reach it, a 5-slot one needs
 /// 11 111 and does not, and the run shows it — of 256 retained
-/// segmentations, 27 emit no wording at all on `It's just a stupid game`,
-/// 109 on `a whole lot of trouble` and 84 on `the cat sat on the mat`,
-/// each after spending its full 4 000 pops.  Those pops buy nothing, and
-/// `spent_pops` is a share of a *global* budget, so the waste is paid for
-/// by the segmentations that do emit.
+/// segmentations, 27 emit no wording at all on one measured four-word
+/// target, 109 on a six-word one and 84 on another, each after spending
+/// its full 4 000 pops.  Those pops buy nothing, and `spent_pops` is a
+/// share of a *global* budget, so the waste is paid for by the
+/// segmentations that do emit.  The counts are recorded on the work item
+/// rather than here, because a production doc comment must not name either
+/// acceptance example and the automated fence strips comments.
 ///
 /// So the opening width is the largest `w` with
 /// `1 + w + ... + w^(d-1) <= pop_limit`, capped by
