@@ -1340,8 +1340,9 @@ impl Partial {
             clue_boundaries.push(cum);
         }
 
-        // Novelty: how few of the target's word boundaries the clue
-        // also has. Boundary at the end of the phrase is shared by
+        // Novelty as symmetric Jaccard distance over inner boundary
+        // sets: rewards both removed target boundaries and added clue
+        // boundaries. The final phrase boundary is shared by
         // construction, so exclude it.
         let target_inner: FastSet<usize> = target_boundaries
             .iter()
@@ -1354,8 +1355,12 @@ impl Partial {
             .filter(|b| *b < cum)
             .collect();
         let shared = target_inner.intersection(&clue_inner).count() as f64;
-        let denom = target_inner.len().max(1) as f64;
-        let novelty = 1.0 - (shared / denom);
+        let union = target_inner.union(&clue_inner).count() as f64;
+        let novelty = if union < 1.0 {
+            0.0
+        } else {
+            1.0 - (shared / union)
+        };
 
         // Word-novelty: penalty if the clue reuses any target word,
         // compared stem-aware so morphological parrots
@@ -2746,6 +2751,147 @@ mod shortlist_recall_tests {
         ("recognize speech", 4, "nice", 0.8),
         ("recognize speech", 9, "beach", 0.8),
     ];
+
+    #[test]
+    fn env_requested_phrase_approx_trace() {
+        let (Ok(target), Ok(phrase)) = (std::env::var("TARGET"), std::env::var("PHRASE")) else {
+            return;
+        };
+        let g = approx_gen();
+        let (ipa, boundaries) = transcribe_normalized_with_boundaries(g.corpus(), &target).unwrap();
+        let chars: Vec<char> = ipa.chars().collect();
+        let requested: Vec<String> = phrase
+            .split_whitespace()
+            .map(|w| w.to_lowercase().to_string())
+            .collect();
+        let target_words: FastSet<String> = target
+            .split_whitespace()
+            .map(|w| w.to_lowercase().to_string())
+            .collect();
+
+        #[derive(Clone)]
+        struct State {
+            word: usize,
+            offset: usize,
+            cost: f64,
+            path: Vec<ApproxMatch>,
+        }
+
+        let mut states = vec![State {
+            word: 0,
+            offset: 0,
+            cost: 0.0,
+            path: Vec::new(),
+        }];
+        let mut first_unreachable = None;
+        for word in &requested {
+            let mut next = Vec::new();
+            let mut reported_offsets = FastSet::default();
+            for state in &states {
+                if !reported_offsets.insert(state.offset) {
+                    continue;
+                }
+                let mut shortlist = g.approx_trie.words_approximately_starting_at(
+                    &g.approx_entries,
+                    &chars,
+                    state.offset,
+                    0.75,
+                    250,
+                );
+                shortlist.retain(|m| {
+                    m.word_len >= g.config.min_word_ipa_chars
+                        && m.consumed >= g.config.min_word_ipa_chars
+                });
+                for (rank, m) in shortlist
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, m)| m.word.eq_ignore_ascii_case(word))
+                {
+                    println!(
+                        "word={word:?} offset={} option={{word:{:?}, consumed:{}, cost:{:?}, rarity:{:?}, shortlist_rank:{}}}",
+                        state.offset, m.word, m.consumed, m.cost, m.rarity, rank
+                    );
+                }
+            }
+            for state in &states {
+                let mut shortlist = g.approx_trie.words_approximately_starting_at(
+                    &g.approx_entries,
+                    &chars,
+                    state.offset,
+                    0.75,
+                    250,
+                );
+                shortlist.retain(|m| {
+                    m.word_len >= g.config.min_word_ipa_chars
+                        && m.consumed >= g.config.min_word_ipa_chars
+                });
+                for m in shortlist
+                    .into_iter()
+                    .filter(|m| m.word.eq_ignore_ascii_case(word))
+                {
+                    let end = state.offset + m.consumed;
+                    let total = state.cost + m.cost;
+                    if end <= chars.len() && total <= 1.5 + 1e-9 {
+                        let mut path = state.path.clone();
+                        path.push(m);
+                        next.push(State {
+                            word: state.word + 1,
+                            offset: end,
+                            cost: total,
+                            path,
+                        });
+                    }
+                }
+            }
+            if next.is_empty() && first_unreachable.is_none() {
+                first_unreachable = Some(word.clone());
+            }
+            states = next;
+            if states.is_empty() {
+                break;
+            }
+        }
+
+        let complete: Vec<&State> = states
+            .iter()
+            .filter(|s| s.word == requested.len() && s.offset == chars.len())
+            .collect();
+        println!(
+            "target={target:?} phrase={phrase:?} ipa={ipa:?} complete_segmentations={}",
+            complete.len()
+        );
+        for state in complete {
+            let mut partial = Partial::empty();
+            for m in &state.path {
+                let reuse = if target_words.iter().any(|t| {
+                    Partial::stems_match(
+                        &Partial::stem_word(&Partial::norm_word(&m.word)),
+                        &Partial::stem_word(&Partial::norm_word(t)),
+                    )
+                }) {
+                    0.10
+                } else {
+                    0.0
+                };
+                partial = partial
+                    .extend_approx(&m.word, &m.ipa, m.rarity, m.consumed, m.cost, 0.0, reuse);
+            }
+            let words: Vec<&str> = state.path.iter().map(|m| m.word.as_str()).collect();
+            let clue_ipa = state
+                .path
+                .iter()
+                .map(|m| m.ipa.as_str())
+                .collect::<String>();
+            println!(
+                "segmentation={:?} sub_cost_total={:?} whole_similarity={:?} final_score={:?}",
+                words,
+                partial.sub_cost_total,
+                phonetics::similarity(&ipa, &clue_ipa),
+                partial.final_score(&boundaries, &target_words)
+            );
+        }
+        println!("first_unreachable={:?}", first_unreachable);
+    }
 
     #[test]
     fn shortlist_emits_resegmentation_keystones() {
