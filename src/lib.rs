@@ -1722,6 +1722,36 @@ impl Generator {
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
 
+        // ZZ_MEASURE scratch injection (w-7b2d40, scratch branch only):
+        // MADGAB_INJECT="phrase|score|c1,c2,..." adds one candidate at a
+        // stated alignment and score, so what bounds its visibility can be
+        // measured rather than argued about.
+        if let Ok(spec) = std::env::var("MADGAB_INJECT") {
+            let f: Vec<&str> = spec.splitn(3, '|').collect();
+            if f.len() == 3 {
+                let phrase = f[0].to_string();
+                let score: f64 = f[1].parse().expect("inject score");
+                let cuts: Vec<usize> =
+                    f[2].split(',').map(|x| x.parse().expect("inject cut")).collect();
+                let words = phrase
+                    .split_whitespace()
+                    .map(|w| ClueWord {
+                        word: w.to_string(),
+                        ipa: String::new(),
+                        rarity: None,
+                        sub_cost: 0.0,
+                    })
+                    .collect();
+                clues.push(Clue {
+                    phrase,
+                    ipa: String::new(),
+                    words,
+                    score,
+                    cuts,
+                });
+            }
+        }
+
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
             for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
@@ -3090,6 +3120,37 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         if !taken[i] {
             admit(i, &structures, &mut picked, &mut taken, &mut counts);
         }
+    }
+
+    // ZZ_MEASURE scratch instrumentation (w-7b2d40, scratch branch only).
+    if let Ok(path) = std::env::var("MADGAB_SEL_TRACE") {
+        let mut out = String::new();
+        out.push_str(&format!(
+            "STATS pool={} top_n={} available={} cap={} cutoff_rank={} cutoff_score={:.9}\n",
+            clues.len(),
+            top_n,
+            available.len(),
+            cap,
+            top_n.saturating_sub(1),
+            clues[cutoff[top_n - 1]].score
+        ));
+        for &i in &order {
+            out.push_str(&format!(
+                "C\t{}\t{:.17}\t{}\t{}\n",
+                i,
+                clues[i].score,
+                clue_structure(&clues[i])
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                clues[i].phrase
+            ));
+        }
+        for &i in &picked {
+            out.push_str(&format!("PICK\t{}\n", i));
+        }
+        let _ = std::fs::write(path, out);
     }
 
     // The list is shown in score order; the rule above decided
