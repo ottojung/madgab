@@ -20,6 +20,10 @@ pub(crate) struct FuzzyWord {
     pub(crate) ipa_len: usize,
     pub(crate) syllables: usize,
     pub(crate) rarity: Option<f64>,
+    /// Cached `lexical::is_closed_class(&word)`.  The span shortlist
+    /// sorts call the lexical test inside their comparators, and the test
+    /// lowercases, so it is not free enough to re-run there.
+    pub(crate) closed: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -397,12 +401,14 @@ pub(crate) fn build_lexicon(
         }
         let chars: Vec<char> = ipa.chars().collect();
         alphabet.extend(chars.iter().copied());
+        let closed = crate::lexical::is_closed_class(&word);
         words.push(FuzzyWord {
             word,
             syllables: ipa_syllables(&ipa),
             ipa,
             ipa_len: chars.len(),
             rarity: entry.rarity,
+            closed,
         });
     }
 
@@ -469,6 +475,7 @@ mod tests {
             ipa_len: 4,
             syllables: 1,
             rarity: Some(100.0),
+            closed: false,
         }];
         let mut nodes = vec![TrieNode::default()];
         let mut node = 0;
