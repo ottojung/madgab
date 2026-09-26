@@ -549,3 +549,27 @@ Next action for a later fresh pass, in priority order:
 4. Only after the acceptance test passes, close [w-4b1e07](w-4b1e07.md) and
    [w-a02d28](w-a02d28.md) together and re-check the itinerary's milestone
    conditions, including that nothing landed on `main`.
+
+### Addendum, same pass (17:12Z)
+
+Item 3 of the list above is already done and no longer owed here: `d4f0b21`
+succeeded with exit code 0, its fence was reviewed and **integrated as
+`ecb42c6`**, its positive control was reproduced by this coordinator against
+the integrated tree, and [w-d4f0b2](w-d4f0b2.md) is now `done` with all six
+criteria verified. Detail is in that item. Net effect on this front: the
+forbidden shortcut now fails `cargo test` rather than depending on a
+coordinator's attention, which is the pressure this item has been under for
+eight refuted mechanisms.
+
+Durability reconciliation on the way out, done the way the 16:35Z pass
+prescribed — `git ls-remote --heads origin` compared against `git for-each-ref
+refs/heads`, not against the narrowed remote-tracking refs: **41 local
+branches, 67 remote, zero local-only, zero remote-ahead**. Nothing in this
+repository is single-copy. `main` does not exist on this host, local or remote.
+`post-milestone-acceptance` is `83259fe` and pushed.
+
+`c4e8d70` is `running`, `prompts: 5`, left running on `madgab-enum-reach` for a
+later fresh pass to inspect. Note for that pass: one of its five prompts is the
+coordinator's accidental one-word `--steer "test"`, which was immediately
+corrected by the real steer in the same pass; the substantive prompt is the
+last one.
