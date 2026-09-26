@@ -11,12 +11,27 @@ is never merged, and nothing is pushed to `main`.
 **The fix did not land.** On the default approximate path, release build, the
 requested wording `Hits Justice Dupe Hid Came` is in the deduplicated pool
 **0 times** — the target the item exists to move from 0 to non-zero is still 0.
-In the same breath the change **broke a guard it was required to keep green**:
-`approximate_pool_reaches_alternatives_past_the_opening_slot_width` passes on the
-parent `fe4ad78` and **fails** on `a58a49b`, on `tickets` for
-`the cat sat on the mat`, which is the same regression the pool measurement
-shows independently (`tickets` 3 pool candidates -> 0). Criterion 3 fails and
-criterion 5 fails. Wall clock did **not** regress.
+
+**And the change cost pool breadth on every target measured, and broke a guard
+it was required to keep green.** This is a first-class finding, not a footnote,
+and it is set out in full in section 1b below:
+
+* `approximate_pool_reaches_alternatives_past_the_opening_slot_width` passes on
+  the parent `fe4ad78` and **fails** on `a58a49b`, on `tickets` for
+  `the cat sat on the mat` — the same regression the pool measurement finds
+  independently of the test (`tickets` 3 pool candidates -> 0).
+* Aggregate non-leading word reachability falls on **all six** targets, from
+  9657 distinct non-target words reachable at position >= 1 to 8546, a loss of
+  **1111 words (-11.5%)**. This is a systematic narrowing, not a reshuffle.
+* Three previously-reachable deep words are gone (`tickets` 3 -> 0,
+  `capture` 1 -> 0, `copper` 1 -> 0) and **none of the six designated witnesses
+  improved**.
+* The visible `--top 50` output is **byte-identical** on every target checked, so
+  `select_diverse` masks the entire pool loss from the user and from
+  `approximate_output_is_locked`. The guard is the only thing that catches it.
+
+Criterion 3 fails, criterion 5 fails. Wall clock did **not** regress, replicated
+across two independent sessions.
 
 ## Instrumentation on this branch, and its non-intrusiveness
 
@@ -406,6 +421,287 @@ problem and the fix is under-reserved rather than mis-shaped. This is the
 admissible next step because it is answerable from the same deduplicated pool
 dump plus the already-existing `MADGAB_TRACE_SPANS` / `MADGAB_TRACE_WORDS`
 hooks, with no harness widening and no re-budgeting.
+
+## 1b. THE POOL REGRESSION, as a first-class finding
+
+Parent `fe4ad78` vs `a58a49b`, both default approximate path, both release, both
+the deduplicated pool the binary produced, offsets from `Clue::cuts`. Parent
+column from `scratch/2f7a10-base`'s dump of the same target; new column from
+this front's dump. Designated witness in bold.
+
+```text
+target                        pool(parent->new)  structs(p->n)  cutoff rank49 (p->n)      fill rank (p->n)
+a whole lot of trouble          16151 -> 15713     326 -> 326     0.895695875 -> same      49 -> 49
+the cat sat on the mat          16262 -> 15864     330 -> 330     0.893683280 -> same      50 -> 50
+put it back on the shelf        15633 -> 15257     314 -> 314     0.894965791 -> same      51 -> 51
+when the rain finally stopped   15610 -> 15120     352 -> 352     0.914965805 -> same      60 -> 60
+he was a big fat man            19164 -> 18992     313 -> 313     0.895134791 -> same      49 -> 49
+what are you going to do        14544 -> 14033     309 -> 309     0.905780912 -> same      54 -> 54
+```
+
+Every structure count and every visible cutoff score is **byte-identical** to the
+parent. Every pool is **smaller**, by 438 / 398 / 376 / 490 / 172 / 511, and
+every fill rank is unchanged except the canonical target (104 -> 105).
+
+Designated and corroborating witnesses, membership in the deduplicated pool:
+
+```text
+target                        witness      parent      new      verdict
+a whole lot of trouble        delve           1  ->      1     unchanged, non-leading (slot 7)
+                              dwell           1  ->      1     unchanged, non-leading (slot 7)
+                              pulp            1  ->      1     unchanged, non-leading (slot 7)
+the cat sat on the mat        tickets         3  ->      0     REGRESSED TO ZERO
+                              tossed          1  ->      3     improved 1 -> 3
+                              capture         1  ->      0     REGRESSED TO ZERO
+put it back on the shelf      louis           8  ->      8     unchanged, non-leading (slot 6)
+                              taught         28  ->     29     +1, but still LEADING SLOT 0 ONLY
+                              beef            4  ->      4     unchanged, non-leading (slot 7)
+                              fool            4  ->      5     improved 4 -> 5
+when the rain finally stopped aar            13  ->     13     unchanged, non-leading (slot 3)
+                              copper          1  ->      0     REGRESSED TO ZERO
+                              mist            1  ->      2     improved 1 -> 2
+he was a big fat man          honour          1  ->      1     unchanged, non-leading (slot 6)
+                              inner           1  ->      1     unchanged, non-leading (slot 6)
+what are you going to do      perdue          2  ->      2     unchanged, non-leading (slot 7)
+                              duper           2  ->      2     unchanged, non-leading (slot 7)
+                              dougie          2  ->      5     improved 2 -> 5
+(all targets)                 misfit          0  ->      0     unchanged, UNREACHABLE everywhere
+```
+
+**Regressed to zero: `tickets` (3 -> 0), `capture` (1 -> 0), `copper` (1 -> 0).**
+**Improved: `tossed` (1 -> 3), `dougie` (2 -> 5), `fool` (4 -> 5), `mist` (1 -> 2),
+`taught` (28 -> 29, but still leading-slot-only so it buys no non-leading
+reachability).**
+**Of the six designated witnesses — `delve`, `tickets`, `louis`, `aar`, `honour`,
+`perdue` — five are unchanged and one (`tickets`) is destroyed. None improved.**
+
+The aggregate, which is the finding rather than any single word:
+
+```text
+target                          distinct non-target words   of which reachable at position >= 1
+a whole lot of trouble              1766 -> 1634  (-132)        1619 -> 1481  (-138)
+the cat sat on the mat              1773 -> 1575  (-198)        1662 -> 1460  (-202)
+put it back on the shelf            1760 -> 1565  (-195)        1533 -> 1334  (-199)
+when the rain finally stopped       2231 -> 1973  (-258)        2035 -> 1801  (-234)
+he was a big fat man                1580 -> 1446  (-134)        1421 -> 1283  (-138)
+what are you going to do            1499 -> 1290  (-209)        1387 -> 1187  (-200)
+TOTAL                                10609 -> 9483 (-1126)       9657 ->  8546 (-1111, -11.5%)
+```
+
+**Breadth falls on every single target, by 138 to 234 non-leading words each.**
+A reshuffle would show wins and losses roughly balancing in the aggregate; this
+is a one-directional loss of 11.5% of non-leading word reachability. The change
+is described as widening coverage — sampling "points of a class's index
+rectangle" instead of "diagonals" — and on the real pools it **narrows** coverage
+by roughly a ninth, because the per-slot rotations make each class emit fewer
+*distinct* deep words and the shallower classes, which were cheap breadth, now
+compete for a reserve whose depth-4 classes are funded from the first tuple.
+
+The user-visible consequence is nil and the internal consequence is severe:
+
+```sh
+for t in "It's just a stupid game" "the cat sat on the mat" "put it back on the shelf"; do
+  /workspace/wc-verify/base/target/release/madgab --approximate --top 50 "$t" > /tmp/cmp_b.txt
+  /workspace/wc-verify/new/target/release/madgab  --approximate --top 50 "$t" > /tmp/cmp_n.txt
+  cmp /tmp/cmp_b.txt /tmp/cmp_n.txt && echo "IDENTICAL: $t"
+done
+```
+
+```text
+VISIBLE OUTPUT BYTE-IDENTICAL: It's just a stupid game
+VISIBLE OUTPUT BYTE-IDENTICAL: the cat sat on the mat
+VISIBLE OUTPUT BYTE-IDENTICAL: put it back on the shelf
+```
+
+`select_diverse` absorbs the entire 269-candidate pool loss on the canonical
+target and the entire `tickets` loss on `the cat sat on the mat` without emitting
+a single different visible clue. That is why `approximate_output_is_locked` still
+passes, and it is why the pool-level guard is the only instrument in this
+repository that can see the change at all. **A change that is invisible in the
+product and visible only as a broken pool invariant has bought nothing and cost
+the invariant.**
+
+## 2. The canonical membership number, one line
+
+> **The requested wording: ABSENT, 0 pool members.**
+
+Taken from the deduplicated pool the **release** binary produced on the
+**default** approximate path for `It's just a stupid game` with `--top 50`,
+offsets verbatim from `madgab::Clue::cuts`, via a read-only env-gated dump
+(`ZZ_POOL_OUT`) placed after the `phrase_signature` dedup and before
+`select_diverse`, with the probe proven non-intrusive (stdout byte-identical with
+and without it, on all seven targets). The default path's own trace agrees
+independently, using the same predicate the probe uses:
+
+```text
+MADGAB_TRACE raw phrase="hits justice dupe hid came" missing candidates=17637
+```
+
+`missing candidates` equals the pool size 17637, so zero candidates match. This
+agrees with the implementer's own arm, which reports every pair of the wording's
+words still at 0 after the change. No further explanation of provenance is
+needed because the number is not in dispute; the disagreement in this queue is
+about the cause, and section 1's `dupe` offset-coverage finding is the cause this
+front can evidence.
+
+## 3. Review: is the reserve change defensible as a general improvement on its own terms?
+
+The brief puts four things in the change's favour and one against. Taking each
+on its own evidence.
+
+**(a) "It makes a 4-deep off-modal pairing reachable where 3 was the max."**
+True as a property of `coverage_tuples`, and it is asserted:
+`depth_profile_reserve_emits_pairings_not_only_diagonals` passes on all 64
+phases of the synthetic widths `[SPAN_SHORTLIST, 7, SPAN_SHORTLIST,
+SPAN_SHORTLIST, 93]` (`cargo test --release --lib` 51 passed, 0 failed). But this
+is the weak point of the whole change: **the property is demonstrated only on
+synthetic widths, and it is never observed to fire on a real pool.** On the
+canonical target the 4-deep capability produced 14 added wordings, and every one
+of the resulting 48 members of `[3,10,13,15,19]` still leads with `each` or a
+near neighbour and keeps `justice` in slot 1. On the six real targets no new
+designated witness appeared. The unit test proves the *shape* is expressible; no
+measurement in this front shows it being *used* for a pairing on any real input.
+That is a real gap between the claim and the evidence, and it is the same gap
+that let the change ship with the item's own target still at 0.
+
+**(b) "It keeps the visible output identical."** True, and verified directly:
+byte-identical `--top 50` output on all three targets checked, including
+`the cat sat on the mat`, whose pool lost `tickets`. This is not the safety it
+appears to be — section 1b shows the identical visible output coexists with an
+11.5% loss of pool breadth. Identical visible output means the change is
+*undetectable in the product*, not that it is safe.
+
+**(c) "It keeps the guard green."** **It does not.**
+`approximate_pool_reaches_alternatives_past_the_opening_slot_width` passes on
+`fe4ad78` and fails on `a58a49b`. This claim is false as stated, and it is the
+single hardest fact against the branch.
+
+**(d) "The wall clock is flat."** True, and now replicated. Session 1 median
+`search` deltas ran -4.7% to +12.9%; session 2 ran -10.2% to +12.8%, with the
+sign **flipping per target between sessions** (`he was a big fat man` +1.9% then
+-10.0%; `what are you going to do` +0.7% then -10.2%; `the cat sat on the mat`
+-1.4% then +12.8%). Two sessions, 8 reps per target per arm, opposite signs: the
+true effect is indistinguishable from zero and per-target noise on this host is
++-10-13%. Consistent with the pool getting *smaller*, not larger. This is the
+change's strongest genuine result.
+
+**(e) "It costs pool breadth and at least one non-canonical witness."**
+Understated. It costs breadth on **all six** targets, **-1111 non-leading words
+(-11.5%)** in aggregate, and it costs **three** witnesses to zero
+(`tickets`, `capture`, `copper`), one of which is the word a green guard test
+asserts on. It buys no improvement in any designated witness and no appearance of
+the requested wording.
+
+### Verdict
+
+**Not defensible as a general improvement, on this evidence.** Not because the
+idea is wrong — making the reserve emit points rather than diagonals of a
+class's index rectangle is a correct diagnosis of a real defect, and the depth
+interleave plus `EMIT_PROFILE_MAX_DEEP = 4` is a coherent way to attack it. It
+is not defensible because, on the pools that exist, the change delivers **none**
+of its claimed benefit at the item's target (0 members, unchanged) while
+measurably **narrowing** coverage by about a ninth and breaking the invariant
+that exists to prevent exactly that. The cost is measured, repeated and
+one-directional; the benefit is asserted on synthetic widths and unobserved in
+the product. A change whose only demonstrated effect is a measurable loss should
+not be integrated on the strength of a unit test.
+
+I record no view on whether the idea should be attempted again with a different
+budget or a different rotation; that is a later pass's call, and the numbers
+below are what such a pass would need.
+
+### The measurement that would settle the breadth question
+
+**Not** another wall clock, and not another pool dump. The question is whether
+the 11.5% breadth loss is intrinsic to sampling points-with-rotations or an
+artefact of the reserve being spent on depth-4 classes from the first tuple.
+The settling measurement is a **reserve-size sweep on the default path**:
+measure aggregate non-leading word reachability (the 9657/8546 metric above) and
+`tickets` membership on the canonical target and on `the cat sat on the mat`, for
+`EMIT_PROFILE_RESERVE` at its current value and at 1.5x and 2x, plus the current
+`EMIT_PROFILE_MAX_DEEP` of 4 and 3, all against the parent as control. That
+yields a four-cell answer to "is the loss a depth-cap cost or a budget cost".
+It is admissible as stated — same default path, same release build, same
+deduplicated pool dump, no re-budgeted harness, no shortlist ranks — because the
+constants are the object under test and the emitted tuples are still filtered by
+`build`'s additive `total_budget` comparison, which is the bound the work item
+requires the deeper enumeration to be derived from. If breadth is restored at
+2x reserve without the requested wording appearing, the loss is a budget cost and
+the front is viable. If breadth stays down at every setting, the rotation scheme
+itself is the cost and the approach needs rethinking before it is retried.
+
+## 4b. Note on the `/tmp/opencode` build path for criterion 7
+
+A later coordinator pass recorded that `/tmp` is `noexec` but `/tmp/opencode` is
+exec-capable, and directed that the two arms be built under `/tmp/opencode/wc`.
+**That is not the case on this host, and the build fails there.** Evidence:
+
+```text
+$ git archive fe4ad78 | tar -x -C /tmp/opencode/wc/base   # extraction succeeds
+$ cargo build --release   # in /tmp/opencode/wc/base
+error: failed to run custom build command for `proc-macro2 v1.0.107`
+Caused by: could not execute process `.../build-script-build` (never executed)
+Caused by: Permission denied (os error 13)
+
+$ cat /proc/mounts | grep tmpfs
+tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,relatime,inode64 0 0
+
+$ ls -l .../build-script-build
+-rwxr-xr-x 2 lubko lubko 462024 ...        # mode 0755, yet EACCES on exec
+$ printf '#!/bin/sh\necho EXEC-OK\n' > /tmp/opencode/wc/probe.sh; chmod +x ...
+$ /tmp/opencode/wc/probe.sh
+bash: .../probe.sh: Permission denied
+```
+
+`/tmp/opencode` is a plain subdirectory of the same `noexec` tmpfs and has no
+mount of its own, so the exec bit is set and the kernel still refuses. This is
+the same finding as the first pass, now confirmed with a minimal exec probe as
+well as a cargo build.
+
+The criterion 7 measurement was therefore taken with the coordinator's prescribed
+recipe and only the parent directory changed, forced by `noexec`:
+
+```sh
+git archive a58a49b | tar -x -C /workspace/wc-verify/new    # a58a49b, pristine
+git archive fe4ad78 | tar -x -C /workspace/wc-verify/base   # fe4ad78, pristine
+(cd /workspace/wc-verify/new  && cargo build --release)
+(cd /workspace/wc-verify/base && cargo build --release)
+```
+
+No worktree, no checkout, nothing in the repository mutated — `git status` is
+clean and `git log -1` is `781fb5f` after all timing runs. Arm provenance
+verified by hashing `src/lib.rs` in each build tree against the git blob of its
+commit:
+
+```text
+base  worktree fbeb85dbd69ddf55   fe4ad78 git blob fbeb85dbd69ddf55   MATCH
+new   worktree 1f0a63eab0e7564a   a58a49b git blob 1f0a63eab0e7564a   MATCH
+base  ZZ_POOL_OUT present: false
+new   ZZ_POOL_OUT present: false
+```
+
+Both arms carry **no probe**, so the comparison is search against search and not
+probe against no-probe. Section 2's numbers are replicated in a second
+independent session (`/tmp/wc.js`, 4 reps per target per arm, interleaved, arm
+order alternated each rep, one discarded warm-up per binary):
+
+```text
+target                        parent search med   a58a49b search med    delta
+a whole lot of trouble              1436 ms            1449 ms     +13 ms   ( +0.9%)
+the cat sat on the mat              1613 ms            1820 ms    +207 ms   (+12.8%)
+put it back on the shelf            1635 ms            1717 ms     +82 ms   ( +5.0%)
+when the rain finally stopped       2087 ms            2105.5 ms   +18.5 ms  ( +0.9%)
+he was a big fat man                1597 ms            1437.5 ms  -159.5 ms (-10.0%)
+what are you going to do            1605 ms            1442 ms    -163 ms   (-10.2%)
+It's just a stupid game             1488 ms            1584.5 ms   +96.5 ms  ( +6.5%)
+```
+
+Signs flip against session 1 on three of seven targets, in both directions, so
+the per-target noise band is +-10-13% and the effect is not distinguishable from
+zero. `a whole lot of trouble`, the only target that showed +12.9% in session 1,
+came in at +0.9% in session 2 and at med 1.83 s / mean 1.87 s against the
+parent's med 1.83 s / mean 1.88 s over 8 further interleaved reps. **No wall
+clock regression, on two independent sessions.**
 
 ## Branches
 
