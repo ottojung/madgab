@@ -415,7 +415,21 @@ impl Generator {
                             reuse_penalty,
                             m.cost,
                         );
-                        if !completed.would_admit_ub(partial.words.len() + 1, &mstem[mi], score) {
+                        // Hierarchical terminal gate: assemble the
+                        // clone id and head-prefix subgroup key the
+                        // floor arbitrates by (a few small
+                        // allocations per closing-zone terminal pair;
+                        // refused pairs skip the much costlier
+                        // Partial clone below).
+                        let nw = partial.words.len() + 1;
+                        let cid = BeamPos::assemble_id(partial, &m.ipa, &mnorm[mi]);
+                        let pipas: Vec<String> = partial
+                            .words
+                            .iter()
+                            .map(|w| w.ipa.clone())
+                            .collect();
+                        let head = head_key(&pipas, nw);
+                        if !completed.would_admit_ub(nw, &mstem[mi], &head, &cid, score) {
                             continue;
                         }
                         let next = partial.extend_approx(
@@ -1627,20 +1641,53 @@ impl CompletionTop {
 
     /// Pre-gate for a terminal candidate scored by
     /// [`Partial::terminal_score_exact`] without building it:
-    /// admits unless the family's floor is full and the score cannot
-    /// reach its minimum. Sound: scores are non-negative, so bit
-    /// order matches numeric order; anything else proceeds to
-    /// extend+insert, which arbitrate exactly (including ties and
-    /// clone improvements). Allocation-free (borrowed stem lookup,
-    /// cached minima).
-    fn would_admit_ub(&self, nwords: usize, last_stem: &str, ub: f64) -> bool {
+    /// admits exactly the candidates [`CompletionInner::insert`]
+    /// would retain (same diverse floor plus per-key cap), so the
+    /// hot terminal loop skips the clone for parses the floor would
+    /// evict. Pure function of pool content: arrival order cannot
+    /// matter.
+    fn would_admit_ub(
+        &self,
+        nwords: usize,
+        last_stem: &str,
+        head: &str,
+        id: &CloneId,
+        ub: f64,
+    ) -> bool {
         let Some(inner) = self.tops.get(&nwords) else {
             return true;
         };
-        let Some((min, len)) = inner.family_stats(last_stem) else {
+        // Clone improvement: the floor already holds this parse.
+        if inner.map.contains_key(id) {
             return true;
-        };
-        len < COMPLETION_FAMILY_KEEP || ub.to_bits() >= min
+        }
+        if let Some(members) = inner.families.get(last_stem) {
+            if members.len() >= COMPLETION_FAMILY_KEEP {
+                let mut tmp: Vec<(CloneId, f64, String)> = members
+                    .iter()
+                    .map(|(i, b, h)| (i.clone(), f64::from_bits(*b), h.clone()))
+                    .collect();
+                tmp.push((id.clone(), ub, head.to_string()));
+                if !select_floor(&tmp, COMPLETION_FAMILY_KEEP).contains(id) {
+                    return false;
+                }
+            }
+        }
+        // Per-phonetic-path cap prediction (same order insert evicts
+        // by: worst of the cohort past the keep).
+        if let Some(cohort) = inner.keys.get(&id.0) {
+            if cohort.len() >= COMPLETION_PER_KEY {
+                let mut tmp: Vec<(CloneId, f64, String)> = cohort
+                    .iter()
+                    .map(|(i, b)| (i.clone(), f64::from_bits(*b), String::new()))
+                    .collect();
+                tmp.push((id.clone(), ub, String::new()));
+                if !select_floor(&tmp, COMPLETION_PER_KEY).contains(id) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     fn drain_sorted(self) -> Vec<Partial> {
@@ -1656,19 +1703,39 @@ impl CompletionTop {
 /// One stratum of [`CompletionTop`]: per-last-stem family floors
 /// with clone suppression (one slot per distinct (pronunciation,
 /// lexical-sequence) parse, so lexically different homophones never
-/// overwrite each other). Each family's content is exactly its
-/// top-[`COMPLETION_FAMILY_KEEP`] by (score, clone id): a pure
-/// function of arrivals, never of arrival order. Scores ride along
-/// in the member tuples so floor checks never hash the pool map.
-/// Capped so the final re-rank (sort + diversity selection) stays
-/// interactive.
+/// overwrite each other) plus a hierarchical per-phonetic-path cap
+/// (see [`COMPLETION_PER_KEY`]): each family's content is exactly
+/// its top-[`COMPLETION_FAMILY_KEEP`] by (score, clone id) restricted
+/// to at most per-key spellings per IPA sequence — a pure function
+/// of arrivals, never of arrival order. Scores ride along in the
+/// member tuples so floor checks never hash the pool map. Capped so
+/// the final re-rank (sort + diversity selection) stays interactive.
 struct CompletionInner {
     seq: u64,
     /// Clone key → `(score_bits, seq, entry)`.
     map: FastMap<CloneId, (u64, u64, Partial)>,
-    /// Last-word stem → members as (clone id, score bits).
-    families: FastMap<String, Vec<ScoredId>>,
+    /// Last-word stem → members as (clone id, score bits,
+    /// head-prefix subgroup key). Each family's content is its
+    /// diverse floor (see [`select_floor`]).
+    families: FastMap<String, Vec<FloorMember>>,
+    /// Full IPA-word sequence → members as (clone id, score bits).
+    /// Bounds homophone multiplicity inside each family floor so
+    /// acoustically identical spellings cannot consume the slots of
+    /// phonetically distinct parses.
+    keys: FastMap<String, Vec<ScoredId>>,
 }
+
+/// Per-phonetic-path lexical cap for terminal retention: each
+/// distinct IPA-word sequence keeps at most this many of its best
+/// completions (by final score, clone-id tiebreak). Homophones and
+/// spelling variants of one phonetic path share the key, so they
+/// collapse to their best representatives — chosen by the exact
+/// final score, which already encodes familiarity/rarity, lexical
+/// plausibility and target-word novelty — while phonetically
+/// distinct parses ending in the same stem keep their own slots.
+/// Small and fixed: output lexical variety comes from distinct
+/// phonetic paths, not from spelling swarms of one path.
+const COMPLETION_PER_KEY: usize = 2;
 
 impl CompletionInner {
     fn new() -> Self {
@@ -1676,6 +1743,7 @@ impl CompletionInner {
             seq: 0,
             map: FastMap::default(),
             families: FastMap::default(),
+            keys: FastMap::default(),
         }
     }
 
@@ -1688,43 +1756,25 @@ impl CompletionInner {
             .unwrap_or_default()
     }
 
-    /// Minimum score bits plus member count in a family
-    /// (borrowed lookup, cached scores): backs the terminal pre-gate.
-    fn family_stats(&self, stem: &str) -> Option<(u64, usize)> {
-        self.families.get(stem).map(|members| {
-            let min = members
-                .iter()
-                .map(|(_, bits)| *bits)
-                .min()
-                .unwrap_or(u64::MAX);
-            (min, members.len())
-        })
-    }
-
-    /// Worst member of a family: lowest score bits, largest clone
-    /// id tiebreak (admitted set is exactly top-K by (score, id)).
-    fn worst_of(members: &[ScoredId]) -> Option<CloneId> {
-        members
-            .iter()
-            .max_by(|a, b| {
-                // Worst = smallest bits; tiebreak = largest id
-                // evicted first. Scores are non-negative, so bit
-                // order matches numeric order.
-                b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-            })
-            .map(|(id, _)| id.clone())
-    }
-
     fn insert(&mut self, candidate: Partial, score: f64) {
         // Scores are finite (bounded arithmetic in final_score).
         let bits = score.to_bits();
         let id = (candidate.key.clone(), candidate.lex.clone());
         let family = Self::family_of(&candidate);
+        let key = candidate.key.clone();
+        let candidate_ipas: Vec<String> =
+            candidate.words.iter().map(|w| w.ipa.clone()).collect();
+        let head = head_key(&candidate_ipas, candidate.words.len());
         if let Some(slot) = self.map.get_mut(&id) {
             if bits > slot.0 {
                 self.seq += 1;
                 *slot = (bits, self.seq, candidate);
                 if let Some(ms) = self.families.get_mut(&family) {
+                    if let Some(slot) = ms.iter_mut().find(|m| m.0 == id) {
+                        slot.1 = bits;
+                    }
+                }
+                if let Some(ms) = self.keys.get_mut(&key) {
                     if let Some(slot) = ms.iter_mut().find(|m| m.0 == id) {
                         slot.1 = bits;
                     }
@@ -1737,21 +1787,66 @@ impl CompletionInner {
         self.families
             .entry(family.clone())
             .or_default()
-            .push((id, bits));
-        // Enforce the family floor.
-        if let Some(members) = self
+            .push((id.clone(), bits, head));
+        self.keys.entry(key.clone()).or_default().push((id, bits));
+        // Enforce the diverse family floor (subgroup champions
+        // first, then quality fill): evict every member outside the
+        // retained set.
+        if self
             .families
             .get(&family)
-            .filter(|m| m.len() > COMPLETION_FAMILY_KEEP)
+            .map_or(0, Vec::len)
+            > COMPLETION_FAMILY_KEEP
         {
-            let members = members.clone();
-            if let Some(worst) = Self::worst_of(&members) {
-                if let Some(ms) = self.families.get_mut(&family) {
-                    if let Some(pos) = ms.iter().position(|m| m.0 == worst) {
-                        ms.swap_remove(pos);
-                    }
-                }
-                self.map.remove(&worst);
+            let scored: Vec<(CloneId, f64, String)> = self.families[&family]
+                .iter()
+                .map(|(i, b, h)| (i.clone(), f64::from_bits(*b), h.clone()))
+                .collect();
+            let keep = select_floor(&scored, COMPLETION_FAMILY_KEEP);
+            let drop: Vec<CloneId> = self.families[&family]
+                .iter()
+                .map(|(i, _, _)| i.clone())
+                .filter(|i| !keep.contains(i))
+                .collect();
+            for i in drop {
+                self.evict(&i);
+            }
+        }
+        // Enforce the per-phonetic-path cap: homophone swarms of one
+        // IPA sequence keep only their best representatives.
+        if self.keys.get(&key).map_or(0, Vec::len) > COMPLETION_PER_KEY {
+            let scored: Vec<(CloneId, f64, String)> = self.keys[&key]
+                .iter()
+                .map(|(i, b)| (i.clone(), f64::from_bits(*b), String::new()))
+                .collect();
+            let keep = select_floor(&scored, COMPLETION_PER_KEY);
+            let drop: Vec<CloneId> = self.keys[&key]
+                .iter()
+                .map(|(i, _)| i.clone())
+                .filter(|i| !keep.contains(i))
+                .collect();
+            for i in drop {
+                self.evict(&i);
+            }
+        }
+    }
+
+    /// Remove a completion from every index (pool, family floor,
+    /// per-key cohort). Eviction targets come from cloned member
+    /// lists, so each index lookup tolerates absence.
+    fn evict(&mut self, id: &CloneId) {
+        let Some((_, _, partial)) = self.map.remove(id) else {
+            return;
+        };
+        let family = Self::family_of(&partial);
+        if let Some(ms) = self.families.get_mut(&family) {
+            if let Some(pos) = ms.iter().position(|m| &m.0 == id) {
+                ms.swap_remove(pos);
+            }
+        }
+        if let Some(ms) = self.keys.get_mut(&partial.key) {
+            if let Some(pos) = ms.iter().position(|m| &m.0 == id) {
+                ms.swap_remove(pos);
             }
         }
     }
@@ -1788,6 +1883,76 @@ type CloneId = (String, String);
 /// Scored clone identity: clone id plus score bits, so floor
 /// ordering scans scores without hashing the entry map.
 type ScoredId = (CloneId, u64);
+/// Floor member: clone id, score bits, and subgroup key. The
+/// subgroup key is the previous-word IPA in transit beam families
+/// and the head-prefix IPA (all but the last two words) in terminal
+/// families — in both cases the structural history that
+/// near-twin hypotheses share. Scores and subgroup keys ride along
+/// so gates and floors scan without touching the entry maps.
+type FloorMember = (CloneId, u64, String);
+
+/// Diverse floor selection: subgroup champions first, then quality
+/// fill. Pure function of the member multiset — deterministic and
+/// arrival-order independent.
+///
+/// Members are (clone id, score, subgroup key) with higher score
+/// better. Each subgroup's champion (best by score, clone-id
+/// tiebreak) is retained first, best-champion-first; remaining slots
+/// fill by global (score, id). Fewer members than `keep` keeps
+/// everything.
+///
+/// Rationale: within one hypothesis family, score gaps in a narrow
+/// band are acoustic noise the search cannot resolve — hundreds of
+/// near-twin prefixes (fragment spelling swarms sharing one suffix
+/// history, rhyme swarms sharing one head) would otherwise fill
+/// their family's whole floor and crowd out thin genuine hypotheses
+/// sitting mid-pack. Champions-first bounds every swarm to its best
+/// representatives while scores still decide *within* a subgroup
+/// and the fill. Generic IPA/stem structure only, never lexical
+/// content; fixed `keep` never grows.
+fn select_floor(members: &[(CloneId, f64, String)], keep: usize) -> Vec<CloneId> {
+    // Total best-first order; champions are first-per-subgroup.
+    let mut ordered: Vec<usize> = (0..members.len()).collect();
+    ordered.sort_by(|&a, &b| {
+        members[b]
+            .1
+            .partial_cmp(&members[a].1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| members[a].0.cmp(&members[b].0))
+    });
+    let mut seen: FastSet<&String> = FastSet::default();
+    let mut champs: Vec<usize> = Vec::new();
+    let mut rest: Vec<usize> = Vec::new();
+    for idx in ordered {
+        if seen.insert(&members[idx].2) {
+            champs.push(idx);
+        } else {
+            rest.push(idx);
+        }
+    }
+    champs
+        .into_iter()
+        .chain(rest)
+        .take(keep)
+        .map(|i| members[i].0.clone())
+        .collect()
+}
+
+/// Head-prefix subgroup key of an n-word parse: the IPA sequence of
+/// all but the last two words, joined by spaces (empty for parses
+/// shorter than three words — a single subgroup). Near-twins that
+/// differ only in a penultimate rhyme word share it; structurally
+/// distinct resegmentations do not.
+fn head_key(ipas: &[String], total_nwords: usize) -> String {
+    if total_nwords < 3 {
+        return String::new();
+    }
+    ipas.iter()
+        .take(total_nwords - 2)
+        .map(|s| s.as_str())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 /// One beam position: a deferred, order-independent candidate pool.
 ///
@@ -1802,30 +1967,53 @@ type ScoredId = (CloneId, u64);
 /// later links plus the final scorer decide.
 ///
 /// Bounding is online but order-independent: each family's content
-/// is exactly its top-K by (cheap score, clone id), a pure function
+/// is exactly its top-K by (cheap score, clone id) restricted to at
+/// most [`KEY_LEX_KEEP`] spellings per phonetic path, a pure function
 /// of the candidate multiset — arrival order only affects
 /// intermediate states, never the final set. (A batch
 /// accumulate-everything-then-select would need hundreds of
 /// megabytes per position at real fan-in; the outcome here is
 /// identical to batch floors.) The hot pair loop pre-filters
 /// through [`BeamPos::would_admit`] (arithmetic + hash lookups, no
-/// allocation) and only clones a `Partial` on admission; floors
-/// refuse ~99% of pairs before cloning, which funds the wide
-/// fan-in the floors must see.
+/// allocation on the family-refusal path) and only clones a `Partial`
+/// on admission; floors refuse ~99% of pairs before cloning, which
+/// funds the wide fan-in the floors must see.
 struct BeamPos {
     /// Clone key (word-IPA sequence, normalized word sequence) ->
     /// covering. Clone-suppressed: best cheap score wins.
     pool: FastMap<CloneId, Partial>,
     /// Hypothesis families: stratum cell (word count, cost tier)
-    /// -> last-word IPA -> members as (clone id, cheap-score bits).
-    /// Each family's membership is its top-K; vectors stay tiny (≤
-    /// [`GROUP_POOL_KEEP`]). Cheap bits ride along so the hot gate
-    /// scans scores without touching the pool map (hashing two
-    /// Strings per member would dominate pair cost). Two levels so
-    /// the gate looks families up by borrowed `&str` without
-    /// allocating.
-    groups: FastMap<(usize, u8), FastMap<String, Vec<ScoredId>>>,
+    /// -> last-word IPA -> members as (clone id, cheap-score bits,
+    /// previous-word IPA). Each family's membership is its diverse
+    /// floor (see [`select_floor`]); vectors stay tiny (≤
+    /// [`GROUP_POOL_KEEP`]). Cheap bits and histories ride along so
+    /// the hot gate scans scores and subgroups without touching the
+    /// pool map (hashing two Strings per member would dominate pair
+    /// cost). Two levels so the gate looks families up by borrowed
+    /// `&str` without allocating.
+    groups: FastMap<(usize, u8), FastMap<String, Vec<FloorMember>>>,
+    /// Phonetic paths: full IPA-word sequence -> members as (clone
+    /// id, cheap-score bits). Each path keeps at most
+    /// [`KEY_LEX_KEEP`] lexical spellings: beam and family
+    /// competition see distinct phonetic hypotheses first, and
+    /// homophone multiplicity cannot consume search width.
+    /// Cheap-ordered top-K like the family floors, hence equally
+    /// order-independent.
+    keys: FastMap<String, Vec<ScoredId>>,
 }
+
+/// Per-phonetic-path lexical cap for transit retention: each
+/// distinct IPA-word sequence keeps at most this many spellings in
+/// the pool, ranked by (cheap score, clone id) — cheap already
+/// encodes familiarity/rarity and target-word novelty, and clone
+/// identity forces the survivors to be orthographically distinct
+/// (case/punctuation variants of one word already collapse via
+/// normalization). Homophones of one path thus hold a bounded
+/// handful of slots no matter how many spellings the corpus offers,
+/// freeing family floors for phonetically distinct segmentations.
+/// Small and fixed on purpose: the global beam/family sizes
+/// ([`GROUP_POOL_KEEP`], [`GROUP_SELECT_KEEP`]) do not grow.
+const KEY_LEX_KEEP: usize = 2;
 
 /// Per-family pool floor: each hypothesis family retains this many
 /// of its best prefixes. Sized ABOVE the true depth of the densest
@@ -1871,6 +2059,7 @@ impl BeamPos {
         Self {
             pool: FastMap::default(),
             groups: FastMap::default(),
+            keys: FastMap::default(),
         }
     }
 
@@ -1885,32 +2074,15 @@ impl BeamPos {
         (cand_words, cost_tier(cand_sub))
     }
 
-    /// Worst member of a family group: lowest cheap score,
-    /// clone-id-descending tiebreak (so the admitted set is exactly
-    /// the top-K by (cheap, id) — deterministic under ties).
-    fn worst_of(members: &[ScoredId]) -> Option<CloneId> {
-        members
-            .iter()
-            .max_by(|a, b| {
-                let (ca, cb) = (f64::from_bits(a.1), f64::from_bits(b.1));
-                // Worst = smallest cheap; tiebreak = largest id
-                // evicted first.
-                cb.partial_cmp(&ca)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| a.0.cmp(&b.0))
-            })
-            .map(|(id, _)| id.clone())
-    }
-
     /// Lazy pre-filter for a candidate that has not been built yet.
-    /// Admits clone improvements and candidates that make their
-    /// family's top-[`GROUP_POOL_KEEP`]; refuses everything else
-    /// before any cloning. Mirrors [`BeamPos::insert`] exactly (a
-    /// drifted gate could skip admittable candidates). Pure function
-    /// of pool content: arrival order cannot matter. Allocation-free
-    /// on the refusal path (family lookup by borrowed `&str`, min
-    /// scan over pool references); only admitted candidates pay for
-    /// clone-key assembly.
+    /// Admits exactly the candidates [`BeamPos::insert`] would
+    /// retain (same diverse floor plus per-key cap): clone
+    /// improvements, subgroup champions, and quality-fill winners;
+    /// refuses certain eviction victims before any cloning. Pure
+    /// function of pool content: arrival order cannot matter.
+    /// Allocation-free on the certain-victim refusal path (borrowed
+    /// lookups, float scans over the member tuples); only surviving
+    /// candidates pay for clone-key assembly.
     fn would_admit(
         &self,
         partial: &Partial,
@@ -1921,50 +2093,83 @@ impl BeamPos {
         cand_cheap: f64,
     ) -> bool {
         let cell = Self::cell_of(cand_words, cand_sub);
-        let members = self
+        // Borrowed previous-word history: subgroup checks never
+        // allocate on the refusal path.
+        let cand_prev = partial.words.last().map(|w| w.ipa.as_str()).unwrap_or("");
+        // Family scan without allocating (borrowed lookups, float
+        // scans — bit patterns do not order negatives): the global
+        // worst cheap plus the strictly-better same-subgroup count.
+        // Id tiebreaks only strengthen admission, so omitting them
+        // here errs toward admission; insert arbitrates exactly.
+        let mut full = false;
+        let mut worst_cheap = f64::INFINITY;
+        let mut sub_better = 0usize;
+        if let Some(members) = self
             .groups
             .get(&cell)
-            .and_then(|by_end| by_end.get(match_ipa));
-        let Some(members) = members else {
-            // New family (or new cell): room. Clone check below.
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        };
-        if members.len() < GROUP_POOL_KEEP {
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        }
-        // Full family: compare against its worst without allocating
-        // (cheap scores ride along in the member tuples; compared
-        // as floats — bit patterns do not order negatives).
-        let mut worst_cheap = f64::INFINITY;
-        let mut worst_id: Option<&(String, String)> = None;
-        for (id, bits) in members {
-            let cheap = f64::from_bits(*bits);
-            let replace =
-                cheap < worst_cheap || (cheap == worst_cheap && worst_id.is_some_and(|w| id > w));
-            if replace {
-                worst_cheap = cheap;
-                worst_id = Some(id);
+            .and_then(|by_end| by_end.get(match_ipa))
+        {
+            if members.len() >= GROUP_POOL_KEEP {
+                full = true;
+                for (_, bits, prev) in members {
+                    let cheap = f64::from_bits(*bits);
+                    if cheap < worst_cheap {
+                        worst_cheap = cheap;
+                    }
+                    if *prev == *cand_prev && cheap > cand_cheap {
+                        sub_better += 1;
+                    }
+                }
+                // Certain victim: below every member with a full
+                // champion subgroup ahead — insert would evict it
+                // (not its subgroup's champion, worst overall, so
+                // neither protected nor filled).
+                if cand_cheap < worst_cheap && sub_better >= 1 {
+                    return false;
+                }
             }
         }
-        if cand_cheap < worst_cheap {
-            return false;
-        }
-        if cand_cheap > worst_cheap {
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        }
-        // Exact cheap tie: the newcomer displaces the worst iff
-        // its clone id is smaller (insert evicts min-cheap-max-id,
-        // so anything else would be cloned only to be evicted).
-        // Clone improvements take the clone-check path instead.
+        // Admit path: assemble the clone id once, then run the
+        // clone, family-arbitration and per-key checks `insert`
+        // enforces.
         let id = Self::assemble_id(partial, match_ipa, match_norm);
+        // Clone improvement: always admitted when strictly better.
         if let Some(stored) = self.pool.get(&id) {
             return cand_cheap > stored.cheap_score;
         }
-        match worst_id {
-            Some(worst_id) => id < *worst_id,
-            // Inconsistent (empty group entry); admit.
-            None => true,
+        if full {
+            // Exact family arbitration: retained by the diverse
+            // floor (champions first, then quality fill)?
+            let members = self
+                .groups
+                .get(&cell)
+                .and_then(|by_end| by_end.get(match_ipa))
+                .cloned()
+                .unwrap_or_default();
+            let mut tmp: Vec<(CloneId, f64, String)> = members
+                .into_iter()
+                .map(|(i, b, p)| (i, f64::from_bits(b), p))
+                .collect();
+            tmp.push((id.clone(), cand_cheap, cand_prev.to_string()));
+            if !select_floor(&tmp, GROUP_POOL_KEEP).contains(&id) {
+                return false;
+            }
         }
+        // Per-phonetic-path lexical cap prediction (same order
+        // insert evicts by).
+        if let Some(cohort) = self.keys.get(&id.0) {
+            if cohort.len() >= KEY_LEX_KEEP {
+                let mut tmp: Vec<(CloneId, f64, String)> = cohort
+                    .iter()
+                    .map(|(i, b)| (i.clone(), f64::from_bits(*b), String::new()))
+                    .collect();
+                tmp.push((id.clone(), cand_cheap, String::new()));
+                if !select_floor(&tmp, KEY_LEX_KEEP).contains(&id) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Assemble a clone id from a partial plus one match step.
@@ -1982,34 +2187,13 @@ impl BeamPos {
         (key, lex)
     }
 
-    /// Clone check by assembled id: admits unless a pooled clone is
-    /// at least as good.
-    fn clone_allows_id(&self, id: &(String, String), cand_cheap: f64) -> bool {
-        match self.pool.get(id) {
-            Some(p) => cand_cheap > p.cheap_score,
-            None => true,
-        }
-    }
-
-    /// Clone check assembling the id (admit path only).
-    fn clone_allows(
-        &self,
-        partial: &Partial,
-        match_ipa: &str,
-        match_norm: &str,
-        cand_cheap: f64,
-    ) -> bool {
-        self.clone_allows_id(
-            &Self::assemble_id(partial, match_ipa, match_norm),
-            cand_cheap,
-        )
-    }
-
-    /// Admit a built candidate under clone suppression and family
-    /// floors, evicting the family's worst past the floor.
-    /// Deterministic outcome (per-family top-K) regardless of
-    /// arrival order. Mirrors [`BeamPos::would_admit`]: anything the
-    /// gate refuses is also refused here.
+    /// Admit a built candidate under clone suppression, family
+    /// floors and the per-phonetic-path cap, evicting the family's
+    /// worst past the floor and the path's worst past its cap.
+    /// Deterministic outcome (per-family top-K restricted to per-key
+    /// top-K) regardless of arrival order. Mirrors
+    /// [`BeamPos::would_admit`]: anything the gate refuses is also
+    /// refused here.
     fn insert(&mut self, candidate: Partial) {
         let id = (candidate.key.clone(), candidate.lex.clone());
         let bits = candidate.cheap_score.to_bits();
@@ -2018,6 +2202,12 @@ impl BeamPos {
             .last()
             .map(|w| w.ipa.clone())
             .unwrap_or_default();
+        let new_key = candidate.key.clone();
+        let new_prev = if candidate.words.len() >= 2 {
+            candidate.words[candidate.words.len() - 2].ipa.clone()
+        } else {
+            String::new()
+        };
         let new_family = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
         match self.pool.get(&id) {
             Some(p) => {
@@ -2043,13 +2233,19 @@ impl BeamPos {
                         .or_default()
                         .entry(new_end.clone())
                         .or_default()
-                        .push((id, bits));
+                        .push((id.clone(), bits, new_prev.clone()));
                 } else if let Some(members) = self
                     .groups
                     .get_mut(&new_family)
                     .and_then(|by_end| by_end.get_mut(&new_end))
                 {
                     if let Some(slot) = members.iter_mut().find(|m| m.0 == id) {
+                        slot.1 = bits;
+                    }
+                }
+                // Same phonetic path: refresh the cohort's cached score.
+                if let Some(ms) = self.keys.get_mut(&new_key) {
+                    if let Some(slot) = ms.iter_mut().find(|m| m.0 == id) {
                         slot.1 = bits;
                     }
                 }
@@ -2061,35 +2257,82 @@ impl BeamPos {
                     .or_default()
                     .entry(new_end.clone())
                     .or_default()
-                    .push((id, bits));
+                    .push((id.clone(), bits, new_prev.clone()));
+                self.keys
+                    .entry(new_key.clone())
+                    .or_default()
+                    .push((id.clone(), bits));
             }
         }
-        // Enforce the family floor: evict its worst past the keep.
-        let over = self
+        // Enforce the diverse family floor (subgroup champions
+        // first, then quality fill): evict every member outside the
+        // retained set.
+        if self
             .groups
             .get(&new_family)
             .and_then(|by_end| by_end.get(&new_end))
             .map_or(0, Vec::len)
-            > GROUP_POOL_KEEP;
-        if over {
-            let members = self.groups[&new_family][&new_end].clone();
-            if let Some(worst_id) = Self::worst_of(&members) {
-                if let Some(ms) = self
-                    .groups
-                    .get_mut(&new_family)
-                    .and_then(|by_end| by_end.get_mut(&new_end))
-                {
-                    if let Some(pos) = ms.iter().position(|m| m.0 == worst_id) {
-                        ms.swap_remove(pos);
-                    }
-                }
-                self.pool.remove(&worst_id);
+            > GROUP_POOL_KEEP
+        {
+            let scored: Vec<(CloneId, f64, String)> = self.groups[&new_family][&new_end]
+                .iter()
+                .map(|(i, b, p)| (i.clone(), f64::from_bits(*b), p.clone()))
+                .collect();
+            let keep = select_floor(&scored, GROUP_POOL_KEEP);
+            let drop: Vec<CloneId> = self.groups[&new_family][&new_end]
+                .iter()
+                .map(|(i, _, _)| i.clone())
+                .filter(|i| !keep.contains(i))
+                .collect();
+            for i in drop {
+                self.evict(&i);
+            }
+        }
+        // Enforce the per-phonetic-path cap: evict the path's worst
+        // past the keep, so homophone swarms keep only their best
+        // spellings.
+        if self.keys.get(&new_key).map_or(0, Vec::len) > KEY_LEX_KEEP {
+            let scored: Vec<(CloneId, f64, String)> = self.keys[&new_key]
+                .iter()
+                .map(|(i, b)| (i.clone(), f64::from_bits(*b), String::new()))
+                .collect();
+            let keep = select_floor(&scored, KEY_LEX_KEEP);
+            let drop: Vec<CloneId> = self.keys[&new_key]
+                .iter()
+                .map(|(i, _)| i.clone())
+                .filter(|i| !keep.contains(i))
+                .collect();
+            for i in drop {
+                self.evict(&i);
             }
         }
         // Global safety: drop whole worst families (never partial
         // ones) if degenerate input overflows the cap.
         if self.pool.len() > POOL_SAFETY {
             self.enforce_safety();
+        }
+    }
+
+    /// Remove a candidate from every index (pool, family floor,
+    /// per-key cohort). Eviction targets come from cloned member
+    /// lists, so each index lookup tolerates absence.
+    fn evict(&mut self, id: &CloneId) {
+        let Some(old) = self.pool.remove(id) else {
+            return;
+        };
+        let end = old.words.last().map(|w| w.ipa.clone()).unwrap_or_default();
+        let family = Self::cell_of(old.words.len(), old.sub_cost_total);
+        if let Some(by_end) = self.groups.get_mut(&family) {
+            if let Some(members) = by_end.get_mut(&end) {
+                if let Some(pos) = members.iter().position(|m| &m.0 == id) {
+                    members.swap_remove(pos);
+                }
+            }
+        }
+        if let Some(ms) = self.keys.get_mut(&old.key) {
+            if let Some(pos) = ms.iter().position(|m| &m.0 == id) {
+                ms.swap_remove(pos);
+            }
         }
     }
 
@@ -2105,7 +2348,7 @@ impl BeamPos {
                 by_end.iter().map(|(end, members)| {
                     let best = members
                         .iter()
-                        .map(|(_, bits)| f64::from_bits(*bits))
+                        .map(|(_, bits, _)| f64::from_bits(*bits))
                         .fold(f64::NEG_INFINITY, f64::max);
                     (*cell, end.clone(), best)
                 })
@@ -2126,8 +2369,8 @@ impl BeamPos {
                 .get_mut(&cell)
                 .and_then(|by_end| by_end.remove(&end));
             if let Some(members) = members {
-                for (id, _) in members {
-                    self.pool.remove(&id);
+                for (id, _, _) in members {
+                    self.evict(&id);
                 }
             }
         }
@@ -2146,6 +2389,7 @@ impl BeamPos {
     fn take_all(&mut self) -> Vec<Partial> {
         let mut out: Vec<Partial> = self.pool.drain().map(|(_, p)| p).collect();
         self.groups.clear();
+        self.keys.clear();
         out.sort_by(|a, b| {
             b.cheap_score
                 .partial_cmp(&a.cheap_score)
@@ -2182,14 +2426,13 @@ impl BeamPos {
             let Some(members) = self.groups.get(cell).and_then(|by_end| by_end.get(end)) else {
                 continue;
             };
-            let mut sorted = members.clone();
-            sorted.sort_by(|a, b| {
-                let (ca, cb) = (f64::from_bits(a.1), f64::from_bits(b.1));
-                cb.partial_cmp(&ca)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| a.0.cmp(&b.0))
-            });
-            for (id, _) in sorted.into_iter().take(GROUP_SELECT_KEEP) {
+            // Diverse expansion shortlist: subgroup champions first,
+            // then quality fill — thin histories reach expansion.
+            let scored: Vec<(CloneId, f64, String)> = members
+                .iter()
+                .map(|(i, b, p)| (i.clone(), f64::from_bits(*b), p.clone()))
+                .collect();
+            for id in select_floor(&scored, GROUP_SELECT_KEEP) {
                 if let Some(p) = self.pool.remove(&id) {
                     out.push(p);
                 }
@@ -2197,6 +2440,7 @@ impl BeamPos {
         }
         self.pool.clear();
         self.groups.clear();
+        self.keys.clear();
         // Deterministic expansion order (quality first; ties break
         // on the full dedup identity).
         out.sort_by(|a, b| {
@@ -2641,18 +2885,23 @@ mod pareto_tests {
         // admitted. (A drifted gate would skip admittable
         // candidates.) Family here is ((2, tier0), "ab").
         let mut beam = BeamPos::new();
+        // Distinct phonetic paths sharing one family (last-word IPA
+        // "ab"): the hierarchical per-key cap never triggers, so the
+        // family fills to its floor of GROUP_POOL_KEEP.
+        let firsts: Vec<String> = (0..GROUP_POOL_KEEP).map(|i| format!("x{i}")).collect();
+        let words: Vec<String> = (0..GROUP_POOL_KEEP).map(|i| format!("w{i}")).collect();
         for i in 0..GROUP_POOL_KEEP {
-            let w = format!("w{i}");
             beam.insert(partial_lex(
                 0.0 - 0.001 * i as f64,
                 0.0,
-                &[&w[..], "tail"],
-                &["ab", "ab"],
+                &[&words[i], "tail"],
+                &[&firsts[i], "ab"],
             ));
         }
         // Prefix "pre" + match "tail"/"ab": candidate words 2, sub
-        // 0.0, family ((2, tier0), "ab"), at its floor of 8; worst
-        // kept is rank 7 at cheap ≈ -0.007.
+        // 0.0, family ((2, tier0), "ab"), at its floor of 16; worst
+        // kept is rank 15 at cheap ≈ -0.015. The candidate's key
+        // ("ab ab") is new, so the per-key cap admits it.
         let prefix = partial_lex(-0.40, 0.0, &["pre"], &["ab"]);
         assert!(
             !beam.would_admit(&prefix, "ab", "zzz", 2, 0.0, -0.50),
@@ -2663,8 +2912,8 @@ mod pareto_tests {
             "above-floor candidate must be admitted"
         );
         // Clone improvement: same id as member 0 ("w0 tail" /
-        // "ab ab") with better cheap.
-        let prefix0 = partial_lex(0.0, 0.0, &["w0"], &["ab"]);
+        // "x0 ab") with better cheap.
+        let prefix0 = partial_lex(0.0, 0.0, &["w0"], &["x0"]);
         assert!(
             beam.would_admit(&prefix0, "ab", "tail", 2, 0.0, 0.50),
             "clone improvement must be admitted"
@@ -2677,10 +2926,11 @@ mod pareto_tests {
 
     #[test]
     fn beam_keeps_lexically_distinct_homophones() {
-        // Same pronunciation, different words: dedup identity is the
-        // (IPA, lexical-sequence) pair, so neither wording may
-        // overwrite the other in the pool or the expansion
-        // shortlist. Only exact lexical+IPA duplicates collapse.
+        // Hierarchical state model: one phonetic path (same IPA
+        // sequence) keeps only its KEY_LEX_KEEP best spellings by
+        // (cheap, id) — homophone swarms cannot consume search
+        // width — while exact lexical+IPA duplicates still collapse
+        // keeping the better cheap score.
         let mut beam = BeamPos::new();
         beam.insert(partial_lex(-0.30, 0.0, &["to"], &["tu"]));
         beam.insert(partial_lex(-0.31, 0.0, &["two"], &["tu"]));
@@ -2688,20 +2938,212 @@ mod pareto_tests {
         // Exact duplicate of an existing path: collapses, keeping
         // the better cheap score.
         beam.insert(partial_lex(-0.29, 0.0, &["to"], &["tu"]));
-        assert_eq!(beam.pool.len(), 3, "homophones must hold distinct slots");
+        assert_eq!(
+            beam.pool.len(),
+            KEY_LEX_KEEP,
+            "one phonetic path must hold at most KEY_LEX_KEEP spellings"
+        );
         let sel = beam.take_selected();
         let mut got: Vec<String> = sel.iter().map(|p| p.lex.clone()).collect();
         got.sort();
-        assert_eq!(
-            got,
-            vec!["to".to_string(), "too".to_string(), "two".to_string()]
-        );
+        assert_eq!(got, vec!["to".to_string(), "two".to_string()]);
         assert!(
             sel.iter()
                 .find(|p| p.lex == "to")
                 .is_some_and(|p| (p.cheap_score - (-0.29)).abs() < 1e-12),
             "duplicate collapse must keep the better cheap score"
         );
+    }
+
+    #[test]
+    fn beam_protects_thin_suffix_histories() {
+        // Family ((3, tier1), "hɪd") pre-filled to its floor with two
+        // entrenched suffix histories (eight distinct paths each, all
+        // cheaper): a novel "dup"-history arrival with worse cheap
+        // must still be retained as its subgroup's champion —
+        // regardless of arrival order — while the pool stays bounded.
+        fn pool_lexes(order: &[Vec<(String, String, String, f64)>]) -> Vec<String> {
+            let mut beam = BeamPos::new();
+            for batch in order {
+                for (q, prev, w, cheap) in batch {
+                    beam.insert(partial_lex(*cheap, 0.30, &["m", "x", w], &[q, prev, "hɪd"]));
+                }
+            }
+            let mut got: Vec<String> =
+                beam.pool.values().map(|p| p.lex.clone()).collect();
+            got.sort();
+            got
+        }
+        let mut junk: Vec<(String, String, String, f64)> = Vec::new();
+        for i in 0..8 {
+            junk.push((
+                format!("j{i}"),
+                "stup".to_string(),
+                format!("a{i}"),
+                -0.50 - 0.001 * i as f64,
+            ));
+            junk.push((
+                format!("k{i}"),
+                "kup".to_string(),
+                format!("b{i}"),
+                -0.60 - 0.001 * i as f64,
+            ));
+        }
+        let novel = vec![(
+            "z".to_string(),
+            "dup".to_string(),
+            "hid".to_string(),
+            -0.90,
+        )];
+        let fwd = vec![junk.clone(), novel.clone()];
+        let rev = vec![novel.clone(), junk.clone()];
+        for order in [fwd, rev] {
+            let got = pool_lexes(&order);
+            assert_eq!(got.len(), GROUP_POOL_KEEP, "pool must stay bounded: {got:?}");
+            assert!(
+                got.iter().any(|l| l == "m x hid"),
+                "novel history must survive: {got:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn completion_protects_distinct_heads() {
+        // Family (5, "came"): a rhyme swarm sharing one head prefix
+        // ("hits justice tau", eight spellings all scoring above the
+        // genuine parse) must not crowd out a distinct head ("hits
+        // justice dupe"): head-prefix champions come first, so both
+        // survive regardless of arrival order while the family stays
+        // bounded.
+        fn pool_lexes(swarm_first: bool) -> Vec<String> {
+            let mut inner = CompletionInner::new();
+            let mut swarm: Vec<(Vec<&str>, Vec<&str>, f64)> = Vec::new();
+            let tails = ["pod", "bad", "bed", "pet", "put", "pat", "peg", "ted"];
+            let tipas = ["pɔd", "bæd", "bɛd", "pɛt", "pʊt", "pæt", "pɛg", "tɛd"];
+            for (i, (t, ti)) in tails.iter().zip(tipas.iter()).enumerate() {
+                swarm.push((
+                    vec!["hits", "justice", "tau", t, "came"],
+                    vec!["hɪts", "dʒʌstəs", "tɔ", ti, "keɪm"],
+                    0.9240 + 0.0001 * i as f64,
+                ));
+            }
+            let canon = (
+                vec!["hits", "justice", "dupe", "hid", "came"],
+                vec!["hɪts", "dʒʌstəs", "dup", "hɪd", "keɪm"],
+                0.9139,
+            );
+            let mut batches: Vec<Vec<(Vec<&str>, Vec<&str>, f64)>> = Vec::new();
+            if swarm_first {
+                batches.push(swarm);
+                batches.push(vec![canon]);
+            } else {
+                batches.push(vec![canon]);
+                batches.push(swarm);
+            }
+            for batch in &batches {
+                for (w, ipas, s) in batch {
+                    inner.insert(partial_lex(0.0, 0.0, w, ipas), *s);
+                }
+            }
+            let mut got: Vec<String> = inner
+                .map
+                .values()
+                .map(|(_, _, p)| {
+                    p.words
+                        .iter()
+                        .map(|w| w.word.clone())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
+                .collect();
+            got.sort();
+            got
+        }
+        for swarm_first in [true, false] {
+            let got = pool_lexes(swarm_first);
+            assert_eq!(got.len(), COMPLETION_FAMILY_KEEP, "family stays bounded: {got:?}");
+            assert!(
+                got.contains(&"hits justice dupe hid came".to_string()),
+                "distinct head must survive: {got:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn beam_cap_is_order_independent_and_spares_distinct_paths() {
+        // The per-key cap keeps the best KEY_LEX_KEEP spellings of a
+        // homophone swarm regardless of arrival order, while a
+        // phonetically distinct path in the same family keeps its own
+        // slots untouched.
+        fn pool_lexes(order: &[(&str, f64)]) -> Vec<String> {
+            let mut beam = BeamPos::new();
+            for (w, cheap) in order {
+                beam.insert(partial_lex(*cheap, 0.0, &[w], &["tu"]));
+            }
+            // Same family ((1, tier0), "tu"), distinct phonetic path.
+            beam.insert(partial_lex(-0.50, 0.0, &["do"], &["du"]));
+            let mut got: Vec<String> =
+                beam.pool.values().map(|p| p.lex.clone()).collect();
+            got.sort();
+            got
+        }
+        let fwd = [
+            ("to", -0.30),
+            ("two", -0.31),
+            ("too", -0.32),
+            ("tuu", -0.33),
+            ("tew", -0.28),
+        ];
+        let mut rev = fwd;
+        rev.reverse();
+        // Best two spellings of "tu" ("tew", "to") plus the distinct
+        // "du" path — identical under both arrival orders.
+        let want = vec![
+            "do".to_string(),
+            "tew".to_string(),
+            "to".to_string(),
+        ];
+        assert_eq!(pool_lexes(&fwd), want);
+        assert_eq!(pool_lexes(&rev), want);
+    }
+
+    #[test]
+    fn completion_caps_spellings_per_phonetic_path() {
+        // Terminal analogue: completions sharing one IPA sequence
+        // keep only their COMPLETION_PER_KEY best by (score, id),
+        // while phonetically distinct parses keep their own slots —
+        // regardless of arrival order.
+        fn pool_lexes(order: &[(&str, f64)]) -> Vec<String> {
+            let mut inner = CompletionInner::new();
+            for (w, score) in order {
+                inner.insert(partial_lex(0.0, 0.0, &[w], &["tu"]), *score);
+            }
+            inner.insert(partial_lex(0.0, 0.0, &["do"], &["du"]), 0.70);
+            let mut got: Vec<String> = inner
+                .map
+                .values()
+                .map(|(_, _, p)| p.lex.clone())
+                .collect();
+            got.sort();
+            got
+        }
+        let fwd = [
+            ("to", 0.80),
+            ("two", 0.81),
+            ("too", 0.82),
+            ("tuu", 0.79),
+            ("tew", 0.78),
+        ];
+        let mut rev = fwd;
+        rev.reverse();
+        // Best two of "tu" ("too", "two") plus the distinct "du".
+        let want = vec![
+            "do".to_string(),
+            "too".to_string(),
+            "two".to_string(),
+        ];
+        assert_eq!(pool_lexes(&fwd), want);
+        assert_eq!(pool_lexes(&rev), want);
     }
 }
 
