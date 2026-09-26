@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-6ad4c1
-state: working
+state: done
 priority: normal
-owner: coord-b3d9
-updated: 2026-09-26T20:35:00Z
+owner: coord-5e21
+updated: 2026-09-26T21:26:00Z
 branch: madgab-punch-6ad4c1
 worktree: /workspace/madgab-punch-6ad4c1
 agents: 6ad4c1 (landing front, opened by coord-b3d9)
@@ -200,3 +200,86 @@ Next action for a later fresh pass, in priority order:
 2. `9f1c05` ([w-9f1c05](w-9f1c05.md)) is live and independent of this; it must
    not be delayed by this front's re-commit, and it is fenced to
    documentation, so the two compose.
+
+## Pass 2026-09-26T21:26Z (coordinator coord-5e21): the re-commit is done, the front is integrated, all five suites re-run on the merged tree
+
+This pass executed the unblock condition the review above named, and it was
+**two files wider than the review recorded**. The front branched from
+`ddcb4da`, and `git diff --numstat post-milestone-acceptance..madgab-punch-6ad4c1`
+before the fix showed five work-item files damaged, not four: `w-9f1c05.md` was
+**deleted outright** (154 lines, `-154 +0`) because it did not exist yet at
+`ddcb4da`, and `w-6ad4c1.md` was stale by 69 lines. The review caught the four
+that were modified in place; the deletion of the *live* front's work item was
+invisible to a line-count check of modified files.
+
+**1. Re-commit, on the published branch, no force-push.** In
+`/workspace/madgab-punch-6ad4c1` (clean, on `madgab-punch-6ad4c1`):
+
+```text
+ccdbac4  w-6ad4c1: restore the work-item docs pruned by the branch point
+0a3097d..ccdbac4  madgab-punch-6ad4c1 -> madgab-punch-6ad4c1
+```
+
+`git checkout post-milestone-acceptance -- docs/work/items/` restored all six
+items, then one ordinary commit. No `src/` change. The post-fix diff is
+**insertions only**, and is now exactly two files:
+
+```text
+451  0  REPORT-6ad4c1.md
+ 51  2  src/lib.rs
+```
+
+**2. Integrated as `6a93c2a` on `post-milestone-acceptance`,** by
+`git merge --no-commit` then dropping `REPORT-6ad4c1.md`, following the
+`w-6b91d3` precedent that a front's report stays on its own branch; the durable
+copy is `git show madgab-punch-6ad4c1:REPORT-6ad4c1.md`. `main` is untouched
+(`c0ecd7c` on `origin`, checked with `git ls-remote`). Fence scan re-run here on
+the merged diff rather than inherited: 0 hits for any canonical phrase token or
+substring, 0 for `ZZ_`/`MADGAB_`/`env::var`.
+
+**3. All five suites re-run on the merged tree `6a93c2a`, release:**
+
+| suite | result |
+|---|---|
+| `--lib` | **53 passed / 0 failed** |
+| `--test no_phrase_hard_coding` | **6 / 6** |
+| `--test approx_determinism` | **4 / 4** |
+| `--test exact_determinism` | **1 / 1** |
+| `--test corpus_integration` | 10 passed / 1 failed — only `approximate_finds_classic_madgab_resegmentation`, red on the base arm too |
+
+`approximate_output_is_locked` and `approximate_finds_recognize_speech_resegmentation`
+are green **unmodified**. No test file was edited, relaxed, re-baselined or
+skipped by this merge; the report's claim that the lock needs no re-baseline is
+confirmed on the merged tree rather than on the branch. Logs:
+`/tmp/opencode/mg-logs/6a93c2a-suites.log`, `/tmp/opencode/mg-logs/6a93c2a-rest.log`.
+
+**4. A correction to how this pass's predecessors summarised the guard, and it
+matters for the milestone.** Three earlier pass notes here and in
+[w-2f7a10](w-2f7a10.md) say the green guard holds "at CLI defaults". It does
+**not**. The CLI's default `top_n` is **10** (`src/main.rs:68`, and
+`./target/release/madgab --approximate "recognize speech"` prints exactly 10
+lines), and `wreck a nice beach` is raw rank **27**, so at the default it is
+**not visible**:
+
+```text
+$ ./target/release/madgab --approximate "recognize speech"     # top_n 10
+ 5. [0.921] wreck a guys pitch          10. [0.920] wreck a nice pitch
+   -- `wreck a nice beach` absent
+$ ./target/release/madgab --approximate --top 50 "recognize speech"
+ 28. [0.918] wreck a nice beach         -- present
+```
+
+`REPORT-6ad4c1.md` line 238 states this correctly and was not misread by the
+front: `raw rank 27, score 0.918313383, rank-9 cutoff 0.920068538, margin
+-0.001755155`. The earlier "green at CLI defaults" phrasing was the summary's
+error. It is also **not** a regression from this merge: `approximate_output_is_locked`
+is green unmodified, and its own target is the locked one. So on the current
+accumulation head the first canonical example is present in the proposal set at
+`--top 50` and absent at the CLI's default breadth, and the second canonical
+example is still red.
+
+State is `done` because the item's own criteria are met: a general, additive,
+fence-clean axis landed and validated on the accumulation branch, never on
+`main`. It was never a milestone fix and does not claim to be one. The next
+question is [w-2f7a10](w-2f7a10.md)'s aggregation-form front `9f1c05`
+([w-9f1c05](w-9f1c05.md)), left running.
