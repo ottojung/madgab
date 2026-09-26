@@ -5,6 +5,7 @@
 
 use madgab::{Generator, GeneratorConfig, SearchMode};
 use open_english_pronouncing_dictionary::CORPUS_JSON;
+use std::collections::HashMap;
 
 fn gen_unfiltered() -> Generator {
     Generator::from_json(
@@ -145,4 +146,70 @@ fn approximate_finds_recognize_speech_resegmentation() {
         "canonical clue missing from top 50; got: {:?}",
         &proposals[..proposals.len().min(12)]
     );
+}
+
+/// Structural diversity on a real search: the visible list may not be
+/// one resegmentation.  This is the half of the selection policy that
+/// the synthetic unit test in `src/lib.rs` cannot check, because it
+/// needs a real candidate pool.  (That unit test carries the other
+/// half: a near-equal alternative in a shown structure is visible.)
+#[test]
+fn approximate_list_is_not_one_resegmentation() {
+    // Deliberately not only the two acceptance phrases: this is a
+    // general property of the policy, so it is checked on a spread.
+    for target in [
+        "recognize speech",
+        "It's just a stupid game",
+        "taco cat",
+        "sign on",
+        "big spender",
+    ] {
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let clues = g.generate(target);
+        assert!(clues.len() >= 10, "{target}: only {} clues", clues.len());
+
+        // The list is presented in descending score order, so it opens
+        // with the best wordings the search found.
+        for pair in clues.windows(2) {
+            assert!(
+                pair[0].score >= pair[1].score,
+                "{target}: list is not in score order: {} then {}",
+                pair[0].score,
+                pair[1].score
+            );
+        }
+
+        let mut shown: HashMap<Vec<usize>, usize> = HashMap::new();
+        for c in &clues {
+            *shown.entry(structure_of(c)).or_insert(0) += 1;
+        }
+        let largest = shown.values().copied().max().unwrap();
+        assert!(
+            largest * 2 <= clues.len(),
+            "{target}: one structure holds {largest} of {} slots ({shown:?})",
+            clues.len()
+        );
+    }
+}
+
+/// The word-boundary structure of a clue: where one clue word ends and
+/// the next begins.  Two clues with the same structure are two
+/// spellings of one resegmentation.
+fn structure_of(c: &madgab::Clue) -> Vec<usize> {
+    let mut cuts = Vec::new();
+    let mut at = 0usize;
+    for w in c.words.iter().skip(1) {
+        at += w.ipa.chars().count();
+        cuts.push(at);
+    }
+    cuts
 }
