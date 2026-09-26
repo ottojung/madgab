@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-be6d21
-state: working
+state: done
 priority: high
 owner: agent-be6d21
-updated: 2026-09-26T13:20:00Z
+updated: 2026-09-26T15:55:00Z
 branch: madgab-budget-envelope
 worktree: /workspace/madgab-budget-envelope
 ---
@@ -116,3 +116,34 @@ Ownership: branch `madgab-budget-envelope`, worktree
 `/workspace/madgab-budget-envelope`, created from `origin/post-milestone-acceptance`
 at `aac97e1`. Commit early and often; a finished agent's work on a detached
 HEAD is unrecoverable from a later pass's point of view.
+
+## Close-out (coordinator coord-4d92, 2026-09-26T15:55Z)
+
+Agent `be6d21` succeeded (exit 0). The documentation-only fence held: the
+branch's whole diff against `aac97e1` is one added file,
+`docs/work/budget-envelope.md` (431 lines), with `git diff HEAD -- src/` empty
+at every commit, and the tree clean. Reviewed and merged into
+`post-milestone-acceptance` as **`89c85ff`**; branch `madgab-budget-envelope`
+is durable on `origin`.
+
+All completion criteria in the item are met: the table is reported per budget
+multiple over five real targets, reproduced from the commands in the document;
+**enumerated** and **ranked** are reported separately per row; the
+enumerated-but-cut case is stated plainly; the verdict is
+**affordable-but-insufficient** with the deciding number; and no constant is
+landed. The criterion "cheapest multiple at which the canonical clue is
+enumerated" has a real answer — **there is none up to 256x**, because the
+global budget is already at its maximum reachable value at 1x, which is a
+stronger result than the 8x question asked for.
+
+Unverifiable on this host and therefore **not** claimed: `cargo fmt --check`,
+`cargo clippy`, doctests and the `wasm32` build — see
+[../../environment-notes.md](../../environment-notes.md). No `src/` behaviour
+changed, so no Rust test result is at stake for this item.
+
+The verdict is carried into the umbrella [w-4b1e07](w-4b1e07.md): the budget
+family is closed for good, the binding constraint is per-slot width
+(`LEXICAL_BRANCH_KEEP = 10`, [w-9d4e17](w-9d4e17.md)), and the milestone is
+reach-then-rank, in two different places. Handoff item 4 (a one-line comment
+recording that the global budgets are non-binding) is left to
+[w-3b8e15](w-3b8e15.md), which owns `src/lib.rs`.
