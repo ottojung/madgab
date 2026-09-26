@@ -4,7 +4,7 @@ id: w-d4f0b2
 state: working
 priority: normal
 owner: agent-d4f0b21
-updated: 2026-09-26T16:30:00Z
+updated: 2026-09-26T19:05:00Z
 branch: madgab-nohardcode
 worktree: /workspace/madgab-nohardcode
 ---
@@ -114,3 +114,143 @@ Next action for a later fresh pass: review the new test as a diff — it must
 add detection power rather than a brittle word list, and criterion 2's
 positive control must be reported — then run criterion 5's suites and
 integrate onto `post-milestone-acceptance`.
+
+## Progress: the fence is written, validated and pushed
+
+`tests/no_phrase_hard_coding.rs` (commit `1d39f50` on
+`madgab-nohardcode`, pushed to `origin/madgab-nohardcode`). One new file, no
+other change on the branch: `git diff` against `8fc1f6f` shows
+`tests/no_phrase_hard_coding.rs` and nothing else, so criterion 5's
+"unchanged from the head this was based on" is true by construction rather
+than by re-measurement.
+
+### What it detects, and why it is not a word list
+
+The gate for this front was detection power rather than a list of common
+English words, so the test watches *shapes* and reports the shape it matched
+along with file and line:
+
+- `whole-sentence-equality` — the phrase produced or bound verbatim
+  (`return "hits justice dupe hid came";`)
+- `lookup-keyed-by-target-text` — a full phrase used as a `match` arm, map
+  key or table cell
+- `comparison-against-target-text` / `comparison-against-normalized-target` —
+  the phrase, spaced or normalized (`"wreckanicebeach"`), compared against a
+  runtime value
+- `full-phrase-literal` — any other literal spelling the whole phrase,
+  including one spread over a statement's literals
+  (`vec!["hits", "justice", "dupe", "hid", "came"]`) and one written
+  normalized
+- `substring-special-case` — a multi-word piece of a phrase handed to a
+  string method (`clue.contains("nice beach")`)
+- `phrase-substring-literal` — any other literal holding three consecutive
+  words of a phrase
+- `identifier-named-after-phrase` — no literal at all
+  (`fn wreck_a_nice_beach()`, `const RECOGNIZESPEECH`)
+- `runtime-normalization-comparison` — no literal at all: a normalized form
+  compared against a value that was remembered rather than recomputed
+  (`phrase_signature(&clue) == self.expected_signature`), which is how a
+  hard-code recognizes a target without naming it
+
+Two thresholds keep it a coupling test. A single word never fires: `came`,
+`hid`, `bad`, `aim` and `wreck` are ordinary words production code may
+legitimately contain. Two words fire only where a literal is being used as a
+key, inside a string method call, because two words are a collocation
+(`"stupid game"`) and chance produces collocations, while three consecutive
+words of a canonical phrase is not something chance produces.
+
+### Criterion 2: the positive control, and the restore
+
+A temporary hard-code was added to `src/approx.rs` and the test run against
+it. First control, a multi-statement function, reported the unit's first line:
+
+```
+  /workspace/madgab-nohardcode/src/approx.rs:465  [comparison-against-target-text]
+      "hits justice dupe hid came" spells out a whole clue phrase and is compared against a runtime value
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out
+```
+
+Second control, the same special case as a one-liner, reported the exact
+line:
+
+```
+  /workspace/madgab-nohardcode/src/approx.rs:464  [comparison-against-target-text]
+      "hits justice dupe hid came" spells out a whole clue phrase and is compared against a runtime value
+test result: FAILED.
+```
+
+`src/approx.rs` was then restored with `git checkout --`, and the restore is
+verified: `git status --porcelain` lists only the untracked new test file,
+`git status` reports "nothing added to commit but untracked files present",
+and both `git diff` and `git diff --stat` produce no output at all.
+
+The positive control is also permanent, not only a claim in a commit
+message: `the_detector_catches_every_documented_shape` runs one synthetic
+unit per documented shape and asserts each is detected *as that shape*, and
+`the_detector_stays_quiet_on_ordinary_english_and_real_production_code`
+asserts that nine ordinary lines — including `came`, `aim`, `bad`, `hid`,
+`"stupid game"`, `"recognize"`, a comment naming every canonical word, and a
+signature-to-signature de-duplication comparison — do not fire. A third test
+asserts the excluded regions really are excluded, and a fourth pins the
+watched phrase data so it cannot silently drift.
+
+### Excluded regions, and why (criterion 4)
+
+- `#[cfg(test)]` modules inside `src/`: `src/lexical.rs` and `src/lib.rs`
+  name the phrases when asserting stem, signature and IPA behaviour. The scan
+  drops a `#[cfg(test)]` module and resumes after its closing brace, so
+  production code between two test modules is still scanned.
+- All comments and doc comments, including the `src/main.rs` doc examples:
+  prose that names an example is documentation, not behaviour.
+- The other files in `tests/`: only `src/` is read, so
+  `tests/corpus_integration.rs` can keep naming the phrases in the two
+  acceptance tests, and `approximate_output_is_locked` is untouched.
+- `Cargo.toml`, `examples/`, `web/`: not the production region. No dependency
+  was added; the test is `std`-only.
+
+### Allowlist (criterion 3)
+
+`ALLOWLIST` in the test file is empty, with a `RECOGNIZED:` comment marking
+where an entry goes. An entry names one file and one line, a marker string
+that must still be present on that line, and a reason; there is no wildcard
+form, so adding one is a greppable edit a reviewer sees in the diff. A test
+fails if it ever exceeds one entry, on the reasoning that two entries means
+the region boundary is in the wrong place and should be widened instead.
+
+### Validation run (criterion 5)
+
+- `cargo test --release --test no_phrase_hard_coding` — 6 passed, 0 failed.
+- `cargo test --release --lib` — 50 passed, 0 failed.
+- `cargo test --release --test corpus_integration` — 9 passed, 1 failed:
+  `approximate_finds_classic_madgab_resegmentation` only, with
+  `approximate_finds_recognize_speech_resegmentation` passing. That is the
+  pre-existing failure the item describes.
+- Also run for completeness: `--test approx_determinism` 2 passed,
+  `--test exact_determinism` 1 passed.
+
+Note on the item's own figures: it says "31+ pass", but at this commit
+`--lib` reports 50 tests and `corpus_integration` reports 10 (9 pass, 1
+fail). The counts do not match the text, so treat the numbers above as the
+measurement and the "31+" as stale. Nothing was re-baselined.
+
+Not verifiable on this host, per
+[../../environment-notes.md](../../environment-notes.md): `cargo fmt`,
+`cargo clippy`, and any doctest. No claim is made about them.
+
+### Not done, and the next action
+
+Criterion 6's integration onto `post-milestone-acceptance` is **not** done.
+The branch was pushed to `origin/madgab-nohardcode` at `1d39f50`, as
+instructed, and `madgab-nohardcode` is now 1 ahead and 3 behind
+`origin/post-milestone-acceptance` (whose tip is `75ec5b7`). Integrating means
+either a merge or a rebase onto a shared branch that agent `c4e8d70` is
+actively working on, which is the collision this front was filed to avoid,
+and it was not part of this pass's instructions.
+
+Next action: a pass that owns `post-milestone-acceptance` should rebase or
+merge `madgab-nohardcode` onto it, re-run
+`cargo test --release --test no_phrase_hard_coding` plus `--lib` and
+`--test corpus_integration` after the merge, and then set this item `done`.
+A reviewer should read the new test as a diff and judge the thresholds
+themselves: if a legitimate two-word literal in production code is ever
+dropped in, the fix is an allowlist entry with a reason, not a wider net.
