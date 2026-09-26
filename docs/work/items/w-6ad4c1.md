@@ -125,6 +125,14 @@ under `/workspace` or `/tmp/opencode`; a second arm is
 scanning. Do not amend or force-push a published branch; add a commit and say so
 in the report.
 
+One transient host hazard seen at 20:56Z, recorded so a later pass does not
+misread it: the `antonina` CLI is shared with a *different* queue whose agents
+were reinstalling it during this pass, and for about a minute
+`antonina agent status` failed with a `SyntaxError` from a half-written launcher
+wrapper. It recovered on its own with no action here. If `antonina` fails oddly,
+re-run it before concluding that an agent died - and note that this front was
+confirmed `running`/`alive` at 20:45Z and again after the CLI recovered.
+
 Next action for a later fresh pass: `antonina agent status --id 6ad4c1`, then its
 log, then `git ls-remote origin madgab-punch-6ad4c1` and
 `git show madgab-punch-6ad4c1:REPORT-6ad4c1.md`. On a pushed
