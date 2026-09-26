@@ -4,7 +4,7 @@ id: w-c1d3a7
 state: done
 priority: high
 owner: agent-c1d3a7
-updated: 2026-09-26T22:30:00Z
+updated: 2026-09-26T14:53:00Z
 branch: madgab-adjacency
 worktree: /workspace/madgab-adjacency
 ---
@@ -353,3 +353,23 @@ is bounded by the score, and the score is where the next front has to go.
   ref behind the working tree and the first two pushes were silently no-ops.
 
 
+
+## Integrated, 2026-09-26T14:53Z (coordinator `coord-5a11c`)
+
+The operator and its two bounds are integrated into `post-milestone-acceptance`
+as **8cc71c4** (merge of `madgab-adjacency` at `2944011`), pushed, `main`
+untouched. Review detail, the fence scan and the four suites re-run on the
+merged tree are in [w-6f3a91](w-6f3a91.md). Two notes for the next pass:
+
+* the refutation in §8 is the durable result and it retires the whole "one
+  more reach pass on this clue" family: the clue's own alignment is in the
+  pool, and no bounded score-ordered neighbourhood walk can promote something
+  that sits under ~1e4 better wordings of the same structure. The three
+  candidates for moving it — boundary novelty, word familiarity, and the
+  visible cutoff — are all outside this item's fences, and are owned by
+  [w-2e5b93](w-2e5b93.md) (score) and [w-7b2d40](w-7b2d40.md) (selection).
+* the branch's remote ref is `origin/wip/adjacency-5a11c`, not
+  `origin/madgab-adjacency`. The latter still points at `413113a`, which the
+  agent's rebase replaced; it could not be fast-forwarded and was left alone
+  rather than force-pushed. `2944011` is on both the local branch and
+  `origin/wip/adjacency-5a11c`, so nothing is at risk.
