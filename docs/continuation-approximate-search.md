@@ -1,6 +1,17 @@
+---
+work_item: true
+id: w-7c4a91
+state: open
+priority: high
+owner: null
+updated: 2026-09-26T05:25:00Z
+branch: post-milestone-acceptance
+worktree: null
+---
+
 # Continue approximate-search acceptance work
 
-GitHub Issues are currently disabled for this repository, so this file preserves the intended continuation issue text until Issues are enabled.
+This document is an active repository work item. It is intentionally discoverable by scheduled orchestrators without relying on GitHub Issues. Follow [skills/work-items.md](skills/work-items.md) for claiming, handoff, and completion.
 
 ## Goal
 
