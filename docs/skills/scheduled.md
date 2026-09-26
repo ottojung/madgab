@@ -14,9 +14,19 @@ Keep these resources distinct:
 
 The coordinating agent should use Antonina by launching `antonina agent ...` commands as subprocesses. The coordinating agent coordinates; Antonina agents do the substantive agentic work. Do not replace Antonina with ad-hoc direct model calls when an Antonina agent is appropriate.
 
-Every invocation or turn of the coordinating agent is disposable. Repository work-item records, Antonina agent state and logs, repository state, CI, pull requests, and other explicit host state are the sources of truth; conversation memory is only context.
+Every invocation of the coordinating agent is disposable and should assume no useful conversational continuity from prior invocations. Repository work-item records, Antonina agent state and logs, repository state, CI, pull requests, and other explicit host state are the sources of truth; conversation memory is only context.
 
 GitHub Issues are optional. Do not assume they exist or use them as the canonical queue unless the project itinerary explicitly says so.
+
+## Coordinator pass
+
+Treat each invocation as a fresh reconciliation pass, not as a long-lived supervisor.
+
+Inspect durable state, existing Antonina agents, worktrees, branches, reviews, and blockers; take useful coordination actions; then exit promptly. Useful actions include claiming or recovering work, splitting work into independent fronts, starting or prompting agents, reviewing completed work, integrating validated work, and updating repository work-item handoffs.
+
+Do not keep the coordinating invocation alive merely to wait for long-running Antonina agents. In particular, avoid multi-minute sleeps or long `antonina agent wait` calls whose only purpose is to poll later. Leave running agents running and let the next scheduled invocation inspect them afresh. A short wait is fine when a result is expected within seconds and immediately affects the current coordination decision.
+
+The recurring scheduler should be able to start a fresh coordinating invocation at its intended cadence. If an invocation approaches that cadence, prefer recording state and returning over continuing to supervise existing agents.
 
 ## Startup
 
@@ -27,7 +37,7 @@ GitHub Issues are optional. Do not assume they exist or use them as the canonica
 5. If a push races with another coordinator, fetch, re-read the work item, and yield or reconcile instead of overwriting the other claim.
 6. Use a preassigned base-16 Antonina agent ID and an explicit target worktree cwd.
 7. Launch and control Antonina agents through subprocesses.
-8. Continue until the itinerary's completion condition or a useful handoff state is objectively recorded; do not silently stop with unrecorded local work.
+8. Take the useful coordination actions available in this pass, record durable handoff state, and return without waiting for unrelated long-running work to finish.
 
 ## Work discovery and ownership
 
@@ -53,7 +63,6 @@ antonina agent new --id <agent-id> --cwd <worktree>
 antonina agent prompt --id <agent-id> '<task>'
 antonina agent status --id <agent-id>
 antonina agent log --id <agent-id>
-antonina agent wait --id <agent-id> --timeout <seconds>
 ```
 
 Exploit parallelism whenever useful. If several investigations, implementations, reviews, or other work items are materially independent, prefer running multiple Antonina agents concurrently in separate worktrees rather than serializing them without reason. Look for opportunities to split work into independent fronts, but avoid spawning agents that would merely duplicate the same work or contend on the same files.
@@ -67,5 +76,7 @@ Before relying on a durable host path, follow [resources.md](resources.md): regi
 Keep the selected work item current enough that another invocation can resume from repository state alone. Before stopping, record concrete commits/branches, validation already run, unresolved blockers, and the next useful action. Push that handoff.
 
 Define completion from the work item plus calling itinerary. It must include the requested repository result, required validation, review expectations, and no unresolved blockers. Mark a work item `done` only after those conditions are objectively verified.
+
+A single coordinating invocation does not need to complete the selected work item. It is successful when it makes useful progress or a useful coordination decision and leaves enough durable state for a later fresh invocation to continue safely.
 
 If new follow-up work is discovered while completing an item, either add it to the current item when it is part of the same acceptance criteria or submit a new repository work item. Do not leave important follow-up work only in chat, local notes, or an unpushed worktree.
