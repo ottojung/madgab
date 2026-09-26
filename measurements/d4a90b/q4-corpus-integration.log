@@ -1,0 +1,32 @@
+   Compiling madgab v0.1.0 (/workspace/madgab-d4a90b)
+    Finished `release` profile [optimized] target(s) in 7.23s
+     Running tests/corpus_integration.rs (target/release/deps/corpus_integration-9da4be35735cc27f)
+
+running 11 tests
+test generates_for_a_real_phrase ... ok
+test known_madgab_pair_is_searchable ... ok
+test approximate_mode_runs_end_to_end ... ok
+test canonical_words_have_expected_narrow_ipa ... ok
+test approximate_output_is_locked ... ok
+test approximate_finds_classic_madgab_resegmentation ... FAILED
+test approximate_finds_recognize_speech_resegmentation ... ok
+test approximate_proposals_are_predominantly_content_words ... ok
+test approximate_pool_reaches_matches_deep_in_a_span ... ok
+test approximate_list_is_not_one_resegmentation ... ok
+test approximate_pool_reaches_alternatives_past_the_opening_slot_width ... ok
+
+failures:
+
+---- approximate_finds_classic_madgab_resegmentation stdout ----
+
+thread 'approximate_finds_classic_madgab_resegmentation' (573393) panicked at tests/corpus_integration.rs:136:5:
+canonical clue missing from top 50; got: ["it justice too bad aim", "it said thus test oop dame", "it justice too pad aim", "it said thus test oop day", "it justice too bad same", "it said thus test oop gave", "it justice too peg aim", "it justice too pad same", "it justice too bad name", "it justice too bed aim", "it justice too pig aim", "eat justice too bad aim"]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    approximate_finds_classic_madgab_resegmentation
+
+test result: FAILED. 10 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 25.82s
+
+error: test failed, to rerun pass `--test corpus_integration`

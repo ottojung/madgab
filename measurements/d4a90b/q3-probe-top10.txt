@@ -1,0 +1,4 @@
+## pool_count	top_n=10	pool=13498	enumerated=10
+## canonical	enumerated=no
+## worst_visible	rank=10	score=0.90017021977871081	phrase=it said thus test oop games
+## top_band	rank=1	score=0.90518681202870310	phrase=it justice too bad aim

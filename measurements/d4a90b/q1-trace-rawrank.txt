@@ -1,0 +1,18 @@
+# base commit f5b9eaaea1d3992d1588f556c0da18eb237a38bd
+# binary: target/release/madgab (cargo build --release at target/release/madgab)
+
+## CLI DEFAULT top_n (10)
+MADGAB_TRACE raw phrase="hits justice dupe hid came" missing candidates=13498
+MADGAB_TRACE raw_cutoff rank=9 score=0.900786673 phrase="it justice too bed aim"
+target: It's just a stupid game
+IPA:    /ˈɪtsdʒˈʌstəstˈupədɡˈeɪm/
+(corpus loaded in 475ms; search 1620ms)
+
+
+## CLI --top 50
+MADGAB_TRACE raw phrase="hits justice dupe hid came" missing candidates=17827
+MADGAB_TRACE raw_cutoff rank=49 score=0.898008919 phrase="it justice too bed same"
+target: It's just a stupid game
+IPA:    /ˈɪtsdʒˈʌstəstˈupədɡˈeɪm/
+(corpus loaded in 453ms; search 1552ms)
+

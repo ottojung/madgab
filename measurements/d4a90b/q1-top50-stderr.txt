@@ -1,0 +1,4 @@
+target: It's just a stupid game
+IPA:    /ˈɪtsdʒˈʌstəstˈupədɡˈeɪm/
+(corpus loaded in 461ms; search 1540ms)
+

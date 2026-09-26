@@ -1,0 +1,6 @@
+default run1 wall_ms=2664 | (corpus loaded in 484ms; search 1959ms)
+default run2 wall_ms=2848 | (corpus loaded in 572ms; search 2072ms)
+default run3 wall_ms=2514 | (corpus loaded in 513ms; search 1808ms)
+top50 run1 wall_ms=2357 | (corpus loaded in 455ms; search 1696ms)
+top50 run2 wall_ms=2124 | (corpus loaded in 473ms; search 1464ms)
+top50 run3 wall_ms=2215 | (corpus loaded in 471ms; search 1553ms)

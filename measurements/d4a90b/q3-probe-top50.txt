@@ -1,0 +1,18 @@
+## pool_count	top_n=50	pool=17827	enumerated=50
+## canonical	enumerated=no
+## worst_visible	rank=50	score=0.89775260645451749	phrase=it said thus tas too dame
+## top_band	rank=1	score=0.90518681202870310	phrase=it justice too bad aim
+## axes	it justice too bad aim
+target_ipa	ɪtsdʒʌstəstupədɡeɪm
+target_chars	n=19
+target_boundaries	[3, 8, 9, 15, 19]
+target_syllables	6
+weights	SIMILARITY=0.25 NOVELTY=0.15 WORD_NOVELTY=0.15 FAMILIARITY=0.1 RHYTHM=0.3 SHAPE=0.05 CLOSED_CLASS=-0.15 PUNCH=0.1
+weights_sum_six	1.00000000000000000
+weights_sum_six_plus_punch	1.10000000000000009
+complete_alignments	1
+path[0]	key=itɪt justicedʒʌstəs tootu badbæd aimeɪm	words=5	combined=0.90518681202870310
+path[0].raw	similarity=0.83719159992745440 novelty=1.00000000000000000 word_novelty=1.00000000000000000 familiarity=0.72888912046839427 rhythm=1.00000000000000000 shape=0.98000000000000009 closed_penalty=0.04000000000000001 punch=0.80000000000000004
+path[0].agg	sub_cost_total=0.65123360029018218 syllables=6 target_syllables=6 closed=1 reused=0 familiarity_sum=3.64444560234197157 shape_sum=4.90000000000000036 punch_count=4 cuts=[2, 10, 12, 16, 19]
+path[0].terms	sim=0.20929789998186360 nov=0.14999999999999999 wordnov=0.14999999999999999 fam=0.07288891204683944 rhy=0.29999999999999999 shp=0.04900000000000001 cls=-0.00600000000000000 pun=-0.02000000000000000 sum=0.90518681202870310
+path[0].phrase	it justice too bad aim

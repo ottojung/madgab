@@ -1,0 +1,39 @@
+warning: unused variable: `m`
+  --> src/main.rs:19:14
+   |
+19 |         let (m,a) = (wraw[i].0, wraw[i].1);
+   |              ^ help: if this is intentional, prefix it with an underscore: `_m`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+canon                       0.79990129077367222
+delta vs worst visible @10  0.10026892900503859
+delta vs worst visible @50  0.09785131568084526
+delta vs rank1 @50          0.10528552125503088
+delta vs raw cutoff @10     0.10088538222632781
+delta vs raw cutoff @50     0.09810762822632779
+
+-- raw axis values (canon -> worst50) --
+similarity      0.720120046  0.761433348    0.041313301
+novelty         0.666666667  1.000000000    0.333333333
+word_novelty    1.000000000  1.000000000    0.000000000
+familiarity     0.398712792  0.623942695    0.225229904
+rhythm          1.000000000  1.000000000    0.000000000
+shape           1.000000000  0.983333333   -0.016666667
+closed_penalty  0.000000000  0.027777778    0.027777778
+punch           0.800000000  1.000000000    0.200000000
+
+-- weighted term contributions (canon -> worst50) --
+sim    w=  0.25  canon    0.180030012  worst50    0.190358337  delta    0.010328325
+nov    w=  0.15  canon    0.100000000  worst50    0.150000000  delta    0.050000000
+wordnov w=  0.15  canon    0.150000000  worst50    0.150000000  delta    0.000000000
+fam    w=  0.10  canon    0.039871279  worst50    0.062394270  delta    0.022522990
+rhy    w=  0.30  canon    0.300000000  worst50    0.300000000  delta    0.000000000
+shp    w=  0.05  canon    0.050000000  worst50    0.049166667  delta   -0.000833333
+cls    w= -0.15  canon   -0.000000000  worst50   -0.004166667  delta   -0.004166667
+pun    w=  0.10  canon   -0.020000000  worst50    0.000000000  delta    0.020000000
+TOTAL             canon    0.799901291  worst50    0.897752606  delta    0.097851316
+CHECK             sum of per-axis deltas    0.097851316
+
+six weights sum            1.00000000000000000
+six + PUNCH                 1.10000000000000009
