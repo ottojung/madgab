@@ -490,10 +490,13 @@ impl Generator {
         };
         let n = chars.len();
         let cap = 500;
-        let state_cap = 12;
-        let mut states: Vec<FastMap<(usize, usize, usize, u8), Vec<DpPath>>> =
+        let state_cap = 2;
+        let mut states: Vec<FastMap<(usize, usize, u8, u32, String, String), Vec<DpPath>>> =
             (0..=n).map(|_| FastMap::default()).collect();
-        states[0].insert((0, 0, 0, 0), vec![DpPath::new(Partial::empty())]);
+        states[0].insert(
+            (0, 0, 0, 0, String::new(), String::new()),
+            vec![DpPath::new(Partial::empty())],
+        );
         let lattice: Vec<Vec<ApproxMatch>> = (0..n)
             .map(|p| {
                 let mut matches = self.approx_trie.words_approximately_starting_at(
@@ -520,7 +523,7 @@ impl Generator {
             let matches = &lattice[p];
             for (_state, paths) in here {
                 for path in paths {
-                    for m in &matches {
+                    for m in matches {
                         if m.consumed < self.config.min_word_ipa_chars
                             || path.partial.sub_cost_total + m.cost > total_budget + 1e-9
                         {
@@ -556,12 +559,24 @@ impl Generator {
                             + 0.10 * Partial::familiarity01(m.rarity)
                             - 0.15 * f64::from(reused)
                             - 0.30 * f64::from(shared);
+                        let last = next
+                            .words
+                            .last()
+                            .map(|w| Partial::norm_word(&w.word))
+                            .unwrap_or_default();
+                        let previous = if next.words.len() > 1 {
+                            Partial::norm_word(&next.words[next.words.len() - 2].word)
+                        } else {
+                            String::new()
+                        };
+                        let reuse_count = next.reuse_count;
+                        let tier = cost_tier(next.sub_cost_total);
                         let next_path = DpPath {
                             partial: next,
                             rank,
                         };
                         let bucket = states[end]
-                            .entry((q, k, cost_tier(next.sub_cost_total)))
+                            .entry((q, k, tier, reuse_count, previous, last))
                             .or_default();
                         insert_dp_path(bucket, next_path, state_cap);
                     }
@@ -978,26 +993,28 @@ impl ApproxTrie {
                 }
             })
             .collect();
-        // Dedup identical (word, consumed) keeping cheapest.
-        // Full total order (cost, word, consumed, IPA, rarity): the
-        // input comes from a HashMap, so any residual tie must break
-        // deterministically or downstream results vary run to run.
+        let mut seen: FastSet<(String, usize, usize)> = FastSet::default();
+        out.retain(|m| {
+            seen.insert((
+                Partial::norm_word(&m.word),
+                m.consumed,
+                m.ipa.chars().count(),
+            ))
+        });
         out.sort_by(|a, b| {
             a.cost
                 .partial_cmp(&b.cost)
                 .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| a.word.cmp(&b.word))
-                .then_with(|| a.consumed.cmp(&b.consumed))
-                .then_with(|| a.ipa.cmp(&b.ipa))
                 .then_with(|| {
                     a.rarity
                         .unwrap_or(f64::INFINITY)
                         .partial_cmp(&b.rarity.unwrap_or(f64::INFINITY))
                         .unwrap_or(std::cmp::Ordering::Equal)
                 })
+                .then_with(|| a.word.cmp(&b.word))
+                .then_with(|| a.consumed.cmp(&b.consumed))
+                .then_with(|| a.ipa.cmp(&b.ipa))
         });
-        let mut seen: FastSet<(String, usize)> = FastSet::default();
-        out.retain(|m| seen.insert((m.word.clone(), m.consumed)));
         shortlist_diverse(out, cap)
     }
 }
