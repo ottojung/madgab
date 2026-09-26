@@ -41,6 +41,27 @@ cannot be added without `rustup`.
 - `git ls-remote --heads origin` lists roughly 40 `archive/*` branches;
   filter its output with node or a file, not with `grep`/`sed`/`awk`,
   which are absent from this environment.
+- **Consequence of the narrowed fetch refspec: an absent remote-tracking ref
+  does not mean a branch is unpushed.** Most local branches therefore *look*
+  unpushed, and `git push --all` will report almost nothing. The honest
+  durability check is to reconcile the two full lists:
+
+  ```sh
+  git ls-remote --heads origin > /tmp/lsr.txt
+  node -e 'const fs=require("fs");
+  const r=new Set(fs.readFileSync("/tmp/lsr.txt","utf8").split("\n").filter(Boolean)
+    .map(l=>l.split("\t")[1].replace("refs/heads/","")));
+  const cp=require("child_process");
+  for(const b of cp.execSync("git for-each-ref --format=\"%(refname:short)\" refs/heads/")
+    .toString().split("\n").filter(Boolean))
+    if(!r.has(b)) console.log("NOT PUSHED: "+b);'
+  ```
+
+  Run this on every coordinator pass before concluding anything about
+  durability, and `git push --all` afterwards if it reports anything. A
+  single-copy source hazard on this repository has already happened twice
+  (an agent finishing on a detached HEAD, and an unpushed implementation
+  branch), and this check is what catches it.
 
 ## Shell
 
