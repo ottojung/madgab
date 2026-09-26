@@ -1,0 +1,446 @@
+diff --git a/.github/workflows/pages.yml b/.github/workflows/pages.yml
+new file mode 100644
+index 0000000..4e93373
+--- /dev/null
++++ b/.github/workflows/pages.yml
+@@ -0,0 +1,43 @@
++name: Pages
++
++on:
++  push:
++    branches: [main]
++  workflow_dispatch:
++
++permissions:
++  contents: read
++  pages: write
++  id-token: write
++
++concurrency:
++  group: pages
++  cancel-in-progress: false
++
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++      - uses: dtolnay/rust-toolchain@stable
++        with:
++          targets: wasm32-unknown-unknown
++      - uses: Swatinem/rust-cache@v2
++      - name: Install wasm-pack
++        run: cargo install wasm-pack --locked
++      - name: Build wasm bundle
++        run: wasm-pack build --target web --out-dir web/pkg
++      - uses: actions/configure-pages@v5
++      - uses: actions/upload-pages-artifact@v4
++        with:
++          path: web
++
++  deploy:
++    environment:
++      name: github-pages
++      url: ${{ steps.deployment.outputs.page_url }}
++    runs-on: ubuntu-latest
++    needs: build
++    steps:
++      - id: deployment
++        uses: actions/deploy-pages@v4
+diff --git a/.gitignore b/.gitignore
+index ca98cd9..0f2f2ae 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,2 +1,3 @@
+ /target/
+ Cargo.lock
++/web/pkg/
+diff --git a/Cargo.toml b/Cargo.toml
+index 61f21f9..6746bbb 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -11,16 +11,14 @@ keywords = ["madgab", "puzzle", "phonetics", "ipa", "linguistics"]
+ categories = ["games", "text-processing"]
+ 
+ [dependencies]
+-# The Rust phonetic-distance core: Bark-space vowel metric,
+-# 2D consonant place embedding, listener-confusion DP, and the
+-# corpus/trie types that this crate's generator walks.
+ phonetics = { package = "phonetics-rs", version = "0.3", features = ["transcriptions"] }
+-# OpenEPD: the embedded ~280k-word US English IPA dictionary that
+-# the generator searches for clue tilings. Used to live under
+-# data/ + corpus/ in this repo; extracted in May 2026 because the
+-# corpus has its own license (CC-BY-SA 4.0), its own refresh
+-# cadence, and other downstream consumers besides Mad Gab.
+ open-english-pronouncing-dictionary = "0.1"
++serde = { version = "1", features = ["derive"] }
++serde_json = "1"
++wasm-bindgen = "0.2"
++
++[lib]
++crate-type = ["cdylib", "rlib"]
+ 
+ [profile.release]
+ lto = "thin"
+diff --git a/README.md b/README.md
+index 6be2af8..424832a 100644
+--- a/README.md
++++ b/README.md
+@@ -44,6 +44,27 @@ cargo build --release
+ ./target/release/madgab "I love you"
+ ```
+ 
++## Browser / WASM
++
++The same generator runs in the browser via a `wasm-bindgen` wrapper
++(`src/wasm.rs` over `Generator`). The static UI in `web/` — target
++input, exact/approximate toggle, top-N selector, per-clue scores, plus
++loading and error states — runs generation in a Web Worker so the page
++stays responsive.
++
++```
++# local preview (requires wasm-pack + a wasm target)
++wasm-pack build --target web --out-dir web/pkg
++python3 -m http.server -d web 8000
++# → http://localhost:8000
++```
++
++The `Pages` workflow (`.github/workflows/pages.yml`) builds the same
++bundle on every `main` push (or manual `workflow_dispatch`) and deploys
++`web/` to GitHub Pages. Note: the Pages environment must already be
++enabled for the repo — the workflow intentionally does not try to
++enable it via `configure-pages` + `GITHUB_TOKEN`.
++
+ ## CLI
+ 
+ ```
+diff --git a/src/lib.rs b/src/lib.rs
+index c494b19..373db2d 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -24,9 +24,13 @@
+ use std::collections::HashSet;
+ 
+ use phonetics::transcriptions::{Corpus, Pronunciation};
++use serde::Serialize;
++
++#[cfg(target_arch = "wasm32")]
++pub mod wasm;
+ 
+ /// One candidate Mad Gab clue.
+-#[derive(Debug, Clone)]
++#[derive(Debug, Clone, Serialize)]
+ pub struct Clue {
+     /// The clue as a space-joined English phrase.
+     pub phrase: String,
+@@ -40,7 +44,7 @@ pub struct Clue {
+ }
+ 
+ /// One word inside a candidate clue.
+-#[derive(Debug, Clone)]
++#[derive(Debug, Clone, Serialize)]
+ pub struct ClueWord {
+     /// English headword.
+     pub word: String,
+@@ -153,6 +157,13 @@ impl Generator {
+         &self.config
+     }
+ 
++    /// Replace the search configuration (beam width, top N, mode…).
++    /// The parsed corpus/trie is untouched, so this is cheap — the
++    /// wasm wrapper uses it per `generate` call.
++    pub fn set_config(&mut self, config: GeneratorConfig) {
++        self.config = config;
++    }
++
+     /// Generate ranked clue candidates for `target`.
+     ///
+     /// Returns an empty Vec if the target's IPA stream has no
+diff --git a/src/wasm.rs b/src/wasm.rs
+new file mode 100644
+index 0000000..f066e94
+--- /dev/null
++++ b/src/wasm.rs
+@@ -0,0 +1,67 @@
++//! wasm-bindgen wrapper over [`crate::Generator`].
++//!
++//! The browser UI never touches the generator directly: `web/worker.js`
++//! loads the wasm-pack bundle in a Web Worker, constructs one
++//! `WasmGenerator` (corpus load happens once), and calls `generate`
++//! off the main thread. Results cross the worker boundary as JSON
++//! strings to keep the binding surface trivial.
++
++use wasm_bindgen::prelude::*;
++
++use crate::{Generator, GeneratorConfig, SearchMode};
++use open_english_pronouncing_dictionary::CORPUS_JSON;
++
++/// Long-lived generator instance shared by all `generate` calls on
++/// the page. Build once; the corpus load dominates startup, so reuse
++/// matters.
++#[wasm_bindgen]
++pub struct WasmGenerator {
++    generator: Generator,
++}
++
++#[wasm_bindgen]
++impl WasmGenerator {
++    /// Load the embedded corpus with interactive defaults. Throws a
++    /// JS error if the bundled corpus fails to parse (should never
++    /// happen — same constant the native CLI uses).
++    #[wasm_bindgen(constructor)]
++    pub fn new() -> Result<WasmGenerator, JsValue> {
++        let generator = Generator::from_json(CORPUS_JSON, GeneratorConfig::default())
++            .map_err(|e| JsValue::from_str(&format!("corpus load failed: {e}")))?;
++        Ok(Self { generator })
++    }
++
++    /// Transcribe `target` to IPA. Returns an empty string when any
++    /// word has no transcription.
++    pub fn transcribe(&self, target: &str) -> String {
++        self.generator
++            .corpus()
++            .transcribe(target)
++            .unwrap_or_default()
++    }
++
++    /// Generate the top `top_n` clues for `target` and return them as
++    /// a JSON string: `{ ipa, clues: [{ phrase, ipa, score, words }] }`.
++    ///
++    /// `approximate` selects [`SearchMode::approximate`] vs
++    /// [`SearchMode::Exact`]; budgets stay at the documented defaults
++    /// (per-word 0.5, total 1.5) to keep the UI surface small.
++    /// `top_n` is clamped to 1..=50.
++    pub fn generate(&mut self, target: &str, top_n: usize, approximate: bool) -> String {
++        let mut config = self.generator.config().clone();
++        config.top_n = top_n.clamp(1, 50);
++        config.mode = if approximate {
++            SearchMode::approximate()
++        } else {
++            SearchMode::Exact
++        };
++        self.generator.set_config(config);
++        let clues = self.generator.generate(target);
++        let ipa = self
++            .generator
++            .corpus()
++            .transcribe(target)
++            .unwrap_or_default();
++        serde_json::json!({ "ipa": ipa, "clues": clues }).to_string()
++    }
++}
+diff --git a/web/app.js b/web/app.js
+new file mode 100644
+index 0000000..1b4074b
+--- /dev/null
++++ b/web/app.js
+@@ -0,0 +1,101 @@
++/* Minimal no-build UI glue: form -> Web Worker -> render. */
++
++const form = document.getElementById("form");
++const targetEl = document.getElementById("target");
++const modeEl = document.getElementById("mode");
++const topnEl = document.getElementById("topn");
++const goBtn = document.getElementById("go");
++const statusEl = document.getElementById("status");
++const resultsEl = document.getElementById("results");
++const ipaEl = document.getElementById("ipa");
++const cluesEl = document.getElementById("clues");
++const errorEl = document.getElementById("error");
++
++let ready = false;
++let busy = false;
++
++const worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
++
++function setStatus(text) {
++  statusEl.textContent = text;
++  statusEl.hidden = text === "";
++}
++
++function showError(text) {
++  errorEl.textContent = text;
++  errorEl.hidden = text === "";
++}
++
++worker.onmessage = (event) => {
++  const msg = event.data;
++  if (msg.type === "ready") {
++    ready = true;
++    setStatus("");
++    return;
++  }
++  if (msg.type === "result") {
++    busy = false;
++    goBtn.disabled = false;
++    setStatus("");
++    renderResult(JSON.parse(msg.json));
++    return;
++  }
++  if (msg.type === "error") {
++    busy = false;
++    goBtn.disabled = false;
++    setStatus("");
++    showError(msg.message);
++  }
++};
++
++worker.onerror = (event) => {
++  busy = false;
++  goBtn.disabled = false;
++  setStatus("");
++  showError(`Worker failed: ${event.message || "unknown error"}`);
++};
++
++function renderResult({ ipa, clues }) {
++  showError("");
++  if (!clues || clues.length === 0) {
++    resultsEl.hidden = true;
++    showError("No clue coverings found for that phrase. Try shorter words or approximate mode.");
++    return;
++  }
++  resultsEl.hidden = false;
++  ipaEl.textContent = ipa ? `/${ipa}/` : "";
++  cluesEl.innerHTML = "";
++  for (const clue of clues) {
++    const li = document.createElement("li");
++    const score = document.createElement("span");
++    score.className = "score";
++    score.textContent = `[${Number(clue.score).toFixed(3)}]`;
++    li.append(score, document.createTextNode(` ${clue.phrase}`));
++    cluesEl.appendChild(li);
++  }
++}
++
++form.addEventListener("submit", (event) => {
++  event.preventDefault();
++  if (!ready) {
++    setStatus("Engine still loading…");
++    return;
++  }
++  if (busy) return;
++  const target = targetEl.value.trim();
++  if (!target) {
++    showError("Enter a target phrase first.");
++    return;
++  }
++  busy = true;
++  goBtn.disabled = true;
++  showError("");
++  resultsEl.hidden = true;
++  setStatus("Generating…");
++  worker.postMessage({
++    type: "generate",
++    target,
++    topN: Math.min(50, Math.max(1, Number(topnEl.value) || 10)),
++    approximate: modeEl.value === "approximate",
++  });
++});
+diff --git a/web/index.html b/web/index.html
+new file mode 100644
+index 0000000..cac6393
+--- /dev/null
++++ b/web/index.html
+@@ -0,0 +1,51 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8" />
++  <meta name="viewport" content="width=device-width, initial-scale=1" />
++  <title>madgab — Mad Gab puzzle generator</title>
++  <link rel="stylesheet" href="./style.css" />
++</head>
++<body>
++  <main>
++    <h1>madgab</h1>
++    <p class="tagline">
++      Mad Gab puzzle generator in your browser. Type a target phrase, get ranked
++      clue candidates whose pronunciation matches but whose words differ.
++    </p>
++
++    <form id="form">
++      <label class="field">
++        <span>Target phrase</span>
++        <input id="target" type="text" value="It's just a stupid game"
++               placeholder="e.g. It's just a stupid game" autocomplete="off" />
++      </label>
++
++      <div class="row">
++        <label class="field">
++          <span>Mode</span>
++          <select id="mode">
++            <option value="exact" selected>Exact</option>
++            <option value="approximate">Approximate</option>
++          </select>
++        </label>
++        <label class="field">
++          <span>Top N</span>
++          <input id="topn" type="number" min="1" max="50" value="10" />
++        </label>
++        <button type="submit" id="go">Generate</button>
++      </div>
++    </form>
++
++    <p id="status" role="status" aria-live="polite">Loading engine…</p>
++
++    <section id="results" hidden>
++      <h2>Results <span id="ipa"></span></h2>
++      <ol id="clues"></ol>
++    </section>
++
++    <p id="error" role="alert" hidden></p>
++  </main>
++  <script type="module" src="./app.js"></script>
++</body>
++</html>
+diff --git a/web/style.css b/web/style.css
+new file mode 100644
+index 0000000..ba1138d
+--- /dev/null
++++ b/web/style.css
+@@ -0,0 +1,12 @@
++:root { color-scheme: light dark; }
++body { font-family: system-ui, sans-serif; margin: 0; padding: 2rem 1rem; }
++main { max-width: 42rem; margin: 0 auto; }
++.tagline { color: gray; }
++.field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
++.field span { font-size: 0.85rem; font-weight: 600; }
++input, select, button { font: inherit; padding: 0.4rem 0.6rem; }
++.row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
++#status { font-style: italic; }
++#error { color: crimson; }
++.score { font-variant-numeric: tabular-nums; color: gray; }
++#ipa { font-weight: 400; color: gray; font-size: 1rem; }
+diff --git a/web/worker.js b/web/worker.js
+new file mode 100644
+index 0000000..b04d183
+--- /dev/null
++++ b/web/worker.js
+@@ -0,0 +1,27 @@
++/* Web Worker: loads the wasm-pack bundle off the main thread so
++ * generation never blocks the UI. Message protocol:
++ *   in:  { type: "generate", target, topN, approximate }
++ *   out: { type: "ready" } | { type: "result", json } | { type: "error", message }
++ */
++import init, { WasmGenerator } from "./pkg/madgab.js";
++
++let generator = null;
++
++try {
++  await init();
++  generator = new WasmGenerator();
++  self.postMessage({ type: "ready" });
++} catch (err) {
++  self.postMessage({ type: "error", message: `Failed to load engine: ${err?.message || err}` });
++}
++
++self.onmessage = (event) => {
++  const msg = event.data;
++  if (msg.type !== "generate" || generator === null) return;
++  try {
++    const json = generator.generate(msg.target, msg.topN, msg.approximate);
++    self.postMessage({ type: "result", json });
++  } catch (err) {
++    self.postMessage({ type: "error", message: `Generation failed: ${err?.message || err}` });
++  }
++};
