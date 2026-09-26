@@ -20,6 +20,8 @@ jobs:
       - name: real-corpus integration tests
         env:
           MADGAB_TRACE_PHRASES: "hits justice dupe hid came|wreck a nice beach"
+          MADGAB_TRACE_SPANS: "0-3,3-10,10-13,13-15,15-19"
+          MADGAB_TRACE_WORDS: "hits,justice,dupe,hid,came"
         run: cargo test --release --test corpus_integration --no-fail-fast
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
