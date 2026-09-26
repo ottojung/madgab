@@ -154,11 +154,38 @@ impl Generator {
                 continue;
             }
             let here = std::mem::take(&mut beam[p]);
+
+            // The corpus trie is third-party: `Corpus::from_json` inserts
+            // pronunciations while iterating a `HashMap`, so the
+            // terminations sharing a trie node come out in hash-seed
+            // order.  `insert_top_k` keeps the first arrival on an
+            // equal-`cheap_score` tie, so that order decides which
+            // hypothesis survives the beam — which is why exact mode used
+            // to return a different clue set from one process to the next.
+            //
+            // The walk itself is independent of the beam hypothesis, so it
+            // is hoisted out of the inner loop and the sort is paid once
+            // per target position.  Two entries that compare equal here
+            // (same span, spelling and IPA) extend every partial into the
+            // same `Partial`, so the key is total for our purposes.
+            let mut options: Vec<(usize, &Pronunciation)> = self
+                .corpus
+                .trie
+                .words_starting_at(&chars, p)
+                .filter(|(_, pronunciation)| {
+                    pronunciation.ipa.chars().count()
+                        >= self.config.min_word_ipa_chars
+                })
+                .collect();
+            options.sort_by(|(consumed_a, a), (consumed_b, b)| {
+                consumed_a
+                    .cmp(consumed_b)
+                    .then_with(|| a.word.cmp(&b.word))
+                    .then_with(|| a.ipa.cmp(&b.ipa))
+            });
+
             for partial in &here {
-                for (consumed, pronunciation) in self.corpus.trie.words_starting_at(&chars, p) {
-                    if pronunciation.ipa.chars().count() < self.config.min_word_ipa_chars {
-                        continue;
-                    }
+                for &(consumed, pronunciation) in &options {
                     let next = partial.extend_pronunciation(pronunciation, consumed, 0.0);
                     insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
                 }
