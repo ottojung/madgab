@@ -1901,6 +1901,46 @@ impl Generator {
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
 
+        // ---- read-only measurement probe (9d3b17 tip-verify front) ----
+        // Dumps the deduplicated pool this search just built, after the
+        // phrase_signature dedup and before select_diverse, to the
+        // file named by MADGAB_POOL_DUMP.  Read-only: it writes no state
+        // that select_diverse or anything downstream can observe, and
+        // with the variable unset (or empty) it does nothing at all.
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("MADGAB_POOL_DUMP") {
+            if !path.is_empty() {
+                let label = std::env::var("MADGAB_POOL_TARGET").unwrap_or_default();
+                if let Ok(mut out) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                {
+                    use std::io::Write;
+                    for (rank, c) in clues.iter().enumerate() {
+                        let words: Vec<String> = c
+                            .words
+                            .iter()
+                            .enumerate()
+                            .map(|(slot, w)| format!("{}={}", slot, w.word))
+                            .collect();
+                        let _ = writeln!(
+                            out,
+                            "{}\t{:.9}\t{}\t{}\t{}\t{}",
+                            rank,
+                            c.score,
+                            label,
+                            c.phrase,
+                            words.join(" "),
+                            c.cuts[..c.cuts.len().saturating_sub(1)].iter().map(|x| x.to_string()).collect::<Vec<String>>().join(",")
+                        );
+                    }
+                    let _ = writeln!(out, "#END\t{}\t{}", label, clues.len());
+                }
+            }
+        }
+        // ---- end measurement probe ----
+
         #[cfg(not(target_arch = "wasm32"))]
         if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
             for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
