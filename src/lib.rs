@@ -13,6 +13,7 @@ use serde::Serialize;
 
 mod adjacency;
 mod approx;
+pub mod probe;
 pub mod lexical;
 
 #[cfg(target_arch = "wasm32")]
@@ -1397,6 +1398,22 @@ impl Generator {
                 }
                 Some(partial)
             };
+
+            // MEASUREMENT-ONLY (front c81e55): optionally push one
+            // environment-named index tuple for this segmentation through
+            // the normal `build`, so that the *production* scorer and the
+            // production `select_diverse` can be asked what they make of a
+            // wording the search never emitted.  Nothing is hard-coded: the
+            // tuple comes from the environment.
+            if let Some(t) = probe::inject(index) {
+                if t.len() == slots.len()
+                    && t.iter().enumerate().all(|(k, &i)| i < slots[k].len())
+                {
+                    if let Some(p) = build(&t) {
+                        recovered.push(p);
+                    }
+                }
+            }
             let profile_allowance =
                 EMIT_PROFILE_RESERVE.min(emit_allowance);
             let mut profile_emitted = 0usize;
@@ -1418,9 +1435,12 @@ impl Generator {
                 {
                     break;
                 }
+                let offered = tuple.clone();
                 let Some(partial) = build(&tuple) else {
+                    probe::tuple(index, "reserve", false, &offered);
                     continue;
                 };
+                probe::tuple(index, "reserve", true, &offered);
                 #[cfg(test)]
                 counters::note_depth(
                     &counters::DEEPEST_PROFILE,
@@ -1494,6 +1514,39 @@ impl Generator {
             } else {
                 1.0 - segmentation.shared as f64 / union as f64
             };
+
+            probe::segmentation(
+                index,
+                coverage_phase,
+                &segmentation.spans,
+                word_count,
+                target_syllables,
+                segmentation.shared,
+                target_inner_count,
+                novelty,
+                &slots
+                    .iter()
+                    .map(|alts| alts.len())
+                    .collect::<Vec<_>>(),
+            );
+            for (slot_i, alts) in slots.iter().enumerate() {
+                for (i, a) in alts.iter().enumerate() {
+                    probe::alt(
+                        index,
+                        slot_i,
+                        i,
+                        (
+                            a.cost,
+                            a.reused,
+                            a.familiarity,
+                            a.closed,
+                            a.shape,
+                            a.syllables,
+                        ),
+                        &self.fuzzy_lexicon.word(a.match_ref.word_idx).word,
+                    );
+                }
+            }
 
             let bound = |prefix: &[usize]| -> f64 {
                 let (mut cost, mut reused, mut fam, mut closed, mut shape, mut syl) =
@@ -1581,8 +1634,11 @@ impl Generator {
                     if !replaying {
                         popped += 1;
                     }
-                    if k == depth {
-                        if let Some(partial) = build(&prefix) {
+                        if k == depth {
+                            if build(&prefix).is_none() {
+                                probe::tuple(index, "traversal", false, &prefix);
+                            }
+                            if let Some(partial) = build(&prefix) {
                             if !replaying {
                                 #[cfg(test)]
                                 counters::note_depth(
@@ -1751,6 +1807,7 @@ impl Generator {
         }
 
         completed.extend(recovered);
+        probe::flush();
         self.finish(
             completed,
             &target_ipa,
