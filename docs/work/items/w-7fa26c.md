@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-7fa26c
-state: working
+state: done
 priority: high
 owner: agent-a1b2c304
-updated: 2026-09-26T11:05:00Z
+updated: 2026-09-26T11:45:00Z
 branch: madgab-approx-runtime
 worktree: /workspace/madgab-approx-runtime
 ---
@@ -359,3 +359,47 @@ Either file P5 (`Rc`-based `Partial` + interned path keys) as its own item with
 a fresh golden-output baseline, or land the perf work as it stands once
 [w-a02d28](w-a02d28.md) has decided what the two red acceptance tests should
 assert. The state stays `working` because the green-suite criterion is unmet.
+
+## Pass 2026-09-26T11:45Z (coordinator coord-11b7): integrated as d8e14cd, item done
+
+Integrated `madgab-approx-runtime` (0ed6ca2) into
+`post-milestone-acceptance` as **d8e14cd** and pushed both branches.
+`main` untouched. Review summary is in the merge commit message; the
+essentials:
+
+- The change is `Partial`/`prune_partials` plumbing only. No scoring
+  constant moves, `axes::*` and the closed-class axis are untouched, and
+  `Partial::metrics` still returns the same fields.
+- Three conflicts, all resolved by keeping both sides: the exact-mode
+  determinism front-s hoisted sorted `options` walk plus the new
+  `&TargetPhrase` argument; `extend_pronunciation` keeping
+  `lexical::is_closed_class`; and the `Metrics` closed-class `axes` block
+  keeping its place while gaining the `PartialEq` derive.
+- The front-s own new unit tests were written against the pre-axis types,
+  so three **test-only** sites were updated to the current shapes: the
+  `refold` reference in `incremental_aggregates_match_a_full_refold` now
+  recomputes the closed-class term, and the two synthetic `FuzzyWord`
+  literals set `closed`. No production code was adapted to make a test
+  pass.
+- `approximate_output_is_bit_identical_to_the_baseline` is now
+  `approximate_output_is_locked`, and it had to be **re-baselined**. Its
+  values came from the d46d154 binary, and the closed-class axis and the
+  ordered selection rule have landed since and intentionally change
+  approximate output, so keeping them would have locked a tree that no
+  longer exists. The new values were taken from the integrated tree and
+  cover one target; widen the case list before treating it as a strong
+  lock.
+
+Validation on the integrated tree: `--lib` 26 passed; `--test
+corpus_integration` 8 passed, 1 failed
+(`approximate_finds_classic_madgab_resegmentation`, the known and only
+remaining milestone blocker); `--test exact_determinism` 1 passed.
+`--approximate --top 20 "It-s just a stupid game"` is **2031 ms** of search
+against 419 ms of corpus load, versus 5.8 s of search on this branch before
+the merge.
+
+State is `done`: the perf criteria are met, and the one unmet criterion
+the agent recorded ("`cargo test --release` is green") belongs to
+[w-a02d28](w-a02d28.md), which is a product decision about the acceptance
+tests, not a performance defect. The P5 continuation it handed off is filed
+as [w-d17a62](w-d17a62.md) and is running as agent `d17a620`.
