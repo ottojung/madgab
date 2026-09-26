@@ -3,8 +3,8 @@ work_item: true
 id: w-d4f0b2
 state: working
 priority: normal
-owner: agent-d4f0b21
-updated: 2026-09-26T16:30:00Z
+owner: coord-9f2c
+updated: 2026-09-26T17:12:00Z
 branch: madgab-nohardcode
 worktree: /workspace/madgab-nohardcode
 ---
@@ -114,3 +114,62 @@ Next action for a later fresh pass: review the new test as a diff — it must
 add detection power rather than a brittle word list, and criterion 2's
 positive control must be reported — then run criterion 5's suites and
 integrate onto `post-milestone-acceptance`.
+
+## Pass 2026-09-26T17:12Z (coordinator `coord-9f2c`): integrated as `ecb42c6`,
+## positive control re-run by the coordinator, item `done`
+
+Agent `d4f0b21` finished with exit code 0 and left a clean tree on the named
+branch `madgab-nohardcode` (no detached-HEAD hazard), two commits: `1d39f50`
+the fence and `361d707` its own item note. Both pushed;
+`origin/madgab-nohardcode` is `361d707`. **Integrated as `ecb42c6`**, a clean
+merge with no conflict and no `src/` change, so it did not contend with
+[w-c4e8d7](w-c4e8d7.md)'s front. `main` untouched.
+
+**Review.** One new file, `tests/no_phrase_hard_coding.rs`, 1070 lines, `std`
+only, no `Cargo.toml` change — inside this item's collision boundary exactly.
+Detection is about *behavioural coupling* and reports the matched shape, as
+criterion 1 and the context section require: the shapes it looks for are a
+literal full clue string, a comparison against a normalised target string, a
+whole-sentence equality test, a lookup table keyed by the target text, and a
+per-word or per-substring special case. Test modules and comments are excluded
+by rule (`test_modules_and_comments_are_not_scanned`), and
+`the_allowlist_is_small_and_every_entry_justifies_itself` is a guard on the
+allowlist itself, which is the reviewable-and-greppable requirement.
+
+**Criterion 2's positive control was re-run by this coordinator rather than
+taken from the agent's report**, because that is the criterion a fence lives or
+dies by and because [w-9d4e17](w-9d4e17.md)'s test was rejected in this queue
+for lacking one. A temporary comparison-against-target-text line was appended
+to `src/approx.rs` on the **integrated** tree and the fence failed with file,
+line and reason:
+
+```text
+/workspace/madgab/src/approx.rs:554  [comparison-against-target-text]
+    "wreck a nice beach" spells out a whole clue phrase and is compared
+    against a runtime value
+no_phrase_specific_hard_coding_in_src ... FAILED
+```
+
+`src/approx.rs` was then restored from a copy taken beforehand and
+`git status` showed an empty `src/` diff, and the fence went back to 6/6. So
+the fence has a demonstrated catch, not just a demonstrated pass.
+
+**Criterion 5, on the integrated tree, after [w-c4e8d7](w-c4e8d7.md)'s 331-line
+`src/lib.rs` diff was already merged in:** `cargo test --release --test
+no_phrase_hard_coding` is **6 passed, 0 failed** (0.01 s, no release build or
+corpus needed, as the context section required). That is the stronger form of
+the criterion, because the fence is green against the largest `src/` change in
+this queue and not only against the tree it was written on. `--lib` 50/50 and
+`--test corpus_integration` 10 passed / 1 failed
+(`approximate_finds_classic_madgab_resegmentation`) were measured by this
+coordinator on the same head.
+
+**Item state: `done`.** All six criteria are objectively verified. The one
+criterion that needed independent evidence — the positive control — was
+reproduced rather than trusted, and it fired. This item is a fence, so `done`
+means the fence exists and works, not that the milestone is met; the milestone
+is [w-4b1e07](w-4b1e07.md)'s to close and is still open.
+
+No further work is owed by this item. A later pass that adds a legitimate
+allowlist entry is expected, and the test's own module docs say how; that is
+maintenance of a landed fence, not a new front.
