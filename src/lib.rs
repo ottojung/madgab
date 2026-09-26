@@ -5,6 +5,8 @@
 //! genuinely different lexical/word-boundary parse.
 
 use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasherDefault;
+use std::rc::Rc;
 
 use phonetics::transcriptions::{Corpus, Pronunciation};
 use serde::Serialize;
@@ -1025,9 +1027,17 @@ impl Generator {
             let quantized =
                 |score: f64| -> i64 { (score * 1_000_000_000.0).round() as i64 };
             let mut heap = std::collections::BinaryHeap::new();
-            heap.push((quantized(bound(&[])), 0usize, Vec::<usize>::new()));
-            let mut seen: HashSet<(usize, Vec<usize>)> = HashSet::new();
-            seen.insert((0, Vec::new()));
+            // The prefix is shared rather than copied: every branch of the
+            // search extends the same path, and this loop pushes millions
+            // of them.  `Rc<[usize]>` compares and hashes exactly like the
+            // `Vec` it replaces, so the heap's pop order and the `seen`
+            // membership test are unchanged — only the allocation count
+            // per branch drops from two to one.
+            let empty: Rc<[usize]> = Rc::from(Vec::<usize>::new());
+            heap.push((quantized(bound(&[])), 0usize, empty.clone()));
+            let mut seen: HashSet<(usize, Rc<[usize]>), BuildHasherDefault<FxHasher>> =
+                HashSet::default();
+            seen.insert((0, empty));
 
             let mut emitted = 0usize;
             let mut popped = 0usize;
@@ -1066,8 +1076,9 @@ impl Generator {
                 }
 
                 for i in 0..slots[k].len().min(LEXICAL_BRANCH_KEEP) {
-                    let mut next = prefix.clone();
+                    let mut next = prefix.to_vec();
                     next.push(i);
+                    let next: Rc<[usize]> = Rc::from(next);
                     if seen.insert((k + 1, next.clone())) {
                         heap.push((quantized(bound(&next)), k + 1, next));
                     }
@@ -1330,9 +1341,52 @@ impl ReuseIndex {
     }
 }
 
+/// One link of a `Partial`'s persistent clue-word list.
+///
+/// The beam extends a candidate by appending one word, and every
+/// extension used to copy the whole `Vec<ClueWord>` — two `String`s per
+/// clue word — so extending a path of W words cost O(W) allocations and
+/// made a whole path cost O(W^2).  A linked list makes extension O(1)
+/// and the beam shares the untouched prefix with every sibling.
+#[derive(Debug)]
+struct WordNode {
+    word: ClueWord,
+    /// The prefix this candidate had before `word` was appended.
+    prev: Option<Rc<WordNode>>,
+    /// Clue words up to and including this one.
+    len: usize,
+}
+
+/// Iterator over a `Partial`'s clue words in clue order.
+///
+/// The list is built back to front, so the first `next` walks it from the
+/// last word to the empty prefix onto `pending`; later calls pop from the
+/// other end.  Only `into_clue` and the unit tests materialise the words
+/// at all — the search itself only ever asks for the count.
+struct WordIter<'a> {
+    next: Option<&'a WordNode>,
+    pending: Vec<&'a ClueWord>,
+}
+
+impl<'a> Iterator for WordIter<'a> {
+    type Item = &'a ClueWord;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pending.is_empty() {
+            let mut node = self.next.take();
+            while let Some(n) = node {
+                self.pending.push(&n.word);
+                node = n.prev.as_deref();
+            }
+        }
+        self.pending.pop()
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Partial {
-    words: Vec<ClueWord>,
+    /// Tail of the persistent clue-word list, or `None` when empty.
+    words: Option<Rc<WordNode>>,
     sub_cost_total: f64,
     /// Cached syllable total; `metrics` runs in every beam comparison.
     syllables: usize,
@@ -1340,8 +1394,10 @@ struct Partial {
     /// comparison and the test allocates, so it is not re-done there.
     closed: usize,
     cheap_score: f64,
-    /// Target-stream offsets consumed at clue word boundaries.
-    cuts: Vec<usize>,
+    /// Target-stream offsets consumed at clue word boundaries.  Shared
+    /// for the same reason as `words`: a candidate only ever grows this
+    /// vector by one push.
+    cuts: Rc<Vec<usize>>,
     /// Stable path key for duplicate suppression in approximate beams.
     key: String,
     /// Incremental per-word aggregates, so `metrics` does not re-derive
@@ -1356,17 +1412,29 @@ struct Partial {
 impl Partial {
     fn empty() -> Self {
         Self {
-            words: Vec::new(),
+            words: None,
             sub_cost_total: 0.0,
             syllables: 0,
             closed: 0,
             cheap_score: 0.0,
-            cuts: Vec::new(),
+            cuts: Rc::new(Vec::new()),
             key: String::new(),
             reused_count: 0,
             familiarity_sum: 0.0,
             shape_sum: 0.0,
         }
+    }
+
+    /// Clue words in this candidate, in clue order.
+    fn words(&self) -> WordIter<'_> {
+        WordIter {
+            next: self.words.as_deref(),
+            pending: Vec::new(),
+        }
+    }
+
+    fn word_count(&self) -> usize {
+        self.words.as_ref().map_or(0, |n| n.len)
     }
 
     fn extend_pronunciation(
@@ -1422,24 +1490,42 @@ impl Partial {
             _ => 0.0,
         };
 
-        let mut words = self.words.clone();
-        words.push(ClueWord {
-            word: word.to_string(),
-            ipa: ipa.to_string(),
-            rarity,
-            sub_cost: word_sub_cost,
+        // Share the prefix instead of copying it: the one new `ClueWord`
+        // is built here and every sibling of this candidate reuses the
+        // whole list before it through the `Rc`.
+        let word_node = Rc::new(WordNode {
+            word: ClueWord {
+                word: word.to_string(),
+                ipa: ipa.to_string(),
+                rarity,
+                sub_cost: word_sub_cost,
+            },
+            prev: self.words.clone(),
+            len: self.word_count() + 1,
         });
 
-        let mut cuts = self.cuts.clone();
+        let mut cuts = Vec::with_capacity(self.cuts.len() + 1);
+        cuts.extend_from_slice(&self.cuts);
         let end = cuts.last().copied().unwrap_or(0) + consumed;
         cuts.push(end);
 
-        let step_key = format!("{}\u{1f}{}", word.to_lowercase(), ipa);
-        let key = if self.key.is_empty() {
-            step_key
+        // One allocation, built in place. `format!` built the same bytes
+        // through two temporaries and grew the key from empty on every
+        // extension.
+        let lower = word.to_lowercase();
+        let step_len = lower.len() + 1 + ipa.len() + 1;
+        let mut key = String::with_capacity(if self.key.is_empty() {
+            step_len - 1
         } else {
-            format!("{} {}", self.key, step_key)
-        };
+            self.key.len() + 1 + step_len - 1
+        });
+        if !self.key.is_empty() {
+            key.push_str(&self.key);
+            key.push(' ');
+        }
+        key.push_str(&lower);
+        key.push('\u{1f}');
+        key.push_str(ipa);
 
         // The aggregates below are the same terms metrics() used to fold
         // out of the word vector on every call. Appending one word to a running
@@ -1450,12 +1536,12 @@ impl Partial {
         let shape = lexical_shape_quality(word, familiarity);
 
         Self {
-            words,
+            words: Some(word_node),
             sub_cost_total: self.sub_cost_total + word_sub_cost,
             syllables: self.syllables + approx::ipa_syllables(ipa),
             closed: self.closed + usize::from(closed),
             cheap_score: self.cheap_score + word_bonus + rarity_penalty - word_sub_cost,
-            cuts,
+            cuts: Rc::new(cuts),
             key,
             reused_count: self.reused_count + usize::from(reuses),
             familiarity_sum: self.familiarity_sum + familiarity,
@@ -1477,12 +1563,13 @@ impl Partial {
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
         let reused = self.reused_count as f64;
-        let word_novelty = 1.0 - reused / self.words.len().max(1) as f64;
+        let words = self.word_count();
+        let word_novelty = 1.0 - reused / words.max(1) as f64;
 
-        let familiarity = if self.words.is_empty() {
+        let familiarity = if words == 0 {
             0.0
         } else {
-            self.familiarity_sum / self.words.len() as f64
+            self.familiarity_sum / words as f64
         };
 
         // A Mad Gab clue has to be *sayable* with the target's rhythm, not
@@ -1492,10 +1579,10 @@ impl Partial {
         // anybody can say out loud.
         let rhythm = rhythm_match(self.syllables, target_syllables);
 
-        let shape_quality = if self.words.is_empty() {
+        let shape_quality = if words == 0 {
             0.0
         } else {
-            self.shape_sum / self.words.len() as f64
+            self.shape_sum / words as f64
         };
 
         // A Mad Gab clue is a *puzzle answer*, so it also has to be
@@ -1506,15 +1593,12 @@ impl Partial {
         // determiner salad no human would use as an answer.  This is the
         // one axis that asks which *class* of word was used, and it is
         // close to anti-correlated with `familiarity` by construction.
-        let content = if self.words.is_empty() {
+        let content = if words == 0 {
             0.0
         } else {
-            1.0 - self.closed as f64 / self.words.len() as f64
+            1.0 - self.closed as f64 / words as f64
         };
-        let closed_penalty = closed_class_penalty(
-            self.closed as f64,
-            self.words.len() as f64,
-        );
+        let closed_penalty = closed_class_penalty(self.closed as f64, words as f64);
 
         let combined = axes::SIMILARITY * similarity
             + axes::NOVELTY * novelty
@@ -1544,15 +1628,15 @@ impl Partial {
         let score = self
             .metrics(target_boundaries, target_syllables, total_len, false)
             .combined;
+        let words: Vec<ClueWord> = self.words().cloned().collect();
         Clue {
-            phrase: self
-                .words
+            phrase: words
                 .iter()
                 .map(|w| w.word.as_str())
                 .collect::<Vec<_>>()
                 .join(" "),
             ipa: target_ipa.to_string(),
-            words: self.words,
+            words,
             score,
         }
     }
@@ -1697,6 +1781,63 @@ fn word_familiarity(rarity: Option<f64>) -> f64 {
 // Beam retention
 // -----------------------------------------------------------------
 
+/// The search's hot membership tests — the recovery enumeration's
+/// `seen` prefixes and the approximate dedup keys — run millions of
+/// times on short byte strings, where the default SipHash is the bulk of
+/// the cost.  This is the FxHash mixing function: a multiply-and-rotate
+/// over machine words.
+///
+/// It is a pure function of the bytes, with no per-process seed, so a
+/// `HashSet` using it still iterates in the same order from one process
+/// to the next.  It is only used for sets whose *iteration order is
+/// never observed*; anything that lets a hash value reach the output
+/// must keep the default hasher.
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct FxHasher {
+    hash: u64,
+}
+
+const FX_SEED: u64 = 0x51_7c_c1_b7_27_22_0a_95;
+
+impl FxHasher {
+    #[inline]
+    fn add(&mut self, word: u64) {
+        self.hash = (self.hash.rotate_left(5) ^ word).wrapping_mul(FX_SEED);
+    }
+}
+
+impl std::hash::Hasher for FxHasher {
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        let mut rest = bytes;
+        while let Some((chunk, tail)) = rest.split_first_chunk::<8>() {
+            self.add(u64::from_le_bytes(*chunk));
+            rest = tail;
+        }
+        if !rest.is_empty() {
+            let mut buf = [0u8; 8];
+            buf[..rest.len()].copy_from_slice(rest);
+            self.add(u64::from_le_bytes(buf));
+        }
+        self.add(bytes.len() as u64);
+    }
+
+    #[inline]
+    fn write_u8(&mut self, n: u8) {
+        self.add(n as u64);
+    }
+
+    #[inline]
+    fn write_usize(&mut self, n: usize) {
+        self.add(n as u64);
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.hash
+    }
+}
+
 /// Exact mode keeps its original cheap top-K behavior.
 fn insert_top_k(beam: &mut Vec<Partial>, candidate: Partial, k: usize) {
     if k == 0 {
@@ -1810,7 +1951,7 @@ fn prune_partials(
         let rhythm_band =
             ((1.0 - metrics[i].rhythm) * 4.0 + 1e-9).floor().min(4.0) as usize;
         cells
-            .entry((p.words.len().min(16), band.min(16), rhythm_band))
+            .entry((p.word_count().min(16), band.min(16), rhythm_band))
             .or_default()
             .push(i);
     }
@@ -2356,6 +2497,22 @@ fn admit(
 mod tests {
     use super::*;
 
+    /// Build the persistent clue-word list a `Partial` would have after
+    /// extending an empty one with `words`, in order.
+    fn word_chain(words: Vec<ClueWord>) -> Option<Rc<WordNode>> {
+        let mut tail = None;
+        let mut len = 0usize;
+        for word in words {
+            len += 1;
+            tail = Some(Rc::new(WordNode {
+                word,
+                prev: tail,
+                len,
+            }));
+        }
+        tail
+    }
+
     const TINY: &str = r#"{
         "cat":  { "rarity": 100, "ipa": { "cmu": "kæt" }, "alt_display": "CAT" },
         "kit":  { "rarity": 200, "ipa": { "cmu": "kɪt" } },
@@ -2595,15 +2752,17 @@ mod tests {
         p.sub_cost_total = sub_cost_total;
         p.syllables = syllables;
         p.closed = closed;
-        p.cuts = cuts.to_vec();
-        p.words = (0..words)
-            .map(|i| ClueWord {
-                word: format!("w{i}"),
-                ipa: "abc".to_string(),
-                rarity: Some(1_000.0),
-                sub_cost: 0.0,
-            })
-            .collect();
+        p.cuts = Rc::new(cuts.to_vec());
+        p.words = word_chain(
+            (0..words)
+                .map(|i| ClueWord {
+                    word: format!("w{i}"),
+                    ipa: "abc".to_string(),
+                    rarity: Some(1_000.0),
+                    sub_cost: 0.0,
+                })
+                .collect(),
+        );
         p.metrics(
             &target_boundaries,
             syllables,
@@ -2686,6 +2845,57 @@ mod tests {
         }
     }
 
+    /// The beam shares one persistent clue-word list between a candidate
+    /// and all of its siblings, so the list has to come back in clue
+    /// order and it has to *stop*: a candidate is walked more than once
+    /// (scoring, then `into_clue`), and an iterator that restarts instead
+    /// of ending allocates without bound.
+    #[test]
+    fn shared_word_list_yields_clue_order_and_ends() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let words = ["wreck", "a", "nice", "beach"];
+        let mut p = Partial::empty();
+        for w in words {
+            let word = approx::FuzzyWord {
+                word: w.to_string(),
+                ipa: "abc".to_string(),
+                ipa_len: 3,
+                syllables: 1,
+                rarity: Some(1_000.0),
+                closed: false,
+            };
+            p = p.extend_fuzzy(&target, &word, 3, 0.0);
+        }
+
+        assert_eq!(p.word_count(), words.len());
+        let got: Vec<&str> = p.words().map(|w| w.word.as_str()).collect();
+        assert_eq!(got, words, "shared word list lost clue order");
+
+        // The prefix a sibling shares is still intact and unchanged.
+        let sibling = p
+            .clone()
+            .extend_fuzzy(
+                &target,
+                &approx::FuzzyWord {
+                    word: "dune".to_string(),
+                    ipa: "abc".to_string(),
+                    ipa_len: 3,
+                    syllables: 1,
+                    rarity: Some(1_000.0),
+                    closed: false,
+                },
+                3,
+                0.0,
+            );
+        assert_eq!(p.word_count(), words.len(), "extension mutated its prefix");
+        assert_eq!(sibling.word_count(), words.len() + 1);
+
+        let mut iter = p.words();
+        let seen = iter.by_ref().count();
+        assert_eq!(seen, words.len());
+        assert!(iter.next().is_none(), "word iterator restarted when drained");
+    }
+
     /// The retained hypotheses come back ordered by combined score, and
     /// the best candidate in the pool leads. Retention is a portfolio
     /// rather than a plain top-k, so this checks the ordering the index
@@ -2728,40 +2938,38 @@ mod tests {
             let novelty =
                 boundary_novelty(&p.cuts, &[3usize, 6, 9], 12, partial);
             let reused = p
-                .words
-                .iter()
+                .words()
                 .filter(|w| target.reuse.reuses(&w.word))
                 .count() as f64;
-            let word_novelty = 1.0 - reused / p.words.len().max(1) as f64;
-            let familiarity = if p.words.is_empty() {
+            let count = p.word_count();
+            let word_novelty = 1.0 - reused / count.max(1) as f64;
+            let familiarity = if count == 0 {
                 0.0
             } else {
-                p.words
-                    .iter()
+                p.words()
                     .map(|w| word_familiarity(w.rarity))
                     .sum::<f64>()
-                    / p.words.len() as f64
+                    / count as f64
             };
             let rhythm = rhythm_match(p.syllables, syllables);
-            let shape_quality = if p.words.is_empty() {
+            let shape_quality = if count == 0 {
                 0.0
             } else {
-                p.words
-                    .iter()
+                p.words()
                     .map(|w| {
                         let f = word_familiarity(w.rarity);
                         lexical_shape_quality(&w.word, f)
                     })
                     .sum::<f64>()
-                    / p.words.len() as f64
+                    / count as f64
             };
             let closed = p.closed as f64;
-            let content = if p.words.is_empty() {
+            let content = if count == 0 {
                 0.0
             } else {
-                1.0 - closed / p.words.len() as f64
+                1.0 - closed / count as f64
             };
-            let closed_penalty = closed_class_penalty(closed, p.words.len() as f64);
+            let closed_penalty = closed_class_penalty(closed, count as f64);
             let combined = axes::SIMILARITY * similarity
                 + axes::NOVELTY * novelty
                 + axes::WORD_NOVELTY * word_novelty
@@ -3248,11 +3456,8 @@ mod tests {
                             .combined;
                         reference_best = reference_best.max(score);
                         if score + 1e-12 >= cutoff {
-                            let phrase: Vec<&str> = p
-                                .words
-                                .iter()
-                                .map(|w| w.word.as_str())
-                                .collect();
+                            let phrase: Vec<&str> =
+                                p.words().map(|w| w.word.as_str()).collect();
                             let signature = phrase_signature(&phrase.join(" "));
                             assert!(
                                 signatures.contains(&signature),
