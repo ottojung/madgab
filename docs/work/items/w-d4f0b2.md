@@ -1,7 +1,7 @@
 ---
 work_item: true
 id: w-d4f0b2
-state: working
+state: done
 priority: normal
 owner: coord-9f2c
 updated: 2026-09-26T17:12:00Z
