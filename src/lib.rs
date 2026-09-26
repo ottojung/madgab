@@ -3215,15 +3215,20 @@ fn clue_structure(c: &Clue) -> Vec<usize> {
 ///
 /// The rule, in order, is:
 ///
-/// 1. **Represent the strong structures.**  Within the visible cutoff
-///    — the `top_n` best-scoring candidates the search found — take the
-///    best-scoring candidate of every boundary structure, in descending
-///    score order, until the list is full.  The list therefore always
-///    spans the resegmentations the search actually found rather than
-///    one per structure by accident of iteration order.  The cutoff is
-///    what bounds this step: a resegmentation too weak to reach the
-///    visible list does not get to spend a slot on it, however distinct
-///    it is.
+/// 1. **Represent the enumerated resegmentations.**  Spend
+///    [`structure_reserve_slots`] of the `top_n` slots on the best-scoring
+///    candidate of each distinct boundary structure, in descending score
+///    order, taken from the **whole** pool rather than from the visible
+///    cutoff.  The list therefore always spans the resegmentations the
+///    search actually enumerated rather than one per structure by
+///    accident of the score order's head, and a resegmentation is
+///    represented on a criterion that is not its own score's rank: it
+///    needs a candidate the enumeration produced, and no better member of
+///    its own structure listed ahead of it.  The bound is what keeps this
+///    a *representation* reserve and not a replacement of the list — the
+///    remaining slots are still filled on score alone, so the reserve
+///    costs visible quality exactly and only to the extent stated by
+///    [`structure_reserve_slots`].
 /// 2. **Then score, under a share cap.**  Walk the pool in descending
 ///    score order and admit any candidate whose boundary structure is
 ///    still under its [`STRUCTURE_FLOOR`]-th share of the list.  A
@@ -3266,21 +3271,43 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     });
 
     let structures: Vec<Vec<usize>> = clues.iter().map(clue_structure).collect();
-    let cutoff = &order[..top_n];
 
     let mut picked: Vec<usize> = Vec::with_capacity(top_n);
     let mut taken = vec![false; clues.len()];
     let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
     let mut represented: HashSet<Vec<usize>> = HashSet::new();
 
-    // 1. one representative per boundary structure, best first, within
-    // the visible cutoff.
-    for &i in cutoff {
-        if picked.len() == top_n {
+    // 1. one representative per boundary structure, best first, drawn
+    // from the *whole* pool and bounded by `structure_reserve_slots`.
+    //
+    // The bounded reserve is what the previous rule lacked.  Step 2's
+    // admission is a share cap, so a structure that owns the head of the
+    // score order is stopped at its cap and the slots it gives up go to
+    // the best candidate of a structure that is under-filled — but only
+    // among structures that are *already represented*.  Nothing in that
+    // walk ever spends a slot on a resegmentation whose best candidate is
+    // outside the visible cutoff, so a pool that enumerates hundreds of
+    // boundary structures can have 50 slots and show 9 of them.  The
+    // reserve spends a bounded, stated number of slots on the best
+    // candidate of each further structure in descending score order,
+    // which is a criterion other than "this candidate's own score is
+    // inside the cutoff": the criterion is "this resegmentation is one
+    // the search enumerated and nothing better of its kind is listed".
+    let reserve = structure_reserve_slots(top_n);
+    let mut reserved = 0usize;
+    for &i in &order {
+        if picked.len() == top_n || reserved == reserve {
             break;
         }
         if represented.insert(structures[i].clone()) {
-            admit(i, &structures, &mut picked, &mut taken, &mut counts);
+            admit(
+                i,
+                &structures,
+                &mut picked,
+                &mut taken,
+                &mut counts,
+            );
+            reserved += 1;
         }
     }
 
@@ -3332,6 +3359,39 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         .map(|i| slots[i].take().expect("picked once"))
         .collect()
 }
+
+/// How many of `top_n`'s slots are set aside to represent the enumerated
+/// resegmentations, one slot each, before the list is filled in score
+/// order.
+///
+/// A share of the list rather than all of it, because the two ends of the
+/// contract are both real: the enumeration is spending a global emission
+/// budget to find *many* resegmentations, and the display policy is
+/// answering a request for the *best* clues.  A reserve of one slot in
+/// [`STRUCTURE_RESERVE_DIVISOR`] buys the second-order spread at a stated
+/// cost — the reserve's members are the pool's best per structure, which
+/// are below the head of the score order by however far that structure's
+/// own best lies — and the remaining `1 - 1 / STRUCTURE_RESERVE_DIVISOR`
+/// of the list is still filled on score alone.
+///
+/// It is bounded above by `top_n` and below by one, so a one-slot list
+/// still reserves its single slot for a resegmentation rather than
+/// degenerating into "the top candidate", and it never depends on a pool
+/// size, a target, or anything but the number of slots: the same bound
+/// applies to every input.
+fn structure_reserve_slots(top_n: usize) -> usize {
+    (top_n / STRUCTURE_RESERVE_DIVISOR).min(top_n).max(usize::from(top_n > 0))
+}
+
+/// How many slots one slot of representation costs: the visible list
+/// spends one slot in every [`STRUCTURE_RESERVE_DIVISOR`] on the best
+/// candidate of a further enumerated resegmentation, and the rest on
+/// score.  See [`structure_reserve_slots`].
+///
+/// This is a *policy* parameter of [`select_diverse`] in the same sense as
+/// [`STRUCTURE_FLOOR`]: it is a number of slots, not a weight fitted to a
+/// target, and it is the only knob the representation rule has.
+const STRUCTURE_RESERVE_DIVISOR: usize = 4;
 
 /// How many members of one boundary structure `top_n` slots may hold,
 /// given how many structures the candidate pool offers.  With at least
@@ -3672,6 +3732,79 @@ mod tests {
         let distinct: HashSet<&Vec<usize>> =
             picked.iter().map(|c| boundaries_of(&map, c)).collect();
         assert_eq!(distinct.len(), STRUCTURE_FLOOR, "got {distinct:?}");
+    }
+
+    /// The representation reserve.  A pool whose head of the score order
+    /// belongs to a handful of structures is a monoculture even when the
+    /// pool itself enumerates many more: on a real search the visible
+    /// list was 4-11 structures out of 286-336 the pool holds, because
+    /// nothing in the rule ever spent a slot on a structure whose best
+    /// candidate was outside the visible cutoff.  The reserve spends a
+    /// bounded number of slots on the best candidate of each further
+    /// structure instead, and this is the boundary: the slots it reserves
+    /// are exactly the reserve, and the list is still full.
+    #[test]
+    fn enumerated_resegments_outside_the_cutoff_get_a_reserved_slot() {
+        let top_n = 12usize;
+        // The head of the score order: `top_n` candidates of one
+        // structure, all inside the visible cutoff, so the cutoff itself
+        // holds a single resegmentation.
+        let mut pool: Vec<Clue> = (0..top_n)
+            .map(|i| clue(&format!("own{i} rr ss"), 0.930 - i as f64 * 1e-4))
+            .collect();
+        // Four times that many further structures, every one of them
+        // *below* the cutoff: this is the population the reserve exists
+        // to represent.
+        for s in 0..(top_n * 4) {
+            // Word count is what makes the structure distinct here: every
+            // word is three IPA chars, so a clue of `k` words has the
+            // cuts `[3, 6, ..., 3k]`.
+            let words: Vec<String> = (0..2 + s % 5)
+                .map(|w| format!("far{s}w{w}"))
+                .collect();
+            pool.push(clue(
+                &words.join(" "),
+                0.700 - s as f64 * 1e-4,
+            ));
+        }
+
+        let map = structure_map(&pool);
+        let picked = select_diverse(pool, top_n);
+        assert_eq!(picked.len(), top_n, "the list must stay full");
+
+        let distinct: HashSet<&Vec<usize>> =
+            picked.iter().map(|c| boundaries_of(&map, c)).collect();
+        assert!(
+            distinct.len() >= structure_reserve_slots(top_n),
+            "a pool enumerating {} structures showed {} of them; the rule \
+             reserves {} slots for structures the cutoff does not reach",
+            top_n * 4 + 1,
+            distinct.len(),
+            structure_reserve_slots(top_n)
+        );
+        assert!(
+            picked.iter().any(|c| c.phrase.starts_with("far")),
+            "no enumerated resegmentation outside the cutoff was represented; \
+             got {:?}",
+            picked.iter().map(|c| c.phrase.as_str()).collect::<Vec<_>>()
+        );
+    }
+
+    /// The reserve is bounded: it may not become the list.  A dominant
+    /// structure still holds its share, and the reserve's own bound is
+    /// what a caller can predict without running a search.
+    #[test]
+    fn structure_reserve_is_bounded_by_the_slot_count() {
+        for top_n in [1usize, 2, 5, 10, 20, 50, 200, 4096] {
+            let reserve = structure_reserve_slots(top_n);
+            assert!(reserve <= top_n, "reserve {reserve} exceeds top_n {top_n}");
+            assert!(reserve >= usize::from(top_n > 0), "no reserve at {top_n}");
+        }
+        assert_eq!(structure_reserve_slots(0), 0);
+        // A quarter of the list, never more: the rest of the list is
+        // still filled on score.
+        assert_eq!(structure_reserve_slots(50), 12);
+        assert!(structure_reserve_slots(200) < 200);
     }
 
     /// The content-word axis is not decoration: two clues that are

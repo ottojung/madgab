@@ -3,7 +3,7 @@
 //! These complement the unit tests in src/lib.rs by exercising the
 //! full corpus and a few known Mad Gab / oronym regressions.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use madgab::lexical::is_closed_class;
 use madgab::{Generator, GeneratorConfig, SearchMode};
@@ -426,6 +426,52 @@ fn approximate_list_is_not_one_resegmentation() {
             largest * 2 <= clues.len(),
             "{target}: one structure holds {largest} of {} slots ({shown:?})",
             clues.len()
+        );
+    }
+}
+
+/// The visible list represents the resegmentations the search
+/// *enumerated*, not only the ones whose own score reaches the visible
+/// cutoff.
+///
+/// The synthetic unit tests in `src/lib.rs` check the reserve's arithmetic
+/// on a pool built to make the point; this is the same property on a real
+/// search, where the population the reserve draws from is the enumeration
+/// itself and is two orders of magnitude larger than the list.  Measured on
+/// six real targets at `--top 50`, the pool holds 63-336 distinct
+/// resegmentations and the base's visible list showed 4-11 of them, because
+/// nothing in the selection rule ever spent a slot on a resegmentation
+/// whose best candidate fell outside the cutoff: the slots went to the head
+/// of the score order, where a few structures own almost all of it.
+///
+/// The bound asserted is the policy's own, one slot in four, expressed
+/// here as a number of slots so the test states the property rather than
+/// the constant.  Neither target is an acceptance phrase.
+#[test]
+fn approximate_list_represents_enumerated_resegmentations() {
+    const TOP_N: usize = 50;
+    for target in ["the cat sat on the mat", "she sells sea shells"] {
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: TOP_N,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let clues = g.generate(target);
+        assert_eq!(clues.len(), TOP_N, "{target}: short list");
+
+        let shown: HashSet<Vec<usize>> = clues.iter().map(clue_boundaries).collect();
+        let required = TOP_N / 4;
+        assert!(
+            shown.len() >= required,
+            "{target}: the visible list represents only {} of the \
+             resegmentations the search enumerated; the representation \
+             reserve owes at least {required}",
+            shown.len()
         );
     }
 }
