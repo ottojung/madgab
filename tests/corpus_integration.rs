@@ -3,6 +3,9 @@
 //! These complement the unit tests in src/lib.rs by exercising the
 //! full corpus and a few known Mad Gab / oronym regressions.
 
+use std::collections::HashMap;
+
+use madgab::lexical::is_closed_class;
 use madgab::{Generator, GeneratorConfig, SearchMode};
 use open_english_pronouncing_dictionary::CORPUS_JSON;
 
@@ -145,4 +148,89 @@ fn approximate_finds_recognize_speech_resegmentation() {
         "canonical clue missing from top 50; got: {:?}",
         &proposals[..proposals.len().min(12)]
     );
+}
+
+/// A Mad Gab answer has to be readable, and the aggregate property that
+/// makes it readable is that it is built from *content* words.  This is
+/// the corpus-level counterpart to `proposal_list_covers_distinct_
+/// resegmentations`: the same two properties, measured over real
+/// proposals from real targets rather than over a synthetic pool.
+///
+/// It is deliberately two targets, sharing one `Generator` (the corpus
+/// load is ~0.5s and each approximate search is seconds), and it asserts
+/// on proportions and on structural spread rather than on any
+/// particular clue, so it keeps holding as the ranking changes.
+#[test]
+fn approximate_proposals_are_predominantly_content_words() {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 20,
+            beam_width: 64,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+
+    for target in ["I love you", "a whole lot of trouble"] {
+        let clues = g.generate(target);
+        assert!(!clues.is_empty(), "no proposals for {target:?}");
+
+        let content_share: f64 = clues
+            .iter()
+            .map(|c| {
+                let closed = c
+                    .words
+                    .iter()
+                    .filter(|w| is_closed_class(&w.word))
+                    .count();
+                1.0 - closed as f64 / c.words.len().max(1) as f64
+            })
+            .sum::<f64>()
+            / clues.len() as f64;
+        assert!(
+            content_share > 0.75,
+            "{target:?}: only {content_share:.3} of the words in the visible \
+             proposals are content words; proposals were {:?}",
+            clues
+                .iter()
+                .map(|c| c.phrase.as_str())
+                .collect::<Vec<_>>()
+        );
+
+        // The axis must not have collapsed the list onto one
+        // resegmentation: it is a tie-breaker between structures, not a
+        // reason to prefer a single one.
+        let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
+        for c in &clues {
+            *counts.entry(clue_boundaries(c)).or_default() += 1;
+        }
+        let dominant = counts.values().copied().max().unwrap_or(0);
+        assert!(
+            counts.len() >= 3,
+            "{target:?}: visible proposals span only {} resegmentation(s): {:?}",
+            counts.len(),
+            clues
+                .iter()
+                .map(|c| c.phrase.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            dominant as f64 / clues.len() as f64 <= 0.5,
+            "{target:?}: one resegmentation occupies {dominant} of {} \
+             proposals; the content-word axis collapsed the diversity",
+            clues.len()
+        );
+    }
+}
+
+fn clue_boundaries(c: &madgab::Clue) -> Vec<usize> {
+    let mut cuts = Vec::new();
+    let mut at = 0usize;
+    for w in c.words.iter().skip(1) {
+        at += w.ipa.chars().count();
+        cuts.push(at);
+    }
+    cuts
 }

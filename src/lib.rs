@@ -10,6 +10,7 @@ use phonetics::transcriptions::{Corpus, Pronunciation};
 use serde::Serialize;
 
 mod approx;
+pub mod lexical;
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
@@ -298,6 +299,7 @@ impl Generator {
             matches: Vec<approx::FuzzyMatch>,
             min_cost: f64,
             max_familiarity: f64,
+            min_closed: usize,
             min_reused: usize,
             min_syllables: usize,
             max_syllables: usize,
@@ -310,6 +312,7 @@ impl Generator {
             cost: f64,
             reused: usize,
             familiarity: f64,
+            closed: usize,
             shape: f64,
             syllables: usize,
         }
@@ -319,10 +322,15 @@ impl Generator {
             /// own.  Only used to order a span's alternatives; the
             /// enumeration itself is scored on the real objective.
             fn contribution(&self, word_count: f64) -> f64 {
-                -0.0625 * self.cost
-                    - 0.15 * self.reused as f64 / word_count
-                    + 0.10 * self.familiarity / word_count
-                    + 0.05 * self.shape / word_count
+                axes::SIMILARITY_PER_WORD * (-self.cost)
+                    - axes::WORD_NOVELTY * self.reused as f64 / word_count
+                    + axes::FAMILIARITY * self.familiarity / word_count
+                    + axes::CLOSED_CLASS
+                        * closed_class_penalty(
+                            self.closed as f64,
+                            word_count,
+                        )
+                    + axes::SHAPE * self.shape / word_count
             }
         }
 
@@ -333,6 +341,7 @@ impl Generator {
             shared: usize,
             min_cost: f64,
             max_familiarity_sum: f64,
+            min_closed_sum: usize,
             min_reused: usize,
             min_syllables_sum: usize,
             max_syllables_sum: usize,
@@ -376,14 +385,21 @@ impl Generator {
                     let familiarity = word_familiarity(word.rarity);
                     let reused =
                         target_phrase.reuse.reuses(&word.word);
-                    -0.10 * m.cost
-                        + 0.10 * familiarity
-                        - if reused { 0.15 } else { 0.0 }
-                        + 0.05
+                    axes::SIMILARITY_PER_WORD * (-m.cost)
+                        + axes::FAMILIARITY * familiarity
+                        - if reused { axes::WORD_NOVELTY } else { 0.0 }
+                        + axes::SHAPE
                             * lexical_shape_quality(
                                 &word.word,
                                 familiarity,
                             )
+                    + axes::CLOSED_CLASS
+                        * closed_class_penalty(
+                            f64::from(lexical::is_closed_class(
+                                &word.word,
+                            )),
+                            1.0,
+                        )
                 };
 
                 // A span shortlist is a portfolio, not simply the
@@ -545,6 +561,17 @@ impl Generator {
                         )
                     })
                     .fold(0.0, f64::max);
+                // The structural DP can only pick from the shortlist, so
+                // the best it may assume for this span is "no
+                // closed-class word is forced here", which is achievable
+                // exactly when at least one alternative is a content
+                // word.  A higher value would be a bound the enumeration
+                // below could not reach.
+                let min_closed = usize::from(selected.iter().all(|m| {
+                    lexical::is_closed_class(
+                        &self.fuzzy_lexicon.word(m.word_idx).word,
+                    )
+                }));
                 let min_reused = usize::from(selected.iter().all(|m| {
                     let word = self.fuzzy_lexicon.word(m.word_idx);
                     target_phrase
@@ -568,6 +595,7 @@ impl Generator {
                     matches: selected,
                     min_cost,
                     max_familiarity,
+                    min_closed,
                     min_reused,
                     min_syllables,
                     max_syllables,
@@ -596,6 +624,7 @@ impl Generator {
                 shared: 0,
                 min_cost: 0.0,
                 max_familiarity_sum: 0.0,
+                min_closed_sum: 0,
                 min_reused: 0,
                 min_syllables_sum: 0,
                 max_syllables_sum: 0,
@@ -628,6 +657,8 @@ impl Generator {
                         let max_familiarity_sum =
                             path.max_familiarity_sum
                                 + edge.max_familiarity;
+                        let min_closed_sum =
+                            path.min_closed_sum + edge.min_closed;
                         let min_reused =
                             path.min_reused + edge.min_reused;
                         let min_syllables_sum = path.min_syllables_sum
@@ -635,10 +666,20 @@ impl Generator {
                         let max_syllables_sum = path.max_syllables_sum
                             + edge.max_syllables;
                         let denom = next_words as f64;
-                        let rank = -0.1125 * min_cost
-                            + 0.15 * max_familiarity_sum / denom
-                            - 0.10 * min_reused as f64 / denom
-                            + 0.30
+                        let rank = axes::SIMILARITY_PER_WORD_RANK
+                            * (-min_cost)
+                            + axes::FAMILIARITY
+                                * max_familiarity_sum
+                                / denom
+                            - axes::WORD_NOVELTY
+                                * min_reused as f64
+                                / denom
+                            + axes::CLOSED_CLASS
+                                * closed_class_penalty(
+                                    min_closed_sum as f64,
+                                    denom,
+                                )
+                            + axes::RHYTHM
                                 * rhythm_match_in(
                                     min_syllables_sum,
                                     max_syllables_sum,
@@ -653,6 +694,7 @@ impl Generator {
                             shared: next_shared,
                             min_cost,
                             max_familiarity_sum,
+                            min_closed_sum,
                             min_reused,
                             min_syllables_sum,
                             max_syllables_sum,
@@ -682,20 +724,26 @@ impl Generator {
             };
             let denom = word_count as f64;
             for path in paths {
-                let upper = 0.25
+                let upper = axes::SIMILARITY
                     * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
-                    + 0.15 * novelty
-                    + 0.15
+                    + axes::NOVELTY * novelty
+                    + axes::WORD_NOVELTY
                         * (1.0
                             - path.min_reused as f64 / denom)
-                    + 0.10 * path.max_familiarity_sum / denom
-                    + 0.30
+                    + axes::FAMILIARITY
+                        * path.max_familiarity_sum / denom
+                    + axes::CLOSED_CLASS
+                        * closed_class_penalty(
+                            path.min_closed_sum as f64,
+                            denom,
+                        )
+                    + axes::RHYTHM
                         * rhythm_match_in(
                             path.min_syllables_sum,
                             path.max_syllables_sum,
                             target_syllables,
                         )
-                    + 0.05;
+                    + axes::SHAPE;
                 segmentations.push((upper, path));
             }
         }
@@ -801,6 +849,9 @@ impl Generator {
                                 target_phrase.reuse.reuses(&word.word),
                             ),
                             familiarity,
+                            closed: usize::from(lexical::is_closed_class(
+                                &word.word,
+                            )),
                             shape: lexical_shape_quality(
                                 &word.word,
                                 familiarity,
@@ -835,6 +886,7 @@ impl Generator {
             let mut suf_min_cost = vec![0.0_f64; depth + 1];
             let mut suf_min_reused = vec![0usize; depth + 1];
             let mut suf_max_fam = vec![0.0_f64; depth + 1];
+            let mut suf_min_closed = vec![0usize; depth + 1];
             let mut suf_max_shape = vec![0.0_f64; depth + 1];
             let mut suf_min_syl = vec![0usize; depth + 1];
             let mut suf_max_syl = vec![0usize; depth + 1];
@@ -849,6 +901,8 @@ impl Generator {
                         .iter()
                         .map(|a| a.familiarity)
                         .fold(0.0_f64, f64::max);
+                suf_min_closed[k] = suf_min_closed[k + 1]
+                    + usize::from(here.iter().all(|a| a.closed == 1));
                 suf_max_shape[k] = suf_max_shape[k + 1]
                     + here.iter().map(|a| a.shape).fold(0.0_f64, f64::max);
                 suf_min_syl[k] = suf_min_syl[k + 1]
@@ -866,30 +920,38 @@ impl Generator {
             };
 
             let bound = |prefix: &[usize]| -> f64 {
-                let (mut cost, mut reused, mut fam, mut shape, mut syl) =
-                    (0.0_f64, 0usize, 0.0_f64, 0.0_f64, 0usize);
+                let (mut cost, mut reused, mut fam, mut closed, mut shape, mut syl) =
+                    (0.0_f64, 0usize, 0.0_f64, 0usize, 0.0_f64, 0usize);
                 for (k, &i) in prefix.iter().enumerate() {
                     let a = &slots[k][i];
                     cost += a.cost;
                     reused += a.reused;
                     fam += a.familiarity;
+                    closed += a.closed;
                     shape += a.shape;
                     syl += a.syllables;
                 }
                 let k = prefix.len();
-                0.25 * (1.0 - (cost + suf_min_cost[k]) / 4.0).clamp(0.0, 1.0)
-                    + 0.15 * novelty
-                    + 0.15
+                axes::SIMILARITY
+                    * (1.0 - (cost + suf_min_cost[k]) / 4.0).clamp(0.0, 1.0)
+                    + axes::NOVELTY * novelty
+                    + axes::WORD_NOVELTY
                         * (1.0
                             - (reused + suf_min_reused[k]) as f64 / word_count)
-                    + 0.10 * (fam + suf_max_fam[k]) / word_count
-                    + 0.30
+                    + axes::FAMILIARITY
+                        * (fam + suf_max_fam[k]) / word_count
+                    + axes::CLOSED_CLASS
+                        * closed_class_penalty(
+                            (closed + suf_min_closed[k]) as f64,
+                            word_count,
+                        )
+                    + axes::RHYTHM
                         * rhythm_match_in(
                             syl + suf_min_syl[k],
                             syl + suf_max_syl[k],
                             target_syllables,
                         )
-                    + 0.05 * (shape + suf_max_shape[k]) / word_count
+                    + axes::SHAPE * (shape + suf_max_shape[k]) / word_count
             };
 
             let quantized =
@@ -1156,6 +1218,9 @@ struct Partial {
     sub_cost_total: f64,
     /// Cached syllable total; `metrics` runs in every beam comparison.
     syllables: usize,
+    /// Cached closed-class word count; `metrics` runs in every beam
+    /// comparison and the test allocates, so it is not re-done there.
+    closed: usize,
     cheap_score: f64,
     /// Target-stream offsets consumed at clue word boundaries.
     cuts: Vec<usize>,
@@ -1169,6 +1234,7 @@ impl Partial {
             words: Vec::new(),
             sub_cost_total: 0.0,
             syllables: 0,
+            closed: 0,
             cheap_score: 0.0,
             cuts: Vec::new(),
             key: String::new(),
@@ -1237,6 +1303,7 @@ impl Partial {
             words,
             sub_cost_total: self.sub_cost_total + word_sub_cost,
             syllables: self.syllables + approx::ipa_syllables(ipa),
+            closed: self.closed + usize::from(lexical::is_closed_class(word)),
             cheap_score: self.cheap_score + word_bonus + rarity_penalty - word_sub_cost,
             cuts,
             key,
@@ -1292,12 +1359,31 @@ impl Partial {
                 / self.words.len() as f64
         };
 
-        let combined = 0.25 * similarity
-            + 0.15 * novelty
-            + 0.15 * word_novelty
-            + 0.10 * familiarity
-            + 0.30 * rhythm
-            + 0.05 * shape_quality;
+        // A Mad Gab clue is a *puzzle answer*, so it also has to be
+        // readable.  Every other lexical axis here is a function of
+        // frequency or phone content, and frequency points the wrong
+        // way: `the`, `a`, `it` and `each` are among the commonest words
+        // in English, so the familiarity axis rewards precisely the
+        // determiner salad no human would use as an answer.  This is the
+        // one axis that asks which *class* of word was used, and it is
+        // close to anti-correlated with `familiarity` by construction.
+        let content = if self.words.is_empty() {
+            0.0
+        } else {
+            1.0 - self.closed as f64 / self.words.len() as f64
+        };
+        let closed_penalty = closed_class_penalty(
+            self.closed as f64,
+            self.words.len() as f64,
+        );
+
+        let combined = axes::SIMILARITY * similarity
+            + axes::NOVELTY * novelty
+            + axes::WORD_NOVELTY * word_novelty
+            + axes::FAMILIARITY * familiarity
+            + axes::RHYTHM * rhythm
+            + axes::SHAPE * shape_quality
+            + axes::CLOSED_CLASS * closed_penalty;
 
         Metrics {
             combined,
@@ -1305,6 +1391,7 @@ impl Partial {
             familiarity,
             word_novelty,
             rhythm,
+            content,
         }
     }
 
@@ -1333,6 +1420,52 @@ impl Partial {
     }
 }
 
+/// Penalty, per unit of closed-class word share, that the clue score
+/// applies.  See [`lexical`] for what "closed class" means here and why
+/// it is not already covered by the other axes.
+///
+/// The share is squared by [`closed_class_penalty`] first, so this is the
+/// penalty for a clue that is *nothing but* function words; a clue with
+/// one function word in four pays a twentieth of it.  That convexity is
+/// the point: `wreck a nice beach` is idiomatic English and must stay
+/// cheap, while `it justice two bad aim` is a word salad and must not.
+const CLOSED_CLASS_WEIGHT: f64 = 0.10;
+
+/// The clue score's axes in one place, so the final score and every
+/// internal proxy that shadows part of it stay in step.
+///
+/// `CLOSED_CLASS` is signed and *subtracted*: a clue whose words are all
+/// content words pays nothing.
+mod axes {    /// Phonetic similarity of the clue's word sequence to the target.
+    pub const SIMILARITY: f64 = 0.25;
+    /// Boundary novelty against the target's own word boundaries.
+    pub const NOVELTY: f64 = 0.15;
+    /// Fraction of clue words that are not a target word.
+    pub const WORD_NOVELTY: f64 = 0.15;
+    /// Mean per-word corpus familiarity.
+    pub const FAMILIARITY: f64 = 0.10;
+    /// Agreement between clue and target syllable counts.
+    pub const RHYTHM: f64 = 0.30;
+    /// Per-word orthographic shape.
+    pub const SHAPE: f64 = 0.05;
+    /// Closed-class (function) word share, subtracted.  The share is
+    /// squared by [`closed_class_penalty`] before it gets here.
+    pub const CLOSED_CLASS: f64 = -super::CLOSED_CLASS_WEIGHT;
+
+    /// Per-word share of the similarity axis, used by the single-word
+    /// ranking proxies in `generate_approximate` (`quality`,
+    /// `SlotAlt::contribution`): a one-word clue pays the full axis, and
+    /// its edit cost is divided by that axis's own normaliser.
+    pub const SIMILARITY_PER_WORD: f64 = SIMILARITY / 4.0;
+
+    /// Acoustic-cost coefficient of the structural DP's `rank`.  The DP
+    /// only ever compares candidate *segmentations*, and it must not let
+    /// a cheap-but-poorly-fitting segmentation outrank an excellent one
+    /// that happens to need an edited word, so it deliberately weights
+    /// cost more heavily than the final score does.
+    pub const SIMILARITY_PER_WORD_RANK: f64 = 0.1125;
+}
+
 #[derive(Debug, Clone, Copy)]
 struct Metrics {
     combined: f64,
@@ -1340,6 +1473,8 @@ struct Metrics {
     familiarity: f64,
     word_novelty: f64,
     rhythm: f64,
+    /// Share of the clue's words that are content words, in [0, 1].
+    content: f64,
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between the
@@ -1392,6 +1527,24 @@ fn boundary_novelty(
     1.0 - shared as f64 / union as f64
 }
 
+/// The content-word penalty, given `closed` closed-class words out of
+/// `words` total.
+///
+/// Readability is a threshold phenomenon, not a linear one, so the
+/// penalty is convex in the closed-class share.  One function word in a
+/// four-word clue is ordinary English; three function words in a
+/// five-word clue is not a phrase anybody would use.  A linear penalty
+/// charges the idiomatic clue exactly as much as the salad, which forces
+/// the weight low enough to be useless; squaring the share separates the
+/// two cases by more than a factor of four at the same weight.
+fn closed_class_penalty(closed: f64, words: f64) -> f64 {
+    if words <= 0.0 {
+        return 0.0;
+    }
+    let share = (closed / words).clamp(0.0, 1.0);
+    share * share
+}
+
 fn word_familiarity(rarity: Option<f64>) -> f64 {
     let Some(r) = rarity.filter(|r| r.is_finite() && *r > 0.0) else {
         return 0.0;
@@ -1434,10 +1587,10 @@ fn insert_top_k(beam: &mut Vec<Partial>, candidate: Partial, k: usize) {
 /// the key to a globally excellent resegmentation.
 ///
 /// We reserve representatives across structural
-/// (word-count, acoustic-cost-band, rhythm-band) cells, then fill the
-/// rest round-robin from independent objective rankings: overall score,
-/// boundary novelty, lexical familiarity, phonetic cost, target-word
-/// novelty, and rhythmic agreement.
+/// (word-count, acoustic-cost-band, rhythm-band, closed-class-band) cells,
+/// then fill the rest round-robin from independent objective rankings:
+/// overall score, boundary novelty, lexical familiarity, phonetic cost,
+/// target-word novelty, rhythmic agreement, and content-word share.
 fn prune_partials(
     candidates: Vec<Partial>,
     k: usize,
@@ -1497,20 +1650,33 @@ fn prune_partials(
     let mut selected = HashSet::new();
 
     // First protect up to two representatives from each structural
-    // (word-count, acoustic-cost-band, rhythm-band) cell. This prevents
-    // the huge family of zero-cost/local optima from erasing every
-    // moderately edited resegmentation.
-    let mut cells: HashMap<(usize, usize, usize), Vec<usize>> = HashMap::new();
+    // (word-count, acoustic-cost-band, rhythm-band, closed-class-band)
+    // cell. This prevents the huge family of zero-cost/local optima from
+    // erasing every moderately edited resegmentation.
+    let mut cells: HashMap<(usize, usize, usize, usize), Vec<usize>> =
+        HashMap::new();
     for (i, p) in items.iter().enumerate() {
         let band = ((p.sub_cost_total / 0.25) + 1e-9).floor() as usize;
         let rhythm_band =
             ((1.0 - metrics[i].rhythm) * 4.0 + 1e-9).floor().min(4.0) as usize;
+        // The closed-class band is what keeps a resegmentation that
+        // *needs* a function word alive until the span is filled.  Every
+        // other order in this function prefers content words, so without
+        // a reserved cell a good resegmentation is erased by the
+        // function-word siblings of its own prefix, and the only place it
+        // can be recovered is a portfolio that no longer contains it.
+        let closed_band = p.closed.min(4);
         cells
-            .entry((p.words.len().min(16), band.min(16), rhythm_band))
+            .entry((
+                p.words.len().min(16),
+                band.min(16),
+                rhythm_band,
+                closed_band,
+            ))
             .or_default()
             .push(i);
     }
-    let mut cell_keys: Vec<(usize, usize, usize)> =
+    let mut cell_keys: Vec<(usize, usize, usize, usize)> =
         cells.keys().copied().collect();
     cell_keys.sort_unstable();
     let mut protected = Vec::new();
@@ -1556,9 +1722,18 @@ fn prune_partials(
     lexical.sort_by(|&a, &b| cmp_desc(metrics[a].word_novelty, metrics[b].word_novelty));
     orders.push(lexical);
 
-    let mut rhythm = indices;
+    let mut rhythm = indices.clone();
     rhythm.sort_by(|&a, &b| cmp_desc(metrics[a].rhythm, metrics[b].rhythm));
     orders.push(rhythm);
+
+    // Content words first.  This order is the only one that runs against
+    // the familiarity order, which is why it is listed separately rather
+    // than folded into it: without a dedicated order, beam retention has
+    // no way to reach a resegmentation that needs a content word where
+    // the common core would supply a function word.
+    let mut content = indices;
+    content.sort_by(|&a, &b| cmp_desc(metrics[a].content, metrics[b].content));
+    orders.push(content);
 
     let mut rank = 0;
     while selected.len() < k {
@@ -1863,6 +2038,106 @@ mod tests {
             cuts.push(at);
         }
         cuts
+    }
+
+    /// The content-word axis is not decoration: two clues that are
+    /// identical on every other axis must be separated by it, with the
+    /// content-word one ahead.
+    #[test]
+    fn closed_class_axis_prefers_content_words_at_equal_cost() {
+        // Same target stream, same number of words, same edit cost, same
+        // syllables, same reuse: the only difference is which *class* of
+        // word each span is filled with.
+        let content = scored(1.0, 4, &[0, 3, 7, 11], 4, false, 0);
+        let function = scored(1.0, 4, &[0, 3, 7, 11], 4, false, 4);
+        assert!(
+            content > function,
+            "content-word clue scored {content}, closed-class clue {function}"
+        );
+
+        // The gap must be real but bounded: the axis may not be able to
+        // outweigh every other consideration on its own.
+        assert!(
+            content - function <= CLOSED_CLASS_WEIGHT + 1e-9,
+            "the closed-class penalty exceeded its own weight"
+        );
+        assert!(
+            content - function > 0.5 * CLOSED_CLASS_WEIGHT,
+            "the closed-class penalty is not doing its job"
+        );
+    }
+
+    /// The penalty is convex in the closed-class share, so an idiomatic
+    /// clue with one function word in four is far cheaper than a salad
+    /// that is mostly function words.  This is the property that lets the
+    /// weight be large enough to matter at all.
+    #[test]
+    fn closed_class_penalty_is_convex_in_the_closed_share() {
+        let idiomatic = closed_class_penalty(1.0, 4.0);
+        let salad = closed_class_penalty(3.0, 5.0);
+        assert!(idiomatic < salad, "{idiomatic} !< {salad}");
+        // Squaring the share separates them by more than the factor a
+        // linear penalty would give, and keeps the idiomatic case cheap.
+        assert!(idiomatic <= 0.0625 + 1e-12, "{idiomatic}");
+        assert!(salad >= 0.30, "{salad}");
+    }
+
+    /// The axis is orthogonal to `word_novelty` (which asks whether a
+    /// word differs from the target's) and anti-correlated with
+    /// `familiarity` (which rewards common words, and the commonest
+    /// English words are function words).  Nothing else in the score
+    /// carries this information, which is why the axis earns its place
+    /// rather than restating an existing one.
+    #[test]
+    fn closed_class_axis_is_not_covered_by_the_existing_axes() {
+        // Corpus rarity of `a` and of `beach`.  A determiner is the more
+        // frequent word by an order of magnitude, so `familiarity`
+        // actively rewards the exact word the new axis penalises.
+        let a_rarity = 4.0;
+        let beach_rarity = 1_933.0;
+        assert!(a_rarity < beach_rarity);
+        assert!(
+            word_familiarity(Some(a_rarity))
+                > word_familiarity(Some(beach_rarity)),
+            "familiarity is expected to reward the determiner"
+        );
+        assert!(lexical::is_closed_class("a"));
+        assert!(!lexical::is_closed_class("beach"));
+    }
+
+    /// Score a synthetic clue directly through `Partial::metrics`, with
+    /// every axis held fixed except the one under test.
+    fn scored(
+        sub_cost_total: f64,
+        words: usize,
+        cuts: &[usize],
+        syllables: usize,
+        partial: bool,
+        closed: usize,
+    ) -> f64 {
+        let target = TargetPhrase::new("a b c d e");
+        let target_boundaries = [2usize, 4, 6, 8];
+        let mut p = Partial::empty();
+        p.sub_cost_total = sub_cost_total;
+        p.syllables = syllables;
+        p.closed = closed;
+        p.cuts = cuts.to_vec();
+        p.words = (0..words)
+            .map(|i| ClueWord {
+                word: format!("w{i}"),
+                ipa: "abc".to_string(),
+                rarity: Some(1_000.0),
+                sub_cost: 0.0,
+            })
+            .collect();
+        p.metrics(
+            &target,
+            &target_boundaries,
+            syllables,
+            12,
+            partial,
+        )
+        .combined
     }
 
     /// Orthographic variants of one clue are one proposal.
