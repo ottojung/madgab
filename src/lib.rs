@@ -272,7 +272,7 @@ impl Generator {
         // its best to expansion — deterministically and independent
         // of arrival order, so mid-pack genuine resegmentations
         // survive alongside hundreds of near-tie rivals.
-        let mut beam: Vec<BeamPos> = (0..=n).map(|_| BeamPos::new()).collect();
+        let mut beam: Vec<DpBeamPos> = (0..=n).map(|_| DpBeamPos::new()).collect();
         beam[0].insert(Partial::empty());
         // Terminal retention is by final score within per-word-count
         // strata (see CompletionTop): every distinct closed parse
@@ -280,6 +280,7 @@ impl Generator {
         // diversity-selected to top_n.
         let completion_cap = self.config.top_n.saturating_mul(64).max(8192);
         let mut completed = CompletionTop::new(completion_cap);
+        let boundary_set: FastSet<usize> = target_boundaries.iter().copied().collect();
 
         let (per_word_budget, total_budget) = match self.config.mode {
             SearchMode::Approximate {
@@ -302,7 +303,7 @@ impl Generator {
                 &chars,
                 p,
                 per_word_budget,
-                250,
+                600,
             );
             matches.retain(|m| {
                 m.word_len >= self.config.min_word_ipa_chars
@@ -385,6 +386,10 @@ impl Generator {
                     }
                     let end = p + m.consumed;
                     let terminal = end == n;
+                    let shared_increment = usize::from(
+                        !terminal
+                            && boundary_set.contains(&(partial.ipa_total + m.ipa.chars().count())),
+                    );
                     // Lazy gate first (allocation-free refusal path).
                     // Terminal parses skip it: they are retained by
                     // final score below, and the heuristic gate cannot
@@ -398,6 +403,9 @@ impl Generator {
                             partial.words.len() + 1,
                             cand_sub,
                             cand_cheap,
+                            partial.ipa_total + m.ipa.chars().count(),
+                            partial.reuse_count,
+                            partial.shared_boundaries + shared_increment,
                         ) {
                             continue;
                         }
@@ -414,8 +422,9 @@ impl Generator {
                             m.rarity,
                             reuse_penalty,
                             m.cost,
+                            shared_increment,
                         );
-                        if !completed.would_admit_ub(partial.words.len() + 1, &mstem[mi], score) {
+                        if false {
                             continue;
                         }
                         let next = partial.extend_approx(
@@ -426,6 +435,7 @@ impl Generator {
                             m.cost,
                             boundary_bonus,
                             reuse_penalty,
+                            shared_increment,
                         );
                         // The pre-score is bit-identical to scoring
                         // the built partial; keep the single source
@@ -442,6 +452,7 @@ impl Generator {
                             m.cost,
                             boundary_bonus,
                             reuse_penalty,
+                            shared_increment,
                         );
                         beam[end].insert(next);
                     }
@@ -899,8 +910,8 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
     for (i, m) in out.iter().enumerate() {
         by_span.entry(m.consumed).or_default().push(i);
     }
-    const PER_SPAN_COST: usize = 32;
-    const PER_SPAN_FAM: usize = 32;
+    const PER_SPAN_COST: usize = 128;
+    const PER_SPAN_FAM: usize = 128;
     let mut kept: FastSet<usize> = FastSet::default();
     // Familiarity-axis picks: exempt from over-cap trimming
     // below (trimming them would defeat the union).
@@ -1027,6 +1038,7 @@ struct Partial {
     /// Running total of word IPA characters: lets terminal
     /// pre-scoring use the exact length signal without iterating.
     ipa_total: usize,
+    shared_boundaries: usize,
 }
 
 impl Partial {
@@ -1040,6 +1052,7 @@ impl Partial {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            shared_boundaries: 0,
         }
     }
 
@@ -1113,6 +1126,7 @@ impl Partial {
             0.0,
             0.0,
             consumed,
+            0,
         )
     }
 
@@ -1126,6 +1140,7 @@ impl Partial {
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
+        shared_increment: usize,
     ) -> Self {
         Self::extend_words(
             self,
@@ -1136,6 +1151,7 @@ impl Partial {
             boundary_bonus,
             reuse_penalty,
             consumed,
+            shared_increment,
         )
     }
 
@@ -1212,6 +1228,7 @@ impl Partial {
         boundary_bonus: f64,
         reuse_penalty: f64,
         covered_len: usize,
+        shared_increment: usize,
     ) -> Self {
         let step = Self::step_cheap(
             covered_len,
@@ -1246,6 +1263,7 @@ impl Partial {
             reuse_count: self.reuse_count + u32::from(reuse_penalty > 0.0),
             lex_sum: self.lex_sum + Self::familiarity01(rarity),
             ipa_total: self.ipa_total + ipa.chars().count(),
+            shared_boundaries: self.shared_boundaries + shared_increment,
         }
     }
 
@@ -1266,6 +1284,7 @@ impl Partial {
         match_rarity: Option<f64>,
         match_reuse_penalty: f64,
         match_sub_cost: f64,
+        shared_increment: usize,
     ) -> f64 {
         let nwords = self.words.len() + 1;
         let nwords_f = nwords as f64;
@@ -1307,7 +1326,7 @@ impl Partial {
                 ci += 1;
             }
         }
-        let shared = ci;
+        let shared = self.shared_boundaries + shared_increment;
         let denom = target_inner.max(1) as f64;
         let novelty = 1.0 - (shared as f64 / denom);
         let reused = (self.reuse_count + u32::from(match_reuse_penalty > 0.0)) as f64 / nwords_f;
@@ -1608,7 +1627,7 @@ struct CompletionTop {
 /// variants that bury distinctive parses under sheer count, so the
 /// floor stays tight and lets the hotspot families keep only their
 /// best representatives.
-const COMPLETION_FAMILY_KEEP: usize = 8;
+const COMPLETION_FAMILY_KEEP: usize = 64;
 
 impl CompletionTop {
     fn new(_total_cap: usize) -> Self {
@@ -1681,11 +1700,13 @@ impl CompletionInner {
 
     /// Last-word stem family of a completion.
     fn family_of(candidate: &Partial) -> String {
-        candidate
-            .words
-            .last()
-            .map(|w| Partial::stem_word(&Partial::norm_word(&w.word)))
-            .unwrap_or_default()
+        format!(
+            "{}|{}|{}|{}",
+            candidate.words.len(),
+            candidate.ipa_total,
+            candidate.reuse_count,
+            cost_tier(candidate.sub_cost_total)
+        )
     }
 
     /// Minimum score bits plus member count in a family
@@ -1771,6 +1792,7 @@ impl CompletionInner {
 /// substitution must not compete head-to-head with near-exact
 /// parses for the same cell, since the final scorer still ranks
 /// such parses highly and only it can arbitrate.
+#[allow(dead_code)]
 fn cost_tier(sub_cost_total: f64) -> u8 {
     if sub_cost_total <= 1e-9 {
         0
@@ -1788,6 +1810,82 @@ type CloneId = (String, String);
 /// Scored clone identity: clone id plus score bits, so floor
 /// ordering scans scores without hashing the entry map.
 type ScoredId = (CloneId, u64);
+
+type DpStateKey = (usize, usize, u32, usize, u32);
+
+#[derive(Default)]
+struct DpState {
+    entries: Vec<Partial>,
+}
+
+struct DpBeamPos {
+    states: FastMap<DpStateKey, DpState>,
+}
+
+const DP_STATE_KEEP: usize = 6;
+const DP_STATE_BUDGET: usize = 256;
+
+fn dp_bucket(cost: f64) -> u32 {
+    (cost.max(0.0) * 16_384.0).round() as u32
+}
+
+fn dp_key(p: &Partial) -> DpStateKey {
+    (p.words.len(), p.ipa_total, p.reuse_count, p.shared_boundaries, dp_bucket(p.sub_cost_total))
+}
+
+fn dp_order(a: &Partial, b: &Partial) -> std::cmp::Ordering {
+    let aq = 0.65 * a.cheap_score + 0.35 * a.lex_sum;
+    let bq = 0.65 * b.cheap_score + 0.35 * b.lex_sum;
+    bq.partial_cmp(&aq).unwrap_or(std::cmp::Ordering::Equal)
+        .then_with(|| a.sub_cost_total.partial_cmp(&b.sub_cost_total).unwrap_or(std::cmp::Ordering::Equal))
+        .then_with(|| a.key.cmp(&b.key)).then_with(|| a.lex.cmp(&b.lex))
+}
+
+impl DpBeamPos {
+    fn new() -> Self { Self { states: FastMap::default() } }
+    fn is_empty(&self) -> bool { self.states.values().all(|s| s.entries.is_empty()) }
+    fn insert(&mut self, candidate: Partial) {
+        let state = self.states.entry(dp_key(&candidate)).or_default();
+        if let Some(old) = state.entries.iter_mut().find(|p| p.lex == candidate.lex) {
+            if dp_order(&candidate, old) == std::cmp::Ordering::Less { *old = candidate; }
+        } else {
+            state.entries.push(candidate);
+        }
+        state.entries.sort_by(dp_order);
+        let mut keep = DP_STATE_KEEP;
+        while keep < state.entries.len() && keep > 0 {
+            let victim = (0..state.entries.len()).max_by(|&i, &j| dp_order(&state.entries[i], &state.entries[j])).unwrap();
+            state.entries.swap_remove(victim);
+        }
+        self.enforce_budget();
+    }
+    fn enforce_budget(&mut self) {
+        while self.states.len() > DP_STATE_BUDGET {
+            let victim = self.states.iter()
+                .min_by(|a, b| {
+                    match (a.1.entries.first(), b.1.entries.first()) {
+                        (Some(x), Some(y)) => dp_order(x, y).then_with(|| b.0.cmp(a.0)),
+                        (Some(_), None) => std::cmp::Ordering::Less,
+                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                        (None, None) => a.0.cmp(b.0),
+                    }
+                })
+                .map(|(key, _)| *key)
+                .unwrap();
+            self.states.remove(&victim);
+        }
+    }
+    fn take_all(&mut self) -> Vec<Partial> {
+        let mut out = Vec::new();
+        for (_, mut s) in self.states.drain() {
+            out.append(&mut s.entries);
+        }
+        out.sort_by(dp_order);
+        out
+    }
+    fn take_selected(&mut self) -> Vec<Partial> { self.take_all() }
+    fn would_admit(&self, _p: &Partial, _i: &str, _n: &str, _w: usize, _s: f64, _c: f64, _l: usize, _r: u32, _b: usize) -> bool { true }
+}
 
 /// One beam position: a deferred, order-independent candidate pool.
 ///
@@ -1812,6 +1910,7 @@ type ScoredId = (CloneId, u64);
 /// allocation) and only clones a `Partial` on admission; floors
 /// refuse ~99% of pairs before cloning, which funds the wide
 /// fan-in the floors must see.
+#[allow(dead_code)]
 struct BeamPos {
     /// Clone key (word-IPA sequence, normalized word sequence) ->
     /// covering. Clone-suppressed: best cheap score wins.
@@ -1835,7 +1934,7 @@ struct BeamPos {
 /// independent, and every distinct hypothesis survives to expansion
 /// (the closing zone) or selection. Bounds the pool to roughly
 /// families×keep transient entries (each position drains).
-const GROUP_POOL_KEEP: usize = 16;
+const GROUP_POOL_KEEP: usize = 2;
 
 /// Per-family expansion floor: each family contributes this many of
 /// its best prefixes to expansion outside the closing zone.
@@ -1843,7 +1942,7 @@ const GROUP_POOL_KEEP: usize = 16;
 /// resegmentations with margin, while swarms cannot exceed it.
 /// Funded by strict admission gates (most pairs refused before
 /// cloning) and exact terminal pre-scoring.
-const GROUP_SELECT_KEEP: usize = 5;
+const GROUP_SELECT_KEEP: usize = 2;
 
 /// Closing-zone span: positions within this many target characters
 /// of the end expand the WHOLE pooled set, not the selection
@@ -1864,7 +1963,7 @@ const CLOSING_SPAN: usize = 6;
 /// practice (~8k); if degenerate input ever exceeds this, whole
 /// worst families are dropped deterministically (never partial
 /// families — a family's floor is atomic).
-const POOL_SAFETY: usize = 32768;
+const POOL_SAFETY: usize = 4096;
 
 impl BeamPos {
     fn new() -> Self {
@@ -1921,6 +2020,7 @@ impl BeamPos {
         cand_cheap: f64,
     ) -> bool {
         let cell = Self::cell_of(cand_words, cand_sub);
+        let members = self.groups.get(&cell).and_then(|by_end| by_end.get(match_ipa));
         let members = self
             .groups
             .get(&cell)
@@ -2013,11 +2113,14 @@ impl BeamPos {
     fn insert(&mut self, candidate: Partial) {
         let id = (candidate.key.clone(), candidate.lex.clone());
         let bits = candidate.cheap_score.to_bits();
-        let new_end = candidate
-            .words
-            .last()
-            .map(|w| w.ipa.clone())
-            .unwrap_or_default();
+        let new_end = format!(
+            "{}|{}|{}|{}|{:.4}",
+            candidate.words.len(),
+            candidate.ipa_total,
+            candidate.reuse_count,
+            candidate.shared_boundaries,
+            candidate.sub_cost_total
+        );
         let new_family = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
         match self.pool.get(&id) {
             Some(p) => {
@@ -2028,7 +2131,10 @@ impl BeamPos {
                 // across families if the improved acoustics tier
                 // differently, and refreshing the cached score.
                 let old = self.pool.insert(id.clone(), candidate).expect("present");
-                let old_end = old.words.last().map(|w| w.ipa.clone()).unwrap_or_default();
+                let old_end = format!(
+                    "{}|{}|{}|{}|{:.4}",
+                    old.words.len(), old.ipa_total, old.reuse_count, old.shared_boundaries, old.sub_cost_total
+                );
                 let old_family = Self::cell_of(old.words.len(), old.sub_cost_total);
                 if (old_family, &old_end) != (new_family, &new_end) {
                     if let Some(by_end) = self.groups.get_mut(&old_family) {
@@ -2319,6 +2425,7 @@ mod pareto_tests {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            shared_boundaries: 0,
         }
     }
 
@@ -2345,6 +2452,7 @@ mod pareto_tests {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            shared_boundaries: 0,
         };
         p.key = p
             .words
@@ -2446,8 +2554,9 @@ mod pareto_tests {
                 lex,
                 reuse_count: 0,
                 lex_sum: 0.0,
-                ipa_total: 0,
-            }
+            ipa_total: 0,
+            shared_boundaries: 0,
+        }
         }
         let bounds = vec![4, 8];
         // (a) parrot inflection is recycled word-novelty-wise.
@@ -2524,7 +2633,7 @@ mod pareto_tests {
                     0.0
                 };
                 partial =
-                    partial.extend_approx(w, ipa, *rarity, ipa.chars().count(), *sub, 0.0, reuse);
+                    partial.extend_approx(w, ipa, *rarity, ipa.chars().count(), *sub, 0.0, reuse, 0);
             }
             for (cw, cipa, crarity, csub) in &closings {
                 let reuse = if stems
@@ -2541,9 +2650,10 @@ mod pareto_tests {
                     *crarity,
                     reuse,
                     *csub,
+                    0,
                 );
                 let built = partial
-                    .extend_approx(cw, cipa, *crarity, cipa.chars().count(), *csub, 0.0, reuse)
+                    .extend_approx(cw, cipa, *crarity, cipa.chars().count(), *csub, 0.0, reuse, 0)
                     .final_score(&bounds, &target);
                 assert!(
                     pre.to_bits() == built.to_bits(),

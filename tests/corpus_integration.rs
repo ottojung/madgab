@@ -221,22 +221,9 @@ fn approximate_completes_wreck_beach_family() {
     );
 }
 
-/// Acceptance target (currently unmet — ignored, not deleted): the
-/// exact canonical clue "hits justice dupe hid came" in the top 50.
-/// Status after the improve-quality-final work: the "hits justice
-/// dupe" prefix family completes (see
-/// `approximate_completes_classic_prefix_family`), but the "hid"
-/// link (substitution cost 0.32 over a 2-char span) sits mid-pack
-/// (~12th-35th by cheap score) in a dense same-sound family whose
-/// true depth (distinct arrivals, measured uncapped) runs into the
-/// hundreds: covering it needs per-family floors ~10x deeper than
-/// interactive budgets allow, and every floor tried (up to 32, plus
-/// selection/trim/zone variants) fills with better-or-equal
-/// near-ties first — a fixed point that does not exist at bounded
-/// cost. Re-enable if retention ever covers that depth without
-/// phrase-specific favoritism.
+/// The exact canonical clue must be retained by the bounded approximate
+/// DP and returned in the top 50.
 #[test]
-#[ignore]
 fn approximate_finds_classic_madgab_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
@@ -258,21 +245,9 @@ fn approximate_finds_classic_madgab_resegmentation() {
     );
 }
 
-/// Acceptance target (currently unmet — ignored, not deleted): the
-/// exact canonical clue "wreck a nice beach" in the top 50. Status
-/// after the improve-quality-final work: the "wreck a" opening
-/// completes (see `approximate_completes_wreck_beach_family`), but
-/// the max-budget "nice" link (cost 0.75, match rank ~249/250) sits
-/// mid-pack in a dense same-sound family, and "wreck a nice beach"
-/// itself (total sub cost 1.35) is Pareto-dominated at final
-/// scoring by acoustically cleaner rivals ("wreck egg ninth beach"
-/// sub ~0.35 scores ~0.95 vs ~0.85) — no reweighting separates
-/// them without breaking parrot rejection, and covering the
-/// transit ranks needs per-family floors ~10x deeper than
-/// interactive budgets allow. Re-enable if retention ever covers
-/// that depth without phrase-specific favoritism.
+/// The exact canonical clue must be retained by the bounded approximate
+/// DP and returned in the top 50.
 #[test]
-#[ignore]
 fn approximate_finds_recognize_speech_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
