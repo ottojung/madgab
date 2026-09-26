@@ -1480,6 +1480,8 @@ impl Generator {
                 continue;
             }
 
+            zz_counters::SEGMENTATIONS.fetch_add(1, zz_counters::ORD);
+
             // The depth-profile reserve, spent before the traversal so it
             // is genuinely reserved rather than left over: the traversal
             // below is handed whatever the profiles did not use.  Both
@@ -1523,14 +1525,20 @@ impl Generator {
                 EMIT_PROFILE_MAX_DEEP,
                 coverage_phase,
             ) {
+                zz_counters::PRODUCED.fetch_add(1, zz_counters::ORD);
                 if profile_emitted >= profile_allowance
                     || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
                 {
+                    zz_counters::STOPPED_BY_ALLOWANCE
+                        .fetch_add(1, zz_counters::ORD);
                     break;
                 }
+                zz_counters::ATTEMPTED.fetch_add(1, zz_counters::ORD);
                 let Some(partial) = build(&tuple) else {
+                    zz_counters::COST_REJECTED.fetch_add(1, zz_counters::ORD);
                     continue;
                 };
+                zz_counters::PROFILE_BUILT.fetch_add(1, zz_counters::ORD);
                 #[cfg(test)]
                 counters::note_depth(
                     &counters::DEEPEST_PROFILE,
@@ -1861,6 +1869,9 @@ impl Generator {
         }
 
         completed.extend(recovered);
+        if std::env::var("MADGAB_POOL_DUMP").map(|v| !v.is_empty()).unwrap_or(false) {
+            zz_counters::SPENT.fetch_add(spent_emissions, zz_counters::ORD);
+        }
         self.finish(
             completed,
             &target_ipa,
@@ -1936,6 +1947,32 @@ impl Generator {
                         );
                     }
                     let _ = writeln!(out, "#END\t{}\t{}", label, clues.len());
+                    let g = |c: &std::sync::atomic::AtomicUsize| {
+                        c.load(std::sync::atomic::Ordering::Relaxed)
+                    };
+                    let _ = writeln!(
+                        out,
+                        "#COUNTERS\t{}\tproduced={}\tattempted={}\tcost_rejected={}\tprofile_built={}\tallowance_stop={}\tsegmentations={}\tspent_emissions={}",
+                        label,
+                        g(&zz_counters::PRODUCED),
+                        g(&zz_counters::ATTEMPTED),
+                        g(&zz_counters::COST_REJECTED),
+                        g(&zz_counters::PROFILE_BUILT),
+                        g(&zz_counters::STOPPED_BY_ALLOWANCE),
+                        g(&zz_counters::SEGMENTATIONS),
+                        g(&zz_counters::SPENT),
+                    );
+                    for c in [
+                        &zz_counters::PRODUCED,
+                        &zz_counters::ATTEMPTED,
+                        &zz_counters::COST_REJECTED,
+                        &zz_counters::PROFILE_BUILT,
+                        &zz_counters::STOPPED_BY_ALLOWANCE,
+                        &zz_counters::SEGMENTATIONS,
+                        &zz_counters::SPENT,
+                    ] {
+                        c.store(0, zz_counters::ORD);
+                    }
                 }
             }
         }
@@ -2014,6 +2051,25 @@ fn normalized_word(word: &str) -> String {
 /// Test-only instrumentation. Approximate search is a constant-factor
 /// problem, so the regression tests count calls rather than trusting the
 /// wall clock. Compiled out of release builds entirely.
+// ---- read-only measurement counters (9d3b17 tip-verify front) ----
+//
+// Plain atomic tallies of how the depth-profile reserve spends itself.
+// They are read only by the env-gated probe in `finish` and gate nothing,
+// so they cannot change what the search returns.  With the probe unset
+// they are still incremented, which is the only cost.
+#[cfg(not(target_arch = "wasm32"))]
+mod zz_counters {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    pub const ORD: Ordering = Ordering::Relaxed;
+    pub static PRODUCED: AtomicUsize = AtomicUsize::new(0);
+    pub static ATTEMPTED: AtomicUsize = AtomicUsize::new(0);
+    pub static COST_REJECTED: AtomicUsize = AtomicUsize::new(0);
+    pub static PROFILE_BUILT: AtomicUsize = AtomicUsize::new(0);
+    pub static STOPPED_BY_ALLOWANCE: AtomicUsize = AtomicUsize::new(0);
+    pub static SEGMENTATIONS: AtomicUsize = AtomicUsize::new(0);
+    pub static SPENT: AtomicUsize = AtomicUsize::new(0);
+}
+
 #[cfg(test)]
 mod counters {
     use std::cell::Cell;
