@@ -11,6 +11,7 @@ use std::rc::Rc;
 use phonetics::transcriptions::{Corpus, Pronunciation};
 use serde::Serialize;
 
+mod adjacency;
 mod approx;
 pub mod lexical;
 
@@ -147,6 +148,31 @@ const LEXICAL_BRANCH_STAGE_GROWTH: usize = 4;
 /// total is unchanged and the global budgets still hold; ordinary
 /// quality keeps the rest.
 const EMIT_PROFILE_RESERVE: usize = 16;
+/// Part of every segmentation's allowance reserved for the **adjacency**
+/// operator (w-c1d3a7), the neighbourhood walk over the wordings the
+/// traversal already emitted.
+///
+/// The profile reserve above samples the index-tuple space *from the corner*:
+/// a profile representative keeps index 0 in every slot outside the profile,
+/// so it can be deep in at most [`EMIT_PROFILE_MAX_DEEP`] slots and it cannot
+/// reach a wording that is deep in several slots *and* off the corner in the
+/// rest.  The adjacency operator spends its share differently: it starts from
+/// wordings the pool already holds and substitutes **one slot at a time**, so
+/// the cost of being deep in one slot is additive rather than
+/// multiplicative.  Like the profile reserve it is carved out before the
+/// traversal starts, so the per-segmentation total — and therefore the global
+/// budgets — are unchanged; it moves spend, it does not buy more.
+const ADJACENCY_RESERVE: usize = 8;
+/// How many wordings the adjacency walk may expand per segmentation, and how
+/// many of a node's children in one slot enter its frontier.
+///
+/// `pops` is the walk's reach and, because each pop admits at most one new
+/// wording, also bounds admissions.  It has to exceed the pool the traversal
+/// hands it — the pool's own wordings are the seeds and are expanded before
+/// anything new is reached — so it is set above the traversal's own share of
+/// the allowance rather than at it.
+const ADJACENCY_POPS: usize = 96;
+const ADJACENCY_PER_SLOT: usize = 4;
 /// How many slots of a profile may be deep at once.  A `k`-deep profile
 /// class has `C(depth, k)` members per ladder rung, so beyond two the
 /// classes outnumber the reserve and the ladder is not widened to
@@ -1026,6 +1052,47 @@ impl Generator {
         segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
         segmentations.truncate(SEGMENTATION_KEEP);
 
+        // ZZ_SCRATCH
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(spec) = std::env::var("ZZ_SEGS") {
+            let words: Vec<String> = spec
+                .split('|')
+                .map(|s| s.trim().to_lowercase())
+                .collect();
+            for (rank, (obj, seg)) in segmentations.iter().enumerate() {
+                if seg.spans.len() != words.len() {
+                    continue;
+                }
+                let mut ranks = Vec::new();
+                let mut ok = true;
+                for (&(start, end), want) in seg.spans.iter().zip(words.iter()) {
+                    let found = span_lattice[start]
+                        .iter()
+                        .find(|edge| edge.end == end)
+                        .and_then(|edge| {
+                            edge.matches
+                                .iter()
+                                .position(|m| {
+                                    self.fuzzy_lexicon
+                                        .word(m.word_idx)
+                                        .word
+                                        .eq_ignore_ascii_case(want)
+                                })
+                        });
+                    match found {
+                        Some(r) => ranks.push(r),
+                        None => {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+                if ok {
+                    eprintln!("ZZSEG seg_rank={rank} obj={obj:.9} spans={:?} slot_ranks={ranks:?}", seg.spans);
+                }
+            }
+        }
+
         #[cfg(not(target_arch = "wasm32"))]
         if let (Ok(span_spec), Ok(word_spec)) = (
             std::env::var("MADGAB_TRACE_SPANS"),
@@ -1246,6 +1313,46 @@ impl Generator {
                 continue;
             }
 
+            // ZZ_SCRATCH
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Ok(spec) = std::env::var("ZZ_SLOTS") {
+                let spans_spec = spec.split('|').next().unwrap_or("");
+                let words: Vec<String> = spec
+                    .split('|')
+                    .skip(1)
+                    .map(|s| s.trim().to_lowercase())
+                    .collect();
+                let mine: Vec<String> = segmentation
+                    .spans
+                    .iter()
+                    .map(|(a, b)| format!("{a}-{b}"))
+                    .collect();
+                if mine.join(",") == spans_spec && words.len() == slots.len() {
+                    let mut idx = Vec::new();
+                    for (k, want) in words.iter().enumerate() {
+                        idx.push(
+                            slots[k]
+                                .iter()
+                                .position(|a| {
+                                    self.fuzzy_lexicon
+                                        .word(a.match_ref.word_idx)
+                                        .word
+                                        .eq_ignore_ascii_case(want)
+                                })
+                                .map(|p| p.to_string())
+                                .unwrap_or_else(|| "none".into()),
+                        );
+                    }
+                    let widths: Vec<usize> = slots.iter().map(Vec::len).collect();
+                    eprintln!(
+                        "ZZSLOT widths={widths:?} slot_indices={idx:?} tuple={:?}",
+                        idx.iter()
+                            .map(|s| s.parse::<usize>().unwrap_or(0))
+                            .collect::<Vec<usize>>()
+                    );
+                }
+            }
+
             // The depth-profile reserve, spent before the traversal so it
             // is genuinely reserved rather than left over: the traversal
             // below is handed whatever the profiles did not use.  Both
@@ -1276,6 +1383,11 @@ impl Generator {
             let profile_allowance =
                 EMIT_PROFILE_RESERVE.min(emit_allowance);
             let mut profile_emitted = 0usize;
+            // The index tuples this segmentation has actually put in the
+            // pool, in emission order.  The adjacency operator below is
+            // seeded from exactly this, so it starts from what the pool
+            // holds rather than from the index-tuple origin.
+            let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
             for tuple in profile_tuples(
@@ -1296,6 +1408,7 @@ impl Generator {
                     &counters::DEEPEST_PROFILE,
                     tuple.iter().copied().max().unwrap_or(0),
                 );
+                pooled.push(tuple);
                 recovered.push(partial);
                 profile_emitted += 1;
                 spent_emissions += 1;
@@ -1303,6 +1416,15 @@ impl Generator {
             }
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
+            // The adjacency operator's share, carved out before the traversal
+            // for the same reason the profile reserve is: so that the sum of
+            // the three spends is the per-segmentation allowance and not more
+            // of it.
+            let adjacency_allowance =
+                ADJACENCY_RESERVE.min(emit_allowance);
+            let emit_allowance =
+                emit_allowance.saturating_sub(adjacency_allowance);
+
 
             // Suffix bounds make the best-first key an admissible upper
             // bound on the score of any completion of a prefix, so the
@@ -1438,6 +1560,7 @@ impl Generator {
                                     &counters::DEEPEST_TRAVERSAL,
                                     prefix.iter().copied().max().unwrap_or(0),
                                 );
+                                pooled.push(prefix.to_vec());
                                 recovered.push(partial);
                                 emitted += 1;
                                 spent_emissions += 1;
@@ -1531,6 +1654,109 @@ impl Generator {
                 replaying = true;
             }
             spent_pops += popped;
+
+            // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+            //
+            // The traversal above moves by *extending a prefix*, so a wording
+            // that is jointly excellent but locally expensive in one slot
+            // costs the sum of every better-bound node in front of it, and a
+            // per-segmentation allowance of that size never reaches it.  This
+            // operator moves by *substituting one slot of a complete wording*
+            // instead, seeded from the wordings this segmentation has already
+            // put in the pool, and re-scoring each child with the same
+            // admissible `bound` the traversal orders by — so depth in one
+            // slot is additive rather than multiplicative, and a slot index
+            // far outside any width-capped prefix walk is open to it.  It
+            // reads no vocabulary and names no phrase: the same call serves
+            // every target and every segmentation.  The measurement that
+            // motivates it is in `docs/work/items/w-c1d3a7.md`.
+
+            let mut adjacency_emitted = 0usize;
+            if adjacency_allowance > 0
+                && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
+            {
+                for tuple in adjacency::admit(
+                    adjacency::Neighbourhood {
+                        pops: ADJACENCY_POPS,
+                        per_slot: ADJACENCY_PER_SLOT,
+                    },
+                    &pooled,
+                    &widths,
+                    &bound,
+                ) {
+                    if adjacency_emitted >= adjacency_allowance
+                        || spent_emissions
+                            >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                    {
+                        break;
+                    }
+                    let Some(partial) = build(&tuple) else {
+                        continue;
+                    };
+                    // ZZ_SCRATCH
+                    #[cfg(not(target_arch = "wasm32"))]
+                    if std::env::var("ZZ_ADJ").is_ok() {
+                        let want = std::env::var("ZZ_SEG_MATCH").ok();
+                        let mine = segmentation
+                            .spans
+                            .iter()
+                            .map(|(a, b)| format!("{a}-{b}"))
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        if want.as_deref().is_none_or(|w| w == mine) {
+                            eprintln!(
+                                "ZZADJ seg={mine} tuple={tuple:?} bound={:.9} words={:?}",
+                                bound(&tuple),
+                                tuple
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(s, &i)| {
+                                        self.fuzzy_lexicon
+                                            .word(
+                                                slots[s][i].match_ref.word_idx,
+                                            )
+                                            .word
+                                            .clone()
+                                    })
+                                    .collect::<Vec<String>>()
+                            );
+                        }
+                    }
+                    #[cfg(test)]
+                    counters::note_depth(
+                        &counters::DEEPEST_ADJACENCY,
+                        tuple.iter().copied().max().unwrap_or(0),
+                    );
+                    pooled.push(tuple);
+                    recovered.push(partial);
+                    adjacency_emitted += 1;
+                    spent_emissions += 1;
+                    *funded.entry(structure).or_default() += 1;
+                }
+            }
+            // ZZ_SCRATCH
+            #[cfg(not(target_arch = "wasm32"))]
+            if std::env::var("ZZ_TOTALS").is_ok() {
+                eprintln!(
+                    "ZZSEGWORK emitted={emitted} profile={profile_emitted} popped={popped} depths={:?}",
+                    segmentation
+                        .spans
+                        .iter()
+                        .map(|(a, b)| format!("{a}-{b}"))
+                        .collect::<Vec<_>>()
+                        .join(",")
+                );
+            }
+        }
+
+        // ZZ_SCRATCH
+        #[cfg(not(target_arch = "wasm32"))]
+        if std::env::var("ZZ_TOTALS").is_ok() {
+            eprintln!(
+                "ZZTOTAL spent_emissions={spent_emissions} spent_pops={spent_pops} pool={} segs={}",
+                recovered.len(),
+                schedule.len()
+            );
         }
 
         completed.extend(recovered);
@@ -1660,6 +1886,9 @@ mod counters {
         /// front in one place.
         pub static DEEPEST_TRAVERSAL: Cell<usize> = const { Cell::new(0) };
         pub static DEEPEST_PROFILE: Cell<usize> = const { Cell::new(0) };
+        /// The deepest slot index the adjacency operator's admissions
+        /// reach: the third of the three emission-spread counters.
+        pub static DEEPEST_ADJACENCY: Cell<usize> = const { Cell::new(0) };
     }
 
     pub fn bump(counter: &'static std::thread::LocalKey<Cell<u64>>) {
