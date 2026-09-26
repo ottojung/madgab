@@ -231,7 +231,6 @@ fn approximate_completes_wreck_beach_family() {
 /// phrase-specific favoritism. Re-enable if beam retention ever
 /// covers that depth.
 #[test]
-#[ignore]
 fn approximate_finds_classic_madgab_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
@@ -259,7 +258,6 @@ fn approximate_finds_classic_madgab_resegmentation() {
 /// complete, but the max-budget "nice" link (cost 0.75) is fairly
 /// mid-pack among its cell and does not survive bounded retention.
 #[test]
-#[ignore]
 fn approximate_finds_recognize_speech_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,

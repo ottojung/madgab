@@ -228,7 +228,16 @@ impl Generator {
         // which is what lets valid mid-pack parses survive
         // alongside hundreds of near-tie rivals.
         let k = self.config.beam_width;
-        let mut beam: Vec<BeamPos> = (0..=n).map(|_| BeamPos::new(k)).collect();
+        let mut beam: Vec<BeamPos> = (0..=n)
+            .map(|pos| {
+                let mult = if (pos as f64) >= LATE_FRAC * (n as f64) {
+                    HARD_MULT_LATE
+                } else {
+                    HARD_MULT
+                };
+                BeamPos::new_with_hard_mult(k, mult)
+            })
+            .collect();
         beam[0].insert(Partial::empty());
         // Terminal retention is by final score (see CompletionTop):
         // every distinct closed parse contends for a generous
@@ -889,6 +898,14 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
 #[derive(Debug, Clone)]
 struct Partial {
     words: Vec<ClueWord>,
+    /// Per-word consumed target chars (target-aligned spans) for
+    /// Approximate mode. Mirrors `words` 1:1 when populated; empty
+    /// for legacy/exact paths where clue IPA length equals the
+    /// covered span. `final_score` prefers these cumulative cuts
+    /// when available so boundary novelty is measured in target
+    /// coordinates rather than clue-word IPA lengths (which differ
+    /// under insertions/deletions).
+    consumed_spans: Vec<usize>,
     /// Accumulated substitution cost across all words so far.
     /// Always zero in Exact mode.
     sub_cost_total: f64,
@@ -912,6 +929,7 @@ impl Partial {
     fn empty() -> Self {
         Self {
             words: Vec::new(),
+            consumed_spans: Vec::new(),
             sub_cost_total: 0.0,
             cheap_score: 0.0,
             key: String::new(),
@@ -927,8 +945,8 @@ impl Partial {
             .collect()
     }
 
-    fn extend(&self, p: &Pronunciation, _consumed: usize, word_sub_cost: f64) -> Self {
-        Self::extend_words(self, &p.word, &p.ipa, p.rarity, word_sub_cost, 0.0, 0.0)
+    fn extend(&self, p: &Pronunciation, consumed: usize, word_sub_cost: f64) -> Self {
+        Self::extend_words(self, &p.word, &p.ipa, p.rarity, consumed, word_sub_cost, 0.0, 0.0)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -937,7 +955,7 @@ impl Partial {
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
-        _consumed: usize,
+        consumed: usize,
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
@@ -947,6 +965,7 @@ impl Partial {
             word,
             ipa,
             rarity,
+            consumed,
             word_sub_cost,
             boundary_bonus,
             reuse_penalty,
@@ -1009,6 +1028,7 @@ impl Partial {
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
+        consumed: usize,
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
@@ -1031,6 +1051,11 @@ impl Partial {
                 });
                 w
             },
+            consumed_spans: {
+                let mut s = self.consumed_spans.clone();
+                s.push(consumed);
+                s
+            },
             sub_cost_total: self.sub_cost_total + word_sub_cost,
             cheap_score: self.cheap_score + step,
             key: if self.key.is_empty() {
@@ -1048,17 +1073,25 @@ impl Partial {
     /// mid-parse — but terminal retention can and does (see
     /// [`CompletionTop`]).
     fn final_score(&self, target_boundaries: &[usize], target_words: &HashSet<String>) -> f64 {
-        // Reconstruct the clue's boundary set.
+        // Reconstruct the clue's boundary set. Prefer target-aligned
+        // cumulative cuts (per-word consumed spans) when available;
+        // fall back to clue-word IPA lengths (exact-mode semantics:
+        // consumed equals IPA length there).
+        let use_spans = self.consumed_spans.len() == self.words.len() && !self.words.is_empty();
         let mut cum = 0_usize;
         let mut clue_boundaries: Vec<usize> = Vec::with_capacity(self.words.len());
-        for w in &self.words {
-            cum += w.ipa.chars().count();
+        for (i, w) in self.words.iter().enumerate() {
+            cum += if use_spans {
+                self.consumed_spans[i]
+            } else {
+                w.ipa.chars().count()
+            };
             clue_boundaries.push(cum);
         }
 
-        // Novelty: how few of the target's word boundaries the clue
-        // also has. Boundary at the end of the phrase is shared by
-        // construction, so exclude it.
+        // Novelty: symmetric Jaccard distance over the target vs clue
+        // inner boundary sets. Boundary at the end of the phrase is
+        // shared by construction, so exclude it.
         let target_inner: HashSet<usize> = target_boundaries
             .iter()
             .copied()
@@ -1070,8 +1103,8 @@ impl Partial {
             .filter(|b| *b < cum)
             .collect();
         let shared = target_inner.intersection(&clue_inner).count() as f64;
-        let denom = target_inner.len().max(1) as f64;
-        let novelty = 1.0 - (shared / denom);
+        let union = target_inner.union(&clue_inner).count() as f64;
+        let novelty = if union < 0.5 { 1.0 } else { 1.0 - (shared / union) };
 
         // Word-novelty: penalty if the clue reuses any target word.
         let reused = self
@@ -1391,6 +1424,14 @@ const EPSILON: f64 = 0.20;
 /// candidate.
 const HARD_MULT: usize = 8;
 
+/// Late-target hard multiplier: destination positions at or beyond
+/// this fraction of the target length retain more near-tie cell
+/// members (roomier hard cap, unchanged soft cap). Downstream
+/// fan-out is small and final scoring is near there, so the extra
+/// retention is cheap and directly protects completions.
+const HARD_MULT_LATE: usize = 16;
+const LATE_FRAC: f64 = 0.60;
+
 /// Novelty slack for first-of-ending admission: a candidate whose
 /// last-word sound is absent from its cell joins (displacing the
 /// cell worst) if it is within this of the kept worst. Endings are
@@ -1423,6 +1464,15 @@ struct BeamPos {
 
 impl BeamPos {
     fn new(k: usize) -> Self {
+        Self::new_with_hard_mult(k, HARD_MULT)
+    }
+
+    /// Position-aware constructor: `hard_mult` scales the hard cap
+    /// over the (unchanged) soft share. Late-target positions use a
+    /// roomier multiplier because downstream fan-out is small and
+    /// final scoring is near, so retaining more near-tie cell
+    /// members is cheap and directly protects completions.
+    fn new_with_hard_mult(k: usize, hard_mult: usize) -> Self {
         Self {
             entries: Vec::new(),
             keys: HashMap::new(),
@@ -1431,7 +1481,7 @@ impl BeamPos {
             ending_counts: HashMap::new(),
             k,
             cell_cap: (k / 8).max(8),
-            cell_hard: (k / 8).max(8) * HARD_MULT,
+            cell_hard: (k / 8).max(8) * hard_mult,
         }
     }
 
@@ -1935,6 +1985,7 @@ mod pareto_tests {
                     sub_cost: 0.0,
                 })
                 .collect(),
+            consumed_spans: vec![2; nwords],
             sub_cost_total: cost,
             cheap_score: cheap,
             key: key.to_string(),
