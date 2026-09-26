@@ -342,9 +342,9 @@ impl Generator {
                     let familiarity = word_familiarity(word.rarity);
                     let reused =
                         candidate_reuses_target(&word.word, &target_words);
-                    -0.1125 * m.cost
+                    -0.10 * m.cost
                         + 0.10 * familiarity
-                        - if reused { 0.10 } else { 0.0 }
+                        - if reused { 0.15 } else { 0.0 }
                         + 0.05
                             * lexical_shape_quality(
                                 &word.word,
@@ -571,10 +571,10 @@ impl Generator {
             };
             let denom = word_count as f64;
             for path in paths {
-                let upper = 0.45
+                let upper = 0.40
                     * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
                     + 0.25 * novelty
-                    + 0.10
+                    + 0.15
                         * (1.0
                             - path.min_reused as f64 / denom)
                     + 0.10 * path.max_familiarity_sum / denom
@@ -676,9 +676,9 @@ impl Generator {
                         let familiarity = word_familiarity(word.rarity);
                         let reused =
                             candidate_reuses_target(&word.word, &target_words);
-                        -0.1125 * m.cost
+                        -0.10 * m.cost
                             - if reused {
-                                0.10 / word_count
+                                0.15 / word_count
                             } else {
                                 0.0
                             }
@@ -717,9 +717,9 @@ impl Generator {
                         let familiarity = word_familiarity(word.rarity);
                         let reused =
                             candidate_reuses_target(&word.word, &target_words);
-                        -0.1125 * m.cost
+                        -0.10 * m.cost
                             - if reused {
-                                0.10 / word_count
+                                0.15 / word_count
                             } else {
                                 0.0
                             }
@@ -917,6 +917,9 @@ fn novelty_stem(word: &str) -> String {
             break;
         }
     }
+    if s.len() > 4 && s.ends_with('e') {
+        s.pop();
+    }
     s
 }
 
@@ -1090,9 +1093,9 @@ impl Partial {
                 / self.words.len() as f64
         };
 
-        let combined = 0.45 * similarity
+        let combined = 0.40 * similarity
             + 0.25 * novelty
-            + 0.10 * word_novelty
+            + 0.15 * word_novelty
             + 0.10 * familiarity
             + 0.05 * length_signal
             + 0.05 * shape_quality;
