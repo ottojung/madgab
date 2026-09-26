@@ -1,0 +1,111 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 8d797e1..dbb44dc 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1518,6 +1518,67 @@ impl Generator {
+             let mut pooled: Vec<Vec<usize>> = Vec::new();
+             let widths: Vec<usize> =
+                 slots.iter().map(Vec::len).collect();
++            // ZZ_DEPTH_PROBE (5d2a91, read-only, env-gated, never committed)
++            #[cfg(not(target_arch = "wasm32"))]
++            if let Ok(spec) = std::env::var("ZZ_DEPTH_SPANS") {
++                let want: Vec<(usize, usize)> = spec
++                    .split(',')
++                    .filter_map(|p| {
++                        let (a, b) = p.split_once('-')?;
++                        Some((a.parse().ok()?, b.parse().ok()?))
++                    })
++                    .collect();
++                if want == structure {
++                    let words: Vec<String> = std::env::var("ZZ_DEPTH_WORDS")
++                        .unwrap_or_default()
++                        .split(',')
++                        .map(|s| s.to_string())
++                        .collect();
++                    let tuples = coverage_tuples(
++                        &widths,
++                        profile_allowance,
++                        EMIT_PROFILE_MAX_DEEP,
++                        coverage_phase,
++                    );
++                    let offered = tuples.len();
++                    let built =
++                        tuples.iter().filter(|t| build(t).is_some()).count();
++                    let deepest = tuples
++                        .iter()
++                        .map(|t| t.iter().filter(|&&i| i != 0).count())
++                        .max()
++                        .unwrap_or(0);
++                    let mut ranks: Vec<String> = Vec::new();
++                    for (slot, w) in words.iter().enumerate() {
++                        if slot >= slots.len() {
++                            break;
++                        }
++                        let r = slots[slot]
++                            .iter()
++                            .position(|a| {
++                                self.fuzzy_lexicon
++                                    .word(a.match_ref.word_idx)
++                                    .word
++                                    .eq_ignore_ascii_case(w)
++                            });
++                        ranks.push(format!("{r:?}"));
++                    }
++                    eprintln!(
++                        "ZZ_DEPTH seg_rank={:?} widths={widths:?} sorted_ranks=[{}] walk_ranks=[{}] phase={coverage_phase} reserve={profile_allowance} max_deep_const={EMIT_PROFILE_MAX_DEEP} offered={offered} built={built} deepest_tuple={deepest}",
++                        segmentations.iter().position(|(_, p)| p.spans == want),
++                        ranks.join(","),
++                        words.iter().enumerate().map(|(slot, w)| {
++                            if slot >= slots.len() {
++                                return String::from("NA");
++                            }
++                            let e = span_lattice[want[slot].0]
++                                .iter()
++                                .find(|e| e.end == want[slot].1);
++                            format!("{:?}", e.and_then(|e| e.matches.iter().position(|m| self.fuzzy_lexicon.word(m.word_idx).word.eq_ignore_ascii_case(w))))
++                        }).collect::<Vec<_>>().join(","),
++                    );
++                }
++            }
+             for tuple in coverage_tuples(
+                 &widths,
+                 profile_allowance,
+@@ -1903,6 +1964,38 @@ impl Generator {
+         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
+         let pool_size = clues.len();
+ 
++        // ZZ_POOL_PROBE (5d2a91, read-only, env-gated, never committed)
++        #[cfg(not(target_arch = "wasm32"))]
++        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
++            let selected = select_diverse(clues.clone(), self.config.top_n);
++            if let Ok(mut f) = std::fs::File::create(&path) {
++                use std::io::Write as _;
++                for (i, c) in clues.iter().enumerate() {
++                    let _ = writeln!(
++                        f,
++                        "POOL\t{i}\t{:.9}\t{}\t{}",
++                        c.score,
++                        c.cuts.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","),
++                        c.phrase
++                    );
++                }
++                for (i, c) in selected.iter().enumerate() {
++                    let pr = clues
++                        .iter()
++                        .position(|d| d.phrase == c.phrase)
++                        .unwrap_or(usize::MAX);
++                    let _ = writeln!(
++                        f,
++                        "VIS\t{i}\t{pr}\t{:.9}\t{}\t{}",
++                        c.score,
++                        c.cuts.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(","),
++                        c.phrase
++                    );
++                }
++                let _ = writeln!(f, "POOLSIZE\t{pool_size}");
++            }
++        }
++
+         #[cfg(not(target_arch = "wasm32"))]
+         if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
+             for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
