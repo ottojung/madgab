@@ -208,13 +208,6 @@ impl Generator {
                     .to_string()
             })
             .collect();
-        // Normalized target vocabulary for the incremental
-        // word-novelty penalty: "it's" and "its" count as the same
-        // recycled word.
-        let target_words_norm: HashSet<String> = target
-            .split_whitespace()
-            .map(|w| Partial::norm_word(w.to_lowercase().trim_end_matches(['.', ',', '!', '?'])))
-            .collect();
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 {
@@ -222,11 +215,16 @@ impl Generator {
         }
 
         // beam[p] = Pareto-banded coverings of [0..p). BeamPos
-        // keeps per-(word-count, cost-tier) cells with incremental
-        // stats so the hot pair loop pre-filters arithmetically
-        // (clone only on admission). Roomy beams stay affordable,
-        // which is what lets valid mid-pack parses survive
-        // alongside hundreds of near-tie rivals.
+        // keeps per-(word-count, cost-tier) cells. The beam priority
+        // is the generic prefix objective (same four components and
+        // weights as the final score, evaluated on the covered
+        // target prefix), so beam order and terminal retention
+        // optimize the same scalar. The priority is non-additive, so
+        // there is no lazy arithmetic gate: every budget-admissible
+        // extension is built (scored exactly once, in extend_approx)
+        // and admitted by BeamPos::insert. Roomy beams stay
+        // affordable, which is what lets valid mid-pack parses
+        // survive alongside hundreds of near-tie rivals.
         let k = self.config.beam_width;
         let mut beam: Vec<BeamPos> = (0..=n).map(|_| BeamPos::new(k)).collect();
         beam[0].insert(Partial::empty());
@@ -267,77 +265,34 @@ impl Generator {
             if matches.is_empty() {
                 continue;
             }
-            // Per-match step constants: everything about a step's
-            // cheap contribution is partial-independent, so
-            // precompute once per position with the same helper the
-            // beam priority uses (no drift between gate and extend).
-            // Candidate cheap = partial.cheap + step: a few flops, no
-            // allocation, and the gate usually skips the clone.
-            let mut mconst: Vec<(f64, f64, f64, f64)> = Vec::with_capacity(matches.len());
-            for m in &matches {
-                let end = p + m.consumed;
-                let boundary_bonus = if target_boundaries.contains(&end) {
-                    0.0
-                } else {
-                    0.20
-                };
-                let reuse_penalty = if target_words_norm.contains(&Partial::norm_word(&m.word)) {
-                    0.10
-                } else {
-                    0.0
-                };
-                mconst.push((
-                    Partial::step_cheap(
-                        m.ipa.chars().count(),
-                        m.rarity,
-                        m.cost,
-                        boundary_bonus,
-                        reuse_penalty,
-                    ),
-                    m.cost,
-                    boundary_bonus,
-                    reuse_penalty,
-                ));
-            }
             // Take ownership of the beam-at-p so we can mutate beam[p..] freely.
+            // No lazy gate: cheap_score is the non-additive prefix
+            // objective, so no arithmetic shortcut can predict it
+            // exactly. Build each budget-admissible extension (which
+            // scores itself with that same objective) and let insert()
+            // arbitrate. This keeps gate and priority consistent by
+            // construction.
             let here = beam[p].take_entries();
             for partial in &here {
                 let remaining_budget = total_budget - partial.sub_cost_total;
-                for (mi, m) in matches.iter().enumerate() {
+                for m in matches.iter() {
                     if m.cost > remaining_budget + 1e-9 {
                         continue;
                     }
-                    let (c_cheap, m_cost, boundary_bonus, reuse_penalty) = mconst[mi];
-                    let cand_sub = partial.sub_cost_total + m_cost;
+                    let cand_sub = partial.sub_cost_total + m.cost;
                     if cand_sub > total_budget + 1e-9 {
                         continue;
                     }
                     let end = p + m.consumed;
                     let terminal = end == n;
-                    // Lazy gate first (arithmetic + hash lookups only).
-                    // Terminal parses skip it: they are retained by
-                    // final score below, and the heuristic gate cannot
-                    // see closing novelty.
-                    if !terminal
-                        && !beam[end].would_admit(
-                            &partial.key,
-                            partial.key.is_empty(),
-                            &m.ipa,
-                            partial.words.len() + 1,
-                            cand_sub,
-                            partial.cheap_score + c_cheap,
-                        )
-                    {
-                        continue;
-                    }
                     let next = partial.extend_approx(
                         &m.word,
                         &m.ipa,
                         m.rarity,
                         m.consumed,
                         m.cost,
-                        boundary_bonus,
-                        reuse_penalty,
+                        &target_boundaries,
+                        &target_words,
                     );
                     if terminal {
                         let score = next.final_score(&target_boundaries, &target_words);
@@ -883,28 +838,36 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
 }
 
 /// A partially-constructed clue: the words chosen so far plus the
-/// running cheap score used to prune the beam. Boundaries (the
-/// per-word char-offset cuts) are derived from `words` at scoring
-/// time.
+/// prefix objective score used to prune the beam. Target-aligned
+/// cuts (per-word consumed target spans) are stored on `spans` so
+/// both prefix and final scoring compare clue cuts against target
+/// boundaries in the same target coordinate space.
 #[derive(Debug, Clone)]
 struct Partial {
     words: Vec<ClueWord>,
+    /// Target chars consumed per word, parallel to `words`. In Exact
+    /// mode each span equals its word's IPA length; in Approximate
+    /// mode indels make them differ.
+    spans: Vec<usize>,
     /// Accumulated substitution cost across all words so far.
     /// Always zero in Exact mode.
     sub_cost_total: f64,
-    /// Running cheap score (per-word rarity penalties plus word-length
-    /// bonuses) used only to prune the beam. The final Clue score
-    /// replaces this with the full novelty-aware computation.
+    /// Beam priority. In Approximate mode this is the generic prefix
+    /// objective (same four components and weights as the final
+    /// score, evaluated on the covered target prefix), recomputed
+    /// after every extension. In Exact mode it keeps the historical
+    /// additive cheap score.
     cheap_score: f64,
-    /// Cached clone-detection key: the space-joined stripped IPA of
-    /// the words so far. Corpus keys carry case/punctuation/source
-    /// variants of the same lexical item ("its" vs "it's"), and
-    /// English piles homophone spellings on identical sounds
-    /// ("to"/"too"/"two" → "tu"). Both parse identically for Mad
-    /// Gab purposes — same span, same acoustics — so the beam keeps
-    /// only the best-scoring copy per IPA sequence and spends its
-    /// slots on acoustically distinct parses. (Spelling-variant
-    /// narrowing is deliberate: the puzzle is the sound.)
+    /// Cached clone-detection key: one `\x1e`-joined token per word,
+    /// each token `normalized-word\x1fipa`. Both halves matter: the
+    /// IPA half keeps acoustically distinct parses in separate slots,
+    /// while the normalized-word half keeps lexically distinct
+    /// homophones ("wreck" vs "wreak" → same sound, different words)
+    /// in separate slots so either spelling can win downstream. Only
+    /// exact same normalized word + same IPA path duplicates collapse
+    /// (best score wins the slot). Separators are ASCII control codes
+    /// that can appear in neither half, so token boundaries are
+    /// unambiguous.
     key: String,
 }
 
@@ -912,14 +875,17 @@ impl Partial {
     fn empty() -> Self {
         Self {
             words: Vec::new(),
+            spans: Vec::new(),
             sub_cost_total: 0.0,
             cheap_score: 0.0,
             key: String::new(),
         }
     }
 
-    /// Normalized word form for clone detection: lowercase,
-    /// alphanumeric characters only.
+    /// Normalized word form: lowercase, alphanumeric only.
+    /// Used for the lexical half of the clone key (so "It's" and
+    /// "its" share one identity) and kept available for reuse.
+    #[allow(dead_code)]
     fn norm_word(word: &str) -> String {
         word.chars()
             .filter(|c| c.is_alphanumeric())
@@ -927,99 +893,170 @@ impl Partial {
             .collect()
     }
 
-    fn extend(&self, p: &Pronunciation, _consumed: usize, word_sub_cost: f64) -> Self {
-        Self::extend_words(self, &p.word, &p.ipa, p.rarity, word_sub_cost, 0.0, 0.0)
+    /// Target-aligned cuts: cumulative consumed spans. Falls back to
+    /// clue IPA lengths when spans are absent (legacy/Exact paths
+    /// where consumed equals IPA length by construction).
+    fn cuts(&self) -> Vec<usize> {
+        if self.spans.len() == self.words.len() {
+            let mut out = Vec::with_capacity(self.spans.len());
+            let mut cum = 0_usize;
+            for s in &self.spans {
+                cum += *s;
+                out.push(cum);
+            }
+            out
+        } else {
+            let mut out = Vec::with_capacity(self.words.len());
+            let mut cum = 0_usize;
+            for w in &self.words {
+                cum += w.ipa.chars().count();
+                out.push(cum);
+            }
+            out
+        }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Generic objective: same four normalized components and weights
+    /// as the final score, evaluated on the covered target prefix
+    /// `cum`. Boundary novelty compares target-aligned consumed-span
+    /// cuts against target boundaries within the covered prefix via
+    /// symmetric Jaccard (union-empty novelty = 0); word novelty is
+    /// the reused-target-word fraction in the partial; similarity and
+    /// length signals match the final definitions. Used for both
+    /// prefix (beam priority) and final (terminal retention) scoring
+    /// so the two objectives are consistent.
+    fn objective_score(
+        words: &[ClueWord],
+        cuts: &[usize],
+        sub_cost_total: f64,
+        target_boundaries: &[usize],
+        target_words: &HashSet<String>,
+    ) -> f64 {
+        let cum = cuts.last().copied().unwrap_or(0);
+        let target_inner: HashSet<usize> = target_boundaries
+            .iter()
+            .copied()
+            .filter(|b| *b < cum)
+            .collect();
+        let clue_inner: HashSet<usize> =
+            cuts.iter().copied().filter(|c| *c < cum).collect();
+        let inter = target_inner.intersection(&clue_inner).count() as f64;
+        let union = target_inner.union(&clue_inner).count() as f64;
+        let novelty = if union == 0.0 {
+            0.0
+        } else {
+            1.0 - (inter / union)
+        };
+        let reused = words
+            .iter()
+            .filter(|w| target_words.contains(&w.word.to_lowercase()))
+            .count() as f64;
+        let word_novelty = 1.0 - (reused / words.len().max(1) as f64);
+        let avg_word_ipa_len = if words.is_empty() {
+            0.0
+        } else {
+            words.iter().map(|w| w.ipa.chars().count()).sum::<usize>() as f64
+                / words.len() as f64
+        };
+        let length_signal = (avg_word_ipa_len / 4.0).min(1.0);
+        let similarity = (1.0 - sub_cost_total / 4.0).clamp(0.0, 1.0);
+        0.40 * similarity + 0.35 * novelty + 0.15 * word_novelty + 0.10 * length_signal
+    }
+
+    fn prefix_score(&self, target_boundaries: &[usize], target_words: &HashSet<String>) -> f64 {
+        Self::objective_score(
+            &self.words,
+            &self.cuts(),
+            self.sub_cost_total,
+            target_boundaries,
+            target_words,
+        )
+    }
+
+    /// One clone-key token: normalized word + IPA with unambiguous
+    /// separators (see [`Partial::key`]).
+    fn step_key(word: &str, ipa: &str) -> String {
+        format!("{}\x1f{ipa}", Self::norm_word(word))
+    }
+
+    /// Clone key for `self` extended by one word.
+    fn extended_key(&self, word: &str, ipa: &str) -> String {
+        let tok = Self::step_key(word, ipa);
+        if self.key.is_empty() {
+            tok
+        } else {
+            format!("{}\x1e{tok}", self.key)
+        }
+    }
+
+    fn extend(&self, p: &Pronunciation, consumed: usize, word_sub_cost: f64) -> Self {
+        Self::extend_words_exact(self, &p.word, &p.ipa, p.rarity, consumed, word_sub_cost)
+    }
+
     fn extend_approx(
         &self,
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
-        _consumed: usize,
+        consumed: usize,
         word_sub_cost: f64,
-        boundary_bonus: f64,
-        reuse_penalty: f64,
+        target_boundaries: &[usize],
+        target_words: &HashSet<String>,
     ) -> Self {
-        Self::extend_words(
-            self,
-            word,
-            ipa,
+        let mut words = self.words.clone();
+        words.push(ClueWord {
+            word: word.to_string(),
+            ipa: ipa.to_string(),
             rarity,
-            word_sub_cost,
-            boundary_bonus,
-            reuse_penalty,
-        )
+            sub_cost: word_sub_cost,
+        });
+        let mut spans = self.spans.clone();
+        spans.push(consumed);
+        let sub_cost_total = self.sub_cost_total + word_sub_cost;
+        // Non-additive prefix objective, recomputed whole.
+        let mut cum = 0_usize;
+        let mut cuts = Vec::with_capacity(spans.len());
+        for s in &spans {
+            cum += *s;
+            cuts.push(cum);
+        }
+        let cheap_score = Self::objective_score(
+            &words,
+            &cuts,
+            sub_cost_total,
+            target_boundaries,
+            target_words,
+        );
+        Self {
+            words,
+            spans,
+            sub_cost_total,
+            cheap_score,
+            key: self.extended_key(word, ipa),
+        }
     }
 
-    /// One step of the beam priority, shared by `extend_words` and
-    /// the search loop's lazy pre-filter so the gate can never drift
-    /// from the priority it predicts (a drifted gate could skip
-    /// admittable candidates). See `extend_words` for the rationale
-    /// of each term.
-    fn step_cheap(
-        ipa_len: usize,
-        rarity: Option<f64>,
-        word_sub_cost: f64,
-        boundary_bonus: f64,
-        reuse_penalty: f64,
-    ) -> f64 {
+    /// Historical Exact-mode additive cheap step, preserved as-is.
+    fn step_cheap_exact(ipa_len: usize, rarity: Option<f64>) -> f64 {
         let word_term = -0.35 + (ipa_len as f64).min(6.0) / 6.0 * 0.10;
-        // Familiarity tie-break on a log-frequency scale, kept small
-        // on purpose: the final clue score has no rarity term, so a
-        // strong beam penalty would systematically bury valid
-        // mid-frequency resegmentation words ("dupe"-class) that the
-        // final scorer ranks highly. This only orders near-ties
-        // toward familiar vocabulary.
         let rarity_penalty = match rarity {
             Some(r) if r > 5_000.0 => -(0.05 * (r / 5_000.0).log10()).min(0.15),
             _ => 0.0,
         };
-        // Word-length, familiarity, resyllabification and reuse
-        // terms, plus half the phonetic cost: the cost term leans
-        // cells toward clean links (without it, high-cost junk with
-        // long common words outranks genuine low-cost
-        // resegmentations), while hard budgets, cheapest-first
-        // arrival, cost-tier cells and epsilon-dominance keep
-        // slightly-off close matches alive beside exact ones. A
-        // heavier price would bury legitimate mid-cost links; a
-        // lighter one lets junk flood the cells (and blow up memory
-        // via unbounded downstream fan-out).
-        word_term + rarity_penalty - 0.5 * word_sub_cost + boundary_bonus - reuse_penalty
+        word_term + rarity_penalty
     }
 
-    /// Shared beam priority step, kept as the incremental mirror of
-    /// the final clue score. Each extra word pays a segmentation
-    /// penalty (net negative per word, so fewer/longer parses outrank
-    /// over-segmented ones covering the same span — the old per-word
-    /// length *bonus* did the opposite and let degenerate tiny-word
-    /// paths dominate); longer words earn back a small fraction of
-    /// it; phonetic edits pay half their cost (full weight would
-    /// over-prune slightly-off close matches that the final scorer
-    /// still ranks highly); rare words pay a small log-frequency
-    /// penalty; `boundary_bonus` rewards word ends that resyllabify
-    /// away from target boundaries (incremental novelty); and
-    /// `reuse_penalty` charges clue words that recycle a target word
-    /// (incremental word-novelty — without it, parrot paths like
-    /// "its just ..." outrank genuine resyllabifications for the
-    /// same span even though the final scorer demotes them).
-    fn extend_words(
+    fn extend_words_exact(
         &self,
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
+        consumed: usize,
         word_sub_cost: f64,
-        boundary_bonus: f64,
-        reuse_penalty: f64,
     ) -> Self {
-        let step = Self::step_cheap(
-            ipa.chars().count(),
-            rarity,
-            word_sub_cost,
-            boundary_bonus,
-            reuse_penalty,
-        );
+        let step = Self::step_cheap_exact(ipa.chars().count(), rarity);
+        let mut spans = self.spans.clone();
+        spans.push(consumed);
         Self {
             words: {
                 let mut w = self.words.clone();
@@ -1031,73 +1068,23 @@ impl Partial {
                 });
                 w
             },
+            spans,
             sub_cost_total: self.sub_cost_total + word_sub_cost,
             cheap_score: self.cheap_score + step,
-            key: if self.key.is_empty() {
-                ipa.to_string()
-            } else {
-                format!("{} {ipa}", self.key)
-            },
+            key: self.extended_key(word, ipa),
         }
     }
 
-    /// The final clue score for a closed parse: novelty (reshuffled
-    /// word boundaries), word-novelty (no recycled target words),
-    /// word-length signal, and phonetic similarity. Computable only
-    /// once the parse is complete, so the beam cannot prune on it
-    /// mid-parse — but terminal retention can and does (see
-    /// [`CompletionTop`]).
+    /// The final clue score: the generic objective evaluated on the
+    /// whole target (target-aligned cuts, symmetric Jaccard).
     fn final_score(&self, target_boundaries: &[usize], target_words: &HashSet<String>) -> f64 {
-        // Reconstruct the clue's boundary set.
-        let mut cum = 0_usize;
-        let mut clue_boundaries: Vec<usize> = Vec::with_capacity(self.words.len());
-        for w in &self.words {
-            cum += w.ipa.chars().count();
-            clue_boundaries.push(cum);
-        }
-
-        // Novelty: how few of the target's word boundaries the clue
-        // also has. Boundary at the end of the phrase is shared by
-        // construction, so exclude it.
-        let target_inner: HashSet<usize> = target_boundaries
-            .iter()
-            .copied()
-            .filter(|b| *b < cum)
-            .collect();
-        let clue_inner: HashSet<usize> = clue_boundaries
-            .iter()
-            .copied()
-            .filter(|b| *b < cum)
-            .collect();
-        let shared = target_inner.intersection(&clue_inner).count() as f64;
-        let denom = target_inner.len().max(1) as f64;
-        let novelty = 1.0 - (shared / denom);
-
-        // Word-novelty: penalty if the clue reuses any target word.
-        let reused = self
-            .words
-            .iter()
-            .filter(|w| target_words.contains(&w.word.to_lowercase()))
-            .count() as f64;
-        let word_novelty = 1.0 - (reused / self.words.len().max(1) as f64);
-
-        // Word-length signal: prefer fewer/longer words, the
-        // signature of a real Mad Gab clue.
-        let avg_word_ipa_len = self
-            .words
-            .iter()
-            .map(|w| w.ipa.chars().count())
-            .sum::<usize>() as f64
-            / self.words.len().max(1) as f64;
-        let length_signal = (avg_word_ipa_len / 4.0).min(1.0);
-
-        // Approximate-mode similarity: penalize total substitution
-        // cost. In Exact mode sub_cost_total is 0, so similarity is
-        // exactly 1.0 and this term is constant — the discrimination
-        // remains on the novelty/length axes as before.
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
-
-        0.40 * similarity + 0.35 * novelty + 0.15 * word_novelty + 0.10 * length_signal
+        Self::objective_score(
+            &self.words,
+            &self.cuts(),
+            self.sub_cost_total,
+            target_boundaries,
+            target_words,
+        )
     }
 
     fn into_clue(
@@ -1456,21 +1443,31 @@ impl BeamPos {
         (cand_words, cost_tier(cand_sub))
     }
 
-    /// Lazy pre-filter for a candidate that has not been built yet.
-    /// Conservative: returns true whenever admission is possible, so
-    /// [`BeamPos::insert`] re-verifies. Key assembly (one small
-    /// allocation) happens only after the arithmetic gates pass.
-    /// Mirrors [`BeamPos::insert`] exactly.
+    /// Removed lazy gate: cheap_score is the non-additive prefix
+    /// objective, so no arithmetic shortcut can predict it exactly.
+    /// Kept for reference/tests; the search loop builds every
+    /// budget-admissible extension and lets `insert` arbitrate, which
+    /// keeps gate and priority consistent by construction.
+    #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
     fn would_admit(
         &self,
         partial_key: &str,
         partial_key_empty: bool,
+        match_word: &str,
         match_ipa: &str,
         cand_words: usize,
         cand_sub: f64,
         cand_cheap: f64,
     ) -> bool {
+        // Clone key mirrors Partial::extended_key exactly: one
+        // `norm\x1fipa` token per word, `\x1e`-joined.
+        let tok = format!("{}\x1f{match_ipa}", Partial::norm_word(match_word));
+        let key = if partial_key_empty {
+            tok
+        } else {
+            format!("{partial_key}\x1e{tok}")
+        };
         if self.k == 0 {
             return false;
         }
@@ -1500,22 +1497,12 @@ impl BeamPos {
                 })
             });
             if !takes_slot {
-                let key = if partial_key_empty {
-                    match_ipa.to_string()
-                } else {
-                    format!("{partial_key} {match_ipa}")
-                };
                 return match self.keys.get(&key) {
                     Some(&(_, cheap)) => cand_cheap > cheap,
                     None => false,
                 };
             }
         }
-        let key = if partial_key_empty {
-            match_ipa.to_string()
-        } else {
-            format!("{partial_key} {match_ipa}")
-        };
         match self.keys.get(&key) {
             Some(&(_, cheap)) => cand_cheap > cheap,
             None => true,
@@ -1935,10 +1922,82 @@ mod pareto_tests {
                     sub_cost: 0.0,
                 })
                 .collect(),
+            spans: vec![2; nwords],
             sub_cost_total: cost,
             cheap_score: cheap,
             key: key.to_string(),
         }
+    }
+
+    /// Settled-cell admission is purely score-ordered: a substantial
+    /// candidate above the cell min displaces the min member, with no
+    /// cost condition. cheap_score already internalizes phonetic
+    /// similarity/cost and the cell key already buckets cost tiers, so
+    /// a further cand_sub <= victim.sub_cost requirement would
+    /// double-count cost and veto objectively better parses. Below-min
+    /// candidates can still arrive via near-tie growth (below the hard
+    /// cap) or first-of-ending novelty; the raw-cost Pareto helper
+    /// survives only as a fallback for those paths and the dead gate.
+    #[test]
+    fn settled_cell_score_improvement_replaces_min_regardless_of_cost() {
+        fn member(key: &str, cheap: f64, sub: f64) -> Partial {
+            Partial {
+                words: (0..3)
+                    .map(|i| ClueWord {
+                        word: format!("{key}w{i}"),
+                        ipa: "abc".to_string(),
+                        rarity: None,
+                        sub_cost: 0.0,
+                    })
+                    .collect(),
+                spans: vec![2; 3],
+                sub_cost_total: sub,
+                cheap_score: cheap,
+                key: key.to_string(),
+            }
+        }
+        let mut beam = BeamPos::new(16); // cell_cap 8, hard cap 64
+        // Fill cell (3,1) (3 words, sub 0.30 = tier 1) to the hard cap
+        // with rising scores; the min stays the first arrival.
+        for i in 0..64 {
+            beam.insert(member(&format!("m{i:02}"), 0.80 + i as f64 * 0.0005, 0.30));
+        }
+        assert_eq!(beam.entries.len(), 64);
+        let min_before = beam.cell_min.get(&(3, 1)).map(|(_, m)| *m).unwrap();
+        assert!((min_before - 0.80).abs() < 1e-12);
+        // Higher score but HIGHER cost, same tier: must displace the
+        // min directly, with no cost veto.
+        beam.insert(member("newbie", 0.85, 0.45));
+        assert_eq!(beam.entries.len(), 64, "hard cap must hold");
+        assert!(
+            beam.entries.iter().any(|p| p.key == "newbie"),
+            "better scorer must displace worst despite higher cost"
+        );
+        assert!(
+            !beam.entries.iter().any(|p| p.key == "m00"),
+            "previous min must be evicted"
+        );
+        let min_after = beam.cell_min.get(&(3, 1)).map(|(_, m)| *m).unwrap();
+        assert!(
+            min_after > min_before,
+            "min must rise after strict-improvement displacement"
+        );
+        // Lower score: refused even with LOWER cost (ending "abc" is
+        // already held, so no novelty fallback either).
+        beam.insert(member("cheapskate", 0.79, 0.05));
+        assert_eq!(beam.entries.len(), 64);
+        assert!(
+            !beam.entries.iter().any(|p| p.key == "cheapskate"),
+            "worse scorer must not displace"
+        );
+        // Equal score with higher cost: no strict improvement, no
+        // domination, no novel ending -> refused.
+        beam.insert(member("equal", min_after, 0.45));
+        assert_eq!(beam.entries.len(), 64);
+        assert!(
+            !beam.entries.iter().any(|p| p.key == "equal"),
+            "equal scorer must not displace"
+        );
     }
 
     #[test]
@@ -1968,6 +2027,54 @@ mod pareto_tests {
         assert!(
             beam.entries.iter().any(|p| p.key == "re seg"),
             "low-cost resegmentation prefix was squeezed out by parrots"
+        );
+    }
+
+    /// Clone identity covers the lexical word as well as its IPA:
+    /// two distinct words sharing one IPA ("wreck"/"wreak") must
+    /// coexist in a beam position, while an exact same word + same
+    /// IPA duplicate collapses (and a better score replaces a worse
+    /// one in the shared slot). Without the lexical half, the second
+    /// homophone spelling is refused as a "clone" and can never reach
+    /// completion — a core Mad Gab semantic, independent of any
+    /// particular phrase.
+    #[test]
+    fn beam_keeps_homophone_spellings_in_distinct_slots() {
+        let tb: Vec<usize> = vec![];
+        let tw: HashSet<String> = HashSet::new();
+        let root = Partial::empty();
+        let a = root.extend_approx("wreck", "ɹɛk", None, 3, 0.0, &tb, &tw);
+        let b = root.extend_approx("wreak", "ɹɛk", None, 3, 0.0, &tb, &tw);
+        assert_ne!(a.key, b.key, "homophone spellings must not share a clone key");
+        let mut beam = BeamPos::new(16);
+        beam.insert(a);
+        beam.insert(b);
+        assert_eq!(
+            beam.entries.len(),
+            2,
+            "distinct homophone spellings must both remain in the beam"
+        );
+        // Exact same word + IPA duplicate collapses to one slot.
+        let mut beam2 = BeamPos::new(16);
+        let lo = root.extend_approx("wreck", "ɹɛk", None, 3, 0.0, &tb, &tw);
+        let mut hi = lo.clone();
+        hi.cheap_score += 1.0;
+        beam2.insert(lo);
+        beam2.insert(hi.clone());
+        assert_eq!(beam2.entries.len(), 1, "exact duplicates must collapse");
+        assert!(
+            (beam2.entries[0].cheap_score - hi.cheap_score).abs() < 1e-12,
+            "better score must replace worse in the shared slot"
+        );
+        // Worse duplicate does not displace the holder.
+        let mut beam3 = BeamPos::new(16);
+        beam3.insert(hi.clone());
+        let lo2 = root.extend_approx("wreck", "ɹɛk", None, 3, 0.0, &tb, &tw);
+        beam3.insert(lo2);
+        assert_eq!(beam3.entries.len(), 1);
+        assert!(
+            (beam3.entries[0].cheap_score - hi.cheap_score).abs() < 1e-12,
+            "worse duplicate must not displace the holder"
         );
     }
 }
