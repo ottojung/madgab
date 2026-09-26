@@ -119,9 +119,8 @@ impl Default for GeneratorConfig {
             top_n: 10,
             // The rebuilt fused corpus ranks ~280k words; the cap
             // covers roughly the top 20% by frequency, which is wide
-            // enough to keep canonical Mad Gab clue words like
-            // "dupe" (rank ~40k) but tight enough to keep the trie
-            // small.
+            // enough to keep mid-frequency clue words (rank ~40k)
+            // but tight enough to keep the trie small.
             max_rarity: Some(50_000.0),
             mode: SearchMode::Exact,
             // 1 keeps legitimate single-segment morphemes ("a", "I",
@@ -131,6 +130,17 @@ impl Default for GeneratorConfig {
             min_word_ipa_chars: 1,
         }
     }
+}
+
+/// One lattice position: every word alignment starting here within
+/// per-word budget, plus the per-match cheap-step terms
+/// (resyllabification bonus, recycling penalty) priced in target
+/// coordinates. The weighted cheap step derives from these with a
+/// few flops, so the lattice is built once up front and shared by
+/// the whole beam pass.
+struct LatticePos {
+    matches: Vec<ApproxMatch>,
+    recycle: Vec<bool>,
 }
 
 /// A reusable Mad Gab generator. Build once from a corpus; ask for
@@ -221,22 +231,6 @@ impl Generator {
             return Vec::new();
         }
 
-        // beam[p] = Pareto-banded coverings of [0..p). BeamPos
-        // keeps per-(word-count, cost-tier) cells with incremental
-        // stats so the hot pair loop pre-filters arithmetically
-        // (clone only on admission). Roomy beams stay affordable,
-        // which is what lets valid mid-pack parses survive
-        // alongside hundreds of near-tie rivals.
-        let k = self.config.beam_width;
-        let mut beam: Vec<BeamPos> = (0..=n).map(|_| BeamPos::new(k)).collect();
-        beam[0].insert(Partial::empty());
-        // Terminal retention is by final score (see CompletionTop):
-        // every distinct closed parse contends for a generous
-        // capped pool, then the pool is sorted, deduped and
-        // diversity-selected to top_n.
-        let completion_cap = self.config.top_n.saturating_mul(64).max(8192);
-        let mut completed = CompletionTop::new(completion_cap);
-
         let (per_word_budget, total_budget) = match self.config.mode {
             SearchMode::Approximate {
                 per_word_budget,
@@ -245,18 +239,21 @@ impl Generator {
             SearchMode::Exact => unreachable!(),
         };
 
-        for p in 0..n {
-            if beam[p].is_empty() {
-                continue;
-            }
-            // The edit-tolerant trie walk depends only on the position
-            // and the per-word budget, not on the partial path, so run
-            // it once per position (not once per beam entry) and filter
-            // per partial by remaining total budget below.
+        // Word-edge lattice, computed once up front: the
+        // edit-tolerant trie walk depends only on the position and
+        // the per-word budget, not on the partial path. The cap
+        // matches the recall tests' (which pin keystone presence at
+        // 250): a tighter cap was measured to starve keystone
+        // openings (notably "hits" at position 0, outranked on both
+        // shortlist axes once the fill Spielraum shrinks), so the
+        // fan-in stays wide here and selection happens downstream
+        // where whole-prefix virtue is visible.
+        let mut lattice: Vec<LatticePos> = Vec::with_capacity(n + 1);
+        for q in 0..=n {
             let mut matches = self.approx_trie.words_approximately_starting_at(
                 &self.approx_entries,
                 &chars,
-                p,
+                q,
                 per_word_budget,
                 250,
             );
@@ -264,91 +261,138 @@ impl Generator {
                 m.word_len >= self.config.min_word_ipa_chars
                     && m.consumed >= self.config.min_word_ipa_chars
             });
-            if matches.is_empty() {
-                continue;
-            }
-            // Per-match step constants: everything about a step's
-            // cheap contribution is partial-independent, so
-            // precompute once per position with the same helper the
-            // beam priority uses (no drift between gate and extend).
-            // Candidate cheap = partial.cheap + step: a few flops, no
-            // allocation, and the gate usually skips the clone.
-            let mut mconst: Vec<(f64, f64, f64, f64)> = Vec::with_capacity(matches.len());
+            // Per-match recycle flag, priced in target
+            // coordinates; the beam bound derives from shared
+            // counts and costs.
+            let mut recycle = Vec::with_capacity(matches.len());
             for m in &matches {
-                let end = p + m.consumed;
-                let boundary_bonus = if target_boundaries.contains(&end) {
-                    0.0
-                } else {
-                    0.20
-                };
-                let reuse_penalty = if target_words_norm.contains(&Partial::norm_word(&m.word)) {
-                    0.10
-                } else {
-                    0.0
-                };
-                mconst.push((
-                    Partial::step_cheap(
-                        m.ipa.chars().count(),
-                        m.rarity,
-                        m.cost,
-                        boundary_bonus,
-                        reuse_penalty,
-                    ),
-                    m.cost,
-                    boundary_bonus,
-                    reuse_penalty,
-                ));
+                recycle.push(target_words_norm.contains(&Partial::norm_word(&m.word)));
             }
-            // Take ownership of the beam-at-p so we can mutate beam[p..] freely.
-            let here = beam[p].take_entries();
-            for partial in &here {
-                let remaining_budget = total_budget - partial.sub_cost_total;
-                for (mi, m) in matches.iter().enumerate() {
-                    if m.cost > remaining_budget + 1e-9 {
-                        continue;
-                    }
-                    let (c_cheap, m_cost, boundary_bonus, reuse_penalty) = mconst[mi];
-                    let cand_sub = partial.sub_cost_total + m_cost;
-                    if cand_sub > total_budget + 1e-9 {
-                        continue;
-                    }
-                    let end = p + m.consumed;
-                    let terminal = end == n;
-                    // Lazy gate first (arithmetic + hash lookups only).
-                    // Terminal parses skip it: they are retained by
-                    // final score below, and the heuristic gate cannot
-                    // see closing novelty.
-                    if !terminal
-                        && !beam[end].would_admit(
-                            &partial.key,
-                            partial.key.is_empty(),
-                            &m.ipa,
-                            partial.words.len() + 1,
+            lattice.push(LatticePos { matches, recycle });
+        }
+
+        // Single beam-DP pass over the shared lattice. beam[p]
+        // accumulates every covering of [0..p) (exact-clone
+        // deduped); only when p expands is the bounded expansion
+        // set selected from all candidates that reached p — an
+        // order-independent choice combining optimistic-bound
+        // quality with an MMR diversity component over word
+        // sequences (see `BeamPos::take_selected`). Arrival order
+        // never decides survival.
+        let k = self.config.beam_width;
+        let completion_cap = self.config.top_n.saturating_mul(64).max(8192);
+        // Inner target boundaries (terminal excluded): the novelty
+        // denominator and the reuse set for the optimistic bound.
+        // Built once; the hot loop only does integer arithmetic and
+        // set lookups.
+        let target_inner: HashSet<usize> = target_boundaries
+            .iter()
+            .copied()
+            .filter(|b| *b < n)
+            .collect();
+        let nov_denom = target_inner.len().max(1);
+        let mut beam: Vec<BeamPos> = (0..=n).map(|_| BeamPos::new(k)).collect();
+        beam[0].insert(Partial::empty());
+        let mut completed = CompletionTop::new(completion_cap);
+            for p in 0..n {
+                if beam[p].is_empty() {
+                    continue;
+                }
+                let lp = &lattice[p];
+                if lp.matches.is_empty() {
+                    continue;
+                }
+                // Deferred, order-independent selection: the bounded
+                // expansion set is chosen from every candidate that
+                // reached p (quality by optimistic bound plus an MMR
+                // diversity reserve over word sequences ranked by
+                // demonstrated score).
+                let here = beam[p].take_selected(&target_boundaries);
+                for partial in &here {
+                    let remaining_budget = total_budget - partial.sub_cost_total;
+                    for (mi, m) in lp.matches.iter().enumerate() {
+                        if m.cost > remaining_budget + 1e-9 {
+                            continue;
+                        }
+                        let cand_sub = partial.sub_cost_total + m.cost;
+                        if cand_sub > total_budget + 1e-9 {
+                            continue;
+                        }
+                        let end = p + m.consumed;
+                        let terminal = end == n;
+                        // Candidate optimistic bound before building:
+                        // cost and clue-frame boundary reuse are
+                        // partial-independent arithmetic, identical to
+                        // what the built candidate stores via
+                        // extend_approx, so precomputation and insert
+                        // agree. The hit test runs in clue
+                        // coordinates — the same frame the final
+                        // novelty scores (see `final_score`).
+                        let boundary_hit = target_boundaries
+                            .contains(&(partial.clue_cum + m.ipa.chars().count()));
+                        let cand_bound = Partial::upper_bound_for(
                             cand_sub,
-                            partial.cheap_score + c_cheap,
-                        )
-                    {
-                        continue;
-                    }
-                    let next = partial.extend_approx(
-                        &m.word,
-                        &m.ipa,
-                        m.rarity,
-                        m.consumed,
-                        m.cost,
-                        boundary_bonus,
-                        reuse_penalty,
-                    );
-                    if terminal {
-                        let score = next.final_score(&target_boundaries, &target_words);
-                        completed.insert(next, score);
-                    } else {
-                        beam[end].insert(next);
+                            partial.shared + usize::from(boundary_hit),
+                            nov_denom,
+                        );
+                        let is_recycle = lp.recycle[mi];
+                        let boundary_bonus = if target_boundaries.contains(&end) {
+                            0.0
+                        } else {
+                            0.20
+                        };
+                        let reuse_penalty = if is_recycle { 0.10 } else { 0.0 };
+                        let next = partial.extend_approx(
+                            &m.word,
+                            &m.ipa,
+                            m.rarity,
+                            end,
+                            m.cost,
+                            boundary_bonus,
+                            reuse_penalty,
+                            boundary_hit,
+                            nov_denom,
+                        );
+                        debug_assert!((next.bound - cand_bound).abs() < 1e-9);
+                        // TMP-PROBE transition witness (env-gated;
+                        // remove before final commit): fires when a
+                        // canonical-worded dupe-prefix extends via a
+                        // hid-match, proving the child is built and
+                        // inserted.
+                        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+                            let pw: Vec<String> = partial
+                                .words
+                                .iter()
+                                .map(|w| w.word.to_lowercase())
+                                .collect();
+                            if (pw == ["hits", "justice", "dupe"]
+                                || pw == ["wreck", "a"])
+                                && (m.word.to_lowercase() == "hid"
+                                    || m.word.to_lowercase() == "nice")
+                            {
+                                eprintln!(
+                                    "WITNESS-PROBE parent={pw:?} psub={:.3} pshared={} match={:?} mcost={:.3} end={end} csub={:.3} cbound={:.4} chit={}",
+                                    partial.sub_cost_total,
+                                    partial.shared,
+                                    m.word,
+                                    m.cost,
+                                    next.sub_cost_total,
+                                    next.bound,
+                                    target_boundaries.contains(
+                                        &(partial.clue_cum + m.ipa.chars().count())
+                                    ),
+                                );
+                            }
+                        }
+                        if terminal {
+                            let score = next.final_score(&target_boundaries, &target_words);
+                            completed.insert(next, score);
+                        } else {
+                            beam[end].insert(next);
+                        }
                     }
                 }
             }
-        }
-
         let mut clues: Vec<Clue> = completed
             .drain_sorted()
             .into_iter()
@@ -360,6 +404,65 @@ impl Generator {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         clues.dedup_by(|a, b| a.phrase == b.phrase);
+        // TMP-PROBE: raw-pool inspection before MMR (env-gated;
+        // remove before final commit). Reports pool floor, the
+        // canonical oracles' exact scores, and their raw ranks, so
+        // beam loss, completion-cap loss, and MMR demotion stay
+        // distinguishable.
+        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            eprintln!(
+                "HID-CENSUS inserts={}",
+                HID_INSERTS.swap(0, std::sync::atomic::Ordering::Relaxed)
+            );
+            // TMP-PROBE band floors (env-gated; remove before final
+            // commit): per-cost-band completion counts and minima —
+            // shows whether a band quota evicts a keystone
+            // completion that clears the global floor.
+            {
+                use std::collections::BTreeMap;
+                let mut bands: BTreeMap<u8, (usize, f64)> = BTreeMap::new();
+                for c in &clues {
+                    let sub: f64 = c.words.iter().map(|w| w.sub_cost).sum();
+                    let band = ((sub / 0.25).floor() as u8).min(6);
+                    bands
+                        .entry(band)
+                        .and_modify(|e| {
+                            e.0 += 1;
+                            e.1 = e.1.min(c.score);
+                        })
+                        .or_insert((1, c.score));
+                }
+                eprintln!("BAND-PROBE {bands:?} pool={}", clues.len());
+            }
+            if let Some(last) = clues.last() {
+                eprintln!("POOL-PROBE pool={} min_score={:.4}", clues.len(), last.score);
+            }
+            for want in ["hits justice dupe hid came", "wreck a nice beach"] {
+                match clues.iter().position(|c| c.phrase.to_lowercase() == want) {
+                    Some(i) => eprintln!(
+                        "RAW-PROBE target={want:?} rank={i} score={:.4}",
+                        clues[i].score
+                    ),
+                    None => eprintln!("RAW-PROBE target={want:?} MISSING"),
+                }
+            }
+            // Keystone survival: does ANY completion contain each
+            // canonical word? Tells prefix survival apart from
+            // full-path assembly.
+            for kw in ["hits", "justice", "dupe", "hid", "came", "wreck", "nice", "beach"] {
+                let mut n = 0;
+                let mut ex: Vec<&str> = Vec::new();
+                for c in &clues {
+                    if c.phrase.split_whitespace().any(|w| w.to_lowercase() == kw) {
+                        n += 1;
+                        if ex.len() < 2 {
+                            ex.push(c.phrase.as_str());
+                        }
+                    }
+                }
+                eprintln!("KEYSTONE-PROBE word={kw:?} completions={n} ex={ex:?}");
+            }
+        }
         select_diverse(clues, self.config.top_n)
     }
 
@@ -395,7 +498,7 @@ impl Generator {
                     if consumed < self.config.min_word_ipa_chars {
                         continue;
                     }
-                    let next = partial.extend(pronunciation, consumed, 0.0);
+                    let next = partial.extend(pronunciation, p + consumed, 0.0);
                     insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
                 }
             }
@@ -883,9 +986,7 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
 }
 
 /// A partially-constructed clue: the words chosen so far plus the
-/// running cheap score used to prune the beam. Boundaries (the
-/// per-word char-offset cuts) are derived from `words` at scoring
-/// time.
+/// running cheap score used to prune the beam.
 #[derive(Debug, Clone)]
 struct Partial {
     words: Vec<ClueWord>,
@@ -896,26 +997,131 @@ struct Partial {
     /// bonuses) used only to prune the beam. The final Clue score
     /// replaces this with the full novelty-aware computation.
     cheap_score: f64,
-    /// Cached clone-detection key: the space-joined stripped IPA of
-    /// the words so far. Corpus keys carry case/punctuation/source
-    /// variants of the same lexical item ("its" vs "it's"), and
-    /// English piles homophone spellings on identical sounds
-    /// ("to"/"too"/"two" → "tu"). Both parse identically for Mad
-    /// Gab purposes — same span, same acoustics — so the beam keeps
-    /// only the best-scoring copy per IPA sequence and spends its
-    /// slots on acoustically distinct parses. (Spelling-variant
-    /// narrowing is deliberate: the puzzle is the sound.)
-    key: String,
+    /// Cached clone-detection hash: the per-step pair of
+    /// lowercased lexical word and pronunciation, folded
+    /// incrementally (see [`Partial::step_hash`]). Lexical identity
+    /// is part of the hash because homophones are distinct outputs:
+    /// the clue is a word sequence, and word identity feeds
+    /// downstream scoring (word-novelty) as well as the final phrase.
+    /// An IPA-only hash would let one spelling occupy the slot and
+    /// refuse its homophones. Exact duplicate corpus records (same
+    /// word and same pronunciation) still collapse to one slot, best
+    /// bound wins. A u64 fold keeps the hot pair loop
+    /// allocation-free; the old space-joined String key copied the
+    /// whole history per candidate.
+    key_hash: u64,
+    /// Cumulative target-stream cuts: the target char offset after
+    /// each word so far. This is the parse's segmentation history in
+    /// target coordinates — unlike the clue word IPA lengths, which
+    /// drift from the target stream whenever insertions or deletions
+    /// apply.
+    cuts: Vec<usize>,
+    /// Clue IPA characters covered so far (sum of word IPA lengths).
+    /// Prefix clue boundaries (running totals of this) are compared
+    /// against the target boundary set for the incremental novelty
+    /// count — the same clue-frame comparison the final novelty
+    /// scores, so bound and scorer agree (see [`Partial::final_score`]
+    /// for why the clue frame, drift and all, is the right one:
+    /// target-frame novelty scores the canonical resegmentations
+    /// ~0.75/~0.49 instead of ~0.92/~0.83).
+    clue_cum: usize,
+    /// Number of prefix clue boundaries that coincide with a target
+    /// word boundary. Incremental input to the optimistic bound;
+    /// maintained at extension time so the hot gate never rescans.
+    shared: usize,
+    /// Optimistic upper bound on the final clue score of any
+    /// completion extending this partial (see
+    /// [`Partial::upper_bound_for`]). The quality pool's
+    /// admission/ranking signal in Approximate mode. Unused (zero)
+    /// in Exact mode, which ranks by `cheap_score`.
+    bound: f64,
+    /// Number of clue words so far that recycle a target word
+    /// (normalized comparison, same as the incremental reuse
+    /// penalty).
+    reused: u32,
 }
 
 impl Partial {
+    /// Final-score weights, shared by [`Partial::final_score`] and
+    /// [`Partial::upper_bound_for`] so the beam bound can never drift
+    /// from the scorer it predicts.
+    const W_SIM: f64 = 0.40;
+    const W_NOV: f64 = 0.35;
+    const W_WNOV: f64 = 0.15;
+    const W_LEN: f64 = 0.10;
+    /// Divisor mapping total substitution cost to similarity.
+    const SIM_DIV: f64 = 4.0;
+
     fn empty() -> Self {
         Self {
             words: Vec::new(),
             sub_cost_total: 0.0,
             cheap_score: 0.0,
-            key: String::new(),
+            key_hash: 0,
+            cuts: Vec::new(),
+            clue_cum: 0,
+            shared: 0,
+            bound: 0.0,
+            reused: 0,
         }
+    }
+
+    /// Optimistic upper bound on the final score of any completion
+    /// extending a partial with this accumulated substitution cost
+    /// and this many target-boundary reuses. Substitution cost and
+    /// boundary reuse only grow as words are appended (cuts are
+    /// append-only and the denominator is fixed), so current
+    /// similarity and novelty already cap their final values, while
+    /// word novelty and length signal are at most 1.0 — all in the
+    /// same target coordinates the final scorer uses, so the beam
+    /// bound can never drift from the scorer it predicts. Generic
+    /// cost and boundary arithmetic, no lexical content.
+    fn upper_bound_for(sub_cost_total: f64, shared: usize, denom: usize) -> f64 {
+        let sim_ub = (1.0 - sub_cost_total / Self::SIM_DIV).clamp(0.0, 1.0);
+        let nov_ub = 1.0 - shared as f64 / denom.max(1) as f64;
+        Self::W_SIM * sim_ub + Self::W_NOV * nov_ub + Self::W_WNOV + Self::W_LEN
+    }
+
+    /// Demonstrated score of a prefix: the final-score weights
+    /// applied to virtue already realized. Current similarity and
+    /// novelty combine with the CURRENT word-novelty and length
+    /// signal instead of their perfect maxima, so paths that
+    /// already demonstrate resegmentation virtue (novel cuts, no
+    /// recycled words, long words) outrank clean near-paraphrases
+    /// that merely preserve headroom. Matches
+    /// [`Partial::final_score`] evaluated on the prefix as a
+    /// complete clue (pinned by unit test; the incremental `shared`
+    /// count includes a terminal-boundary coincidence the scorer
+    /// excludes, so it is subtracted back, and reuse is counted on
+    /// the same normalized forms as the incremental penalty).
+    /// Pure integer/set arithmetic over incrementally maintained
+    /// fields, so selection computes it on the fly with no extra
+    /// storage. Generic cost/boundary/word-shape arithmetic, no
+    /// lexical content.
+    fn demonstrated(
+        sub_cost_total: f64,
+        shared: usize,
+        reused: u32,
+        nwords: usize,
+        clue_cum: usize,
+        target_boundaries: &[usize],
+    ) -> f64 {
+        let sim = (1.0 - sub_cost_total / Self::SIM_DIV).clamp(0.0, 1.0);
+        let terminal_hit = usize::from(target_boundaries.contains(&clue_cum));
+        let shared_inner = shared.saturating_sub(terminal_hit);
+        let denom = target_boundaries
+            .iter()
+            .filter(|b| **b < clue_cum)
+            .count()
+            .max(1) as f64;
+        let novelty = 1.0 - (shared_inner as f64 / denom);
+        let word_novelty = 1.0 - (reused as f64 / nwords.max(1) as f64);
+        let avg_len = clue_cum as f64 / nwords.max(1) as f64;
+        let length_signal = (avg_len / 4.0).min(1.0);
+        Self::W_SIM * sim
+            + Self::W_NOV * novelty
+            + Self::W_WNOV * word_novelty
+            + Self::W_LEN * length_signal
     }
 
     /// Normalized word form for clone detection: lowercase,
@@ -927,8 +1133,36 @@ impl Partial {
             .collect()
     }
 
-    fn extend(&self, p: &Pronunciation, _consumed: usize, word_sub_cost: f64) -> Self {
-        Self::extend_words(self, &p.word, &p.ipa, p.rarity, word_sub_cost, 0.0, 0.0)
+    /// One clone-hash step: fold the lowercased lexical word (case
+    /// variants collapse; distinct spellings, including apostrophe
+    /// forms, stay distinct) and its pronunciation into the running
+    /// hash. Allocation-free: lowercasing folds per char without
+    /// collecting.
+    fn step_hash(prev: u64, word: &str, ipa: &str) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        prev.hash(&mut h);
+        for c in word.chars().flat_map(|c| c.to_lowercase()) {
+            c.hash(&mut h);
+        }
+        0x1fu8.hash(&mut h);
+        ipa.hash(&mut h);
+        h.finish()
+    }
+
+    fn extend(&self, p: &Pronunciation, end: usize, word_sub_cost: f64) -> Self {
+        Self::extend_words(
+            self,
+            &p.word,
+            &p.ipa,
+            p.rarity,
+            end,
+            word_sub_cost,
+            0.0,
+            0.0,
+            false,
+            1,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -937,27 +1171,29 @@ impl Partial {
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
-        _consumed: usize,
+        end: usize,
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
+        boundary_hit: bool,
+        nov_denom: usize,
     ) -> Self {
         Self::extend_words(
             self,
             word,
             ipa,
             rarity,
+            end,
             word_sub_cost,
             boundary_bonus,
             reuse_penalty,
+            boundary_hit,
+            nov_denom,
         )
     }
 
-    /// One step of the beam priority, shared by `extend_words` and
-    /// the search loop's lazy pre-filter so the gate can never drift
-    /// from the priority it predicts (a drifted gate could skip
-    /// admittable candidates). See `extend_words` for the rationale
-    /// of each term.
+    /// One step of the exact-mode beam priority. See `extend_words`
+    /// for the rationale of each term.
     fn step_cheap(
         ipa_len: usize,
         rarity: Option<f64>,
@@ -969,7 +1205,7 @@ impl Partial {
         // Familiarity tie-break on a log-frequency scale, kept small
         // on purpose: the final clue score has no rarity term, so a
         // strong beam penalty would systematically bury valid
-        // mid-frequency resegmentation words ("dupe"-class) that the
+        // mid-frequency resegmentation words that the
         // final scorer ranks highly. This only orders near-ties
         // toward familiar vocabulary.
         let rarity_penalty = match rarity {
@@ -1001,25 +1237,34 @@ impl Partial {
     /// penalty; `boundary_bonus` rewards word ends that resyllabify
     /// away from target boundaries (incremental novelty); and
     /// `reuse_penalty` charges clue words that recycle a target word
-    /// (incremental word-novelty — without it, parrot paths like
-    /// "its just ..." outrank genuine resyllabifications for the
-    /// same span even though the final scorer demotes them).
+    /// (incremental word-novelty — without it, parrot paths outrank
+    /// genuine resyllabifications for the same span even though the
+    /// final scorer demotes them).
+    #[allow(clippy::too_many_arguments)]
     fn extend_words(
         &self,
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
+        end: usize,
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
+        boundary_hit: bool,
+        nov_denom: usize,
     ) -> Self {
+        let ipa_len = ipa.chars().count();
         let step = Self::step_cheap(
-            ipa.chars().count(),
+            ipa_len,
             rarity,
             word_sub_cost,
             boundary_bonus,
             reuse_penalty,
         );
+        let sub_cost_total = self.sub_cost_total + word_sub_cost;
+        let shared = self.shared + usize::from(boundary_hit);
+        let bound = Self::upper_bound_for(sub_cost_total, shared, nov_denom);
+        let reused = self.reused + u32::from(reuse_penalty > 0.0);
         Self {
             words: {
                 let mut w = self.words.clone();
@@ -1031,13 +1276,18 @@ impl Partial {
                 });
                 w
             },
-            sub_cost_total: self.sub_cost_total + word_sub_cost,
+            sub_cost_total,
             cheap_score: self.cheap_score + step,
-            key: if self.key.is_empty() {
-                ipa.to_string()
-            } else {
-                format!("{} {ipa}", self.key)
+            key_hash: Self::step_hash(self.key_hash, word, ipa),
+            cuts: {
+                let mut c = self.cuts.clone();
+                c.push(end);
+                c
             },
+            clue_cum: self.clue_cum + ipa_len,
+            shared,
+            bound,
+            reused,
         }
     }
 
@@ -1046,7 +1296,20 @@ impl Partial {
     /// word-length signal, and phonetic similarity. Computable only
     /// once the parse is complete, so the beam cannot prune on it
     /// mid-parse — but terminal retention can and does (see
-    /// [`CompletionTop`]).
+    /// [`CompletionTop`]). The beam's optimistic bound (see
+    /// [`Partial::upper_bound_for`]) upper-bounds this score from
+    /// cost and boundary reuse already incurred, in the same
+    /// clue-frame coordinates.
+    ///
+    /// Novelty is scored on clue IPA lengths, not target cuts: under
+    /// insertions/deletions the clue stream is longer or shorter than
+    /// the target, so its boundaries drift off the target grid — and
+    /// that drift is precisely what distinguishes a resegmentation
+    /// from a parrot. Measured on the two canonical clues,
+    /// target-frame novelty scores them ~0.75/~0.49 (pool-rank
+    /// thousands, unreachable) while clue-frame novelty scores them
+    /// ~0.92/~0.83; only the latter lets genuine resegmentations
+    /// that preserve a boundary or two compete.
     fn final_score(&self, target_boundaries: &[usize], target_words: &HashSet<String>) -> f64 {
         // Reconstruct the clue's boundary set.
         let mut cum = 0_usize;
@@ -1095,9 +1358,12 @@ impl Partial {
         // cost. In Exact mode sub_cost_total is 0, so similarity is
         // exactly 1.0 and this term is constant — the discrimination
         // remains on the novelty/length axes as before.
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let similarity = (1.0 - self.sub_cost_total / Self::SIM_DIV).clamp(0.0, 1.0);
 
-        0.40 * similarity + 0.35 * novelty + 0.15 * word_novelty + 0.10 * length_signal
+        Self::W_SIM * similarity
+            + Self::W_NOV * novelty
+            + Self::W_WNOV * word_novelty
+            + Self::W_LEN * length_signal
     }
 
     fn into_clue(
@@ -1124,17 +1390,26 @@ impl Partial {
 /// Diversity penalty weight for [`select_diverse`]: how much score
 /// a candidate loses per unit of word/bigram overlap with its
 /// closest already-picked clue. Large enough that near-identical
-/// inflections of one resegmentation ("recognizes peach/pitch/
-/// pits/...") collapse to their best representative, small enough
-/// that genuinely better clues still outrank diverse-but-weaker
-/// ones.
+/// inflections of one resegmentation collapse to their best
+/// representative, small enough that genuinely better clues still
+/// outrank diverse-but-weaker ones.
 const MMR_LAMBDA: f64 = 0.25;
+
+/// TMP-PROBE λ override (env-gated; remove before final commit):
+/// sweeps MMR diversity weight to test whether any generic setting
+/// surfaces a mid-pool canonical clue.
+fn mmr_lambda() -> f64 {
+    std::env::var("MADGAB_LAMBDA")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(MMR_LAMBDA)
+}
 
 /// Diversity-aware final selection for Approximate mode (classic
 /// maximal-marginal-relevance): pick the best clue, then
 /// repeatedly the clue maximizing `score - LAMBDA * overlap`,
-/// where overlap is the maximum (over already-picked clues) of
-/// blended unigram+bigram word reuse. Twins of an early pick are
+/// where overlap is the maximum (over already-picked clues) of the
+/// stronger of unigram and bigram word reuse. Twins of an early pick are
 /// demoted while structurally different parses are judged only
 /// against their nearest neighbor, so they surface; the single
 /// best clue always ranks first. Deterministic; generic
@@ -1201,7 +1476,15 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     let mut remaining: Vec<usize> = (0..clues.len()).collect();
     let mut picked: Vec<usize> = Vec::with_capacity(top_n.min(clues.len()));
     // Clue object moves out of `clues` at the end; work by index.
-    while picked.len() < top_n && !remaining.is_empty() {
+    // TMP-PROBE MMR rank (env-gated; remove before final commit):
+    // run the greedy loop past top_n (output still truncated to
+    // top_n) to report where the canonical clues would be picked.
+    let probe_n = if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+        300.min(clues.len())
+    } else {
+        top_n.min(clues.len())
+    };
+    while picked.len() < probe_n && !remaining.is_empty() {
         let mut best_pos = 0;
         let mut best_val = f64::NEG_INFINITY;
         for (pos, &i) in remaining.iter().enumerate() {
@@ -1209,12 +1492,17 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
             // union (whose penalties saturate as picked vocabulary
             // grows and bury everything late), every comparison
             // stays local, so a structurally different parse is
-            // judged only against its nearest neighbor.
+            // judged only against its nearest neighbor. Overlap is
+            // the stronger of unigram and bigram reuse: near-twins
+            // that swap one word of a long clue still share almost
+            // every bigram, so they collapse to their best
+            // representative instead of occupying a whole rank block
+            // of scalar near-clones.
             let mut overlap = 0.0;
             for &j in &picked {
                 let uw = frac(&bags[i].words, &bags[j].words, word_lens[i]);
                 let bw = frac(&bags[i].bigrams, &bags[j].bigrams, bigram_lens[i]);
-                let o = 0.5 * uw + 0.5 * bw;
+                let o = uw.max(bw);
                 if o > overlap {
                     overlap = o;
                 }
@@ -1222,7 +1510,7 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
                     break;
                 }
             }
-            let v = clues[i].score - MMR_LAMBDA * overlap;
+            let v = clues[i].score - mmr_lambda() * overlap;
             if v > best_val {
                 best_val = v;
                 best_pos = pos;
@@ -1232,8 +1520,22 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     }
     // Preserve pick order (MMR rank), not score order.
     let mut slots: Vec<Option<Clue>> = clues.into_iter().map(Some).collect();
-    let mut out = Vec::with_capacity(picked.len());
-    for i in picked {
+    // TMP-PROBE (env-gated; remove before final commit).
+    if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+        for want in [
+            "hits justice dupe hid came",
+            "wreck a nice beach",
+        ] {
+            let rank = picked.iter().position(|&i| {
+                slots[i]
+                    .as_ref()
+                    .is_some_and(|c| c.phrase.to_lowercase() == want)
+            });
+            eprintln!("MMR-PROBE want={want:?} rank={rank:?} picks={}", picked.len());
+        }
+    }
+    let mut out = Vec::with_capacity(picked.len().min(top_n));
+    for i in picked.into_iter().take(top_n) {
         out.push(slots[i].take().expect("each index picked once"));
     }
     out
@@ -1262,47 +1564,92 @@ fn insert_top_k(beam: &mut Vec<Partial>, candidate: Partial, k: usize) {
     }
 }
 
-/// Terminal shortlist ranked by final score: a min-heap of live
-/// score bits plus a key→entry table for clone suppression (one
-/// slot per distinct IPA parse). Stale heap entries (from
-/// superseded clones) are skipped lazily at drain time. Capped so
-/// the final re-rank (sort + diversity selection) stays
-/// interactive even when the beam produces hundreds of thousands
-/// of completions; the cap is generous (thousands) so mid-pack
-/// valid parses survive to re-ranking.
+/// Terminal shortlist with per-cost-band quotas: each acoustic
+/// band keeps its own top completions by final score (min-heap of
+/// live score bits plus a key→entry table for clone suppression;
+/// stale heap entries are skipped lazily at drain time). A single
+/// global cap lets the crowded clean bands evict max-budget
+/// keystone completions (a whole-parse cost near the total budget
+/// scores far below the clean-band floor even when it is the
+/// intended resegmentation); band quotas give every cost family a
+/// bounded share instead, so the final re-rank always sees the
+/// best of each family. Sized so mid-pack keystone completions
+/// (which sit just below their band's top thousand by score)
+/// survive to re-ranking; the final MMR re-rank stays interactive
+/// (tens of thousands at most). Generic cost arithmetic, no
+/// lexical content.
+const COMPLETION_BAND_CAP: usize = 2048;
+/// Number of cost bands retained (see [`completion_band`]; the
+/// total budget caps the top band).
+const COMPLETION_BANDS: usize = 7;
+
+/// Acoustic-cost band of a whole-parse substitution cost: the
+/// budgeted range sliced into quarter-cost strips. Parses that
+/// paid for one or two max-budget keystone links sit several bands
+/// above clean near-paraphrases; banding completions keeps those
+/// families from competing head-to-head for one global cap.
+/// Generic cost arithmetic, no lexical content.
+fn completion_band(sub_cost_total: f64) -> usize {
+    ((sub_cost_total / 0.25).floor() as usize).min(COMPLETION_BANDS - 1)
+}
+
 struct CompletionTop {
+    bands: Vec<BandTop>,
+}
+
+struct BandTop {
     cap: usize,
     /// Min-heap of `(score_bits, seq, key)`. Scores are in [0, 1],
     /// where `to_bits` preserves numeric order; `seq`
     /// disambiguates ties so every push is unique. Entries whose
     /// map slot no longer matches are stale (clone superseded or
     /// evicted) and skipped on pop.
-    heap: std::collections::BinaryHeap<(std::cmp::Reverse<(u64, u64)>, String)>,
+    heap: std::collections::BinaryHeap<(std::cmp::Reverse<(u64, u64)>, u64)>,
     seq: u64,
     /// Clone key → `(score_bits, seq, entry)`.
-    map: HashMap<String, (u64, u64, Partial)>,
+    map: HashMap<u64, (u64, u64, Partial)>,
 }
 
 impl CompletionTop {
-    fn new(cap: usize) -> Self {
+    fn new(_cap: usize) -> Self {
         Self {
-            cap,
-            heap: std::collections::BinaryHeap::new(),
-            seq: 0,
-            map: HashMap::new(),
+            bands: (0..COMPLETION_BANDS)
+                .map(|_| BandTop {
+                    cap: COMPLETION_BAND_CAP,
+                    heap: std::collections::BinaryHeap::new(),
+                    seq: 0,
+                    map: HashMap::new(),
+                })
+                .collect(),
         }
     }
 
+    fn insert(&mut self, candidate: Partial, score: f64) {
+        let band = completion_band(candidate.sub_cost_total);
+        self.bands[band].insert(candidate, score);
+    }
+
+    fn drain_sorted(self) -> Vec<Partial> {
+        let mut v: Vec<(u64, u64, Partial)> = Vec::new();
+        for band in self.bands {
+            v.extend(band.map.into_values().map(|(b, s, p)| (b, s, p)));
+        }
+        v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        v.into_iter().map(|(_, _, p)| p).collect()
+    }
+}
+
+impl BandTop {
     fn insert(&mut self, candidate: Partial, score: f64) {
         if self.cap == 0 {
             return;
         }
         // Scores are finite (bounded arithmetic in final_score).
         let bits = score.to_bits();
-        if let Some(slot) = self.map.get_mut(&candidate.key) {
+        if let Some(slot) = self.map.get_mut(&candidate.key_hash) {
             if bits > slot.0 {
                 self.seq += 1;
-                let key = slot.2.key.clone();
+                let key = slot.2.key_hash;
                 *slot = (bits, self.seq, candidate);
                 self.heap.push((std::cmp::Reverse((bits, self.seq)), key));
             }
@@ -1330,506 +1677,542 @@ impl CompletionTop {
         if self.map.len() < self.cap {
             self.seq += 1;
             self.heap
-                .push((std::cmp::Reverse((bits, self.seq)), candidate.key.clone()));
+                .push((std::cmp::Reverse((bits, self.seq)), candidate.key_hash));
             self.map
-                .insert(candidate.key.clone(), (bits, self.seq, candidate));
+                .insert(candidate.key_hash, (bits, self.seq, candidate));
         }
     }
-
-    fn drain_sorted(mut self) -> Vec<Partial> {
-        let mut v: Vec<(u64, u64, Partial)> = self.map.drain().map(|(_, v)| v).collect();
-        v.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
-        v.into_iter().map(|(_, _, p)| p).collect()
-    }
 }
 
-/// Acoustic-cost tier of an accumulated substitution cost. Tier 0
-/// is exactly clean (no phonetic edits — typically parrot or exact
-/// parses); tier 1 is a slight deviation (about one weak edit —
-/// a single close substitution or weak indel); tier 2 compounds
-/// edits. The tier-1/tier-2 cut keeps slightly-off genuine
-/// resegmentations alive beside zero-cost competitors covering the
-/// same span: a parse that paid for an extra weak insertion plus a
-/// substitution must not compete head-to-head with near-exact
-/// parses for the same cell, since the final scorer still ranks
-/// such parses highly and only it can arbitrate.
-fn cost_tier(sub_cost_total: f64) -> u8 {
-    if sub_cost_total <= 1e-9 {
-        0
-    } else if sub_cost_total < 0.5 {
-        1
-    } else {
-        2
-    }
-}
+/// One beam position: order-independent accumulation with deferred
+/// selection. Every candidate that reaches the position is kept
+/// (exact-clone deduped, best bound wins); only when the position is
+/// about to expand is the bounded expansion set chosen from the full
+/// accumulated pool. Arrival order never decides survival.
+///
+/// Selection combines `k` quality states (top bound) with two
+/// best word-sequences per (parent-sound, ending-sound, depth)
+/// triple, capped at this many triples. Triples isolate keystone
+/// links from cheaper near-ties that merely share an ending: a
+/// canonical middle word competes only against same-history twins
+/// (same parent sound and depth), where direct lattice
+/// measurement shows the canonical links cheapest-or-equal
+/// (twin opener costs) or tied (homophone openers, ordered by
+/// familiarity). Sizing shows keystone triples clearing a
+/// ~300-deep cutoff at the hardest positions while junk triples
+/// fall below; clean singletons lose nothing (kept via quality).
+/// Order-independent sorts; deterministic tie-breaks.
+/// Generic bound/score/word-shape arithmetic, no lexical content.
+const BEAM_MAX_TRIPLES: usize = 384;
 
-/// One beam position with incremental statistics. A flat
-/// `Vec<Partial>` plus linear-scan insert costs O(beam) per pair;
-/// with roomy beams (512+) and wide match fan-in that is
-/// quadratic and interactive use dies. `BeamPos` keeps per-cell
-/// counts/minima incrementally, so the hot pair loop pre-filters
-/// through [`BeamPos::would_admit`] (a few flops and hash lookups,
-/// no allocation) and only clones a `Partial` on admission.
-/// Entry indices are stable (pushed or replaced in place, never
-/// removed), so cached indices stay valid. Minima are refreshed by
-/// rescan only when the minimum itself is evicted.
-/// Near-tie epsilon for beam admission: candidates within this of
-/// a cell's (or band's) worst kept score are plausible hypotheses
-/// the beam cannot resolve, so it keeps them all and lets the final
-/// scorer decide. Covers the observed sub-0.15 gaps between genuine
-/// resegmentations and near-exact rivals sharing a cell.
-const EPSILON: f64 = 0.20;
+/// Best-demonstrated word-sequence kept per structural triple.
+/// Two per triple: the canonical link plus its closest same-history
+/// twin survive side by side so the final scorer — not beam order
+/// — arbitrates. Small enough that the expansion set stays
+/// interactive (triples × this).
+const BEAM_PER_TRIPLE: usize = 2;
 
-/// Hard capacity multiplier over the soft shares: near-tie
-/// extension never grows a cell past this, bounding per-position
-/// memory even when a cluster is wide. Sized generously because
-/// real near-tie clusters run into the hundreds on a full-size
-/// corpus (dozens of resegmentation variants times pronunciation
-/// variants of the same words): truncating them would evict genuine
-/// mid-pack parses that the final scorer ranks highly, and only the
-/// hard ceiling — not quality order — may stop an undominated
-/// candidate.
-const HARD_MULT: usize = 8;
+/// TMP-PROBE insertion census counter (env-gated diagnostics;
+/// remove before final commit).
+static HID_INSERTS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
 
-/// Novelty slack for first-of-ending admission: a candidate whose
-/// last-word sound is absent from its cell joins (displacing the
-/// cell worst) if it is within this of the kept worst. Endings are
-/// the perceptually salient part of a clue, so every distinct
-/// ending deserves a foothold; the slack keeps out true junk while
-/// admitting legitimate resegmentation endings that lose a close
-/// scalar fight. Wider than EPSILON on purpose (novelty is rarer
-/// than near-ties).
-const ENDING_EPS: f64 = 0.50;
+/// Safety cap on accumulation per position: exact-clone dedup already
+/// bounds the pool, but a pathological fan-in is truncated
+/// order-independently (sort by bound, keep best) before selection so
+/// memory stays flat. Sized (with+"_TMP-PROBE sizing"_ below) so the
+/// mid-cost keystone arrivals the acceptance targets need survive
+/// the trim: the cutoff must sit below keystone bound grade.
+/// Well above the pre-shortlist size, so it never binds on small
+/// targets in practice.
+const BEAM_ACCUM_CAP: usize = 24000;
 
 struct BeamPos {
-    entries: Vec<Partial>,
-    /// Clone key -> (index, cheap). Clone keys are IPA sequences;
-    /// same-sound spellings share one slot, best cheap wins.
-    keys: HashMap<String, (usize, f64)>,
-    /// (word count, cost tier) -> member indices. Each cell is an
-    /// independent quota: word counts and cost tiers can never steal
-    /// each other's slots, so deep or slightly-off parses always
-    /// keep representation no matter how crowded other cells get.
-    cell_members: HashMap<(usize, u8), Vec<usize>>,
-    cell_min: HashMap<(usize, u8), (usize, f64)>,
-    /// ((word count, cost tier), last-word IPA) -> member count.
-    /// Powers ending-novelty admission: the first prefix with a
-    /// given ending sound always finds a foothold in its cell.
-    ending_counts: HashMap<((usize, u8), String), usize>,
+    /// Clone hash -> best-bound partial. No online eviction.
+    map: HashMap<u64, Partial>,
     k: usize,
-    cell_cap: usize,
-    cell_hard: usize,
 }
 
 impl BeamPos {
     fn new(k: usize) -> Self {
         Self {
-            entries: Vec::new(),
-            keys: HashMap::new(),
-            cell_members: HashMap::new(),
-            cell_min: HashMap::new(),
-            ending_counts: HashMap::new(),
+            map: HashMap::new(),
             k,
-            cell_cap: (k / 8).max(8),
-            cell_hard: (k / 8).max(8) * HARD_MULT,
         }
     }
 
     fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.map.is_empty()
     }
 
-    /// Drain entries for expansion; resets all stats (each position
-    /// expands exactly once).
-    fn take_entries(&mut self) -> Vec<Partial> {
-        self.keys.clear();
-        self.cell_members.clear();
-        self.cell_min.clear();
-        self.ending_counts.clear();
-        std::mem::take(&mut self.entries)
-    }
-
-    /// Beam cell key: word count (segmentation depth) by
-    /// acoustic-cost tier (clean / near / far parses never evict
-    /// each other).
-    fn cell_of(cand_words: usize, cand_sub: f64) -> (usize, u8) {
-        (cand_words, cost_tier(cand_sub))
-    }
-
-    /// Lazy pre-filter for a candidate that has not been built yet.
-    /// Conservative: returns true whenever admission is possible, so
-    /// [`BeamPos::insert`] re-verifies. Key assembly (one small
-    /// allocation) happens only after the arithmetic gates pass.
-    /// Mirrors [`BeamPos::insert`] exactly.
-    #[allow(clippy::too_many_arguments)]
-    fn would_admit(
-        &self,
-        partial_key: &str,
-        partial_key_empty: bool,
-        match_ipa: &str,
-        cand_words: usize,
-        cand_sub: f64,
-        cand_cheap: f64,
-    ) -> bool {
-        if self.k == 0 {
-            return false;
-        }
-        let cell = Self::cell_of(cand_words, cand_sub);
-        let cell_count = self.cell_members.get(&cell).map_or(0, Vec::len);
-        if cell_count >= self.cell_cap
-            && !self.cell_admits(cell, cell_count, cand_cheap, cand_sub)
-            // Last resort (mirrors insert): a first-of-ending sound
-            // joins if within ENDING_EPS of the kept worst.
-            // PicoWord endings stay under pico policy below.
-            && (match_ipa.chars().count() < Self::PICO_LEN
-                || !self.novel_ending(cell, match_ipa, cand_cheap))
-        {
-            // PicoWord candidates may still pass as clone
-            // improvements (checked below): mirror insert(), which
-            // checks clones before cell policy. Substantial
-            // candidates are refused here exactly as insert()
-            // refuses them.
-            let pico = match_ipa.chars().count() < Self::PICO_LEN;
-            if !pico {
-                return false;
-            }
-            let takes_slot = self.cell_members.get(&cell).is_some_and(|ms| {
-                ms.iter().any(|&i| {
-                    let p = &self.entries[i];
-                    Self::last_ipa_len(p) < Self::PICO_LEN && cand_cheap > p.cheap_score
-                })
-            });
-            if !takes_slot {
-                let key = if partial_key_empty {
-                    match_ipa.to_string()
-                } else {
-                    format!("{partial_key} {match_ipa}")
-                };
-                return match self.keys.get(&key) {
-                    Some(&(_, cheap)) => cand_cheap > cheap,
-                    None => false,
-                };
-            }
-        }
-        let key = if partial_key_empty {
-            match_ipa.to_string()
-        } else {
-            format!("{partial_key} {match_ipa}")
-        };
-        match self.keys.get(&key) {
-            Some(&(_, cheap)) => cand_cheap > cheap,
-            None => true,
-        }
-    }
-
-    /// Cell admission shared by the gate and [`BeamPos::insert`]:
-    /// below the soft share everything joins; past it, a candidate
-    /// joins (up to the hard cap) unless the whole kept cluster
-    /// beats it by more than EPSILON — near-tie hypotheses the
-    /// beam cannot resolve are all kept, and only uniformly worse
-    /// candidates are refused, so low-cost resegmentation prefixes
-    /// can never be squeezed out by one scalar. Past the hard cap,
-    /// only strict improvements (or displacing an epsilon-dominated
-    /// member) get in.
-    fn cell_admits(
-        &self,
-        cell: (usize, u8),
-        cell_count: usize,
-        cand_cheap: f64,
-        cand_sub: f64,
-    ) -> bool {
-        if cell_count < self.cell_cap {
-            return true;
-        }
-        if cell_count < self.cell_hard {
-            return match self.cell_min.get(&cell) {
-                Some(&(_, min)) => cand_cheap > min - EPSILON,
-                // Inconsistent (should not happen); admit.
-                None => true,
-            };
-        }
-        // Settled cell: strict heuristic improvement displaces the
-        // worst, or the candidate displaces a member it
-        // epsilon-dominates (acoustically redundant beside it).
-        if let Some(&(_, min)) = self.cell_min.get(&cell) {
-            if cand_cheap > min {
-                return true;
-            }
-        }
-        self.dominates_some(cell, cand_cheap, cand_sub).is_some()
-    }
-
-    /// First-of-ending novelty shared by the gate and
-    /// [`BeamPos::insert`]: true when no kept member shares the
-    /// candidate's last-word sound and the candidate is within
-    /// ENDING_EPS of the kept worst. The minimum check comes first
-    /// so the common refusal path costs no allocation.
-    fn novel_ending(&self, cell: (usize, u8), end_ipa: &str, cand_cheap: f64) -> bool {
-        let min = match self.cell_min.get(&cell) {
-            Some(&(_, min)) => min,
-            // Inconsistent (should not happen); admit.
-            None => return true,
-        };
-        if cand_cheap <= min - ENDING_EPS {
-            return false;
-        }
-        self.ending_counts
-            .get(&(cell, end_ipa.to_string()))
-            .copied()
-            .unwrap_or(0)
-            == 0
-    }
-
-    /// Weakest member the candidate strictly dominates (candidate
-    /// at least as good on both axes and strictly better on one),
-    /// if any. Deliberately strict (no EPSILON slack): eviction must
-    /// never replace a better member with a worse newcomer — the
-    /// epsilon slack lives in admission (near-tie growth), not in
-    /// displacement. This hysteresis keeps the beam stable: without
-    /// it, worse newcomers churn mid-pack members out on
-    /// cost-technicalities even though the final scorer would rank
-    /// the evicted parse as highly as its replacement.
-    fn dominates_some(&self, cell: (usize, u8), cand_cheap: f64, cand_sub: f64) -> Option<usize> {
-        self.cell_members.get(&cell).and_then(|members| {
-            members
-                .iter()
-                .filter(|&&i| {
-                    let p = &self.entries[i];
-                    cand_cheap >= p.cheap_score
-                        && cand_sub <= p.sub_cost_total + 1e-9
-                        && (cand_cheap > p.cheap_score || cand_sub < p.sub_cost_total - 1e-9)
-                })
-                .min_by(|&&a, &&b| {
-                    self.entries[a]
-                        .cheap_score
-                        .partial_cmp(&self.entries[b].cheap_score)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .copied()
-        })
-    }
-
-    /// Evidence threshold for beam displacement: clue words shorter
-    /// than this many IPA characters carry too little phonetic evidence
-    /// to evict established parses. Single-segment words ("a", "I",
-    /// "uh") and two-segment function words ("to", "ad", "at", "of")
-    /// match almost everywhere, so letting them displace freely lets
-    /// combinatorial PicoWord salads churn genuine multi-segment
-    /// resegmentations out of every cell they touch — even though the
-    /// final scorer ranks those resegmentations highly. PicoWords still
-    /// compete freely for room and among themselves (same-class
-    /// displacement), so early function words like the "a" in "wreck a
-    /// nice beach" are unaffected; they just cannot evict parses built
-    /// on more phonetic evidence, nor grow full cells by near-tie.
-    /// Generic word-shape rule, no lexical content.
-    const PICO_LEN: usize = 3;
-
-    /// IPA length of a partial's most recent word: the evidence weight
-    /// of its latest extension. Empty partials (beam roots) count as
-    /// full evidence.
-    fn last_ipa_len(p: &Partial) -> usize {
-        p.words
-            .last()
-            .map(|w| w.ipa.chars().count())
-            .unwrap_or(usize::MAX)
-    }
-
-    /// Full admission with clone-suppression and diversity caps.
-    /// Cells grow freely to their soft share; past it, only
-    /// non-epsilon-dominated candidates join (up to the hard cap),
-    /// and settled cells admit strict improvements or
-    /// epsilon-dominating displacements. Mirrors
-    /// [`BeamPos::would_admit`].
+    /// Accumulate one candidate (exact-clone dedup, best bound wins).
+    /// Order-independent: no eviction of earlier arrivals.
     fn insert(&mut self, candidate: Partial) {
         if self.k == 0 {
             return;
         }
-        let cell = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
-        if let Some(&(idx, cheap)) = self.keys.get(&candidate.key) {
-            if candidate.cheap_score <= cheap {
-                return;
-            }
-            // Improvement for a held clone slot: swap in place. The
-            // slot keeps its cell even if the improved acoustics
-            // would tier differently — relocating across cells
-            // breaks the member-vector accounting (duplicate-index
-            // buildup), while the score/cheap update itself is what
-            // matters for downstream expansion.
-            self.replace(idx, candidate);
-            return;
-        }
-        let cell_count = self.cell_members.get(&cell).map_or(0, Vec::len);
-        if cell_count < self.cell_cap {
-            self.push_new(candidate);
-            return;
-        }
-        if Self::last_ipa_len(&candidate) < Self::PICO_LEN {
-            // PicoWord in a full cell: room is gone, near-tie growth
-            // stays closed to PicoWords (that is the swamp
-            // mechanism), and substantial members are immune — only
-            // a same-class slot may turn over to a better PicoWord.
-            let victim = self
-                .cell_members
-                .get(&cell)
-                .and_then(|members| {
-                    members
-                        .iter()
-                        .filter(|&&i| Self::last_ipa_len(&self.entries[i]) < Self::PICO_LEN)
-                        .min_by(|&&a, &&b| {
-                            self.entries[a]
-                                .cheap_score
-                                .partial_cmp(&self.entries[b].cheap_score)
-                                .unwrap_or(std::cmp::Ordering::Equal)
-                        })
-                        .copied()
-                })
-                .filter(|&idx| candidate.cheap_score > self.entries[idx].cheap_score);
-            if let Some(idx) = victim {
-                self.replace(idx, candidate);
-            }
-            return;
-        }
-        if cell_count < self.cell_hard {
-            // Near-tie extension: join unless the whole kept cluster
-            // beats the candidate by more than EPSILON.
-            let near_tie = match self.cell_min.get(&cell) {
-                Some(&(_, min)) => candidate.cheap_score > min - EPSILON,
-                None => true,
-            };
-            if near_tie {
-                self.push_new(candidate);
-                return;
-            }
-        }
-        // Settled cell: displace the worst on a strict heuristic
-        // improvement, else a member the candidate epsilon-dominates,
-        // else (last resort) a first-of-ending displacement: a
-        // candidate whose last-word sound is absent from the cell
-        // joins by displacing the cell worst if it is within
-        // ENDING_EPS of it. Endings are the perceptually salient
-        // part of a clue; this guarantees every distinct ending a
-        // foothold without growing the cell.
-        let victim = self
-            .cell_min
-            .get(&cell)
-            .filter(|(_, min)| candidate.cheap_score > *min)
-            .map(|(idx, _)| *idx)
-            .or_else(|| self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total));
-        if let Some(idx) = victim {
-            self.replace(idx, candidate);
-            return;
-        }
-        // Last resort: first-of-ending novelty displaces the cell
-        // worst (mirrors the gate's novelty check).
-        if let Some(end_ipa) = candidate.words.last().map(|w| w.ipa.clone()) {
-            if self.novel_ending(cell, &end_ipa, candidate.cheap_score) {
-                if let Some(&(idx, _)) = self.cell_min.get(&cell) {
-                    self.replace(idx, candidate);
-                }
-            }
-        }
-    }
-
-    fn push_new(&mut self, candidate: Partial) {
-        let idx = self.entries.len();
-        let cell = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
-        let cheap = candidate.cheap_score;
-        self.keys.insert(candidate.key.clone(), (idx, cheap));
-        self.cell_members.entry(cell).or_default().push(idx);
-        if let Some(w) = candidate.words.last() {
-            *self.ending_counts.entry((cell, w.ipa.clone())).or_default() += 1;
-        }
-        self.entries.push(candidate);
-        Self::lower_min(&mut self.cell_min, cell, idx, cheap);
-    }
-
-    /// Replace entry at `idx` in place (other indices unchanged).
-    /// Usually the slot keeps its cell (clone improvements,
-    /// cell-worst displacements); the clone tier-change path may
-    /// move a slot across cells, in which case member vectors,
-    /// minima and the ending census all follow the entry.
-    fn replace(&mut self, idx: usize, candidate: Partial) {
-        let old = std::mem::replace(&mut self.entries[idx], candidate);
-        self.keys.remove(&old.key);
-        let new_key = self.entries[idx].key.clone();
-        let new_cheap = self.entries[idx].cheap_score;
-        self.keys.insert(new_key, (idx, new_cheap));
-        let old_cell = Self::cell_of(old.words.len(), old.sub_cost_total);
-        let new_cell = Self::cell_of(
-            self.entries[idx].words.len(),
-            self.entries[idx].sub_cost_total,
-        );
-        if old_cell != new_cell {
-            if let Some(members) = self.cell_members.get_mut(&old_cell) {
-                if let Some(pos) = members.iter().position(|&i| i == idx) {
-                    members.swap_remove(pos);
-                }
-            }
-            self.cell_members.entry(new_cell).or_default().push(idx);
-            self.refresh_cell_min(old_cell);
-        }
-        // Ending census follows the words, not the slot.
-        let old_end = old.words.last().map(|w| w.ipa.clone());
-        let new_end = self.entries[idx].words.last().map(|w| w.ipa.clone());
-        if old_end != new_end {
-            if let Some(o) = old_end {
-                if let Some(c) = self.ending_counts.get_mut(&(old_cell, o)) {
-                    *c = c.saturating_sub(1);
-                }
-            }
-            if let Some(n) = new_end {
-                *self.ending_counts.entry((new_cell, n)).or_default() += 1;
-            }
-        }
-        // Refresh minima that may have moved. A stale low minimum
-        // would make the gate skip admittable candidates, so when
-        // the evicted entry was the minimum, rescan. The new cell
-        // always learns the replacement (it may be its new best).
-        let cell_min_was_this = self.cell_min.get(&new_cell).is_some_and(|(i, _)| *i == idx);
-        if cell_min_was_this {
-            self.refresh_cell_min(new_cell);
-        } else {
-            match self.cell_min.get(&new_cell) {
-                Some(&(_, min)) if new_cheap < min => {
-                    self.cell_min.insert(new_cell, (idx, new_cheap));
-                }
-                None => {
-                    self.cell_min.insert(new_cell, (idx, new_cheap));
-                }
-                _ => {}
-            }
-        }
-    }
-
-    fn lower_min(
-        map: &mut HashMap<(usize, u8), (usize, f64)>,
-        cell: (usize, u8),
-        idx: usize,
-        cheap: f64,
-    ) {
-        match map.get(&cell) {
-            Some(&(_, min)) if min <= cheap => {}
-            _ => {
-                map.insert(cell, (idx, cheap));
-            }
-        }
-    }
-
-    fn refresh_cell_min(&mut self, cell: (usize, u8)) {
-        let best = self.cell_members.get(&cell).and_then(|members| {
-            members
+        // TMP-PROBE insertion census (env-gated; remove before final
+        // commit): counts canonical-hid arrivals reaching any beam
+        // pool, to distinguish never-inserted from
+        // inserted-then-removed.
+        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            let wk: Vec<String> = candidate
+                .words
                 .iter()
-                .map(|&i| (i, self.entries[i].cheap_score))
-                .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-        });
-        match best {
-            Some(v) => {
-                self.cell_min.insert(cell, v);
-            }
-            None => {
-                self.cell_min.remove(&cell);
+                .map(|w| w.word.to_lowercase())
+                .collect();
+            if wk == ["hits", "justice", "dupe", "hid"] {
+                HID_INSERTS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
+        match self.map.get(&candidate.key_hash) {
+            Some(kept) if kept.bound >= candidate.bound => {}
+            _ => {
+                self.map.insert(candidate.key_hash, candidate);
+            }
+        }
+        // TMP-PROBE: trim disabled (env-gated removal of the
+        // bound; remove before final commit): diagnoses whether the
+        // accumulation trim or the deferred selection drops
+        // keystone arrivals.
+        let accum_cap = if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            usize::MAX
+        } else {
+            BEAM_ACCUM_CAP
+        };
+        if self.map.len() > accum_cap {
+            // Order-independent safety trim: keep the best-bound
+            // states. Deterministic tie-break on clone hash.
+            let mut v: Vec<(u64, f64)> = self
+                .map
+                .iter()
+                .map(|(h, p)| (*h, p.bound))
+                .collect();
+            v.sort_by(|a, b| {
+                b.1.partial_cmp(&a.1)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.0.cmp(&b.0))
+            });
+            // TMP-PROBE trim witness (env-gated; remove before final
+            // commit): cutoff bound decides whether mid-cost
+            // keystone arrivals survive accumulation.
+            if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+                eprintln!(
+                    "TRIM-PROBE arrivals={} cutoff={:.4}",
+                    v.len(),
+                    v.get(BEAM_ACCUM_CAP / 2).map(|(_, b)| *b).unwrap_or(-1.0),
+                );
+            }
+            v.truncate(BEAM_ACCUM_CAP / 2);
+            let keep: HashSet<u64> = v.into_iter().map(|(h, _)| h).collect();
+            self.map.retain(|h, _| keep.contains(h));
+        }
+    }
+
+    /// Deferred selection of the bounded expansion set from every
+    /// candidate that reached this position. The set combines `k`
+    /// quality states (top optimistic bound) with the best couple
+    /// per (parent-sound, ending-sound, depth) triple (ranked by
+    /// demonstrated score). Triples isolate keystone links from
+    /// cheaper near-ties that merely share an ending: a canonical
+    /// middle word competes only against same-history twins, where
+    /// direct lattice measurement shows the canonical links
+    /// cheapest-or-equal. A cap on distinct triples bounds the set.
+    /// Deterministic; arrival order plays no role. Generic
+    /// cost/boundary/word-shape arithmetic, no lexical content.
+    fn take_selected(&mut self, target_boundaries: &[usize]) -> Vec<Partial> {
+        fn dscore(p: &Partial, target_boundaries: &[usize]) -> f64 {
+            Partial::demonstrated(
+                p.sub_cost_total,
+                p.shared,
+                p.reused,
+                p.words.len(),
+                p.clue_cum,
+                target_boundaries,
+            )
+        }
+        /// Corpus-familiarity load of a prefix: summed rarity ranks
+        /// (lower rank = more familiar; unknown words count as very
+        /// rare). Tie-break only, applied solely on bit-identical
+        /// demonstrated scores — structurally identical histories
+        /// whose words differ (wreck/rec homophone openers). It can
+        /// never promote a worse-scoring path, and prefers the
+        /// familiar spelling deterministically. Generic corpus
+        /// property, no lexical content.
+        fn fam(p: &Partial) -> f64 {
+            p.words
+                .iter()
+                .map(|w| w.rarity.unwrap_or(1e12))
+                .sum()
+        }
+        /// Selection order key: demonstrated score descending, then
+        /// familiarity ascending, then clone hash ascending. Tuples
+        /// carry precomputed scores: (dscore, fam, hash, rest index).
+        /// Pure tuple comparison — no pool lookups.
+        fn ord_sel(
+            a: &(f64, f64, u64, usize),
+            b: &(f64, f64, u64, usize),
+        ) -> std::cmp::Ordering {
+            b.0.partial_cmp(&a.0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    a.1.partial_cmp(&b.1)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .then_with(|| a.2.cmp(&b.2))
+        }
+        // TMP-PROBE sizing counters (env-gated; remove before final
+        // commit): arrivals, distinct endings/triples, and how many
+        // triple-bests clear keystone-grade thresholds. Decides
+        // capacity sizing with measurements, not guesses.
+        static SEL_CALL: std::sync::atomic::AtomicUsize =
+            std::sync::atomic::AtomicUsize::new(0);
+        let mut v: Vec<Partial> = self.map.drain().map(|(_, p)| p).collect();
+        if v.is_empty() {
+            return v;
+        }
+        // TMP-PROBE arrival check (env-gated; remove before final
+        // commit): do the exact canonical-worded prefixes ARRIVE at
+        // any position (regardless of score)? Distinguishes
+        // never-arrives (parent never expanded / budget-blocked)
+        // from arrives-but-unselected (retention too shallow).
+        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            for want in [
+                vec!["hits"],
+                vec!["hits", "justice"],
+                vec!["hits", "justice", "dupe"],
+                vec!["hits", "justice", "dupe", "hid"],
+                vec!["hits", "justice", "dupe", "hid", "came"],
+                vec!["wreck"],
+                vec!["wreck", "a"],
+                vec!["wreck", "a", "nice"],
+                vec!["wreck", "a", "nice", "beach"],
+            ] {
+                let hits: Vec<(f64, Vec<usize>, f64)> = v
+                    .iter()
+                    .filter(|q| {
+                        q.words.len() == want.len()
+                            && q.words
+                                .iter()
+                                .zip(want.iter())
+                                .all(|(w, k)| w.word.to_lowercase() == **k)
+                    })
+                    .map(|q| (q.sub_cost_total, q.cuts.clone(), q.bound))
+                    .collect();
+                if !hits.is_empty() {
+                    eprintln!("ARRIVE-PROBE want={want:?} arrivals={} {hits:?}", hits.len());
+                }
+            }
+        }
+        // TMP-PROBE contender dump (env-gated; remove before final
+        // commit): word-distinct arrivals ending in the keystone
+        // sounds, ranked — shows the canonical prefix's exact
+        // within-ending rank and whether selection keeps it.
+        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            // Canonical-hid rank among ALL arrivals (not top-truncated):
+            // dscore, and how many arrivals beat it.
+            let mut with_scores: Vec<(f64, String)> = v
+                .iter()
+                .map(|q| {
+                    (
+                        dscore(q, target_boundaries),
+                        q.words
+                            .iter()
+                            .map(|w| w.word.to_lowercase())
+                            .collect::<Vec<_>>()
+                            .join(" "),
+                    )
+                })
+                .collect();
+            with_scores.sort_by(|a, b| {
+                b.0.partial_cmp(&a.0)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let canon = "hits justice dupe hid";
+            match with_scores.iter().position(|(_, w)| w == canon) {
+                Some(r) => eprintln!(
+                    "CANONRANK-PROBE prefix={canon:?} rank={} dscore={:.4} arrivals={}",
+                    r + 1,
+                    with_scores[r].0,
+                    with_scores.len()
+                ),
+                None => eprintln!(
+                    "CANONRANK-PROBE prefix={canon:?} ABSENT arrivals={}",
+                    with_scores.len()
+                ),
+            }
+            for key_ipa in ["hɪd", "dup", "naɪs"] {
+                let mut contenders: HashMap<String, (f64, f64, Vec<usize>)> = HashMap::new();
+                for p in &v {
+                    let last_ok = p
+                        .words
+                        .last()
+                        .is_some_and(|w| w.ipa == key_ipa);
+                    if !last_ok {
+                        continue;
+                    }
+                    let wk: String = p
+                        .words
+                        .iter()
+                        .map(|w| w.word.to_lowercase())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let d = dscore(p, target_boundaries);
+                    contenders
+                        .entry(wk)
+                        .and_modify(|e| {
+                            if d > e.0 {
+                                *e = (d, p.sub_cost_total, p.cuts.clone());
+                            }
+                        })
+                        .or_insert((d, p.sub_cost_total, p.cuts.clone()));
+                }
+                if !contenders.is_empty() {
+                    let mut rank: Vec<(String, (f64, f64, Vec<usize>))> =
+                        contenders.into_iter().collect();
+                    rank.sort_by(|a, b| {
+                        b.1 .0
+                            .partial_cmp(&a.1 .0)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    let show: Vec<(String, f64, f64, Vec<usize>)> = rank
+                        .iter()
+                        .take(12)
+                        .map(|(w, (d, s, c))| (w.clone(), *d, *s, c.clone()))
+                        .collect();
+                    eprintln!(
+                        "CONTEND-PROBE ending={key_ipa:?} distinct={} top={show:?}",
+                        rank.len()
+                    );
+                }
+            }
+        }
+        // TMP-PROBE sizing input (env-gated; remove with the print
+        // below before final commit).
+        let sizing_arrivals = v.len();
+        // Quality top-k by bound (descending, hash tie-break).
+        v.sort_by(|a, b| {
+            b.bound
+                .partial_cmp(&a.bound)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.key_hash.cmp(&b.key_hash))
+        });
+        let k = self.k.min(v.len());
+        let rest = v.split_off(k);
+        let mut selected = v;
+        let mut picked: HashSet<u64> =
+            selected.iter().map(|p| p.key_hash).collect();
+        // Best word-sequences per (parent-sound, ending-sound,
+        // depth) triple, top couple per triple. One linear pass;
+        // per triple, a word-sequence map (same words via different
+        // alignments collapse to their best demonstrated variant —
+        // those variants would dedup to one phrase downstream
+        // anyway). Triples isolate keystone links from cheaper
+        // near-ties that merely share an ending; two per triple
+        // cover exact-tie twins. Ties prefer the smaller clone hash
+        // so choices stay deterministic.
+        let mut best_per_triple: HashMap<
+            (String, String, usize),
+            HashMap<String, (f64, f64, u64, usize)>,
+        > = HashMap::new();
+        for (i, p) in rest.iter().enumerate() {
+            if picked.contains(&p.key_hash) {
+                continue;
+            }
+            let last_ipa: String = p
+                .words
+                .last()
+                .map(|w| w.ipa.clone())
+                .unwrap_or_default();
+            let parent_ipa: String = if p.words.len() >= 2 {
+                p.words[p.words.len() - 2].ipa.clone()
+            } else {
+                String::new()
+            };
+            let triple = (parent_ipa, last_ipa, p.words.len());
+            let words_key: String = p
+                .words
+                .iter()
+                .map(|w| w.word.to_lowercase())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let d = dscore(p, target_boundaries);
+            let f = fam(p);
+            let slot = best_per_triple.entry(triple).or_default();
+            match slot.get(&words_key) {
+                Some(&(bd, bf, bh, _))
+                    if bd > d
+                        || (bd == d && (bf < f || (bf == f && bh < p.key_hash))) => {}
+                _ => {
+                    slot.insert(words_key, (d, f, p.key_hash, i));
+                }
+            }
+        }
+        // Flatten each triple's word-map to its top entry, keeping
+        // the pre-truncation family size (word-distinct contender
+        // count) alongside — truncation must not destroy the
+        // contention signal the cap below orders by.
+        // (triple, best entries, family size).
+        let mut triples: Vec<((String, String, usize), Vec<(f64, f64, u64, usize)>, usize)> =
+            best_per_triple
+                .into_iter()
+                .map(|(t, m)| {
+                    let size = m.len();
+                    let mut v: Vec<(f64, f64, u64, usize)> = m.into_values().collect();
+                    v.sort_by(ord_sel);
+                    if v.len() > BEAM_PER_TRIPLE {
+                        v.truncate(BEAM_PER_TRIPLE);
+                    }
+                    (t, v, size)
+                })
+                .collect();
+        triples.sort_by(|a, b| {
+            // Order-independent pair priority: best demonstrated
+            // score first (familiarity/hash tie-breaks inside
+            // ord_sel), then pair key. Sizing shows keystone pairs
+            // clear a low-hundreds-deep cutoff while junk pairs fall
+            // below; contention already shaped the within-pair
+            // shortlists, so the cap judges families by their best.
+            ord_sel(&a.1[0], &b.1[0]).then_with(|| a.0.cmp(&b.0))
+        });
+        // TMP-PROBE sizing (env-gated; remove before final commit):
+        // pre-EMAX totals show whether the cap binds and how many
+        // keystone-grade families compete.
+        if std::env::var("MADGAB_SIZING").is_ok() {
+            let call = SEL_CALL.fetch_add(
+                1,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            let mut ends: HashSet<String> = HashSet::new();
+            for (t, _, _) in triples.iter() {
+                ends.insert(t.1.clone());
+            }
+            let above: [usize; 3] = [0.90, 0.925, 0.938]
+                .map(|th| triples.iter().filter(|(_, v, _)| v[0].0 > th).count());
+            eprintln!(
+                "SIZING call={call} arrivals={sizing_arrivals} triples={} endings={} above90={} above925={} above938={} maxfam={}",
+                triples.len(),
+                ends.len(),
+                above[0],
+                above[1],
+                above[2],
+                triples.iter().map(|(_, _, s)| *s).max().unwrap_or(0),
+            );
+            // TMP-PROBE keystone-triple fate (env-gated; remove with
+            // the rest): the (parent, ending, depth) triples behind
+            // the canonical links — size, best score, and whether
+            // EMAX keeps them (rank among all triples by the live
+            // EMAX order).
+            let mut ranked: Vec<((String, String, usize), usize, f64)> = triples
+                .iter()
+                .map(|(t, v, s)| (t.clone(), *s, v[0].0))
+                .collect();
+            ranked.sort_by(|a, b| {
+                b.1.cmp(&a.1).then_with(|| {
+                    b.2.partial_cmp(&a.2)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+            });
+            for (t, s, best) in ranked.iter() {
+                let keystone =
+                    t.1 == "hɪd" || t.1 == "naɪs" || t.1 == "dup";
+                if keystone {
+                    let rank = ranked.iter().position(|(u, _, _)| u == t).unwrap_or(99999);
+                    eprintln!(
+                        "PAIR-PROBE call={call} pair=({:?},{:?}) size={s} best={best:.4} emax_rank={rank} kept={}",
+                        t.0,
+                        t.1,
+                        rank < 160,
+                    );
+                }
+            }
+        }
+        if triples.len() > BEAM_MAX_TRIPLES {
+            triples.truncate(BEAM_MAX_TRIPLES);
+        }
+        // Deterministic expansion order: same (score, familiarity,
+        // hash) order. Recompute scores for the picked indices (the
+        // stored tuples were moved into the ordering above).
+        let mut extra_idx: Vec<usize> = triples
+            .into_iter()
+            .flat_map(|(_, v, _)| v.into_iter().map(|(_, _, _, i)| i))
+            .collect();
+        extra_idx.sort_by(|&a, &b| {
+            ord_sel(
+                &(
+                    dscore(&rest[a], target_boundaries),
+                    fam(&rest[a]),
+                    rest[a].key_hash,
+                    a,
+                ),
+                &(
+                    dscore(&rest[b], target_boundaries),
+                    fam(&rest[b]),
+                    rest[b].key_hash,
+                    b,
+                ),
+            )
+        });
+        let mut slots: Vec<Option<Partial>> = rest.into_iter().map(Some).collect();
+        for i in extra_idx {
+            let p = slots[i].take().expect("each index picked once");
+            picked.insert(p.key_hash);
+            selected.push(p);
+        }
+        // TMP-PROBE expansion check (env-gated; remove before final
+        // commit): does the selected expansion set contain either
+        // canonical keystone prefix? Distinguishes beam drops from
+        // downstream (completion/MMR) losses with no chain
+        // machinery — just full-prefix word matching.
+        if std::env::var("MADGAB_RAW_PROBE").is_ok() {
+            // Call index = expansion order ≈ target position (each
+            // position expands once, in order).
+            let call = SEL_CALL.fetch_add(
+                1,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            for want in [
+                vec!["hits"],
+                vec!["hits", "justice"],
+                vec!["hits", "justice", "dupe"],
+                vec!["hits", "justice", "dupe", "hid"],
+                vec!["wreck"],
+                vec!["wreck", "a"],
+                vec!["wreck", "a", "nice"],
+            ] {
+                let mut found = 0;
+                let mut best = f64::NEG_INFINITY;
+                for q in &selected {
+                    best = best.max(dscore(q, target_boundaries));
+                    if q.words.len() == want.len()
+                        && q.words
+                            .iter()
+                            .zip(want.iter())
+                            .all(|(w, k)| w.word.to_lowercase() == **k)
+                    {
+                        found += 1;
+                    }
+                }
+                if found > 0 {
+                    let detail: Vec<(Vec<usize>, f64, f64, usize)> = selected
+                        .iter()
+                        .filter(|q| {
+                            q.words.len() == want.len()
+                                && q.words
+                                    .iter()
+                                    .zip(want.iter())
+                                    .all(|(w, k)| w.word.to_lowercase() == **k)
+                        })
+                        .map(|q| (q.cuts.clone(), q.sub_cost_total, q.bound, q.shared))
+                        .collect();
+                    eprintln!(
+                        "EXPAND-PROBE call={call} want={want:?} found={found} detail={detail:?} selected={} best={best:.4}",
+                        selected.len()
+                    );
+                }
+            }
+        }
+        selected
     }
 }
 
@@ -1911,6 +2294,33 @@ mod pareto_tests {
     }
 
     #[test]
+    fn demonstrated_matches_final_score_on_prefix() {
+        // Selection ranks the MMR reserve by `demonstrated`, so it
+        // must equal the scorer evaluated on the prefix — otherwise
+        // retention order drifts from completion order.
+        // Punctuation-free vocabulary keeps the normalized reuse
+        // count identical to the scorer's word-novelty input.
+        let bounds = vec![2, 4];
+        let targets: HashSet<String> = ["zz".to_string()].into_iter().collect();
+        let root = Partial::empty();
+        let p1 = root.extend_approx("alpha", "ab", None, 2, 0.1, 0.0, 0.0, true, 1);
+        let p2 = p1.extend_approx("beta", "cd", None, 4, 0.2, 0.0, 0.0, true, 1);
+        let d = Partial::demonstrated(
+            p2.sub_cost_total,
+            p2.shared,
+            p2.reused,
+            p2.words.len(),
+            p2.clue_cum,
+            &bounds,
+        );
+        let s = p2.final_score(&bounds, &targets);
+        assert!(
+            (d - s).abs() < 1e-9,
+            "demonstrated {d} must equal final_score {s} on the prefix"
+        );
+    }
+
+    #[test]
     fn shortlist_keeps_alternative_spans() {
         // 60 rare single-segment matches plus one lone 7-segment
         // match: a small cap must still cover both spans.
@@ -1925,7 +2335,10 @@ mod pareto_tests {
         );
     }
 
-    fn partial_with(cheap: f64, cost: f64, nwords: usize, key: &str) -> Partial {
+    fn partial_with(bound: f64, cost: f64, nwords: usize, key: &str, reused: u32) -> Partial {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        key.hash(&mut h);
         Partial {
             words: (0..nwords)
                 .map(|i| ClueWord {
@@ -1936,38 +2349,113 @@ mod pareto_tests {
                 })
                 .collect(),
             sub_cost_total: cost,
-            cheap_score: cheap,
-            key: key.to_string(),
+            cheap_score: 0.0,
+            key_hash: h.finish(),
+            cuts: (1..=nwords).map(|i| i * 2).collect(),
+            clue_cum: 2 * nwords,
+            shared: 0,
+            bound,
+            reused,
         }
     }
 
     #[test]
+    fn tmp_prank_numbers() {
+        let b = vec![2, 4];
+        // parrot parent: sub 0, shared 0, reused 1, nwords 1, cum 2
+        let pp = Partial::demonstrated(0.0, 0, 1, 1, 2, &b);
+        // reseg parent: sub 0.15, shared 0, reused 1, nwords 1, cum 2
+        let rp = Partial::demonstrated(0.15, 0, 1, 1, 2, &b);
+        // reseg own: sub 0.15, shared 0, reused 0, nwords 2, cum 4
+        let ro = Partial::demonstrated(0.15, 0, 0, 2, 4, &b);
+        // parrot own: sub 0, shared 0, reused 1, nwords 2, cum 4
+        let po = Partial::demonstrated(0.0, 0, 1, 2, 4, &b);
+        eprintln!("TMP parrot_prank={pp:.6} reseg_prank={rp:.6} reseg_own={ro:.6} parrot_own={po:.6}");
+    }
+
+    #[test]
     fn beam_preserves_low_cost_prefix_under_parrot_pressure() {
-        // A band of zero-cost parrot prefixes (best heuristic
-        // quality) must not squeeze out a slightly costlier genuine
-        // resegmentation while the beam still has room: unfilled
-        // beams admit (clone-checked) and caps only arbitrate once
-        // full, so thin strategies survive alongside the mainstream.
-        let mut beam = BeamPos::new(16);
+        // Deferred selection keeps every arrival: a band of
+        // zero-cost parrot prefixes must not squeeze out a slightly
+        // costlier genuine resegmentation, and the ending-stratified
+        // reserve must surface it in the expansion set even when it
+        // sits far below the quality cutoff.
+        let mut beam = BeamPos::new(4);
         for i in 0..8 {
             beam.insert(partial_with(
-                0.0 - 0.01 * i as f64,
+                0.90 - 0.01 * i as f64,
                 0.0,
                 2,
                 &format!("parrot {i}"),
+                // Parrots recycle target words by definition (that is
+                // why the final scorer demotes them); the genuine
+                // resegmentation below does not.
+                1,
             ));
         }
-        assert_eq!(beam.entries.len(), 8);
-        // Beam still has room: worse parrots and the resegmentation
-        // both admit without evicting anyone.
-        beam.insert(partial_with(-0.5, 0.0, 2, "parrot tail"));
-        // Low-cost resegmentation: worse heuristic quality than the
-        // parrots, but a distinct acoustic hypothesis the final
-        // scorer must see.
-        beam.insert(partial_with(-0.45, 0.15, 2, "re seg"));
+        beam.insert(partial_with(0.50, 0.0, 2, "parrot tail", 1));
+        beam.insert(partial_with(0.55, 0.15, 2, "re seg", 0));
+        let sel = beam.take_selected(&[2, 4]);
+        eprintln!("SEL bounds={:?}", sel.iter().map(|p| p.bound).collect::<Vec<_>>());
         assert!(
-            beam.entries.iter().any(|p| p.key == "re seg"),
+            sel.iter()
+                .any(|p| p.words.len() == 2 && (p.bound - 0.55).abs() < 1e-9),
             "low-cost resegmentation prefix was squeezed out by parrots"
+        );
+    }
+
+    #[test]
+    fn beam_selection_is_order_independent() {
+        // The expansion set must not depend on arrival order: the
+        // same pool inserted in forward and reverse order selects
+        // the same clone keys.
+        let mut fwd = BeamPos::new(8);
+        let mut rev = BeamPos::new(8);
+        let mut items = Vec::new();
+        for i in 0..50 {
+            items.push(partial_with(
+                0.95 - 0.01 * (i as f64),
+                0.01 * (i as f64),
+                2,
+                &format!("cand {i}"),
+                0,
+            ));
+        }
+        for p in &items {
+            fwd.insert(p.clone());
+        }
+        for p in items.iter().rev() {
+            rev.insert(p.clone());
+        }
+        let mut a: Vec<u64> = fwd.take_selected(&[2, 4]).iter().map(|p| p.key_hash).collect();
+        let mut b: Vec<u64> = rev.take_selected(&[2, 4]).iter().map(|p| p.key_hash).collect();
+        a.sort();
+        b.sort();
+        assert_eq!(a, b, "selection depends on arrival order");
+    }
+
+    #[test]
+    fn beam_keeps_homophones_distinct_but_collapses_exact_dupes() {
+        // Clone identity is (word, IPA) per step: two different words
+        // with identical pronunciation are different candidate
+        // answers and must coexist, while an exact same word+IPA
+        // duplicate collapses to one slot.
+        let root = Partial::empty();
+        let a = root.extend_approx("rec", "ɹɛk", None, 3, 0.0, 0.0, 0.0, false, 1);
+        let b = root.extend_approx("wreck", "ɹɛk", None, 3, 0.0, 0.0, 0.0, false, 1);
+        assert_ne!(a.key_hash, b.key_hash, "homophone keys must differ");
+        let mut beam = BeamPos::new(16);
+        beam.insert(a);
+        // Same IPA, different word: novel clone key, both accumulate.
+        beam.insert(b);
+        // Exact duplicate: same key, no improvement → collapses.
+        let dup = root.extend_approx("rec", "ɹɛk", None, 3, 0.0, 0.0, 0.0, false, 1);
+        beam.insert(dup);
+        let sel = beam.take_selected(&[2, 4]);
+        assert_eq!(
+            sel.len(),
+            2,
+            "homophones must coexist; exact duplicates must collapse"
         );
     }
 }
@@ -2013,6 +2501,53 @@ mod shortlist_recall_tests {
         ("recognize speech", 4, "nice", 0.8),
         ("recognize speech", 9, "beach", 0.8),
     ];
+
+    #[test]
+    fn tmp_twin_costs() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+        let g = crate::Generator::from_json(
+            CORPUS_JSON,
+            crate::GeneratorConfig {
+                max_rarity: Some(50_000.0),
+                mode: crate::SearchMode::Approximate {
+                    per_word_budget: 0.75,
+                    total_budget: 1.5,
+                },
+                ..crate::GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        for (target, pos, show) in [
+            ("It's just a stupid game", 0_usize, vec!["hits", "hitch", "heats", "hicks", "it"]),
+            ("It's just a stupid game", 3_usize, vec!["justice", "stir", "tough"]),
+            ("It's just a stupid game", 4_usize, vec!["justice", "stir", "tough"]),
+            ("It's just a stupid game", 10_usize, vec!["dupe", "coop", "coupe", "to", "two"]),
+            ("It's just a stupid game", 13_usize, vec!["hid", "had", "ad", "it"]),
+            ("recognize speech", 0_usize, vec!["wreck", "rec", "wrack", "rag"]),
+            ("recognize speech", 3_usize, vec!["a", "uh", "o"]),
+            ("recognize speech", 4_usize, vec!["nice", "ice", "eyes"]),
+            ("recognize speech", 9_usize, vec!["beach", "peach", "speech"]),
+        ] {
+            let (tipa, _) =
+                crate::transcribe_normalized_with_boundaries(g.corpus(), target).unwrap();
+            let chars: Vec<char> = tipa.chars().collect();
+            let ms = g.approx_trie.words_approximately_starting_at(
+                &g.approx_entries,
+                &chars,
+                pos,
+                0.75,
+                250,
+            );
+            let mut rows: Vec<(String, usize, f64, Option<f64>)> = Vec::new();
+            for w in show {
+                match ms.iter().find(|m| m.word.to_lowercase() == w) {
+                    Some(m) => rows.push((w.to_string(), m.consumed, m.cost, m.rarity)),
+                    None => rows.push((w.to_string(), 0, -1.0, None)),
+                }
+            }
+            eprintln!("TWIN target={target:?} pos={pos} rows={rows:?} total={}", ms.len());
+        }
+    }
 
     #[test]
     fn shortlist_emits_resegmentation_keystones() {
