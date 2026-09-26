@@ -575,6 +575,26 @@ impl Generator {
         // produces them, and is the one that actually bounds wall clock.
         const LEXICAL_GLOBAL_EMISSION_BUDGET: usize =
             SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION;
+        fn zz_env_usize(k: &str, d: usize) -> usize {
+            std::env::var(k).ok().and_then(|v| v.parse().ok()).unwrap_or(d)
+        }
+        fn zz_phrase(p: &Partial) -> String {
+            let mut v: Vec<&str> = Vec::new();
+            let mut cur = p.words.as_ref();
+            while let Some(n) = cur {
+                v.push(&n.word.word);
+                cur = n.prev.as_ref();
+            }
+            v.reverse();
+            v.join(" ")
+        }
+        fn zz_note(p: &Partial) {
+            if let Ok(find) = std::env::var("ZZ_FIND") {
+                if zz_phrase(p).eq_ignore_ascii_case(&find) {
+                    eprintln!("ZZ_HIT phrase={find:?}");
+                }
+            }
+        }
         const LEXICAL_GLOBAL_POP_BUDGET: usize =
             SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
 
@@ -1173,8 +1193,18 @@ impl Generator {
         };
         let mut spent_emissions = 0usize;
         let mut spent_pops = 0usize;
-        for &index in &schedule {
-            if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+        let zz_gemit = zz_env_usize("ZZ_GEMIT", LEXICAL_GLOBAL_EMISSION_BUDGET);
+        let zz_segcap = zz_env_usize("ZZ_SEGCAP", LEXICAL_COMBINATIONS_PER_SEGMENTATION);
+        let zz_segpops = zz_env_usize("ZZ_SEGPOPS", LEXICAL_HEAP_POP_LIMIT);
+        let zz_deep = zz_env_usize("ZZ_DEEP", 0);
+        let zz_deepfrom = zz_env_usize("ZZ_DEEPFROM", 0);
+        let zz_deepcap = zz_env_usize("ZZ_DEEPCAP", 0);
+        let zz_deeppops = zz_env_usize("ZZ_DEEPOPS", 4_000);
+        let zz_watch = std::env::var("ZZ_WATCH").unwrap_or_default();
+        let mut zz_deepfunded: HashMap<&[(usize, usize)], usize> = HashMap::new();
+        let zz_t0 = std::time::Instant::now();
+        for (zz_round, &index) in schedule.iter().enumerate() {
+            if spent_emissions >= zz_gemit
                 || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
             {
                 break;
@@ -1187,9 +1217,22 @@ impl Generator {
             // display policy can use, and later alignments of the same
             // structure share what is left of the structure's depth.
             let held = funded.get(structure).copied().unwrap_or(0);
-            let emit_allowance = depth_ceiling
-                .saturating_sub(held)
-                .clamp(1, LEXICAL_COMBINATIONS_PER_SEGMENTATION);
+            let zz_isdeep = zz_deep > 0
+                && zz_round >= zz_deepfrom
+                && zz_round < zz_deepfrom + zz_deep;
+            let zz_popcap = if zz_isdeep { zz_deeppops } else { zz_segpops };
+            if zz_isdeep {
+                zz_deepfunded.insert(structure, zz_round);
+            }
+            let emit_allowance = if zz_isdeep {
+                zz_deepcap
+            } else {
+                depth_ceiling.saturating_sub(held).clamp(1, zz_segcap)
+            };
+            if !zz_watch.is_empty() {
+                eprintln!("ZZ_SEG round={zz_round} spans={:?} allow={emit_allowance} held={held}",
+                    structure);
+            }
             let word_count = segmentation.spans.len().max(1) as f64;
 
             let mut slots: Vec<Vec<SlotAlt>> =
@@ -1284,7 +1327,7 @@ impl Generator {
                 EMIT_PROFILE_MAX_DEEP,
             ) {
                 if profile_emitted >= profile_allowance
-                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                    || spent_emissions >= zz_gemit
                 {
                     break;
                 }
@@ -1296,7 +1339,7 @@ impl Generator {
                     &counters::DEEPEST_PROFILE,
                     tuple.iter().copied().max().unwrap_or(0),
                 );
-                recovered.push(partial);
+                zz_note(&partial); recovered.push(partial);
                 profile_emitted += 1;
                 spent_emissions += 1;
                 *funded.entry(structure).or_default() += 1;
@@ -1438,7 +1481,7 @@ impl Generator {
                                     &counters::DEEPEST_TRAVERSAL,
                                     prefix.iter().copied().max().unwrap_or(0),
                                 );
-                                recovered.push(partial);
+                                zz_note(&partial); recovered.push(partial);
                                 emitted += 1;
                                 spent_emissions += 1;
                                 *funded.entry(structure).or_default() += 1;
@@ -1455,8 +1498,7 @@ impl Generator {
                             // so it stops in exactly the place the walk it
                             // replays stopped.
                             if emitted >= emit_allowance
-                                || spent_emissions
-                                    >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                                || spent_emissions >= zz_gemit
                             {
                                 finished = true;
                                 break;
@@ -1465,7 +1507,7 @@ impl Generator {
                         continue;
                     }
 
-                    if !replaying && popped >= LEXICAL_HEAP_POP_LIMIT {
+                    if !replaying && popped >= zz_popcap {
                         finished = true;
                         break;
                     }
@@ -1509,12 +1551,14 @@ impl Generator {
                     continue 'stages;
                 }
                 if next_branch_stage(cap, widest).is_none() {
+                    if !zz_watch.is_empty() { eprintln!("ZZ_BREAK nostage cap={cap} widest={widest}"); }
                     break 'stages;
                 }
-                if popped >= LEXICAL_HEAP_POP_LIMIT
+                if popped >= zz_popcap
                     || spent_pops + popped >= LEXICAL_GLOBAL_POP_BUDGET
-                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                    || spent_emissions >= zz_gemit
                 {
+                    if !zz_watch.is_empty() { eprintln!("ZZ_BREAK round={zz_round} budget popped={popped} zz_popcap={zz_popcap} spent_pops={spent_pops} plus={} spent_em={spent_emissions} gemit={zz_gemit}", spent_pops+popped); }
                     break 'stages;
                 }
                 // Re-seed and replay at the *current* width, so the replay
@@ -1531,6 +1575,22 @@ impl Generator {
                 replaying = true;
             }
             spent_pops += popped;
+            if !zz_watch.is_empty() {
+                eprintln!(
+                    "ZZ_SEGEND round={zz_round} deep={} emitted={emitted} popped={popped} cap={cap} widest={widest} allow={} widths={:?}",
+                    zz_isdeep, emit_allowance, widths
+                );
+            }
+        }
+        if std::env::var("ZZ_SUMMARY").is_ok() {
+            eprintln!(
+                "ZZ_SUMMARY segmentations={} structures={} spent_emissions={spent_emissions} spent_pops={spent_pops} g_emit={zz_gemit} g_pop={} segcap={zz_segcap} segpops={zz_segpops} deep={zz_deep}/{zz_deepcap} recovered={} wall_ms={}",
+                segmentations.len(),
+                funded.len(),
+                LEXICAL_GLOBAL_POP_BUDGET,
+                recovered.len(),
+                zz_t0.elapsed().as_millis()
+            );
         }
 
         completed.extend(recovered);
@@ -1598,6 +1658,20 @@ impl Generator {
                     cutoff.score,
                     cutoff.phrase
                 );
+            }
+        }
+
+        if let Ok(zz_below) = std::env::var("ZZ_BELOW") {
+            let t: f64 = zz_below.parse().unwrap();
+            let above = clues.iter().filter(|c| c.score > t).count();
+            let below = clues.len() - above;
+            eprintln!("ZZ_DIST total={} above({t})={above} at_or_below={below}", clues.len());
+            let mut v: Vec<f64> = clues.iter().map(|c| c.score).collect();
+            v.sort_by(|a, b| b.partial_cmp(a).unwrap());
+            for q in [0usize, 199, 999, 4999, 9999, 19999] {
+                if let Some(s) = v.get(q) {
+                    eprintln!("ZZ_Q rank={q} score={s:.9}");
+                }
             }
         }
 
