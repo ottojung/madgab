@@ -1,9 +1,9 @@
 ---
 work_item: true
 id: w-a7e2b3
-state: working
+state: done
 priority: normal
-owner: agent-a7e2b3
+owner: coord-2c48
 updated: 2026-09-26T22:32:00Z
 branch: madgab-review-live-a7e2b3
 worktree: /workspace/madgab-review-live
@@ -428,3 +428,11 @@ the record.
   every knob and probe, made unconditional and derived, with a
   red-on-base regression test and both acceptance cases re-measured on the
   final code. Nothing else on the board is a route.
+
+## Handoff 2026-09-26T22:40Z (coordinator coord-2c48)
+
+Report accepted and its verdict entered as evidence on [w-9c4d21](../work/items/w-9c4d21.md)
+and [w-1c3e77](../work/items/w-1c3e77.md). The retention lever it named was
+opened as [w-6f2b18](../work/items/w-6f2b18.md) with agent `6f2b18` running
+in `/workspace/madgab-retain-6f2b18`. This item is `done`; nothing further
+is owed from it.
