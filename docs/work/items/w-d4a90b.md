@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-d4a90b
-state: working
+state: done
 priority: high
 owner: agent-d4a90b
-updated: 2026-09-26T21:40:00Z
+updated: 2026-09-26T22:12:00Z
 branch: madgab-postpunch-measure
 worktree: /workspace/madgab-d4a90b
 ---
@@ -84,3 +84,118 @@ current-tree distance). Left running; a later fresh pass inspects it.
 The second example's *status* is unchanged by this item: the milestone is still
 unmet, and closing it belongs to [w-2f7a10](w-2f7a10.md), [w-4b1e07](w-4b1e07.md)
 and [w-a02d28](w-a02d28.md) together.
+
+## Coordinator pass 2026-09-26T22:12Z (coord-7a4e): reviewed, numbers copied in, `done`
+
+Completion criteria are met, so this item is closed. Reviewed from the pushed
+branch, not the worktree: `madgab-postpunch-measure` is `2860b57` on `origin`,
+and `git diff post-milestone-acceptance...2860b57 -- src tests` is **empty**, so
+the fence held and no constant, test or selection policy was touched. The
+branch was **not** merged and must not be; the measurements are on it at
+`measurements/d4a90b/`. Read the report with
+`git show 2860b57:REPORT-d4a90b.md`.
+
+### The five answers, copied in
+
+**1 — default `top_n` and `--top 50` on the release binary.**
+
+| | CLI default (`top_n` 10) | `--top 50` |
+| --- | --- | --- |
+| pool | `13498` | `17827` |
+| proposals printed | 10 | 50 |
+| worst **visible** (post-diversity) | rank 10, `0.900`, `it said thus test oop games` | rank 50, `0.898`, `it said thus tas too dame` |
+| raw cutoff (`MADGAB_TRACE raw_cutoff`) | rank 9, `0.900786673`, `it justice too bed aim` | rank 49, `0.898008919`, `it justice too bed same` |
+| requested wording enumerated? | **no** | **no** |
+
+The raw cutoff and the worst visible proposal are quoted separately because they
+differ: `select_diverse` reorders and rebalances after the pool is scored, so
+the pool's `top_n`-th member is not the last thing the user sees.
+
+**2 — score, delta and rank, quoted separately.** The target's **rank is
+undefined in both configurations**, which is the headline:
+
+| quantity | `top_n` 10 | `--top 50` |
+| --- | --- | --- |
+| target score | `0.79990129077367222` | `0.79990129077367222` |
+| delta vs worst visible | `0.10026892900503859` | `0.09785131568084526` |
+| rank | undefined — absent from all `13498` | undefined — absent from all `17827` |
+
+Delta vs rank 1 at `--top 50` is `0.10528552125503088`. The score is a
+reconstruction through the crate's own `Partial::extend_fuzzy` and
+`Partial::into_clue`, verified by reproducing the printed scores of two known
+enumerated proposals to the last bit. Also measured, and the reason the framing
+is wrong: the phrase is **budget-admissible** — per-word costs `0.2 / 0.0 /
+0.15 / 0.3695 / 0.4`, `sub_cost_total=1.11951981416578961` against
+`total_budget 1.5`, every per-word cost <= `0.5`, and exactly one complete
+lattice alignment. **No `hid`, `dupe` or `hits` proposal is enumerated at either
+breadth**; the closest relative is `it justice too bad came` at rank 18 of 50.
+
+**3 — per-axis decomposition on the current head.** Weights as compiled on
+`f5b9eaa`: `SIMILARITY 0.25`, `NOVELTY 0.15`, `WORD_NOVELTY 0.15`,
+`FAMILIARITY 0.1`, `RHYTHM 0.3`, `SHAPE 0.05`, `CLOSED_CLASS -0.15`,
+`PUNCH 0.1`. The six pre-PUNCH additive weights sum to `1.00000000000000000`
+exactly; with `PUNCH` the total is `1.10000000000000009`, and since `PUNCH` is
+applied as `0.10 * (punch - 1.0)` and `CLOSED_CLASS` as `-0.15 *
+closed_penalty`, both are non-positive and the objective's maximum is still
+`1.0`.
+
+Contributions to the delta, target -> worst visible at `--top 50`, summing to
+the measured `0.097851316`:
+
+| axis | contribution |
+| --- | --- |
+| `NOVELTY` | **`+0.050000000`** |
+| `FAMILIARITY` | `+0.022522990` |
+| `PUNCH` | `+0.020000000` |
+| `SIMILARITY` | `+0.010328325` |
+| `CLOSED_CLASS` | `-0.004166667` |
+| `SHAPE` | `-0.000833333` |
+| `WORD_NOVELTY`, `RHYTHM` | `0.000000000` |
+
+Which axis *moves the target*: `RHYTHM` (weight `0.30`, the largest) and
+`WORD_NOVELTY` are saturated at `1.0` for **both** sides and distinguish
+nothing — the band's advantage is not rhythm. `NOVELTY` is now dominant at 51%
+of the deficit, and it is the axis that moves the *band* around the target: the
+canonical resegmentation `hits|justice|dupe|hid|came` lands on
+`cuts=[3,10,13,15,19]` against target boundaries `[3,8,9,15,19]` and so
+reproduces 2 of 4 inner boundaries (`0.666666667`), while the worst visible
+proposal reproduces none and is rewarded the full `1.0`. `PUNCH` is the one axis
+that moves the target: `punch=0.800000000` because `dupe` is not monosyllabic
+(`punch_count=4` of `5`), costing a flat `0.020000000`, while the worst visible
+proposal is 6 of 6 monosyllabic and pays nothing. On the pre-PUNCH objective
+the deficit would have been `0.077851316`, so **PUNCH alone widens the measured
+gap by `0.020000000`**, asymmetrically, because the band already sits at
+PUNCH's ceiling and only the target can lose.
+
+**4 — regression status, quoted.** `cargo test --release --test
+corpus_integration` on this branch: `10 passed; 1 failed`.
+`approximate_finds_recognize_speech_resegmentation ... ok`;
+`approximate_finds_classic_madgab_resegmentation ... FAILED`, panicking at
+`tests/corpus_integration.rs:136` with the same twelve `it justice ...` /
+`it said thus ...` wordings. No test was edited. The harness says "missing from
+top 50"; the trace evidence is sharper — the phrase is missing from the pool of
+`17827`.
+
+**5 — wall clock.** Three runs per configuration, whole process: `top_n` 10 at
+`2664 / 2848 / 2514 ms` (search `1959 / 2072 / 1808 ms`), `--top 50` at
+`2357 / 2124 / 2215 ms` (search `1696 / 1464 / 1553 ms`). Roughly `0.45-0.57 s`
+is corpus load. **`--top 50` is not measurably more expensive than the default**:
+raising `top_n` from 10 to 50 moved the pool from 13 498 to 17 827 candidates
+and did not move the cost, so breadth alone is not the lever.
+
+### What this closed, and what it opened
+
+This item's brief expected a scoring distance and got a **localisation of the
+loss to enumeration instead**: the wording is admissible, scoreable, and never
+enumerated, so no score, admission, share-cap or cutoff change can surface it.
+Two shortcuts were available and declined, and are recorded in the report: no
+budget, retention or selection constant was widened to make the target appear,
+and the alignment was not hand-picked (the lattice admits exactly one).
+
+The follow-up is [w-1c3e77](w-1c3e77.md), opened on the same evidence, with an
+independent measurement arm at [w-5d2a91](w-5d2a91.md). This item is closed and
+is not reopened by them; the second example's status is unchanged, and it,
+[w-2f7a10](w-2f7a10.md), [w-4b1e07](w-4b1e07.md) and
+[w-a02d28](w-a02d28.md) still fold-close together on
+`approximate_finds_classic_madgab_resegmentation` passing with its assertion
+unmodified.
