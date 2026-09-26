@@ -300,6 +300,7 @@ impl Generator {
                 ));
             }
             // Take ownership of the beam-at-p so we can mutate beam[p..] freely.
+            // Take ownership of the beam-at-p so we can mutate beam[p..] freely.
             let here = beam[p].take_entries();
             for partial in &here {
                 let remaining_budget = total_budget - partial.sub_cost_total;
@@ -321,7 +322,7 @@ impl Generator {
                     if !terminal
                         && !beam[end].would_admit(
                             &partial.key,
-                            partial.key.is_empty(),
+                            &m.word,
                             &m.ipa,
                             partial.words.len() + 1,
                             cand_sub,
@@ -739,7 +740,6 @@ impl ApproxTrie {
                 }
             })
             .collect();
-        // Dedup identical (word, consumed) keeping cheapest.
         out.sort_by(|a, b| {
             a.cost
                 .partial_cmp(&b.cost)
@@ -748,7 +748,8 @@ impl ApproxTrie {
         });
         let mut seen: HashSet<(String, usize)> = HashSet::new();
         out.retain(|m| seen.insert((m.word.clone(), m.consumed)));
-        shortlist_diverse(out, cap)
+        let result = shortlist_diverse(out, cap);
+        result
     }
 }
 
@@ -819,7 +820,10 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
         };
         // Highest cost in the span, preferring non-familiarity
         // picks; fall back to familiarity picks when the span
-        // holds nothing else.
+        // holds nothing else. Ties break by word so the trim is
+        // deterministic across runs (HashSet iteration order is
+        // random; an untied max_by would pick a random victim
+        // among equals and make beam retention flaky).
         let victim = kept
             .iter()
             .filter(|&&i| out[i].consumed == span && !fam_kept.contains(&i))
@@ -828,6 +832,7 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
                     .cost
                     .partial_cmp(&out[b].cost)
                     .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| out[a].word.cmp(&out[b].word))
             })
             .or_else(|| {
                 kept.iter()
@@ -837,6 +842,7 @@ fn shortlist_diverse(out: Vec<ApproxMatch>, cap: usize) -> Vec<ApproxMatch> {
                             .cost
                             .partial_cmp(&out[b].cost)
                             .unwrap_or(std::cmp::Ordering::Equal)
+                            .then_with(|| out[a].word.cmp(&out[b].word))
                     })
             })
             .copied();
@@ -896,16 +902,26 @@ struct Partial {
     /// bonuses) used only to prune the beam. The final Clue score
     /// replaces this with the full novelty-aware computation.
     cheap_score: f64,
-    /// Cached clone-detection key: the space-joined stripped IPA of
-    /// the words so far. Corpus keys carry case/punctuation/source
-    /// variants of the same lexical item ("its" vs "it's"), and
-    /// English piles homophone spellings on identical sounds
-    /// ("to"/"too"/"two" → "tu"). Both parse identically for Mad
-    /// Gab purposes — same span, same acoustics — so the beam keeps
-    /// only the best-scoring copy per IPA sequence and spends its
-    /// slots on acoustically distinct parses. (Spelling-variant
-    /// narrowing is deliberate: the puzzle is the sound.)
+    /// Cached clone-detection key: per-step
+    /// (lowercased-word, IPA) pairs joined with control separators
+    /// that cannot occur in either field. Lexical identity is part
+    /// of the key on purpose: homophones ("wreck"/"rec",
+    /// "there"/"their", "to"/"too"/"two") are different Mad Gab
+    /// outputs — word identity feeds familiarity and word-novelty
+    /// scoring downstream — so they must coexist in the beam even
+    /// when their sounds match exactly. Only exact duplicate corpus
+    /// records (same word *and* same IPA) collapse to one slot, best
+    /// cheap wins. (An earlier IPA-only key let one homophonic path
+    /// occupy the slot and reject its lexical alternatives, e.g.
+    /// 'wreck' losing its key to another /rɛk/ entry at p=0.)
     key: String,
+    /// Compact approximate segmentation history: per-word consumed
+    /// target chars. Identifies *where* the parse cuts the target
+    /// stream, independent of the acoustic spellings in `key`.
+    /// Deliberately NOT part of the cell key — cells stay
+    /// (word-count, cost-tier) so diverse segmentations compete for
+    /// the same quota and the retention policy can arbitrate.
+    segs: Vec<u16>,
 }
 
 impl Partial {
@@ -915,6 +931,7 @@ impl Partial {
             sub_cost_total: 0.0,
             cheap_score: 0.0,
             key: String::new(),
+            segs: Vec::new(),
         }
     }
 
@@ -927,8 +944,39 @@ impl Partial {
             .collect()
     }
 
+    /// One clone-key step: lowercased word and IPA joined with a
+    /// unit separator; steps join with a record separator. Neither
+    /// control character can occur in corpus headwords or IPA, so
+    /// the encoding is collision-safe. Apostrophes are meaningful
+    /// ("it's" vs "its") and preserved — only case is folded.
+    fn key_step(word: &str, ipa: &str) -> String {
+        format!("{}\x1f{}", word.to_lowercase(), ipa)
+    }
+
+    /// Clone key for a candidate extending `base` (empty for the
+    /// first word) with `(word, ipa)`. Shared by [`Partial`]
+    /// construction and the [`BeamPos::would_admit`] pre-filter so
+    /// the gate can never drift from the slot it predicts.
+    fn join_key(base: &str, word: &str, ipa: &str) -> String {
+        let step = Self::key_step(word, ipa);
+        if base.is_empty() {
+            step
+        } else {
+            format!("{base}\x1e{step}")
+        }
+    }
+
     fn extend(&self, p: &Pronunciation, _consumed: usize, word_sub_cost: f64) -> Self {
-        Self::extend_words(self, &p.word, &p.ipa, p.rarity, word_sub_cost, 0.0, 0.0)
+        Self::extend_words(
+            self,
+            &p.word,
+            &p.ipa,
+            p.rarity,
+            word_sub_cost,
+            0.0,
+            0.0,
+            _consumed,
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -950,6 +998,7 @@ impl Partial {
             word_sub_cost,
             boundary_bonus,
             reuse_penalty,
+            _consumed,
         )
     }
 
@@ -1012,6 +1061,7 @@ impl Partial {
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
+        consumed: usize,
     ) -> Self {
         let step = Self::step_cheap(
             ipa.chars().count(),
@@ -1033,10 +1083,11 @@ impl Partial {
             },
             sub_cost_total: self.sub_cost_total + word_sub_cost,
             cheap_score: self.cheap_score + step,
-            key: if self.key.is_empty() {
-                ipa.to_string()
-            } else {
-                format!("{} {ipa}", self.key)
+            key: Self::join_key(&self.key, word, ipa),
+            segs: {
+                let mut s = self.segs.clone();
+                s.push(consumed.min(u16::MAX as usize) as u16);
+                s
             },
         }
     }
@@ -1048,7 +1099,10 @@ impl Partial {
     /// mid-parse — but terminal retention can and does (see
     /// [`CompletionTop`]).
     fn final_score(&self, target_boundaries: &[usize], target_words: &HashSet<String>) -> f64 {
-        // Reconstruct the clue's boundary set.
+        // Reconstruct the clue's boundary set from per-word IPA
+        // lengths (the historical convention). The segmentation
+        // history in `segs` stays out of scoring — it only powers
+        // beam-retention diversity.
         let mut cum = 0_usize;
         let mut clue_boundaries: Vec<usize> = Vec::with_capacity(self.words.len());
         for w in &self.words {
@@ -1056,9 +1110,10 @@ impl Partial {
             clue_boundaries.push(cum);
         }
 
-        // Novelty: how few of the target's word boundaries the clue
-        // also has. Boundary at the end of the phrase is shared by
-        // construction, so exclude it.
+        // Novelty as symmetric Jaccard distance over inner boundary
+        // sets: rewards both removed target boundaries and added
+        // clue boundaries. Boundary at the end of the phrase is
+        // shared by construction, so exclude it.
         let target_inner: HashSet<usize> = target_boundaries
             .iter()
             .copied()
@@ -1070,8 +1125,12 @@ impl Partial {
             .filter(|b| *b < cum)
             .collect();
         let shared = target_inner.intersection(&clue_inner).count() as f64;
-        let denom = target_inner.len().max(1) as f64;
-        let novelty = 1.0 - (shared / denom);
+        let union = target_inner.union(&clue_inner).count() as f64;
+        let novelty = if union < 1.0 {
+            0.0
+        } else {
+            1.0 - (shared / union)
+        };
 
         // Word-novelty: penalty if the clue reuses any target word.
         let reused = self
@@ -1264,7 +1323,8 @@ fn insert_top_k(beam: &mut Vec<Partial>, candidate: Partial, k: usize) {
 
 /// Terminal shortlist ranked by final score: a min-heap of live
 /// score bits plus a key→entry table for clone suppression (one
-/// slot per distinct IPA parse). Stale heap entries (from
+/// slot per distinct word+pronunciation parse — homophonic lexical
+/// alternatives coexist, only exact duplicates collapse). Stale heap entries (from
 /// superseded clones) are skipped lazily at drain time. Capped so
 /// the final re-rank (sort + diversity selection) stays
 /// interactive even when the beam produces hundreds of thousands
@@ -1403,8 +1463,9 @@ const ENDING_EPS: f64 = 0.50;
 
 struct BeamPos {
     entries: Vec<Partial>,
-    /// Clone key -> (index, cheap). Clone keys are IPA sequences;
-    /// same-sound spellings share one slot, best cheap wins.
+    /// Clone key -> (index, cheap). Clone keys are
+    /// (lowercased-word, IPA) sequences; only exact duplicate records
+    /// share one slot, best cheap wins.
     keys: HashMap<String, (usize, f64)>,
     /// (word count, cost tier) -> member indices. Each cell is an
     /// independent quota: word counts and cost tiers can never steal
@@ -1416,6 +1477,21 @@ struct BeamPos {
     /// Powers ending-novelty admission: the first prefix with a
     /// given ending sound always finds a foothold in its cell.
     ending_counts: HashMap<((usize, u8), String), usize>,
+    /// ((word count, cost tier), coarse recent-shape signature) ->
+    /// member count. Coarse signature = last two consumed target
+    /// spans (0 sentinel for missing). Full-vector signatures made
+    /// nearly every parse unique and fragmented diversity classes;
+    /// the last-two shape preserves recent resegmentation geometry
+    /// without over-fragmenting. `Partial::segs` keeps the full
+    /// history; only diversity comparisons use this coarse key.
+    seg_counts: HashMap<((usize, u8), (u16, u16)), usize>,
+    /// ((word count, cost tier), coarse sig, ending IPA) -> count.
+    /// Joint census: the exact intersection can go empty while both
+    /// marginals remain, so near-tie admission first evicts a member
+    /// of a duplicated joint category one-in/one-out, preserving at
+    /// least one representative of each existing joint category.
+    /// `None` ending (wordless roots) is its own category.
+    joint_counts: HashMap<((usize, u8), (u16, u16), Option<String>), usize>,
     k: usize,
     cell_cap: usize,
     cell_hard: usize,
@@ -1429,6 +1505,8 @@ impl BeamPos {
             cell_members: HashMap::new(),
             cell_min: HashMap::new(),
             ending_counts: HashMap::new(),
+            seg_counts: HashMap::new(),
+            joint_counts: HashMap::new(),
             k,
             cell_cap: (k / 8).max(8),
             cell_hard: (k / 8).max(8) * HARD_MULT,
@@ -1446,6 +1524,8 @@ impl BeamPos {
         self.cell_members.clear();
         self.cell_min.clear();
         self.ending_counts.clear();
+        self.seg_counts.clear();
+        self.joint_counts.clear();
         std::mem::take(&mut self.entries)
     }
 
@@ -1465,7 +1545,7 @@ impl BeamPos {
     fn would_admit(
         &self,
         partial_key: &str,
-        partial_key_empty: bool,
+        match_word: &str,
         match_ipa: &str,
         cand_words: usize,
         cand_sub: f64,
@@ -1478,6 +1558,7 @@ impl BeamPos {
         let cell_count = self.cell_members.get(&cell).map_or(0, Vec::len);
         if cell_count >= self.cell_cap
             && !self.cell_admits(cell, cell_count, cand_cheap, cand_sub)
+            && !self.diversity_admits(cell, cand_cheap)
             // Last resort (mirrors insert): a first-of-ending sound
             // joins if within ENDING_EPS of the kept worst.
             // PicoWord endings stay under pico policy below.
@@ -1500,22 +1581,14 @@ impl BeamPos {
                 })
             });
             if !takes_slot {
-                let key = if partial_key_empty {
-                    match_ipa.to_string()
-                } else {
-                    format!("{partial_key} {match_ipa}")
-                };
+                let key = Partial::join_key(partial_key, match_word, match_ipa);
                 return match self.keys.get(&key) {
                     Some(&(_, cheap)) => cand_cheap > cheap,
                     None => false,
                 };
             }
         }
-        let key = if partial_key_empty {
-            match_ipa.to_string()
-        } else {
-            format!("{partial_key} {match_ipa}")
-        };
+        let key = Partial::join_key(partial_key, match_word, match_ipa);
         match self.keys.get(&key) {
             Some(&(_, cheap)) => cand_cheap > cheap,
             None => true,
@@ -1578,6 +1651,231 @@ impl BeamPos {
             .copied()
             .unwrap_or(0)
             == 0
+    }
+
+    /// Coarse recent-shape signature for diversity: the last two
+    /// consumed target spans (0 sentinel for missing). Full-vector
+    /// equality fragmented every parse into its own class; the
+    /// last-two window keeps recent resegmentation geometry while
+    /// letting redundancy actually form.
+    fn coarse_sig(segs: &[u16]) -> (u16, u16) {
+        let l = segs.len();
+        let last = if l >= 1 { segs[l - 1] } else { 0 };
+        let prev = if l >= 2 { segs[l - 2] } else { 0 };
+        (prev, last)
+    }
+
+    /// Worst member whose coarse recent-shape signature occurs >=2 times
+    /// in its cell (consulting the incremental `seg_counts` census)
+    /// *and* whose cheap_score lags the BEST (maximum cheap_score)
+    /// member of that same signature by more than EPSILON, if any.
+    /// cheap_score higher is better, so the group best is a maximum.
+    /// Two linear passes over the (<=64) cell members: first builds
+    /// the per-signature maxima, then selects the globally weakest
+    /// qualifying loser. Evicting from duplicated signatures
+    /// preserves sole representatives of distinct segmentations —
+    /// and near-tie twins of a shared segmentation are spared too
+    /// (only a clear loser within its own group is redundancy).
+    /// Last-word IPA ending of an entry, if it has any words.
+    /// Entries without words (beam roots) have no ending and count
+    /// as unique on the ending axis.
+    fn entry_ending(idx_entry: &Partial) -> Option<&str> {
+        idx_entry.words.last().map(|w| w.ipa.as_str())
+    }
+
+    /// Joint category key: (cell, coarse sig, ending). The exact
+    /// intersection of the two marginal diversity axes.
+    fn joint_key(
+        cell: (usize, u8),
+        segs: &[u16],
+        ending: Option<&str>,
+    ) -> ((usize, u8), (u16, u16), Option<String>) {
+        (cell, Self::coarse_sig(segs), ending.map(|e| e.to_string()))
+    }
+
+    /// Weakest member whose JOINT category count exceeds one, if any.
+    /// Evicting such a member preserves at least one representative
+    /// of every existing joint category. Single linear scan over the
+    /// (<=64) cell members; cheap_score higher is better so the
+    /// victim is the minimum.
+    fn joint_redundant_worst(&self, cell: (usize, u8)) -> Option<usize> {
+        let members = self.cell_members.get(&cell)?;
+        let mut victim: Option<usize> = None;
+        let mut victim_cheap = f64::INFINITY;
+        for &i in members.iter() {
+            let key = Self::joint_key(
+                cell,
+                &self.entries[i].segs,
+                Self::entry_ending(&self.entries[i]),
+            );
+            if self.joint_counts.get(&key).copied().unwrap_or(0) <= 1 {
+                continue;
+            }
+            let c = self.entries[i].cheap_score;
+            if c < victim_cheap {
+                victim_cheap = c;
+                victim = Some(i);
+            }
+        }
+        victim
+    }
+
+    /// Worst member redundant on the generic diversity axes, if any.
+    /// A member is redundant on the segmentation axis when its coarse
+    /// recent-shape signature occurs >=2 times in its cell
+    /// (incremental `seg_counts` census), and redundant on the ending
+    /// axis when its last-word IPA occurs >=2 times (`ending_counts`
+    /// census). Victim tiers, in order: (1) the weakest clear loser
+    /// redundant on BOTH axes (lags its segmentation-group best or
+    /// its ending-group best by more than EPSILON); (2) the weakest
+    /// clear loser redundant on AT LEAST ONE axis; (3) fallback to
+    /// the weakest member redundant on both axes, else the weakest
+    /// member redundant on at least one axis, so a near-tie diverse
+    /// candidate still finds a one-in/one-out foothold in a uniformly
+    /// tight cell. A member that is the sole representative of both
+    /// its signature and its ending is never returned here; such a
+    /// foothold is only displaced by the strict scalar/dominance
+    /// paths in `insert`. All scans are O(cell members) (<=64).
+    /// cheap_score higher is better, so group bests are maxima.
+    fn redundant_worst(&self, cell: (usize, u8)) -> Option<usize> {
+        let members = self.cell_members.get(&cell)?;
+        // Pass 1: per-group bests (maximum cheap_score) on each axis.
+        let mut seg_best: HashMap<(u16, u16), f64> = HashMap::new();
+        let mut end_best: HashMap<String, f64> = HashMap::new();
+        for &i in members.iter() {
+            let s = Self::coarse_sig(&self.entries[i].segs);
+            let c = self.entries[i].cheap_score;
+            seg_best.entry(s).and_modify(|b| *b = b.max(c)).or_insert(c);
+            if let Some(e) = Self::entry_ending(&self.entries[i]) {
+                end_best
+                    .entry(e.to_string())
+                    .and_modify(|b| *b = b.max(c))
+                    .or_insert(c);
+            }
+        }
+        // Per-member redundancy flags from the incremental censuses.
+        let seg_red = |i: usize| -> bool {
+            let s = Self::coarse_sig(&self.entries[i].segs);
+            self.seg_counts.get(&(cell, s)).copied().unwrap_or(0) > 1
+        };
+        let end_red = |i: usize| -> bool {
+            match Self::entry_ending(&self.entries[i]) {
+                Some(e) => {
+                    self.ending_counts
+                        .get(&(cell, e.to_string()))
+                        .copied()
+                        .unwrap_or(0)
+                        > 1
+                }
+                None => false,
+            }
+        };
+        // A clear loser lags the best holder of one of its redundant
+        // groups by more than EPSILON; near-tie twins are kept.
+        let clear_loser = |i: usize| -> bool {
+            let c = self.entries[i].cheap_score;
+            if seg_red(i) {
+                let s = Self::coarse_sig(&self.entries[i].segs);
+                let g = seg_best.get(&s).copied().unwrap_or(c);
+                if c < g - EPSILON {
+                    return true;
+                }
+            }
+            if end_red(i) {
+                if let Some(e) = Self::entry_ending(&self.entries[i]) {
+                    let g = end_best.get(e).copied().unwrap_or(c);
+                    if c < g - EPSILON {
+                        return true;
+                    }
+                }
+            }
+            false
+        };
+        // Tiered search: both-axes clear losers, then either-axis
+        // clear losers, each taking the globally weakest qualifier.
+        for both in [true, false] {
+            let mut best: Option<usize> = None;
+            let mut best_cheap = f64::INFINITY;
+            for &i in members.iter() {
+                let sr = seg_red(i);
+                let er = end_red(i);
+                let in_tier = if both { sr && er } else { sr || er };
+                if !in_tier {
+                    continue;
+                }
+                if !clear_loser(i) {
+                    continue;
+                }
+                let c = self.entries[i].cheap_score;
+                if c < best_cheap {
+                    best_cheap = c;
+                    best = Some(i);
+                }
+            }
+            if best.is_some() {
+                return best;
+            }
+        }
+        // Fallback: weakest member of the preferred tier, so near-tie
+        // diversity still displaces genuine redundancy one-in/one-out
+        // instead of locking out. Prefers both-axes redundancy, then
+        // either-axis redundancy; sole holders of both axes yield None.
+        for both in [true, false] {
+            let mut victim: Option<usize> = None;
+            let mut victim_cheap = f64::INFINITY;
+            for &i in members.iter() {
+                let sr = seg_red(i);
+                let er = end_red(i);
+                let in_tier = if both { sr && er } else { sr || er };
+                if !in_tier {
+                    continue;
+                }
+                let c = self.entries[i].cheap_score;
+                if c < victim_cheap {
+                    victim_cheap = c;
+                    victim = Some(i);
+                }
+            }
+            if victim.is_some() {
+                return victim;
+            }
+        }
+        None
+    }
+
+    /// Diversity admission at a hard-capped cell: a near-tie
+    /// candidate (within EPSILON of the kept worst) may displace a
+    /// redundant member — preferring one redundant on both diversity
+    /// axes, then on at least one — so sole holders of a distinct
+    /// segmentation and a distinct ending keep
+    /// their sole representatives while near-tie hypotheses the beam
+    /// cannot resolve still find a foothold. Total cap unchanged —
+    /// one in, one out. Candidates whose signature is already held
+    /// follow the same rule: they join by displacing redundancy
+    /// (normal score/dominance policy below then keeps the better
+    /// representative among identical segmentations, since eviction
+    /// always takes the worst of the duplicated group first).
+    /// Two linear passes over the (<=64) cell members via
+    /// [`BeamPos::redundant_worst`].
+    fn diversity_admits(&self, cell: (usize, u8), cand_cheap: f64) -> bool {
+        let cell_count = self.cell_members.get(&cell).map_or(0, Vec::len);
+        if cell_count < self.cell_hard {
+            return false;
+        }
+        let min = match self.cell_min.get(&cell) {
+            Some(&(_, min)) => min,
+            None => return false,
+        };
+        if cand_cheap <= min - EPSILON {
+            return false;
+        }
+        // Joint duplicates first: the exact intersection can go empty
+        // while marginals remain, so a duplicated joint category is
+        // the preferred one-in/one-out foothold.
+        if self.joint_redundant_worst(cell).is_some() {
+            return true;
+        }
+        self.redundant_worst(cell).is_some()
     }
 
     /// Weakest member the candidate strictly dominates (candidate
@@ -1701,29 +1999,93 @@ impl BeamPos {
                 return;
             }
         }
-        // Settled cell: displace the worst on a strict heuristic
-        // improvement, else a member the candidate epsilon-dominates,
-        // else (last resort) a first-of-ending displacement: a
-        // candidate whose last-word sound is absent from the cell
-        // joins by displacing the cell worst if it is within
-        // ENDING_EPS of it. Endings are the perceptually salient
-        // part of a clue; this guarantees every distinct ending a
-        // foothold without growing the cell.
+        // Settled cell: diversity-aware displacement without
+        // growing the cap. A near-tie candidate (within EPSILON of
+        // the kept worst) displaces a redundant member — one whose
+        // segmentation signature is shared with another kept member
+        // — rather than being rejected, so distinct segmentations
+        // keep their sole representatives while near-tie hypotheses
+        // the beam cannot resolve still find a foothold. Strict
+        // scalar improvements evict from duplicated signatures when
+        // possible (and only when beating the victim, so displacement
+        // is never better-for-worse) so a unique segmentation
+        // foothold is not churned out. Candidates whose signature is
+        // already held follow the same rule: they displace
+        // redundancy, and eviction always takes the worst of the
+        // duplicated group first, so the better representative among
+        // identical segmentations prevails over time.
+        let joint_redundant = self.joint_redundant_worst(cell);
+        let redundant = self.redundant_worst(cell);
+        // Near-tie candidate displaces redundancy even without a
+        // strict improvement: joint duplicates first, then marginal
+        // redundancy.
+        if let Some(min) = self.cell_min.get(&cell).map(|(_, m)| *m) {
+            if candidate.cheap_score > min - EPSILON {
+                if let Some(idx) = joint_redundant {
+                    self.replace(idx, candidate);
+                    return;
+                }
+                if let Some(idx) = redundant {
+                    self.replace(idx, candidate);
+                    return;
+                }
+            }
+        }
         let victim = self
             .cell_min
             .get(&cell)
             .filter(|(_, min)| candidate.cheap_score > *min)
             .map(|(idx, _)| *idx)
-            .or_else(|| self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total));
+            .map(|min_idx| {
+                // Prefer evicting joint redundancy, then marginal
+                // redundancy, on strict improvements — but never
+                // evict better-for-worse: divert only when the
+                // candidate also beats the redundant victim.
+                if let Some(r) = joint_redundant {
+                    if candidate.cheap_score > self.entries[r].cheap_score {
+                        return r;
+                    }
+                }
+                if let Some(r) = redundant {
+                    if candidate.cheap_score > self.entries[r].cheap_score {
+                        return r;
+                    }
+                }
+                min_idx
+            })
+            .or_else(|| {
+                let d = self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total);
+                d
+            });
         if let Some(idx) = victim {
             self.replace(idx, candidate);
             return;
         }
         // Last resort: first-of-ending novelty displaces the cell
-        // worst (mirrors the gate's novelty check).
+        // worst (mirrors the gate's novelty check) — but a unique
+        // segmentation foothold is spared when a redundant member
+        // can go instead (and only when the candidate beats it, so
+        // novelty never evicts better-for-worse).
         if let Some(end_ipa) = candidate.words.last().map(|w| w.ipa.clone()) {
             if self.novel_ending(cell, &end_ipa, candidate.cheap_score) {
+                if let Some(r) = joint_redundant {
+                    if candidate.cheap_score > self.entries[r].cheap_score {
+                        self.replace(r, candidate);
+                        return;
+                    }
+                }
+                if let Some(r) = redundant {
+                    if candidate.cheap_score > self.entries[r].cheap_score {
+                        self.replace(r, candidate);
+                        return;
+                    }
+                }
                 if let Some(&(idx, _)) = self.cell_min.get(&cell) {
+                    // Never evict the sole holder of a distinct
+                    // segmentation for an ending-novelty swap when
+                    // the worst slot itself is that sole holder and
+                    // a duplicate exists elsewhere... (handled
+                    // above); otherwise displace the worst.
                     self.replace(idx, candidate);
                 }
             }
@@ -1739,6 +2101,18 @@ impl BeamPos {
         if let Some(w) = candidate.words.last() {
             *self.ending_counts.entry((cell, w.ipa.clone())).or_default() += 1;
         }
+        *self
+            .seg_counts
+            .entry((cell, Self::coarse_sig(&candidate.segs)))
+            .or_default() += 1;
+        *self
+            .joint_counts
+            .entry(Self::joint_key(
+                cell,
+                &candidate.segs,
+                candidate.words.last().map(|w| w.ipa.as_str()),
+            ))
+            .or_default() += 1;
         self.entries.push(candidate);
         Self::lower_min(&mut self.cell_min, cell, idx, cheap);
     }
@@ -1759,6 +2133,46 @@ impl BeamPos {
             self.entries[idx].words.len(),
             self.entries[idx].sub_cost_total,
         );
+        // Coarse-signature census follows the entry: decrement
+        // the old (cell, sig), increment the new one. Handles both
+        // same-cell sig changes and cross-cell moves.
+        if old_cell != new_cell || old.segs != self.entries[idx].segs {
+            let old_key = (old_cell, Self::coarse_sig(&old.segs));
+            let mut drop_old = false;
+            if let Some(c) = self.seg_counts.get_mut(&old_key) {
+                *c = c.saturating_sub(1);
+                drop_old = *c == 0;
+            }
+            if drop_old {
+                self.seg_counts.remove(&old_key);
+            }
+            *self
+                .seg_counts
+                .entry((new_cell, Self::coarse_sig(&self.entries[idx].segs)))
+                .or_default() += 1;
+        }
+        // Joint census follows the entry: decrement the old
+        // (cell, sig, ending), increment the new one. Handles
+        // same-cell sig/ending changes and cross-cell moves.
+        {
+            let old_key = Self::joint_key(old_cell, &old.segs, Self::entry_ending(&old));
+            let new_key = Self::joint_key(
+                new_cell,
+                &self.entries[idx].segs,
+                Self::entry_ending(&self.entries[idx]),
+            );
+            if old_key != new_key {
+                let mut drop_old = false;
+                if let Some(c) = self.joint_counts.get_mut(&old_key) {
+                    *c = c.saturating_sub(1);
+                    drop_old = *c == 0;
+                }
+                if drop_old {
+                    self.joint_counts.remove(&old_key);
+                }
+                *self.joint_counts.entry(new_key).or_default() += 1;
+            }
+        }
         if old_cell != new_cell {
             if let Some(members) = self.cell_members.get_mut(&old_cell) {
                 if let Some(pos) = members.iter().position(|&i| i == idx) {
@@ -1938,6 +2352,7 @@ mod pareto_tests {
             sub_cost_total: cost,
             cheap_score: cheap,
             key: key.to_string(),
+            segs: vec![2u16; nwords],
         }
     }
 
@@ -1969,6 +2384,248 @@ mod pareto_tests {
             beam.entries.iter().any(|p| p.key == "re seg"),
             "low-cost resegmentation prefix was squeezed out by parrots"
         );
+    }
+
+    /// Clone identity is lexical *and* acoustic: two different words
+    /// with identical IPA must coexist in one beam cell (homophonic
+    /// alternatives are the Mad Gab output — e.g. 'wreck' must not
+    /// lose its slot to another /rɛk/ entry), while an exact same
+    /// word+IPA duplicate collapses to one slot, best cheap wins.
+    #[test]
+    fn beam_coexists_homophones_but_collapses_exact_dupes() {
+        fn one(word: &str, _cheap: f64) -> Partial {
+            Partial::empty().extend_approx(word, "rɛk", Some(1000.0), 3, 0.0, 0.0, 0.0)
+        }
+        // Bypass constructor cheap: set scores directly so the test
+        // pins slot behavior, not the priority formula.
+        let mut a = one("wreck", 0.0);
+        a.cheap_score = -1.0;
+        let mut b = one("rec", 0.0);
+        b.cheap_score = -1.1;
+        let mut beam = BeamPos::new(64);
+        beam.insert(a);
+        beam.insert(b);
+        assert_eq!(
+            beam.entries.len(),
+            2,
+            "homophones with identical IPA must coexist, got keys: {:?}",
+            beam.entries
+                .iter()
+                .map(|p| p.key.clone())
+                .collect::<Vec<_>>(),
+        );
+        // Exact duplicate (same word and IPA): collapses, keeps best.
+        let mut a_worse = one("wreck", 0.0);
+        a_worse.cheap_score = -2.0;
+        beam.insert(a_worse);
+        assert_eq!(beam.entries.len(), 2, "worse exact dupe must collapse");
+        let mut a_best = one("wreck", 0.0);
+        a_best.cheap_score = -0.5;
+        beam.insert(a_best);
+        assert_eq!(
+            beam.entries.len(),
+            2,
+            "better exact dupe must swap in place"
+        );
+        let kept: f64 = beam
+            .entries
+            .iter()
+            .filter(|p| p.words.last().is_some_and(|w| w.word == "wreck"))
+            .map(|p| p.cheap_score)
+            .next()
+            .expect("wreck entry must survive");
+        assert!(
+            (kept - -0.5).abs() < 1e-12,
+            "best representative must win, kept {kept}"
+        );
+        // Case-only variants collapse too ("Wreck" vs "wreck").
+        let mut a_case = one("Wreck", 0.0);
+        a_case.cheap_score = -0.1;
+        beam.insert(a_case);
+        assert_eq!(beam.entries.len(), 2, "case variant must collapse");
+    }
+
+    /// Test helper: a one-word partial with an explicit coarse-sig
+    /// span, last-word ending sound, cheap score and unique key.
+    /// All members share cell (1, tier 0) so diversity axes contend
+    /// in one quota; generic shapes only, no lexical content.
+    fn mk(seg: u16, ending: &str, cheap: f64, tag: &str) -> Partial {
+        Partial {
+            words: vec![ClueWord {
+                word: format!("w{tag}"),
+                ipa: ending.to_string(),
+                rarity: None,
+                sub_cost: 0.0,
+            }],
+            sub_cost_total: 0.0,
+            cheap_score: cheap,
+            key: format!("w{tag}\x1f{ending}"),
+            segs: vec![seg],
+        }
+    }
+
+    #[test]
+    fn eviction_prefers_victim_redundant_on_both_axes() {
+        // A/B share both signature and ending (both-axes redundant,
+        // A the clear loser); C/D share only the signature (one-axis
+        // redundant). The victim must come from the both-redundant
+        // pair, and must be its weakest member.
+        let mut beam = BeamPos::new(64);
+        beam.insert(mk(5, "AA", 0.0, "B"));
+        beam.insert(mk(5, "AA", -1.0, "A"));
+        beam.insert(mk(7, "CC", -0.05, "C"));
+        beam.insert(mk(7, "DD", 0.0, "D"));
+        let cell = BeamPos::cell_of(1, 0.0);
+        let victim = beam
+            .redundant_worst(cell)
+            .expect("a both-redundant loser must exist");
+        assert_eq!(
+            beam.entries[victim].key, "wA\x1fAA",
+            "must evict the weakest both-axes-redundant member, got {:?}",
+            beam.entries[victim].key,
+        );
+    }
+
+    #[test]
+    fn sole_holders_of_both_axes_are_never_redundant_victims() {
+        // All signatures and all endings unique: no redundancy on
+        // either axis, so there is no redundant victim even though
+        // the cell is populated.
+        let mut beam = BeamPos::new(64);
+        beam.insert(mk(11, "E1", 0.0, "a"));
+        beam.insert(mk(12, "E2", -0.05, "b"));
+        beam.insert(mk(13, "E3", -0.10, "c"));
+        let cell = BeamPos::cell_of(1, 0.0);
+        assert!(
+            beam.redundant_worst(cell).is_none(),
+            "sole holders of both axes must have no redundant victim"
+        );
+    }
+
+    #[test]
+    fn settled_cell_keeps_hard_cap_and_spares_sole_holders() {
+        // Fill one cell to its hard cap (64) with members unique on
+        // both axes, then offer a clearly worse candidate: it must be
+        // refused one-out/none-in, cap unchanged, sole holders intact.
+        let mut beam = BeamPos::new(64);
+        for i in 0..64 {
+            let cheap = -(i as f64) * 0.005; // tight band: near-tie admits
+            beam.insert(mk(
+                100 + i as u16,
+                &format!("Z{i:03}"),
+                cheap,
+                &format!("m{i}"),
+            ));
+        }
+        let cell = BeamPos::cell_of(1, 0.0);
+        assert_eq!(
+            beam.cell_members.get(&cell).map_or(0, Vec::len),
+            64,
+            "cell should be at its hard cap"
+        );
+        assert!(
+            beam.redundant_worst(cell).is_none(),
+            "all-unique cell must have no redundant victim"
+        );
+        let before: Vec<String> = beam.entries.iter().map(|e| e.key.clone()).collect();
+        beam.insert(mk(200, "ZNEW", -5.0, "new"));
+        assert_eq!(
+            beam.cell_members.get(&cell).map_or(0, Vec::len),
+            64,
+            "hard cap 64 must hold one-in/one-out or refuse"
+        );
+        assert!(
+            !beam.entries.iter().any(|e| e.key == "wnew\x1fZNEW"),
+            "clearly worse candidate must not displace a sole holder"
+        );
+        let after: Vec<String> = beam.entries.iter().map(|e| e.key.clone()).collect();
+        assert_eq!(before, after, "sole-holder cell must be unchanged");
+    }
+
+    #[test]
+    fn joint_new_category_displaces_weakest_duplicate_at_hard_cap() {
+        // Hard-capped cell (64) with one duplicated joint category
+        // (sig 5 + ending "AA", two members) and the rest sole joint
+        // holders. A near-tie candidate with a brand-new joint
+        // category must displace the weakest duplicate joint member
+        // one-in/one-out, keeping the cap.
+        let mut beam = BeamPos::new(64);
+        beam.insert(mk(5, "AA", 0.0, "keep"));
+        beam.insert(mk(5, "AA", -0.01, "dupweak"));
+        for i in 0..62 {
+            let cheap = -(i as f64) * 0.001;
+            beam.insert(mk(
+                100 + i as u16,
+                &format!("J{i:03}"),
+                cheap,
+                &format!("s{i}"),
+            ));
+        }
+        let cell = BeamPos::cell_of(1, 0.0);
+        assert_eq!(beam.cell_members.get(&cell).map_or(0, Vec::len), 64);
+        let joint_victim = beam
+            .joint_redundant_worst(cell)
+            .expect("duplicated joint category must yield a victim");
+        assert_eq!(beam.entries[joint_victim].key, "wdupweak\x1fAA");
+        let min = beam.cell_min.get(&cell).map(|(_, m)| *m).unwrap();
+        let cand = mk(200, "JNEW", min + 0.0005, "new");
+        beam.insert(cand);
+        assert_eq!(beam.cell_members.get(&cell).map_or(0, Vec::len), 64);
+        assert!(
+            beam.entries.iter().any(|e| e.key == "wnew\x1fJNEW"),
+            "new joint category must be admitted"
+        );
+        assert!(
+            !beam.entries.iter().any(|e| e.key == "wdupweak\x1fAA"),
+            "weakest duplicate joint member must go"
+        );
+        assert!(
+            beam.entries.iter().any(|e| e.key == "wkeep\x1fAA"),
+            "surviving joint representative must remain"
+        );
+    }
+
+    #[test]
+    fn joint_sole_representative_spared_while_duplicate_exists() {
+        // A sole joint holder must never be the joint victim while a
+        // duplicated joint category exists elsewhere in the cell.
+        let mut beam = BeamPos::new(64);
+        beam.insert(mk(5, "AA", -0.05, "sole"));
+        beam.insert(mk(9, "BB", 0.0, "d1"));
+        beam.insert(mk(9, "BB", -0.5, "d2"));
+        let cell = BeamPos::cell_of(1, 0.0);
+        let victim = beam
+            .joint_redundant_worst(cell)
+            .expect("duplicate joint must yield a victim");
+        assert_eq!(beam.entries[victim].key, "wd2\x1fBB");
+    }
+
+    #[test]
+    fn joint_worse_candidate_cannot_evict_all_sole_holders() {
+        // Hard-capped cell where every joint category is a sole
+        // holder: no joint victim exists, and a clearly worse
+        // candidate must not evict anyone (cap holds, cell unchanged).
+        let mut beam = BeamPos::new(64);
+        for i in 0..64 {
+            beam.insert(mk(
+                300 + i as u16,
+                &format!("Q{i:03}"),
+                -(i as f64) * 0.005,
+                &format!("q{i}"),
+            ));
+        }
+        let cell = BeamPos::cell_of(1, 0.0);
+        assert_eq!(beam.cell_members.get(&cell).map_or(0, Vec::len), 64);
+        assert!(beam.joint_redundant_worst(cell).is_none());
+        let before: Vec<String> = beam.entries.iter().map(|e| e.key.clone()).collect();
+        beam.insert(mk(400, "QNEW", -5.0, "qnew"));
+        assert!(
+            !beam.entries.iter().any(|e| e.key == "wqnew\x1fQNEW"),
+            "clearly worse candidate must not evict a sole joint holder"
+        );
+        let after: Vec<String> = beam.entries.iter().map(|e| e.key.clone()).collect();
+        assert_eq!(before, after);
+        assert_eq!(beam.cell_members.get(&cell).map_or(0, Vec::len), 64);
     }
 }
 
