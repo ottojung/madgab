@@ -727,6 +727,34 @@ impl Generator {
 
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(c.phrase.to_lowercase()));
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
+            for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
+                match clues
+                    .iter()
+                    .position(|c| c.phrase.eq_ignore_ascii_case(phrase))
+                {
+                    Some(rank) => eprintln!(
+                        "MADGAB_TRACE raw phrase={phrase:?} rank={rank} score={:.9}",
+                        clues[rank].score
+                    ),
+                    None => eprintln!(
+                        "MADGAB_TRACE raw phrase={phrase:?} missing candidates={}",
+                        clues.len()
+                    ),
+                }
+            }
+            if let Some(cutoff) = clues.get(self.config.top_n.saturating_sub(1)) {
+                eprintln!(
+                    "MADGAB_TRACE raw_cutoff rank={} score={:.9} phrase={:?}",
+                    self.config.top_n.saturating_sub(1),
+                    cutoff.score,
+                    cutoff.phrase
+                );
+            }
+        }
+
         select_diverse(clues, self.config.top_n)
     }
 }
