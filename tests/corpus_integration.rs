@@ -298,6 +298,72 @@ fn approximate_pool_reaches_matches_deep_in_a_span() {
     }
 }
 
+/// The general property this front owns: **a dictionary word that is a real
+/// alternative of one span of the target is reachable in the approximate
+/// pool, however deep in that span's candidate list it ranks.**
+///
+/// The traversal opens a slot at a fixed width and widens it only when it
+/// drains, and it orders by an admissible bound, so it spends its allowance
+/// where every slot is at its own *best* alternative.  A word that is a
+/// genuine alternative but not the best one is therefore not late in that
+/// order — it is absent, and no budget reaches it, because the count of
+/// better-bound tuples in front of it grows with the product of the other
+/// slots' widths.  The coverage reserve is what makes those indices
+/// reachable.
+///
+/// Two observations, deliberately at different strengths.
+///
+/// The first is a *witness-free* count: the number of distinct words the
+/// pool draws on.  A pool confined to the head of every span's candidate
+/// list can only ever contain the common core, so this is a direct reading
+/// of the property with nothing named.  Measured on this head against the
+/// parent, over the intersection of five runs each (the pool at a very large
+/// `top_n` is not perfectly stable run to run, so a single run is not a
+/// basis for a witness): 593 -> 1580, 615 -> 1442, 476 -> 1526.
+///
+/// The second names individual words, and is the one that would fail on the
+/// parent.  Each is an ordinary dictionary word that fits an *unaligned*
+/// span of its target — the middle of a run of consonants the target's own
+/// word boundaries do not isolate — and each was measured absent from the
+/// parent's pool for that target and present in this one's.  They are
+/// ordinary English phrases, not either acceptance example, and nothing in
+/// `src/` knows them.  Words rather than whole wordings, because a word is
+/// the stable observable here and an exact four-word phrasing is not.
+#[test]
+fn approximate_pool_reaches_alternatives_past_the_opening_slot_width() {
+    for (target, floor) in [
+        ("the cat sat on the mat", 1_000usize),
+        ("a whole lot of trouble", 1_000),
+        ("when the rain finally stopped", 1_000),
+    ] {
+        let pool = approximate_pool(target);
+        let distinct: std::collections::HashSet<&str> =
+            pool.iter().flat_map(|p| p.split(' ')).collect();
+        assert!(
+            distinct.len() >= floor,
+            "{target}: the pool draws on only {} distinct words, so it is \
+             still confined to the head of each span's candidate list",
+            distinct.len()
+        );
+    }
+
+    for (target, word) in [
+        ("taco cat", "taught"),
+        ("a whole lot of trouble", "touched"),
+        ("when the rain finally stopped", "wince"),
+        ("the cat sat on the mat", "tickets"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p.split(' ').any(|w| w == word)),
+            "{target}: {word:?} missing from a pool of {} clues, so a real \
+             alternative below the traversal's opening slot width was not \
+             reached",
+            pool.len()
+        );
+    }
+}
+
 /// A clue's resegmentation, as the search aligned it.
 ///
 /// This reads [\"madgab::Clue::cuts\"] rather than re-deriving offsets

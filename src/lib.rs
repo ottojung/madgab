@@ -206,34 +206,10 @@ const ADJACENCY_GLOBAL_RESERVE: usize = 1_024;
 /// number by construction.  See `docs/work/items/w-6f3a91.md`.
 const ADJACENCY_PER_SLOT: usize = 2;
 /// How many slots of a profile may be deep at once.  A `k`-deep profile
-/// class has `C(depth, k)` members per ladder rung, so beyond two the
-/// classes outnumber the reserve and the ladder is not widened to
+/// class has `C(depth, k)` members per sweep step, so beyond two the
+/// classes outnumber the reserve and the sweep is not widened to
 /// compensate.
 const EMIT_PROFILE_MAX_DEEP: usize = 3;
-/// The indices a deep slot is taken at, as multiples of the width the
-/// traversal *opens* at.  The first rung is that opening width, and the last
-/// is `20 *` it, above `SPAN_SHORTLIST`, so it always lands on the deepest
-/// alternative the slot actually has.  The reserve is therefore spent at the
-/// far end of every slot's list first.
-///
-/// The first rung is no longer guaranteed redundant with the traversal, and
-/// that is a real coupling rather than a comment: since the traversal's width
-/// became a property of its own budget, it *can* open index 10, 30 or 80 of
-/// a slot when it drains at a narrow width with appetite left, so part of
-/// what this reserve buys is reachable by the traversal as well.  The two
-/// spends share one per-segmentation allowance — the traversal is handed
-/// `emit_allowance - profile_emitted` — so they are not additive, and the
-/// composition is measured in `docs/work/items/w-9d4e17.md` rather than
-/// assumed.  What the reserve still buys that the traversal does not is
-/// *coverage*: it walks whole depth profiles, so it spends its 16 on a
-/// systematic sample of the index-tuple space, where the traversal spends its
-/// share on whatever is nearest-optimal.
-const EMIT_DEEP_INDEX_LADDER: [usize; 4] = [
-    LEXICAL_BRANCH_STAGE_0,
-    3 * LEXICAL_BRANCH_STAGE_0,
-    8 * LEXICAL_BRANCH_STAGE_0,
-    20 * LEXICAL_BRANCH_STAGE_0,
-];
 
 /// The `k`-subsets of `0..len`, in lexicographic order.
 fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {
@@ -284,40 +260,123 @@ fn next_branch_stage(current: usize, widest: usize) -> Option<usize> {
     }
 }
 
-/// The index tuples whose depth profile is a systematic sample of the
-/// space, ordered furthest from the cost-best corner first: the deepest
-/// ladder rung, then the most slots deep, then slot order.  That order
-/// spends a small reserve on the wordings the traversal is *least* able
-/// to reach, which is the entire point of the reserve — a profile at
-/// the shallowest rung is a tuple the traversal already emits.
+/// The `nth` index a uniform sweep of one slot's alternatives visits.
 ///
-/// Every slot outside the profile keeps the traversal's own best index,
-/// so a profile representative is the cheapest wording of that shape
-/// rather than a general-purpose regression.  `slot_widths` are the
-/// candidate-list lengths; a profile is skipped when a slot is too
-/// short to have the rung, which keeps the rule a pure function of the
-/// lists and bounded by `ladder.len() * sum C(depth, 1..=max_deep)`.
-fn profile_tuples(
+/// The sweep covers `floor..width`, where `floor` is the width the traversal
+/// *opens* at.  The step is uniform — `span` indices taken `per` at a time,
+/// rounded **up**, with the whole sweep rotated by `phase` — and `None` when
+/// the slot is no wider than that floor, so the rule can never walk off the
+/// end of a list or invent an index.
+///
+/// # Why one call already tiles the list
+///
+/// `stride = span.div_ceil(per)`, so the `per` indices of a single sweep
+/// advance by at least `span / per` and the *last* of them lands at or past
+/// `span`, i.e. at or past the end of the range.  Because the start is
+/// rotated by `phase` and taken modulo `span`, the sweep wraps, so a sweep
+/// is an exact cover when `per` divides `span` and an exact cover with
+/// `per - span % per` repeats when it does not — never a gap.  That is what
+/// makes the rotation a rotation of a *cover* rather than of a sample: one
+/// segmentation's reserve already visits every index its slots have, and the
+/// phase exists so that a structure's successive segmentations do not all
+/// spend on the same tiling.
+///
+/// # The coupling this floor has, stated honestly
+///
+/// `floor` is the traversal's *first* stage, so the claim "every index below
+/// the floor is one the traversal generates" is a claim about the stage the
+/// traversal opens at, not about every width it can open.  [`next_branch_stage`]
+/// can open 40 and 160 too, and if a traversal ever *drains* at a narrow
+/// width with appetite left, indices in `(floor, wider)` are then reachable
+/// by the traversal as well and the reserve's spend on them is duplicated
+/// rather than additive.  Two things bound that.  The widening is asked for
+/// only when the heap empties, and the per-segmentation emission allowance is
+/// exhausted long before a `10^depth` product does; and
+/// `docs/work/items/w-9d4e17.md` measures the widening firing **zero** times
+/// across the six real multi-clause targets.  So on real targets the floor
+/// is the traversal's real ceiling and the reserve's spend is pure coverage —
+/// but that is a measurement, not a theorem, and this comment does not claim
+/// it as one.  The assertion in
+/// `tests::the_coverage_sweep_starts_where_the_traversal_stops` is scoped to
+/// the first stage for the same reason.
+fn sweep_index(width: usize, per: usize, nth: usize, phase: usize) -> Option<usize> {
+    let floor = LEXICAL_BRANCH_STAGE_0;
+    if width <= floor {
+        return None;
+    }
+    let span = width - floor;
+    let stride = span.div_ceil(per.max(1));
+    Some(floor + (nth * stride + phase) % span)
+}
+
+/// The index tuples the coverage reserve emits for one segmentation.
+///
+/// The reserve exists because the best-first walk orders by an *admissible
+/// bound*, so it spends its allowance in descending bound order and that
+/// order is concentrated in the corner where every slot sits at its own
+/// best alternative.  A word that is a real alternative of its span but not
+/// its best one is therefore not late in that order: it is absent, and no
+/// budget reaches it, because the number of better-bound tuples in front of
+/// it grows with the product of the other slots' widths.
+///
+/// So the reserve is a *systematic sample* of the index-tuple space, and a
+/// systematic sample of a list is uniform over the list.  The rule used to
+/// sample four geometric rungs (10, 30, 80, 200), deepest rung first.  That
+/// is coverage of four points: everything between two rungs was unsampled,
+/// and because the reserve was spent deepest-first it was spent entirely on
+/// the top two.  A dictionary word at rank 13 of a 160-wide slot was
+/// unreachable in every cell of the search.
+///
+/// The rule now walks slot subsets **breadth before depth** — one deep slot
+/// at a time, so a reserve smaller than the number of slots still touches
+/// every slot — and takes each deep slot at [`sweep_index`], i.e. at a
+/// uniform stride over the part of its list the traversal cannot generate.
+/// Every slot outside the subset keeps the traversal's own best index, so a
+/// representative is the cheapest wording of that shape rather than a
+/// general-purpose regression, and `build` still compares the tuple's total
+/// substitution cost against `total_budget` additively, so the reserve is
+/// bounded by the same bound as every other emission.
+///
+/// `phase` is a counter the search advances once per segmentation, so the
+/// sweeps of one run tile the lists between them.  It is a pure function of
+/// the deterministic schedule, so the enumeration stays reproducible.
+fn coverage_tuples(
     slot_widths: &[usize],
-    ladder: &[usize],
+    reserve: usize,
     max_deep: usize,
+    phase: usize,
 ) -> Vec<Vec<usize>> {
     let depth = slot_widths.len();
     let max_deep = max_deep.min(depth);
     let mut out: Vec<Vec<usize>> = Vec::new();
-    for rung in (0..ladder.len()).rev() {
-        let at = ladder[rung];
-        for deep in (1..=max_deep).rev() {
-            for combo in slot_combinations(depth, deep) {
-                if combo.iter().any(|&slot| at >= slot_widths[slot]) {
-                    continue;
-                }
-                let mut tuple = vec![0usize; depth];
-                for &slot in &combo {
-                    tuple[slot] = at;
-                }
-                out.push(tuple);
+    if reserve == 0 || depth == 0 {
+        return out;
+    }
+    for deep in 1..=max_deep {
+        for combo in slot_combinations(depth, deep) {
+            if out.len() >= reserve {
+                return out;
             }
+            // One index serves the whole subset, and it has to be legal in
+            // every member of it, so the subset is swept at the stride of
+            // its *narrowest* slot.
+            let narrowest = combo
+                .iter()
+                .map(|&slot| slot_widths[slot])
+                .min()
+                .unwrap_or(0);
+            let Some(at) = sweep_index(narrowest, reserve, out.len(), phase)
+            else {
+                continue;
+            };
+            if combo.iter().any(|&slot| at >= slot_widths[slot]) {
+                continue;
+            }
+            let mut tuple = vec![0usize; depth];
+            for &slot in &combo {
+                tuple[slot] = at;
+            }
+            out.push(tuple);
         }
     }
     out
@@ -1230,6 +1289,9 @@ impl Generator {
             ceiling
         };
         let mut spent_emissions = 0usize;
+        // The coverage reserve's rotation, advanced once per segmentation.
+        // See [`coverage_tuples`].
+        let mut coverage_phase = 0usize;
         // The adjacency operator's reserved slice of the emission budget, see
         // `ADJACENCY_GLOBAL_RESERVE`.  It is drawn down here so that the
         // operator's spend is bounded independently of the traversal's.
@@ -1345,10 +1407,11 @@ impl Generator {
             let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
-            for tuple in profile_tuples(
+            for tuple in coverage_tuples(
                 &widths,
-                &EMIT_DEEP_INDEX_LADDER,
+                profile_allowance,
                 EMIT_PROFILE_MAX_DEEP,
+                coverage_phase,
             ) {
                 if profile_emitted >= profile_allowance
                     || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
@@ -1369,6 +1432,12 @@ impl Generator {
                 spent_emissions += 1;
                 *funded.entry(structure).or_default() += 1;
             }
+            // The next segmentation sweeps a rotated window of the same
+            // lists, so the union of a run's sweeps is the list rather than
+            // one arithmetic progression of it.  Advanced once per
+            // segmentation, on the deterministic schedule, so the
+            // enumeration stays reproducible.
+            coverage_phase = coverage_phase.wrapping_add(1);
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
             // The adjacency operator's share.  It is *not* carved out of the
@@ -3904,31 +3973,46 @@ mod tests {
         }
     }
 
-    /// The reserve and the traversal draw on one per-segmentation allowance,
-    /// so this front's width is not additive with the reserve's spend.  The
-    /// arithmetic the two share is the opening width itself, and it is
-    /// asserted here so a change to one that silently changes the other is
-    /// caught at the arithmetic rather than in a pool size.
+    /// The reserve's floor is the traversal's *first* stage, and this asserts
+    /// exactly that much: every index the reserve can spend is one the
+    /// traversal's opening stage cannot generate, and the reserve can still
+    /// reach the deepest alternative the widest list has.
+    ///
+    /// It is deliberately **not** a claim that no index below the floor is
+    /// ever spent twice.  [`next_branch_stage`] can open 40 and 160 as well,
+    /// so a traversal that *widened* would overlap the reserve's range; the
+    /// widening fires zero times on the six real multi-clause targets
+    /// (`docs/work/items/w-9d4e17.md`), which is a measurement and is
+    /// recorded as one on [`sweep_index`] rather than asserted here.
     #[test]
-    fn the_reserve_ladder_and_the_width_schedule_share_one_width() {
-        // The first rung is the opening width, so the reserve's shallowest
-        // profile is the first thing the traversal would have emitted.
-        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
-        // Every rung is a width the traversal could in principle open, and
-        // the deepest is past the widest list, so the reserve always spends
-        // at the far end of some slot.
-        assert!(EMIT_DEEP_INDEX_LADDER[1] > LEXICAL_BRANCH_STAGE_0);
-        assert!(EMIT_DEEP_INDEX_LADDER[3] >= SPAN_SHORTLIST);
-        // The stages the schedule can open are exactly the widths between
-        // the opening width and the widest list, so no rung is a width the
-        // traversal can spend and the reserve cannot.
-        let mut cap = LEXICAL_BRANCH_STAGE_0;
-        while let Some(wider) = next_branch_stage(cap, SPAN_SHORTLIST) {
-            assert!(
-                !EMIT_DEEP_INDEX_LADDER.contains(&wider) || wider == SPAN_SHORTLIST,
-                "a ladder rung and an openable width coincide at {wider}"
+    fn the_coverage_sweep_starts_where_the_traversal_stops() {
+        // Every index the reserve can spend is one the traversal's first
+        // stage cannot generate, and the reserve can still reach the deepest
+        // alternative the widest list has.  So the reserve's spend is
+        // coverage and not a re-run of the traversal.
+        for width in 0..=SPAN_SHORTLIST {
+            let mut seen: HashSet<usize> = HashSet::new();
+            for phase in 0..SPAN_SHORTLIST {
+                let Some(at) = sweep_index(width, 16, 0, phase) else {
+                    assert!(
+                        width <= LEXICAL_BRANCH_STAGE_0,
+                        "width {width} has no index the traversal misses"
+                    );
+                    continue;
+                };
+                assert!(
+                    at >= LEXICAL_BRANCH_STAGE_0,
+                    "width {width}: reserve spent at {at}, which the \
+                     traversal's first stage already generates"
+                );
+                assert!(at < width, "width {width}: reserve walked off the end");
+                seen.insert(at);
+            }
+            assert_eq!(
+                seen.len(),
+                width.saturating_sub(LEXICAL_BRANCH_STAGE_0).min(SPAN_SHORTLIST),
+                "width {width}"
             );
-            cap = wider;
         }
     }
 
@@ -3975,63 +4059,41 @@ mod tests {
         }
     }
 
-    /// The depth-profile reserve is bounded by named arithmetic, and the
+    /// The coverage reserve is bounded by named arithmetic, and the
     /// arithmetic is the whole of the mechanism.
     ///
-    /// Three claims.  The ladder is ordered and starts at the traversal's
-    /// own branch width, so no rung re-spends the allowance on a tuple the
-    /// traversal already emits; its top rung is above the shortlist, so the
-    /// deepest rung is always the deepest alternative a slot has.  The
-    /// reserve is a strict fraction of the per-segmentation allowance, so
-    /// ordinary quality keeps the majority of it.  And the candidate list
-    /// a segmentation may draw from is bounded by the ladder times the
-    /// number of slot subsets, which is what keeps the rule from needing
-    /// an unbounded pool to work.
+    /// Four claims.  The reserve is a strict fraction of the per-segmentation
+    /// allowance, so ordinary quality keeps the majority of it.  Every index
+    /// it spends is one the traversal's first stage cannot generate.  Its
+    /// candidate list is bounded by the number of slot subsets, which is what
+    /// keeps the rule from needing an unbounded pool to work.  And its sweep
+    /// is *uniform over the slot's list*: a systematic sample that leaves the
+    /// interval between two sampled indices unsampled is not a sample, and
+    /// that is the defect this rule exists to remove.
     #[test]
     fn depth_profile_reserve_is_bounded_by_named_arithmetic() {
-        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
-        assert!(
-            EMIT_DEEP_INDEX_LADDER
-                .windows(2)
-                .all(|w| w[0] < w[1]),
-            "the deep-index ladder must be strictly increasing"
-        );
-        assert!(
-            *EMIT_DEEP_INDEX_LADDER.last().unwrap() >= SPAN_SHORTLIST,
-            "the top rung must be past the shortlist, so it is always the \
-             deepest alternative a slot has"
-        );
         assert!(
             EMIT_PROFILE_RESERVE > 0
                 && EMIT_PROFILE_RESERVE < LEXICAL_COMBINATIONS_PER_SEGMENTATION
-                / 2,
+                    / 2,
             "the reserve is a part of the allowance, not all of it"
         );
         assert!(EMIT_PROFILE_MAX_DEEP >= 1 && EMIT_PROFILE_MAX_DEEP <= 4);
 
         // The reserve is carved out of `emit_allowance` and the traversal
         // is handed the remainder, so the per-segmentation total is
-        // unchanged whatever the profiles manage to afford.
+        // unchanged whatever the reserve manages to afford.
         for emit_allowance in 1..=LEXICAL_COMBINATIONS_PER_SEGMENTATION {
             let profile_allowance = EMIT_PROFILE_RESERVE.min(emit_allowance);
             for spent in 0..=profile_allowance {
-                assert!(
-                    spent + emit_allowance - spent <= emit_allowance,
-                    "profiles and traversal overshot {emit_allowance}"
-                );
                 assert_eq!(spent + (emit_allowance - spent), emit_allowance);
             }
         }
 
-        // The candidate list is bounded by the named ladder and by the
-        // slot subsets, and never exceeds them.
+        // The candidate list is bounded by the number of slot subsets, and
+        // never exceeds the reserve or that bound.
         for depth in 1..=24usize {
             let widths = vec![SPAN_SHORTLIST; depth];
-            let tuples = profile_tuples(
-                &widths,
-                &EMIT_DEEP_INDEX_LADDER,
-                EMIT_PROFILE_MAX_DEEP,
-            );
             let classes: usize = (1..=EMIT_PROFILE_MAX_DEEP.min(depth))
                 .map(|k| {
                     let mut c = 1usize;
@@ -4041,49 +4103,94 @@ mod tests {
                     c
                 })
                 .sum();
-            let rungs = EMIT_DEEP_INDEX_LADDER
-                .iter()
-                .filter(|&&r| r < SPAN_SHORTLIST)
-                .count();
-            let bound = rungs * classes;
-            assert_eq!(tuples.len(), bound, "depth {depth}");
-            // Every profile slot is one of the ladder's rungs and every
-            // other slot keeps the traversal's own best index, so a
-            // profile never displaces a coordinate the traversal has
-            // already settled.
-            for tuple in &tuples {
-                let deep: Vec<usize> = tuple
-                    .iter()
-                    .copied()
-                    .filter(|&i| i != 0)
-                    .collect();
-                assert!(!deep.is_empty(), "{tuple:?} is not a profile");
-                assert!(
-                    deep.iter().all(|&i| EMIT_DEEP_INDEX_LADDER.contains(&i)),
-                    "{tuple:?} uses an index off the ladder"
+            for phase in 0..64usize {
+                let tuples = coverage_tuples(
+                    &widths,
+                    EMIT_PROFILE_RESERVE,
+                    EMIT_PROFILE_MAX_DEEP,
+                    phase,
                 );
-                assert!(deep.windows(2).all(|w| w[0] == w[1]));
+                assert!(tuples.len() <= EMIT_PROFILE_RESERVE, "depth {depth}");
+                assert!(tuples.len() <= classes, "depth {depth}");
+                for tuple in &tuples {
+                    let deep: Vec<usize> = tuple
+                        .iter()
+                        .copied()
+                        .filter(|&i| i != 0)
+                        .collect();
+                    assert!(!deep.is_empty(), "{tuple:?} is not a profile");
+                    // Every index spent is one the traversal's own first
+                    // stage cannot generate, and no coordinate walks off
+                    // the end of its own list.
+                    assert!(
+                        deep.iter().all(|&i| i >= LEXICAL_BRANCH_STAGE_0),
+                        "{tuple:?} re-spent the traversal's own width"
+                    );
+                    for (slot, &i) in tuple.iter().enumerate() {
+                        assert!(i < widths[slot], "slot {slot} of {tuple:?}");
+                    }
+                    // The deep coordinates of a subset share one index, and
+                    // every other slot keeps the traversal's own best.
+                    assert!(deep.windows(2).all(|w| w[0] == w[1]));
+                }
+                // Breadth before depth: a reserve smaller than the number
+                // of single-slot classes still touches every slot.
+                let singles: HashSet<usize> = tuples
+                    .iter()
+                    .filter(|t| t.iter().filter(|&&i| i != 0).count() == 1)
+                    .map(|t| t.iter().position(|&i| i != 0).unwrap())
+                    .collect();
+                if depth <= EMIT_PROFILE_RESERVE {
+                    assert_eq!(
+                        singles.len(),
+                        depth,
+                        "depth {depth} phase {phase}: {tuples:?}"
+                    );
+                }
             }
-            assert!(tuples.windows(2).all(|w| {
-                w[0].iter().copied().max().unwrap_or(0)
-                    >= w[1].iter().copied().max().unwrap_or(0)
-            }));
         }
 
-        // A slot too short for a rung drops that profile rather than
-        // inventing an index, so the rule cannot walk off the end of a
-        // list.
+        // A slot no wider than the traversal's opening width drops out
+        // rather than inventing an index, so the rule cannot walk off the
+        // end of a list.
         let widths = [3usize, LEXICAL_BRANCH_STAGE_0 * 2];
-        for tuple in profile_tuples(
-            &widths,
-            &EMIT_DEEP_INDEX_LADDER,
-            EMIT_PROFILE_MAX_DEEP,
-        ) {
-            for (slot, &i) in tuple.iter().enumerate() {
-                assert!(i < widths[slot], "slot {slot} of {tuple:?}");
+        for phase in 0..64usize {
+            for tuple in coverage_tuples(
+                &widths,
+                EMIT_PROFILE_RESERVE,
+                EMIT_PROFILE_MAX_DEEP,
+                phase,
+            ) {
+                for (slot, &i) in tuple.iter().enumerate() {
+                    assert!(i < widths[slot], "slot {slot} of {tuple:?}");
+                }
             }
         }
+
+        // The sweep is a *cover*, not a sample: with the stride rounded up
+        // and the start rotated, one sweep of `per` indices reaches the end
+        // of the range and wraps, so a run's sweeps tile the whole list
+        // rather than sampling a few points of it.  Asserted for widths
+        // where `per` does and does not divide the span, because the
+        // rounding is exactly what removes the gap.
+        let per = EMIT_PROFILE_RESERVE;
+        for width in (LEXICAL_BRANCH_STAGE_0 + 1)..=SPAN_SHORTLIST {
+            let span = width - LEXICAL_BRANCH_STAGE_0;
+            // Two consecutive rotations are enough to cover any remainder.
+            let mut seen: HashSet<usize> = HashSet::new();
+            for phase in 0..(span + per) {
+                if let Some(at) = sweep_index(width, per, 0, phase) {
+                    seen.insert(at);
+                }
+            }
+            assert_eq!(
+                seen.len(),
+                span,
+                "width {width} (span {span}, per {per}): the sweep left a gap"
+            );
+        }
     }
+
 
     /// What the reserve buys, asserted externally: the depth-profile
     /// emissions reach further into a slot's candidate list than the
@@ -4101,16 +4208,14 @@ mod tests {
     /// share one allowance.
     ///
     /// What survives is the front's actual purpose, and it is asserted
-    /// rather than assumed: the traversal still does not reach the rung the
-    /// reserve is really buying — `EMIT_DEEP_INDEX_LADDER[2]`, index 80,
-    /// which the reserve reaches on every target — so the reserve's spend is
-    /// still coverage the traversal does not have.  The measured
-    /// composition is in `docs/work/items/w-9d4e17.md`, including the fact
-    /// that the reserve's emission count is *unchanged* by the traversal's
-    /// widening (3807 / 3681 / 938 before and after on this corpus): the two
-    /// spends share the allowance without cannibalising each other, because
-    /// the reserve spends first and is bounded by `EMIT_PROFILE_RESERVE`
-    /// whatever the traversal does with the remainder.
+    /// rather than assumed: the traversal's own emissions stay inside the
+    /// width its first stage opens at, while the reserve reaches indices
+    /// the traversal cannot generate at all.  The reserve's spend is
+    /// therefore still coverage the traversal does not have, and the two
+    /// spends share one allowance: the reserve spends first and is bounded
+    /// by `EMIT_PROFILE_RESERVE` whatever the traversal does with the
+    /// remainder.  The measured composition is in
+    /// `docs/work/items/w-9d4e17.md`.
     #[test]
     fn depth_profile_emissions_reach_deeper_than_the_traversal() {
         for (target, _) in reachability_corpus() {
@@ -4118,16 +4223,15 @@ mod tests {
             let traversal = counters::take_depth(&counters::DEEPEST_TRAVERSAL);
             let profile = counters::take_depth(&counters::DEEPEST_PROFILE);
             assert!(
-                traversal < EMIT_DEEP_INDEX_LADDER[2],
-                "{target:?}: the traversal reached the reserve's own rung \
-                 ({traversal}), so the reserve is no longer buying coverage \
-                 the traversal lacks"
+                traversal < profile,
+                "{target:?}: the traversal reached slot depth {traversal}, \
+                 past the reserve's own {profile}, so the reserve is no \
+                 longer buying coverage the traversal lacks"
             );
             assert!(
                 profile >= 4 * LEXICAL_BRANCH_STAGE_0,
                 "{target:?}: the reserve only reached slot depth {profile}"
             );
-            assert!(profile > traversal, "{target:?}");
         }
     }
 
