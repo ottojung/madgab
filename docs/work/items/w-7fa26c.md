@@ -4,7 +4,7 @@ id: w-7fa26c
 state: working
 priority: high
 owner: agent-a1b2c304
-updated: 2026-09-26T08:50:00Z
+updated: 2026-09-26T10:05:00Z
 branch: madgab-approx-runtime
 worktree: /workspace/madgab-approx-runtime
 ---
@@ -101,4 +101,38 @@ Toolchain caveat: `cargo fmt` and `cargo clippy` do not exist on this host,
 so the "bit-identical output" criterion has to be demonstrated by the
 comparison recipe in this item rather than by a diff. See
 [../../environment-notes.md](../../environment-notes.md).
+
+## Pass 2026-09-26T10:05Z (coordinator, comparison-base change)
+
+Antonina agent `a1b2c304` is running in this worktree and is left running.
+One thing has changed underneath it that it cannot see from inside the
+worktree.
+
+**The comparison base is no longer `d46d154`.** The content-word front
+([w-9c2d51](w-9c2d51.md)) was integrated into `post-milestone-acceptance`
+during this pass as **50bdda1** / **9633013** (merge of
+`madgab-clue-quality` 4a0bedb), which adds a scoring axis to approximate
+mode. The "output is bit-identical to the pre-change binary" criterion in
+this item must therefore be demonstrated against a binary built at
+**9633013**, not at `d46d154`. Comparing against `d46d154` will show
+approximate-mode output differences that are the clue-quality axis, not a
+behaviour change from the performance work, and reporting those as a
+regression would be wrong.
+
+Practical consequence: this branch's diff will need to apply on top of
+9633013, and its merge may conflict in `src/lib.rs` with the merged
+front. The clue-quality change touched `Partial::metrics`, `Partial`,
+`prune_partials`, the span shortlist, the segmentation DP and the lexical
+`bound` closure, so the conflict is likely to be in the same regions this
+front is optimising. Keep the perf changes separable from scoring
+semantics — if a hunk has to choose between "same arithmetic, fewer
+allocations" and "the new axis's exact expression order", prefer the new
+axis and note it in the handoff, since the front's own criterion is
+arithmetic-order preservation and the new axis is what the final score
+now means.
+
+Also note the exact-determinism front ([w-5d03af](w-5d03af.md)) landed as
+7fa8dc6, so exact-mode output is now stable across processes and
+exact-mode comparisons in the recipe are no longer excluded for
+nondeterminism.
 
