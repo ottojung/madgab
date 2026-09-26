@@ -36,7 +36,10 @@ fn norm(s: &str) -> String {
 }
 
 struct Entry {
+    /// Position in the descending-score order, i.e. the global rank.
     rank: usize,
+    /// The pool index the trace reported, which is what PICK lines refer to.
+    index: usize,
     score: f64,
     structure: Vec<usize>,
     phrase: String,
@@ -58,10 +61,16 @@ fn main() {
     )
     .expect("corpus should parse");
 
+    let only = std::env::var("MADGAB_ONLY").ok();
     let mut total_seconds = 0.0;
     for target in TARGETS {
+        if let Some(o) = &only {
+            if norm(o) != norm(target) {
+                continue;
+            }
+        }
         if let Some(spec) = &inject {
-                        std::env::set_var("MADGAB_INJECT", spec);
+            std::env::set_var("MADGAB_INJECT", spec);
         }
         std::env::set_var("MADGAB_SEL_TRACE", &trace);
         let started = Instant::now();
@@ -87,11 +96,17 @@ fn main() {
         let cutoff_score: f64 = field("cutoff_score").parse().unwrap();
 
         let mut pool: Vec<Entry> = Vec::with_capacity(pool_n);
-        for l in lines {
+        // The C lines are emitted in `order`, i.e. already in descending
+        // score order, so the *emission position* is the global rank.  The
+        // first field is the pool index and must not be used as the rank:
+        // doing so once reported eight same-structure siblings as ranking
+        // above a candidate they score below.
+        for (pos, l) in lines.enumerate() {
             if let Some(rest) = l.strip_prefix("C\t") {
                 let f: Vec<&str> = rest.split('\t').collect();
                 pool.push(Entry {
-                    rank: f[0].parse().unwrap(),
+                    rank: pos,
+                    index: f[0].parse().unwrap(),
                     score: f[1].parse().unwrap(),
                     structure: if f[2].is_empty() {
                         Vec::new()
@@ -102,8 +117,12 @@ fn main() {
                 });
             }
         }
-        pool.sort_by_key(|e| e.rank);
         assert_eq!(pool.len(), pool_n, "trace parse");
+        // the pool is in descending score order by construction
+        assert!(
+            pool.windows(2).all(|w| w[0].score >= w[1].score),
+            "pool not in descending score order"
+        );
 
         // within-structure score rank: how many pool candidates share this
         // structure and score strictly higher.
@@ -120,11 +139,17 @@ fn main() {
         }
         let _ = better;
 
+        // PICK lines report pool indices; translate them to global ranks.
+        let mut by_index: HashMap<usize, usize> = HashMap::new();
+        for e in &pool {
+            by_index.insert(e.index, e.rank);
+        }
         let picked: Vec<usize> = {
             let mut v = Vec::new();
             for l in text.lines() {
                 if let Some(r) = l.strip_prefix("PICK\t") {
-                    v.push(r.parse().unwrap());
+                    let idx: usize = r.parse().unwrap();
+                    v.push(*by_index.get(&idx).expect("PICK names a pool entry"));
                 }
             }
             v
@@ -183,6 +208,31 @@ fn main() {
             "  lowest-scoring visible entry: global rank {worst} score {:.6} ; highest global rank among rank-1 (structure representatives) = {best_in_worst}",
             pool[worst].score
         );
+        // Is the cap the ONLY gate on a below-cutoff candidate, or does the
+        // walk simply run out of slots first?  The largest global rank that
+        // is visible bounds it: any candidate past that rank is invisible
+        // *whatever* its within-structure rank, because the list is already
+        // full when the walk reaches it.  This separates "under the cap"
+        // from "reachable at all".
+        let mut fill_rank = 0usize;
+        for &r in &picked {
+            fill_rank = fill_rank.max(r);
+        }
+        let at_fill_under_cap = (0..=fill_rank)
+            .filter(|&r| !picked_set.contains(&r) && within[r] < cap)
+            .count();
+        let beyond_fill_under_cap = (fill_rank + 1..pool_n)
+            .filter(|&r| within[r] < cap)
+            .count();
+        println!(
+            "  list is FULL at global rank {fill_rank} (score {:.6}); slots run out before the walk finishes.",
+            pool[fill_rank].score
+        );
+        println!(
+            "  under-cap candidates (within-structure rank < {cap}) that are still INVISIBLE: {} at or before the fill rank, {beyond_fill_under_cap} beyond it",
+            at_fill_under_cap
+        );
+
         let mut reps: Vec<(usize, f64, Vec<usize>)> = Vec::new();
         {
             let mut best_of: HashMap<&Vec<usize>, &Entry> = HashMap::new();
@@ -223,7 +273,7 @@ fn main() {
             let canonical: Vec<usize> = vec![3, 10, 13, 15];
             let injected_visible = pool
                 .iter()
-                .find(|e| norm(&e.phrase) == *want)
+                .find(|e| norm(&e.phrase) == norm(want))
                 .map(|e| picked_set.contains(&e.rank))
                 .unwrap_or(false);
             let members: Vec<&Entry> = pool
@@ -251,25 +301,32 @@ fn main() {
                     println!("    first above: rank {r} score {s:.9} {p:?}");
                 }
             }
-            let hit = pool.iter().find(|e| norm(&e.phrase) == *want);
+            // ENUMERATED, RANKED and VISIBLE as three separate numbers: they
+            // have been conflated before in this repository, and only the
+            // last one is what the user sees.
+            let hit = pool.iter().find(|e| norm(&e.phrase) == norm(want));
             match hit {
                 Some(e) => {
                     println!(
-                        "  CANONICAL {:?}: in pool at global rank {} score {:.9} structure {:?} within-structure rank {} structure members {} cap {} visible {}",
-                        e.phrase,
-                        e.rank,
+                        "  CANONICAL {want:?}: ENUMERATED=yes RANKED={}/{} (score {:.9}, cutoff rank {TOP_N} at {cutoff_score:.6}, gap {:+.9}) VISIBLE={} within_structure_rank={} cap={} structure={:?} structure_pool_members={}",
+                        e.rank + 1,
+                        pool_n,
                         e.score,
-                        e.structure,
+                        e.score - cutoff_score,
+                        picked_set.contains(&e.rank),
                         within[e.rank],
-                        pool.iter().filter(|x| x.structure == e.structure).count(),
                         cap,
-                        picked_set.contains(&e.rank)
+                        e.structure,
+                        pool.iter().filter(|x| x.structure == e.structure).count(),
                     );
-                    let s = e.score - cutoff_score;
-                    println!("    score vs cutoff: {s:+.9}");
                 }
                 None => {
-                    println!("  CANONICAL {want:?}: not in retained pool (pool={pool_n})");
+                    println!(
+                        "  CANONICAL {want:?}: ENUMERATED=no RANKED=n/a VISIBLE=no (pool={pool_n}, canonical structure {canonical:?} has {} members, best member score {:.6}, first member at global rank {})",
+                        members.len(),
+                        reps.iter().find(|(_, _, s)| *s == canonical).map(|r| r.1).unwrap_or(f64::NAN),
+                        reps.iter().find(|(_, _, s)| *s == canonical).map(|r| r.0).unwrap_or(usize::MAX),
+                    );
                 }
             }
         }
