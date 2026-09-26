@@ -11,6 +11,7 @@ use std::rc::Rc;
 use phonetics::transcriptions::{Corpus, Pronunciation};
 use serde::Serialize;
 
+mod adjacency;
 mod approx;
 pub mod lexical;
 
@@ -147,6 +148,63 @@ const LEXICAL_BRANCH_STAGE_GROWTH: usize = 4;
 /// total is unchanged and the global budgets still hold; ordinary
 /// quality keeps the rest.
 const EMIT_PROFILE_RESERVE: usize = 16;
+/// Part of every segmentation's allowance reserved for the **adjacency**
+/// operator (w-c1d3a7), the neighbourhood walk over the wordings the
+/// traversal already emitted.
+///
+/// The profile reserve above samples the index-tuple space *from the corner*:
+/// a profile representative keeps index 0 in every slot outside the profile,
+/// so it can be deep in at most [`EMIT_PROFILE_MAX_DEEP`] slots and it cannot
+/// reach a wording that is deep in several slots *and* off the corner in the
+/// rest.  The adjacency operator spends its share differently: it starts from
+/// wordings the pool already holds and substitutes **one slot at a time**, so
+/// the cost of being deep in one slot is additive rather than
+/// multiplicative.
+///
+/// This is the one per-segmentation spend that is *not* carved out of the
+/// traversal's allowance.  Carving it out there is what the profile reserve
+/// does, and doing the same here measurably costs a deep-in-a-span match
+/// (`approximate_pool_reaches_matches_deep_in_a_span`), because the
+/// traversal's own emissions are what the depth tests are written against.
+/// It is bounded by `LEXICAL_GLOBAL_EMISSION_BUDGET` instead — the ceiling the
+/// whole search already respects, and one the baseline leaves slack (14,239
+/// of 16,384 spent).  So the operator's spend is bounded by the same
+/// constant that bounds everything else, and the global bound is unchanged.
+const ADJACENCY_RESERVE: usize = 8;
+/// The adjacency operator's share of the **whole search**, across every
+/// segmentation, as a reserved slice rather than a per-segmentation spend.
+///
+/// The per-segmentation [`ADJACENCY_RESERVE`] is a cap; this is the ceiling
+/// that stops the caps from adding up to more than the traversal can afford.
+/// Without it the two spends compete for the same
+/// `LEXICAL_GLOBAL_EMISSION_BUDGET`, and because the operator runs
+/// interleaved with the traversal in schedule order it wins the argument
+/// early and the *tail* of the schedule is truncated instead — which is
+/// exactly what happened: with the per-segmentation guarantee in place and no
+/// slice of its own, the whole search spent 14,239 + 256 * 8 = 16,287 of the
+/// 16,384 global budget and
+/// `approximate_pool_reaches_matches_deep_in_a_span` lost a wording.
+///
+/// `LEXICAL_GLOBAL_EMISSION_BUDGET / 16` = `SEGMENTATION_KEEP *
+/// LEXICAL_COMBINATIONS_PER_SEGMENTATION / 16` = **1,024**, which is a
+/// sixteenth of the search's whole emission budget: enough for the operator to
+/// matter on a pool of ~180 structures (5-6 admissions each) and small enough
+/// that the traversal's own 14,239 is never at risk.  The same fraction is
+/// written out rather than divided, because `SEGMENTATION_KEEP` is scoped
+/// inside the search function; if that constant moves, this one must move with
+/// it.
+const ADJACENCY_GLOBAL_RESERVE: usize = 1_024;
+/// How many of a node's children in one slot the adjacency walk retains, and
+/// therefore how many of them it allocates and pushes.
+///
+/// The seeds the walk expands are the pool's own wordings, so the pop budget
+/// is *derived* from them by [`adjacency::pop_budget`] rather than chosen
+/// here: a hand-picked pop count promises nothing once it falls below the
+/// seed count, which is the normal case.  The reserve is
+/// `ADJACENCY_RESERVE`, so the walk is guaranteed that many admissions per
+/// segmentation and the caller's cap and the walk's reach are the same
+/// number by construction.  See `docs/work/items/w-6f3a91.md`.
+const ADJACENCY_PER_SLOT: usize = 2;
 /// How many slots of a profile may be deep at once.  A `k`-deep profile
 /// class has `C(depth, k)` members per ladder rung, so beyond two the
 /// classes outnumber the reserve and the ladder is not widened to
@@ -1172,6 +1230,10 @@ impl Generator {
             ceiling
         };
         let mut spent_emissions = 0usize;
+        // The adjacency operator's reserved slice of the emission budget, see
+        // `ADJACENCY_GLOBAL_RESERVE`.  It is drawn down here so that the
+        // operator's spend is bounded independently of the traversal's.
+        let mut adjacency_spend = ADJACENCY_GLOBAL_RESERVE;
         let mut spent_pops = 0usize;
         for &index in &schedule {
             if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
@@ -1276,6 +1338,11 @@ impl Generator {
             let profile_allowance =
                 EMIT_PROFILE_RESERVE.min(emit_allowance);
             let mut profile_emitted = 0usize;
+            // The index tuples this segmentation has actually put in the
+            // pool, in emission order.  The adjacency operator below is
+            // seeded from exactly this, so it starts from what the pool
+            // holds rather than from the index-tuple origin.
+            let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
             for tuple in profile_tuples(
@@ -1296,6 +1363,7 @@ impl Generator {
                     &counters::DEEPEST_PROFILE,
                     tuple.iter().copied().max().unwrap_or(0),
                 );
+                pooled.push(tuple);
                 recovered.push(partial);
                 profile_emitted += 1;
                 spent_emissions += 1;
@@ -1303,6 +1371,20 @@ impl Generator {
             }
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
+            // The adjacency operator's share.  It is *not* carved out of the
+            // traversal's allowance: the traversal's own emissions are the
+            // ones the depth tests are written against, and taking eight of
+            // them measurably costs a deep-in-a-span match
+            // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
+            // operator is instead bounded by the *global* emission budget,
+            // which is the search's real ceiling and which the baseline
+            // leaves slack (14,239 of 16,384 spent), so the operator's spend
+            // is bounded by the same constant that bounds everything else.
+            // `.min(adjacency_spend)` draws on the reserved slice, so the
+            // operator runs out of budget rather than the traversal.
+            let adjacency_allowance = ADJACENCY_RESERVE
+                .min(emit_allowance)
+                .min(adjacency_spend);
 
             // Suffix bounds make the best-first key an admissible upper
             // bound on the score of any completion of a prefix, so the
@@ -1438,6 +1520,7 @@ impl Generator {
                                     &counters::DEEPEST_TRAVERSAL,
                                     prefix.iter().copied().max().unwrap_or(0),
                                 );
+                                pooled.push(prefix.to_vec());
                                 recovered.push(partial);
                                 emitted += 1;
                                 spent_emissions += 1;
@@ -1531,6 +1614,71 @@ impl Generator {
                 replaying = true;
             }
             spent_pops += popped;
+
+            // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+            //
+            // The traversal above moves by *extending a prefix*, so a wording
+            // that is jointly excellent but locally expensive in one slot
+            // costs the sum of every better-bound node in front of it, and a
+            // per-segmentation allowance of that size never reaches it.  This
+            // operator moves by *substituting one slot of a complete wording*
+            // instead, seeded from the wordings this segmentation has already
+            // put in the pool, and re-scoring each child with the same
+            // admissible `bound` the traversal orders by — so depth in one
+            // slot is additive rather than multiplicative, and a slot index
+            // far outside any width-capped prefix walk is open to it.  It
+            // reads no vocabulary and names no phrase: the same call serves
+            // every target and every segmentation.  The measurement that
+            // motivates it is in `docs/work/items/w-c1d3a7.md`.
+
+            let mut adjacency_emitted = 0usize;
+            if adjacency_allowance > 0
+                && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
+            {
+                for tuple in adjacency::admit(
+                    adjacency::Neighbourhood {
+                        pops: adjacency::pop_budget(
+                            pooled.len(),
+                            adjacency_allowance,
+                        ),
+                        per_slot: ADJACENCY_PER_SLOT,
+                    },
+                    &pooled,
+                    &widths,
+                    &bound,
+                ) {
+                    if adjacency_emitted >= adjacency_allowance
+                        || spent_emissions
+                            >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                    {
+                        break;
+                    }
+                    let Some(partial) = build(&tuple) else {
+                        continue;
+                    };
+                    #[cfg(test)]
+                    counters::note_depth(
+                        &counters::DEEPEST_ADJACENCY,
+                        tuple.iter().copied().max().unwrap_or(0),
+                    );
+                    pooled.push(tuple);
+                    recovered.push(partial);
+                    adjacency_emitted += 1;
+                    spent_emissions += 1;
+                    adjacency_spend -= 1;
+                    // Deliberately *not* charged to `funded`.  That map is
+                    // the traversal's per-structure depth account: it is what
+                    // `depth_ceiling` is drawn against, so a word the
+                    // traversal never emitted must not shrink a later
+                    // segmentation of the same structure.  Charging it here
+                    // double-counted the operator against the very budget it
+                    // is extra, and cost a deep-in-a-span match
+                    // (`approximate_pool_reaches_matches_deep_in_a_span`).
+                    // The operator is bounded by `ADJACENCY_RESERVE` and by
+                    // `LEXICAL_GLOBAL_EMISSION_BUDGET` instead, which is where
+                    // its spend belongs.
+                }
+            }
         }
 
         completed.extend(recovered);
@@ -1660,6 +1808,9 @@ mod counters {
         /// front in one place.
         pub static DEEPEST_TRAVERSAL: Cell<usize> = const { Cell::new(0) };
         pub static DEEPEST_PROFILE: Cell<usize> = const { Cell::new(0) };
+        /// The deepest slot index the adjacency operator's admissions
+        /// reach: the third of the three emission-spread counters.
+        pub static DEEPEST_ADJACENCY: Cell<usize> = const { Cell::new(0) };
     }
 
     pub fn bump(counter: &'static std::thread::LocalKey<Cell<u64>>) {
