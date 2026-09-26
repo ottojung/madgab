@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-7fa26c
-state: open
+state: working
 priority: high
-owner: null
-updated: 2026-09-26T07:35:00Z
-branch: null
-worktree: null
+owner: agent-a1b2c304
+updated: 2026-09-26T08:50:00Z
+branch: madgab-approx-runtime
+worktree: /workspace/madgab-approx-runtime
 ---
 
 # Make approximate search fast again (behaviour-preserving)
@@ -69,10 +69,36 @@ was *not* included, so the single largest win is still available.
 - Report the before/after wall clock for every target and configuration used in
   the comparison.
 
+Not yet implemented. Do P1 first and measure before touching anything else.
+Treat the remaining items as a list, not a quota: if P1 alone is a large win
+and the rest are invasive (`Rc`-based `Partial`, interned keys), stop and
+hand off rather than destabilising the engine.
+
 ## Handoff / notes
 
-Not yet started. Do P1 first and measure before touching anything else; P1 is
-the only change that has already been validated as byte-identical on output.
-Treat the remaining items as a list, not a quota: if P1 alone is a large win
-and the rest are invasive (`Rc`-based `Partial`, interned keys), stop and hand
-off rather than destabilising the engine.
+Claimed 2026-09-26T08:50Z for Antonina agent `a1b2c304`, worktree
+`/workspace/madgab-approx-runtime`, branch `madgab-approx-runtime`, base
+`d46d154` (the integrated `post-milestone-acceptance`). **Use d46d154 as the
+comparison base, not the 247404f figures in this item**: the scorer, the
+shortlist sizes and the DP all changed in 6250ba3, so the before-numbers
+must be re-measured on d46d154 and the improvement reported relative to
+that.
+
+The dirty tree a1b2c302 left in this worktree was not thrown away. Its
+`TEMP-PROF` scaffolding and the P1 fix are committed and pushed as
+`archive/prof-scaffold-2026-09-26` (664d5c7), and the worktree was then
+reset to d46d154. If P1 needs re-validating, read that branch first: its
+final `prune_partials` sort already orders indices against the cached
+`metrics` vector, and `prof/` (58 MB of untracked binaries) is still on
+disk there for re-measurement. That branch is an archive, not an
+integration source.
+
+Expect a merge conflict in `src/lib.rs` with the clue-quality front
+([w-9c2d51](w-9c2d51.md)); the two touch different functions but the same
+file.
+
+Toolchain caveat: `cargo fmt` and `cargo clippy` do not exist on this host,
+so the "bit-identical output" criterion has to be demonstrated by the
+comparison recipe in this item rather than by a diff. See
+[../../environment-notes.md](../../environment-notes.md).
+

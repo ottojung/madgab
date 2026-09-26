@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-5d03af
-state: open
+state: working
 priority: normal
-owner: null
-updated: 2026-09-26T07:05:00Z
-branch: null
-worktree: null
+owner: agent-a1b2c305
+updated: 2026-09-26T08:50:00Z
+branch: madgab-exact-determinism
+worktree: /workspace/madgab-exact-determinism
 ---
 
 # Make exact-mode search deterministic
@@ -52,9 +52,25 @@ belongs in `generate_exact` in `src/lib.rs`.
   order dependence.
 - `cargo test --release` is green.
 
+Not yet implemented. If the fix has to sort `words_starting_at` output,
+check that it does not cost measurable time in exact mode; exact mode is
+already the fast path and the sort key should be a plain
+`(consumed, word, ipa)` ordering.
+
 ## Handoff / notes
 
-Not yet started. If the fix has to sort `words_starting_at` output, check
-that it does not cost measurable time in exact mode; exact mode is already
-the fast path and the sort key should be a plain
-`(consumed, word, ipa)` ordering.
+Claimed 2026-09-26T08:50Z for Antonina agent `a1b2c305`, worktree
+`/workspace/madgab-exact-determinism` (created this pass), branch
+`madgab-exact-determinism`, base `d46d154`. Run this front in parallel with
+the approximate fronts: it is confined to `generate_exact` and does not
+interact with them.
+
+Two facts the agent should not have to rediscover:
+
+- a subprocess test that launches the built binary is the only honest
+  boundary for this defect, and `cargo test` can find the binary through
+  `env!("CARGO_BIN_EXE_madgab")`, so no path plumbing is needed;
+- `rustdoc` is absent on this host, so a regression test must live in
+  `tests/`, not as a doctest. See
+  [../../environment-notes.md](../../environment-notes.md).
+
