@@ -3,10 +3,10 @@ work_item: true
 id: w-c4e8d7
 state: working
 priority: high
-owner: coord-7b3e
-updated: 2026-09-26T16:35:00Z
-branch: madgab-enum-reach
-worktree: /workspace/madgab-enum-reach
+owner: coord-9f2c
+updated: 2026-09-26T16:58:00Z
+branch: post-milestone-acceptance
+worktree: /workspace/madgab
 agent: c4e8d70
 ---
 
@@ -430,3 +430,122 @@ Next action for a later fresh pass, in priority order:
    default path of the integrated tree*, close this item's blocker and
    [w-4b1e07](w-4b1e07.md) together with
    [w-a02d28](w-a02d28.md) and re-check the itinerary's milestone conditions.
+
+## Pass 2026-09-26T16:58Z (coordinator `coord-9f2c`): the coverage sweep is
+## integrated; the blocker is now the `hid` slot, and the agent was discarding
+## the fix
+
+The front landed a reviewable commit and then **staged a full revert of it
+while still running**, so this pass was a durability-and-review pass rather
+than a supervision pass.
+
+**Durability first.** `1786530` "w-c4e8d7: make the coverage reserve a
+uniform sweep of each slot's shortlist" existed only in the agent's worktree:
+`git push origin madgab-enum-reach` was rejected non-fast-forward (the agent
+had rebased the branch onto `75ec5b7`, so `e89a325` was no longer an
+ancestor) and the worktree index at that moment held the exact inverse of the
+commit (`git grep sweep_index` on the index returns nothing). So the commit
+was pushed to a ref the agent does not rewrite,
+`refs/heads/archive/enum-reach-uniform-sweep`, and the front's work stopped
+being single-copy. The agent's own branch was deliberately **not** force-pushed
+and not touched.
+
+**The mechanism, on the diff (`75ec5b7..1786530`, 331 insertions / 161
+deletions, `src/lib.rs` and `tests/corpus_integration.rs` only).** The
+coverage reserve sampled four *geometric* index rungs — `EMIT_DEEP_INDEX_LADDER`
+= 10 / 30 / 80 / 200 — **deepest rung first**, so its whole
+`EMIT_PROFILE_RESERVE` allowance was spent on the top two rungs and the two
+rungs that actually matter were the ones it spent least on. A dictionary word
+ranking 11-29, 31-79 or 81-159 in its span's 160-wide shortlist was therefore
+not *late* in the emission order, it was **absent** from it, at any budget.
+`EMIT_DEEP_INDEX_LADDER` is deleted; `coverage_tuples` now walks slot subsets
+breadth-before-depth and takes each deep slot at `sweep_index(width, per, nth,
+phase)` — a uniform stride over exactly `LEXICAL_BRANCH_STAGE_0..width`, the
+range the traversal's *opening* stage cannot generate — with `coverage_phase`
+advanced once per segmentation on the deterministic schedule so a run's sweeps
+tile the lists instead of resampling one progression.
+
+**Fences, checked on the diff rather than on the report.** No `axes::*`
+constant, no `boundary_novelty` form, no `src/adjacency.rs`, no
+`select_diverse` admission order, no share cap or `STRUCTURE_FLOOR`, no
+`SPAN_SHORTLIST` change, and no phrase, word or substring of either acceptance
+example anywhere in the diff. Budget is not raised: the same
+`EMIT_PROFILE_RESERVE` is carved out of the same per-segmentation allowance and
+`build` still compares each tuple's total substitution cost against
+`total_budget` additively — criterion 7's "derive it from the bound the search
+already respects" is satisfied with **no new constant**. The 16:10Z pass's
+finding 2 — that the deleted test was the only thing asserting the reserve's
+post-change purpose, and that it over-claimed — is genuinely fixed rather than
+deleted: `the_coverage_sweep_starts_where_the_traversal_stops` now asserts the
+weaker claim that is actually true (scoped to the traversal's *first* stage),
+and `sweep_index`'s doc comment states the `next_branch_stage` coupling and
+`w-9d4e17`'s zero-firing measurement explicitly as a measurement rather than a
+theorem. Finding 3 (the tiling property) is now stated and asserted. Finding 4
+is met: `approximate_pool_reaches_alternatives_past_the_opening_slot_width`
+observes the **pool**, names neither acceptance phrase, and its second half
+asserts words measured absent from the parent's pool, so it is not
+byte-identical on the parent commit.
+
+**Integrated as `58a45b0`** (merge of `1786530`) and validated by this
+coordinator on the merged tree, not copied from the agent's log:
+
+```text
+cargo test --release --lib                       50 passed, 0 failed
+cargo test --release --test corpus_integration   10 passed, 1 failed
+  approximate_output_is_locked                          ok  (NOT re-baselined)
+  approximate_finds_recognize_speech_resegmentation    ok  (the guard)
+  approximate_pool_reaches_alternatives_past_the_opening_slot_width  ok  (new)
+  approximate_finds_classic_madgab_resegmentation       FAILED (unchanged)
+cargo test --release --test approx_determinism    2 passed
+cargo test --release --test exact_determinism     1 passed
+
+default path, release binary, MADGAB_TRACE_PHRASES:
+  It's just a stupid game  raw phrase="hits justice dupe hid came" missing
+                          candidates=17907  (was 18065)  search 1304ms
+  recognize speech        raw phrase="wreck a nice beach" rank=27 0.918313383
+                          raw_cutoff rank=49 0.917045726      search 1157ms
+
+six-target end-to-end wall clock (criterion 7 baseline 1.77-2.51 s):
+  1.85 / 0.60 / 1.86 / 2.07 / 2.13 / 2.39 s   -- no regression on any target
+```
+
+**What this pass did and did not achieve, stated plainly.** Criterion 3's
+membership half is now satisfied *on the default path of the integrated tree*,
+not on a scratch build: the same word that filled 0 of 18,065 candidates fills
+14 of 17,906, and the pools of ordinary targets draw on 2-3x as many distinct
+words (593 -> 1580, 615 -> 1442, 476 -> 1526 in the test's own measurement).
+The **wording** is still absent from the pool, exactly as this item's own
+sequencing rule predicted it would be: slot 3 (`dupe`) is solved and the
+`hid` slot at the canonical cut is what is not. So per that rule this is a
+**successful end state for criterion 2**, and the remaining question is a
+*selection/pairing* question, not a membership one. The agent was **not**
+prompted to re-litigate selection inside this item.
+
+The agent was prompted once, non-blockingly, and left running, with three
+things: that its commit is integrated and preserved so a revert of it now
+destroys integrated work rather than WIP; that if it staged the revert
+deliberately it should say **why** on this record instead of discarding it,
+because the integrated validation above is the evidence it would be arguing
+against; and that its next deliverable is the canonical structure's
+**best-member rank and fill rank** on `58a45b0`, which is this item's end
+state per the sequencing rule.
+
+`main` does not exist on this host, local or remote;
+`post-milestone-acceptance` remains the only accumulation branch.
+
+Next action for a later fresh pass, in priority order:
+
+1. Read `c4e8d70`'s report of the canonical structure's best-member rank and
+   fill rank on `58a45b0`, plus the reason for the staged revert if it gives
+   one. Then **close this item** — its blocker list is empty, criteria 1-7 are
+   met, and the wording's absence from the pool is now a *selection* fact.
+2. File the selection/pairing question as a **new** work item from those
+   numbers, owned by a fresh agent in its own worktree. It is not this item's
+   job and the sequencing rule says so explicitly.
+3. Review `d4f0b21` ([w-d4f0b2](w-d4f0b2.md)) when it lands: it has a new
+   `tests/no_phrase_hard_coding.rs` with 6 passing tests including a positive
+   control, `--lib` 50/50 and the expected single `corpus_integration`
+   failure, and an empty `src/` and `tests/*` diff. Do not let it delay item 1.
+4. Only after the acceptance test passes, close [w-4b1e07](w-4b1e07.md) and
+   [w-a02d28](w-a02d28.md) together and re-check the itinerary's milestone
+   conditions, including that nothing landed on `main`.
