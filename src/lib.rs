@@ -531,6 +531,17 @@ impl Generator {
         const LEXICAL_GLOBAL_POP_BUDGET: usize =
             SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
 
+        // These two are NON-BINDING and cannot be made to bind, and that
+        // is a property of the traversal rather than of their values: the
+        // whole search spends at most `SEGMENTATION_KEEP *
+        // LEXICAL_COMBINATIONS_PER_SEGMENTATION` = 256 * 64 = 16_384
+        // emissions, because `emit_allowance` is clamped per segmentation
+        // to at most `LEXICAL_COMBINATIONS_PER_SEGMENTATION`, so the
+        // global constant is already at its maximum reachable value at
+        // 1x. Measured inert across 1x..256x (w-be6d21). Do not spend
+        // another pass tuning them; the binding constraint is per-slot
+        // width, `LEXICAL_BRANCH_KEEP` (w-9d4e17).
+
         // The score of the worst clue the ordinary beam already put in
         // the pool.  This is the bar the search already commits to — it
         // is the same pool size `final_keep` fixes above, not a new one.
