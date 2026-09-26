@@ -159,7 +159,12 @@ impl Generator {
                     if pronunciation.ipa.chars().count() < self.config.min_word_ipa_chars {
                         continue;
                     }
-                    let next = partial.extend_pronunciation(pronunciation, consumed, 0.0);
+                    let next = partial.extend_pronunciation(
+                        &target_phrase,
+                        pronunciation,
+                        consumed,
+                        0.0,
+                    );
                     insert_top_k(&mut beam[p + consumed], next, self.config.beam_width);
                 }
             }
@@ -169,7 +174,6 @@ impl Generator {
             std::mem::take(&mut beam[n]),
             &target_ipa,
             &target_boundaries,
-            &target_phrase,
             target_syllables,
         )
     }
@@ -217,7 +221,6 @@ impl Generator {
                 std::mem::take(&mut beam[p]),
                 self.config.beam_width,
                 &target_boundaries,
-                &target_phrase,
                 target_syllables,
                 n,
             );
@@ -232,7 +235,8 @@ impl Generator {
                         continue;
                     }
                     let word = self.fuzzy_lexicon.word(m.word_idx);
-                    let next = partial.extend_fuzzy(word, m.consumed, m.cost);
+                    let next = partial
+                        .extend_fuzzy(&target_phrase, word, m.consumed, m.cost);
                     let q = p + m.consumed;
                     if q > n {
                         continue;
@@ -261,7 +265,6 @@ impl Generator {
                             std::mem::take(&mut beam[q]),
                             keep,
                             &target_boundaries,
-                            &target_phrase,
                             target_syllables,
                             n,
                         );
@@ -281,7 +284,6 @@ impl Generator {
             std::mem::take(&mut beam[n]),
             final_keep,
             &target_boundaries,
-            &target_phrase,
             target_syllables,
             n,
         );
@@ -916,6 +918,7 @@ impl Generator {
                             let word =
                                 self.fuzzy_lexicon.word(a.match_ref.word_idx);
                             partial = partial.extend_fuzzy(
+                                &target_phrase,
                                 word,
                                 a.match_ref.consumed,
                                 a.cost,
@@ -949,7 +952,6 @@ impl Generator {
             completed,
             &target_ipa,
             &target_boundaries,
-            &target_phrase,
             target_syllables,
         )
     }
@@ -959,7 +961,6 @@ impl Generator {
         completed: Vec<Partial>,
         target_ipa: &str,
         target_boundaries: &[usize],
-        target: &TargetPhrase,
         target_syllables: usize,
     ) -> Vec<Clue> {
         let mut clues: Vec<Clue> = completed
@@ -968,7 +969,6 @@ impl Generator {
                 p.into_clue(
                     target_ipa,
                     target_boundaries,
-                    target,
                     target_syllables,
                 )
             })
@@ -1058,7 +1058,30 @@ fn normalized_word(word: &str) -> String {
         .collect()
 }
 
+/// Test-only instrumentation. Approximate search is a constant-factor
+/// problem, so the regression tests count calls rather than trusting the
+/// wall clock. Compiled out of release builds entirely.
+#[cfg(test)]
+mod counters {
+    use std::cell::Cell;
+
+    thread_local! {
+        pub static METRICS: Cell<u64> = const { Cell::new(0) };
+        pub static NOVELTY_STEM: Cell<u64> = const { Cell::new(0) };
+    }
+
+    pub fn bump(counter: &'static std::thread::LocalKey<Cell<u64>>) {
+        counter.with(|c| c.set(c.get() + 1));
+    }
+
+    pub fn take(counter: &'static std::thread::LocalKey<Cell<u64>>) -> u64 {
+        counter.with(|c| c.replace(0))
+    }
+}
+
 fn novelty_stem(word: &str) -> String {
+    #[cfg(test)]
+    counters::bump(&counters::NOVELTY_STEM);
     let mut s = normalized_word(word);
     for (from, to) in [
         ("isation", "ization"),
@@ -1090,6 +1113,35 @@ fn novelty_stem(word: &str) -> String {
 }
 
 fn lexical_shape_quality(word: &str, familiarity: f64) -> f64 {
+    // This runs once per clue word for every hypothesis the search builds,
+    // so it counts the normalized characters in place instead of
+    // materializing the normalized string just to measure its length.
+    let mut count = 0usize;
+    let mut single: Option<char> = None;
+    for c in word.chars() {
+        if !c.is_alphanumeric() {
+            continue;
+        }
+        for lower in c.to_lowercase() {
+            if count == 0 {
+                single = Some(lower);
+            }
+            count += 1;
+        }
+    }
+    match count {
+        0 => 0.0,
+        1 if single == Some('a') || single == Some('i') => 1.0,
+        1 => 0.05,
+        2 => 0.35 + 0.55 * familiarity,
+        _ => 1.0,
+    }
+}
+
+/// The pre-optimization definition of [`lexical_shape_quality`], kept as
+/// the reference the allocation-free version is tested against.
+#[cfg(test)]
+fn lexical_shape_quality_reference(word: &str, familiarity: f64) -> f64 {
     let w = normalized_word(word);
     match w.chars().count() {
         0 => 0.0,
@@ -1161,6 +1213,13 @@ struct Partial {
     cuts: Vec<usize>,
     /// Stable path key for duplicate suppression in approximate beams.
     key: String,
+    /// Incremental per-word aggregates, so `metrics` does not re-derive
+    /// them from `words` on every beam comparison. Each is the running
+    /// total in clue-word order, which keeps the sums bit-identical to
+    /// folding `words` at scoring time.
+    reused_count: usize,
+    familiarity_sum: f64,
+    shape_sum: f64,
 }
 
 impl Partial {
@@ -1172,25 +1231,38 @@ impl Partial {
             cheap_score: 0.0,
             cuts: Vec::new(),
             key: String::new(),
+            reused_count: 0,
+            familiarity_sum: 0.0,
+            shape_sum: 0.0,
         }
     }
 
     fn extend_pronunciation(
         &self,
+        target: &TargetPhrase,
         p: &Pronunciation,
         consumed: usize,
         word_sub_cost: f64,
     ) -> Self {
-        self.extend_parts(&p.word, &p.ipa, p.rarity, consumed, word_sub_cost)
+        self.extend_parts(
+            target,
+            &p.word,
+            &p.ipa,
+            p.rarity,
+            consumed,
+            word_sub_cost,
+        )
     }
 
     fn extend_fuzzy(
         &self,
+        target: &TargetPhrase,
         word: &approx::FuzzyWord,
         consumed: usize,
         word_sub_cost: f64,
     ) -> Self {
         self.extend_parts(
+            target,
             &word.word,
             &word.ipa,
             word.rarity,
@@ -1201,6 +1273,7 @@ impl Partial {
 
     fn extend_parts(
         &self,
+        target: &TargetPhrase,
         word: &str,
         ipa: &str,
         rarity: Option<f64>,
@@ -1233,6 +1306,14 @@ impl Partial {
             format!("{} {}", self.key, step_key)
         };
 
+        // The aggregates below are the same terms metrics() used to fold
+        // out of the word vector on every call. Appending one word to a running
+        // total in clue-word order is bit-identical to re-folding the whole
+        // vector, and costs O(1) instead of O(W).
+        let familiarity = word_familiarity(rarity);
+        let reuses = target.reuse.reuses(word);
+        let shape = lexical_shape_quality(word, familiarity);
+
         Self {
             words,
             sub_cost_total: self.sub_cost_total + word_sub_cost,
@@ -1240,36 +1321,32 @@ impl Partial {
             cheap_score: self.cheap_score + word_bonus + rarity_penalty - word_sub_cost,
             cuts,
             key,
+            reused_count: self.reused_count + usize::from(reuses),
+            familiarity_sum: self.familiarity_sum + familiarity,
+            shape_sum: self.shape_sum + shape,
         }
     }
 
     fn metrics(
         &self,
-        target: &TargetPhrase,
         target_boundaries: &[usize],
         target_syllables: usize,
         total_len: usize,
         partial: bool,
     ) -> Metrics {
+        #[cfg(test)]
+        counters::bump(&counters::METRICS);
         let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
-        let reused = self
-            .words
-            .iter()
-            .filter(|w| target.reuse.reuses(&w.word))
-            .count() as f64;
+        let reused = self.reused_count as f64;
         let word_novelty = 1.0 - reused / self.words.len().max(1) as f64;
 
         let familiarity = if self.words.is_empty() {
             0.0
         } else {
-            self.words
-                .iter()
-                .map(|w| word_familiarity(w.rarity))
-                .sum::<f64>()
-                / self.words.len() as f64
+            self.familiarity_sum / self.words.len() as f64
         };
 
         // A Mad Gab clue has to be *sayable* with the target's rhythm, not
@@ -1282,14 +1359,7 @@ impl Partial {
         let shape_quality = if self.words.is_empty() {
             0.0
         } else {
-            self.words
-                .iter()
-                .map(|w| {
-                    let familiarity = word_familiarity(w.rarity);
-                    lexical_shape_quality(&w.word, familiarity)
-                })
-                .sum::<f64>()
-                / self.words.len() as f64
+            self.shape_sum / self.words.len() as f64
         };
 
         let combined = 0.25 * similarity
@@ -1312,12 +1382,11 @@ impl Partial {
         self,
         target_ipa: &str,
         target_boundaries: &[usize],
-        target: &TargetPhrase,
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
         let score = self
-            .metrics(target, target_boundaries, target_syllables, total_len, false)
+            .metrics(target_boundaries, target_syllables, total_len, false)
             .combined;
         Clue {
             phrase: self
@@ -1333,7 +1402,7 @@ impl Partial {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct Metrics {
     combined: f64,
     novelty: f64,
@@ -1442,7 +1511,6 @@ fn prune_partials(
     candidates: Vec<Partial>,
     k: usize,
     target_boundaries: &[usize],
-    target: &TargetPhrase,
     target_syllables: usize,
     total_len: usize,
 ) -> Vec<Partial> {
@@ -1452,7 +1520,6 @@ fn prune_partials(
 
     let score_of = |p: &Partial| {
         p.metrics(
-            target,
             target_boundaries,
             target_syllables,
             total_len,
@@ -1463,11 +1530,26 @@ fn prune_partials(
 
     // Exact path duplicates (same words + same pronunciations) can be
     // generated through multiple edit alignments. Keep the better one.
+    //
+    // A duplicate path only has to be resolved against the incumbent's
+    // combined score, so that score is scored once per *colliding* key and
+    // then cached. Keys that never collide are never scored here at all:
+    // every surviving candidate is scored exactly once below.
     let mut dedup: HashMap<String, Partial> = HashMap::new();
+    let mut incumbent_score: HashMap<String, f64> = HashMap::new();
     for candidate in candidates {
         match dedup.get(&candidate.key) {
-            Some(old) if score_of(old) >= score_of(&candidate) => {}
-            _ => {
+            Some(old) => {
+                let old_score = *incumbent_score
+                    .entry(candidate.key.clone())
+                    .or_insert_with(|| score_of(old));
+                let candidate_score = score_of(&candidate);
+                if candidate_score > old_score {
+                    incumbent_score.insert(candidate.key.clone(), candidate_score);
+                    dedup.insert(candidate.key.clone(), candidate);
+                }
+            }
+            None => {
                 dedup.insert(candidate.key.clone(), candidate);
             }
         }
@@ -1485,7 +1567,6 @@ fn prune_partials(
         .iter()
         .map(|p| {
             p.metrics(
-                target,
                 target_boundaries,
                 target_syllables,
                 total_len,
@@ -1577,17 +1658,15 @@ fn prune_partials(
         rank += 1;
     }
 
-    let mut out: Vec<Partial> = selected
-        .into_iter()
-        .map(|i| items[i].clone())
-        .collect();
-    out.sort_by(|a, b| {
-        cmp_desc(
-            score_of(a),
-            score_of(b),
-        )
+    // Order the retained indices against the cached metrics. Recomputing
+    // `metrics` per comparison is the single largest cost in approximate
+    // search: the results are already materialised above, so sorting the
+    // indices keeps the same order for O(k log k) field reads.
+    let mut picked: Vec<usize> = selected.into_iter().collect();
+    picked.sort_by(|&a, &b| {
+        cmp_desc(metrics[a].combined, metrics[b].combined).then(a.cmp(&b))
     });
-    out
+    picked.into_iter().map(|i| items[i].clone()).collect()
 }
 
 /// Canonical identity of a clue: its words without case or punctuation.
@@ -1883,6 +1962,223 @@ mod tests {
         assert!((rhythm_match(6, 6) - 1.0).abs() < 1e-9);
         assert!((rhythm_match(7, 6) - 0.5).abs() < 1e-9);
         assert!(rhythm_match(9, 6).abs() < 1e-9);
+    }
+
+    /// Build a synthetic candidate pool with distinct path keys so the
+    /// dedup stage never has to score an incumbent twice.
+    fn candidate_pool(target: &TargetPhrase, n: usize) -> Vec<Partial> {
+        let mut pool = Vec::with_capacity(n);
+        for i in 0..n {
+            let word = approx::FuzzyWord {
+                word: format!("word{i}"),
+                ipa: "kæt".to_string(),
+                ipa_len: 3,
+                syllables: 1,
+                rarity: Some(100.0 + i as f64),
+            };
+            let consumed = 3;
+            pool.push(
+                Partial::empty()
+                    .extend_fuzzy(target, &word, consumed, (i % 7) as f64 * 0.05),
+            );
+        }
+        pool
+    }
+
+    /// P1 regression: beam retention must order the retained indices
+    /// against the already-materialised metrics, not recompute
+    /// `Partial::metrics` inside a comparator.
+    ///
+    /// With one `metrics` call per distinct candidate the count is exactly
+    /// the pool size. A comparator that re-ran `metrics` would need
+    /// O(n log n) calls, so this asserts the exact number rather than a
+    /// wall clock.
+    #[test]
+    fn prune_partials_scores_each_candidate_exactly_once() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let boundaries = [3usize, 6, 9];
+        for n in [64usize, 256, 1024, 4096] {
+            // k grows with the pool, as it does in the search: the
+            // completed-hypothesis pool prunes thousands of candidates at a
+            // time, and a comparator that re-ran `metrics` would cost
+            // 2 k log2 k extra calls there.
+            let k = n / 4;
+            let pool = candidate_pool(&target, n);
+            counters::take(&counters::METRICS);
+            let kept = prune_partials(pool, k, &boundaries, 4, 12);
+            let calls = counters::take(&counters::METRICS);
+            assert_eq!(
+                calls,
+                n as u64,
+                "expected one metrics call per candidate for n={n}"
+            );
+            assert_eq!(kept.len(), k);
+        }
+    }
+
+    /// The retained hypotheses come back ordered by combined score, and
+    /// the best candidate in the pool leads. Retention is a portfolio
+    /// rather than a plain top-k, so this checks the ordering the index
+    /// sort has to preserve, not the membership rule.
+    #[test]
+    fn prune_partials_returns_best_scoring_candidates_first() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let boundaries = [3usize, 6, 9];
+        let pool = candidate_pool(&target, 64);
+        let best = pool
+            .iter()
+            .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let kept = prune_partials(pool, 8, &boundaries, 4, 12);
+        let got: Vec<f64> = kept
+            .iter()
+            .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
+            .collect();
+        assert!(got.windows(2).all(|w| w[0] >= w[1]), "not ordered by combined score: {got:?}");
+        assert_eq!(got[0], best, "best candidate must lead the retained set");
+    }
+
+    /// P2 regression: the incremental aggregates on `Partial` must stay
+    /// bit-identical to folding the whole word vector, so scores are
+    /// unchanged by the refactor.
+    #[test]
+    fn incremental_aggregates_match_a_full_refold() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let boundaries = [3usize, 6, 9];
+
+        // The pre-incremental `metrics`: fold every per-word aggregate out
+        // of the word vector.
+        fn refold(
+            p: &Partial,
+            target: &TargetPhrase,
+            syllables: usize,
+            partial: bool,
+        ) -> Metrics {
+            let similarity = (1.0 - p.sub_cost_total / 4.0).clamp(0.0, 1.0);
+            let novelty =
+                boundary_novelty(&p.cuts, &[3usize, 6, 9], 12, partial);
+            let reused = p
+                .words
+                .iter()
+                .filter(|w| target.reuse.reuses(&w.word))
+                .count() as f64;
+            let word_novelty = 1.0 - reused / p.words.len().max(1) as f64;
+            let familiarity = if p.words.is_empty() {
+                0.0
+            } else {
+                p.words
+                    .iter()
+                    .map(|w| word_familiarity(w.rarity))
+                    .sum::<f64>()
+                    / p.words.len() as f64
+            };
+            let rhythm = rhythm_match(p.syllables, syllables);
+            let shape_quality = if p.words.is_empty() {
+                0.0
+            } else {
+                p.words
+                    .iter()
+                    .map(|w| {
+                        let f = word_familiarity(w.rarity);
+                        lexical_shape_quality(&w.word, f)
+                    })
+                    .sum::<f64>()
+                    / p.words.len() as f64
+            };
+            let combined = 0.25 * similarity
+                + 0.15 * novelty
+                + 0.15 * word_novelty
+                + 0.10 * familiarity
+                + 0.30 * rhythm
+                + 0.05 * shape_quality;
+            Metrics {
+                combined,
+                novelty,
+                familiarity,
+                word_novelty,
+                rhythm,
+            }
+        }
+
+        for p in candidate_pool(&target, 24) {
+            let mut multi = p.clone();
+            for extra in 0..4 {
+                let word = approx::FuzzyWord {
+                    word: format!("extra{extra}"),
+                    ipa: "niːs".to_string(),
+                    ipa_len: 3,
+                    syllables: 1,
+                    rarity: if extra % 2 == 0 {
+                        None
+                    } else {
+                        Some(90_000.0)
+                    },
+                };
+                multi = multi.extend_fuzzy(&target, &word, 3, 0.1 * extra as f64);
+            }
+            for p in [p, multi] {
+                for partial in [true, false] {
+                    assert_eq!(
+                        p.metrics(&boundaries, 4, 12, partial),
+                        refold(&p, &target, 4, partial)
+                    );
+                }
+            }
+        }
+    }
+
+    /// P3 regression: the reuse test stems each word once and then serves
+    /// every repeat from the memo, so the hot path neither stems nor
+    /// allocates per call.
+    #[test]
+    fn reuse_test_stems_each_word_once() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        counters::take(&counters::NOVELTY_STEM);
+        // "wrecking" stems to "wreck", which is a target word.
+        assert!(target.reuse.reuses("wrecking"));
+        let first = counters::take(&counters::NOVELTY_STEM);
+        assert_eq!(first, 1, "one stem computation for a cold word");
+        for _ in 0..1000 {
+            assert!(target.reuse.reuses("wrecking"));
+        }
+        assert_eq!(
+            counters::take(&counters::NOVELTY_STEM),
+            0,
+            "repeated reuse tests must hit the memo, not re-stem"
+        );
+    }
+
+    /// P3 regression: the allocation-free shape measure must agree with
+    /// the definition it replaced, including for punctuation, case and
+    /// non-ASCII letters.
+    #[test]
+    fn lexical_shape_quality_matches_reference() {
+        for word in [
+            "",
+            "-",
+            "a",
+            "A",
+            "i",
+            "I",
+            "x",
+            "İ",
+            "ab",
+            "A-B",
+            "cat",
+            "straße",
+            "Å",
+            "å",
+            "one two",
+            "'twas",
+        ] {
+            for familiarity in [0.0, 0.25, 1.0] {
+                assert_eq!(
+                    lexical_shape_quality(word, familiarity),
+                    lexical_shape_quality_reference(word, familiarity),
+                    "shape quality for {word:?} at familiarity {familiarity}"
+                );
+            }
+        }
     }
 
     #[test]
