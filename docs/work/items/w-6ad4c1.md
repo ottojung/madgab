@@ -139,3 +139,64 @@ log, then `git ls-remote origin madgab-punch-6ad4c1` and
 `MERGE RECOMMENDATION: MERGE`, review the diff for criterion 3 (additive) and
 criterion 5 (both guards, CLI defaults), then integrate onto
 `post-milestone-acceptance` - never `main`.
+
+## Pass 2026-09-26T21:30Z (coordinator coord-2d6f): review verdict - the code is approved, the *branch* is held for pruning durable history
+
+Agent `6ad4c1` finished **succeeded** with `MERGE RECOMMENDATION: MERGE`, the
+branch pushed at `0a3097d`, and its own suites: `--lib` 53/53,
+`--test corpus_integration` 10 passed / 1 failed (only the pre-existing
+`approximate_finds_classic_madgab_resegmentation`), `--test
+no_phrase_hard_coding` 6/6, `--test approx_determinism` 4/4, `--test
+exact_determinism` 1/1. The coordinator reviewed the diff rather than the
+report.
+
+**`src/lib.rs` (53 changed lines) is approved and is general.** Criterion 3
+(additive) holds: no existing weight moved, no axis rescaled, no
+existing axis' definition or inputs changed. `PUNCH` is computed from the
+syllable count the extension path already computes, so no new traversal pass.
+The bounded `+ w*(v - 1)` form is used and the rejected alternative is
+documented in the diff itself. Fence scan over the added `src/` lines returns
+**0** hits for any canonical phrase token, word or substring, and **0** for
+`ZZ_`, `MADGAB_TRACE` or `env::var`. Its CLI-default guard check shows
+`wreck a nice beach` still produced for `recognize speech` (raw rank 27). This
+is a general output-quality change and, as the report says first, it does not
+close the primary milestone.
+
+**The integration is nevertheless held, for one reason only.** The branch
+deletes **265 lines of durable coordination history from four other work
+items** that this front has no mandate to edit:
+
+```text
+docs/work/items/w-2f7a10.md   -115
+docs/work/items/w-4b1e07.md    -49
+docs/work/items/w-558697.md    -46
+docs/work/items/w-3e7b04.md    -55
+```
+
+Those are other coordinators' pass records, and pruning them would delete
+exactly the evidence a later fresh pass is supposed to reconcile from. A merge
+of the branch as pushed would trade a general quality improvement for a
+silent loss of durable state, so it is not merged as pushed.
+
+Unblock condition, objective: a branch whose diff against
+`post-milestone-acceptance` contains **no deletions from any work item other
+than `w-6ad4c1.md`'s own state lines** - i.e. the four files above restored to
+their content on `1486de1` while `src/lib.rs` and `REPORT-6ad4c1.md` are kept.
+The simplest form of that is a fresh commit on `madgab-punch-6ad4c1` restoring
+those four files from the accumulation branch; the agent is terminal, so this
+is coordinator work and needs no new front. Do **not** force-push the
+published branch.
+
+Next action for a later fresh pass, in priority order:
+
+1. On `madgab-punch-6ad4c1`, restore `w-2f7a10.md`, `w-4b1e07.md`,
+   `w-558697.md` and `w-3e7b04.md` from `post-milestone-acceptance` in a new
+   commit, push, and verify the diff against the accumulation head shows
+   insertions only. Then merge onto `post-milestone-acceptance` - never `main` -
+   and re-run `--lib`, `--test corpus_integration`, `--test
+   no_phrase_hard_coding`, `--test approx_determinism` and `--test
+   exact_determinism` on the merged tree, checking the side-by-side
+   `approximate_output_is_locked` comparison the report carries.
+2. `9f1c05` ([w-9f1c05](w-9f1c05.md)) is live and independent of this; it must
+   not be delayed by this front's re-commit, and it is fenced to
+   documentation, so the two compose.
