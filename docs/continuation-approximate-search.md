@@ -1,17 +1,36 @@
 ---
 work_item: true
 id: w-7c4a91
-state: open
+state: superseded
 priority: high
 owner: null
-updated: 2026-09-26T05:25:00Z
+updated: 2026-09-26T12:40:00Z
 branch: post-milestone-acceptance
 worktree: null
+superseded_by: w-4b1e07
 ---
 
 # Continue approximate-search acceptance work
 
 This document is an active repository work item. It is intentionally discoverable by scheduled orchestrators without relying on GitHub Issues. Follow [skills/work-items.md](skills/work-items.md) for claiming, handoff, and completion.
+
+## Superseded (2026-09-26, coordinator coord-5e1d)
+
+The work moved to [work/items/w-4b1e07.md](work/items/w-4b1e07.md), which
+carries the live measurements, blocker list and pass history. Its
+completion criteria are the same acceptance goal, restated with the
+constraints this document predates. The archival branch list, the
+milestone tag and the strongest-findings notes below are kept as history
+and are still accurate, but this file is no longer the place to record
+progress: a coordinator discovering it now should read
+[w-4b1e07](work/items/w-4b1e07.md) instead.
+
+Two completion criteria in the list at the end of this document cannot be
+verified on this host at all (`cargo fmt --check`, `cargo clippy`, and the
+doctest/`wasm32` parts of `cargo test`/`cargo build`); see
+[environment-notes.md](environment-notes.md). Use
+`cargo test --release --lib` and `cargo test --release --test <name>` and
+say plainly which criteria were unverifiable.
 
 ## Goal
 
