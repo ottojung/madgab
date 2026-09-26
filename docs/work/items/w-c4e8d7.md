@@ -549,3 +549,137 @@ Next action for a later fresh pass, in priority order:
 4. Only after the acceptance test passes, close [w-4b1e07](w-4b1e07.md) and
    [w-a02d28](w-a02d28.md) together and re-check the itinerary's milestone
    conditions, including that nothing landed on `main`.
+
+### Agent pass `c4e8d70` (2026-09-26T17:05Z): the end-state numbers, and what the staged revert actually was
+
+**The staged revert was a measurement, not a decision, and it never touched
+`madgab-enum-reach` or `post-milestone-acceptance`.** The coordinator saw a
+staged full revert of `1786530` because at that moment the *worktree* was
+checked out on `scratch/c4e8d7-basepool` — a throwaway branch off the parent
+`75ec5b7` carrying only the `ZZ_POOL_OUT` pool-dump hook, created to get the
+**default-path membership baseline** (the `18065` / `dupe 0` numbers) out of a
+release binary of the *parent* tree. `git checkout <parent> -- src tests`
+stages, so the index held the parent's `src/lib.rs` and
+`tests/corpus_integration.rs`, which reads from outside the branch exactly like
+a revert. It was a hygiene slip in *which branch I stood on while measuring*,
+not an intention to undo the sweep. `madgab-enum-reach` still carried
+`1786530` throughout, the branch has since been advanced onto the integrated
+line (`b2bb0ea`, containing `58a45b0`), and both scratch branches are pushed.
+`scratch/c4e8d7-basepool` is kept deliberately: it is the admissible baseline
+instrument for criterion 3, and it must never be merged.
+
+#### The end state, on `58a45b0`, release build, `--approximate --top 50`
+
+`It's just a stupid game`, pool **17,907**, **333** distinct structures, visible
+cutoff **0.915691888** at rank 49. Offsets read from `madgab::Clue::cuts`, not
+re-derived from clue-word IPA lengths.
+
+```text
+canonical structure [3, 10, 13, 15, 19]   47 members in the pool
+  best-member global rank   3108   score 0.87812846738654216
+  best member               "each justice too add gain"
+  gap to the visible cutoff  -0.037563
+fill rank                    104   (the 50th and last visible slot sits at
+                                   pool rank 104, against a pool of 17,907)
+`dupe` in pool                14    `dupe` visible: 0
+```
+
+Parent for comparison, same instrument: best-member rank **2,966**, fill rank
+**101**, pool 18,065. So the sweep moved the family's best member down by 142
+ranks and the fill rank by 3, on a pool 158 smaller. That is the expected
+direction and a small one: the reserve spends a *fixed* 16 emissions per
+segmentation out of the same per-segmentation allowance, so it redistributes
+spend toward coverage and away from depth in the cost-best corner, and the
+corner is where the best members live. The score of the best member is
+**byte-identical** (0.87812846738654216), which is the check that matters: the
+reserve changed which wordings are *enumerated*, not how any of them scores.
+
+**The gap that remains is now a pairing gap, not a membership gap.** The
+structure holds 47 enumerated wordings, its best member is 0.0376 under the
+cutoff, and the list is exhausted at rank 104 — so no change to enumeration
+inside this structure can make the requested wording visible, and by this
+item's own sequencing rule that is where this front stops. Selection,
+admission order, share cap and axis weights are all closed and out of this
+item's fence, and none of them was re-litigated here.
+
+#### Criterion 3, six real targets, default path, release build
+
+Same instrument on both heads (`ZZ_POOL_OUT`, `--approximate --top 50`, no
+re-budgeting, no widened harness). One witness word per target, each a real
+dictionary word for an **unaligned** span of that target:
+
+```text
+target                          pool base -> fix    witness   base -> fix
+It's just a stupid game          18065 -> 17907      dupe        0 ->  14
+recognize speech                 16027 -> 15904      wince       0 ->   2
+a whole lot of trouble           16547 -> 16155      touched     0 ->   3
+the cat sat on the mat           16508 -> 16262      tickets     0 ->   3
+put it back on the shelf         16163 -> 15631      taught     17 ->  28
+when the rain finally stopped    15712 -> 15610      wince       0 ->   5
+```
+
+`dupe` is 0 on the other five, correctly: it fits no span of them. The change
+is not specific to one input, and the pools are not uniformly larger — several
+are smaller, which is the other half of a redistribution.
+
+#### Wall clock, criterion 7 — stated against a re-measured baseline
+
+This host no longer reproduces the recorded 1.77 / 1.88 / 1.80 / 2.00 / 2.19 /
+2.51 s column: the **parent** tree measures 1.82-3.21 s on the same targets in
+the same session, so the absolute numbers are host noise and only a
+back-to-back comparison is meaningful. Measured that way, interleaved, fix vs
+parent, end-to-end process time:
+
+```text
+                       fix                    parent
+recognize speech       1.83 1.97 1.95 1.95    1.95 1.84 1.82 2.10
+It's just a stupid game 2.04 2.06 2.11 2.95   2.02 2.03 2.28 2.20
+a whole lot of trouble 1.94 2.51 2.27 2.05   2.37 2.47 2.13 2.21
+the cat sat on the mat 2.15 2.12 2.36 2.41   2.24 3.31 2.52 2.17
+put it back on the shelf 2.37 2.56 2.37 2.30 2.65 2.50 2.08 2.01
+when the rain stopped  3.03 2.58 2.78 2.76   2.85 2.66 2.35 2.32
+```
+
+Within noise on every target, better on three. The coordinator's own
+independent measurement of the merged tree (1.85 / 0.60 / 1.86 / 2.07 / 2.13 /
+2.39 s) agrees. **No regression**, and the reason is structural rather than
+lucky: the reserve is the *same* `EMIT_PROFILE_RESERVE` carved out of the *same*
+per-segmentation allowance, so the total spend is unchanged and only its
+distribution moves. `build` still compares each tuple's total substitution cost
+against `total_budget` additively, so nothing is emitted that the bound the
+search already respects would have rejected.
+
+#### What the constant was bounding, and the other fence facts
+
+`EMIT_DEEP_INDEX_LADDER = [10, 30, 80, 200]` was bounding *which slot indices
+the enumeration could generate at all*. The union of everything reachable was
+`{0..9}` from the traversal's opening width, the four ladder rungs from the
+reserve, and `±ADJACENCY_PER_SLOT` around those from the adjacency operator —
+a set of measure O(1) inside a 160-wide shortlist. A word at rank 11-29, 31-79
+or 81-159 of its span was absent from the emission order rather than late in
+it. The constant is gone; the mechanism it encoded is now a uniform stride
+over exactly the indices the traversal's opening stage cannot generate.
+
+Nothing outside this item's fence moved: no `axes::*` constant, no
+`boundary_novelty` form, no `src/adjacency.rs` and no `ADJACENCY_*`, no
+`select_diverse` admission order, no share cap and no `STRUCTURE_FLOOR`, no
+`SPAN_SHORTLIST` and no span-shortlist pass, and no phrase, word or substring
+of either acceptance example anywhere in `src/` or `tests/`.
+`approximate_output_is_locked` is green and **not** re-baselined.
+`cargo fmt`, `cargo clippy` and doctests do not exist on this host and are not
+claimed.
+
+#### Branches
+
+* `madgab-enum-reach` — `b2bb0ea`, the integrated line, containing the merge
+  `58a45b0` of this item's `1786530`. Pushed.
+* `scratch/c4e8d7-measure` — `4dcf6b3`, the `ZZ_TRACE` / `ZZ_STAGE` /
+  `ZZ_POOL_OUT` probes rebased onto `58a45b0`. Pushed, merged nowhere.
+* `scratch/c4e8d7-basepool` — `7709031`, the same dump hook on the **parent**
+  tree, kept as the baseline instrument for criterion 3. Pushed, merged
+  nowhere, must never be merged.
+
+Next action for a later fresh pass: this item is closed on its own terms —
+criteria 1-7 are met, membership is non-zero and the absence of the wording is
+now a selection/pairing fact. File that as a new item from the numbers above
+and do not re-open this one.
