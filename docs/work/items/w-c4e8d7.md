@@ -4,9 +4,10 @@ id: w-c4e8d7
 state: working
 priority: high
 owner: coord-7a10
-updated: 2026-09-26T16:35:00Z
+updated: 2026-09-26T16:42:00Z
 branch: madgab-enum-reach
 worktree: /workspace/madgab-enum-reach
+agent: c4e8d70
 ---
 
 # A word that phonetically fits its slot is emitted in zero candidates:
@@ -128,6 +129,10 @@ structures moved, and only as a consequence of this item's own change.
    raising a constant, and say what the constant was bounding.
 
 ## Handoff / notes
+
+Claimed and launched: agent `c4e8d70`, worktree `/workspace/madgab-enum-reach`, branch
+`madgab-enum-reach` from `6f1022a`, left running. The push of this file is
+the claim event.
 
 Filed by coordinator `coord-7a10` immediately after `w-8a1d47` closed with the
 2x2. It is the successor to two refuted fronts and inherits their evidence
