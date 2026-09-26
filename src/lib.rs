@@ -1749,7 +1749,79 @@ impl Generator {
             }
         }
 
-        select_diverse(clues, self.config.top_n)
+        let picked = select_diverse(clues, self.config.top_n);
+        // ZZ_AXIS (scratch/w-2e5b93): dump the whole retained, deduplicated
+        // pool with every axis' weighted contribution, so the per-axis
+        // spread is measured over the population and not a prefix of it.
+        axis_spread::dump(&picked);
+        picked
+    }
+}
+
+/// ZZ_AXIS (scratch/w-2e5b93, measurement only, never integrated).
+/// Accumulates one row per retained candidate: the weighted contribution of
+/// each clue-score axis. Axis order matches the `axes` module.
+mod axis_spread {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    pub const NAMES: [&str; 7] = [
+        "SIMILARITY",
+        "NOVELTY",
+        "WORD_NOVELTY",
+        "FAMILIARITY",
+        "RHYTHM",
+        "SHAPE",
+        "CLOSED_CLASS",
+    ];
+
+    thread_local! {
+        static ROWS: RefCell<Vec<(String, [f64; 7], f64, Vec<usize>)>> =
+            RefCell::new(Vec::new());
+    }
+
+    pub fn record(words: &[super::ClueWord], parts: [f64; 7], score: f64, cuts: &[usize]) {
+        if std::env::var_os("ZZ_AXIS_DUMP").is_none() {
+            return;
+        }
+        let phrase = words
+            .iter()
+            .map(|w| w.word.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        ROWS.with(|r| {
+            r.borrow_mut()
+                .push((phrase, parts, score, cuts.to_vec()))
+        });
+    }
+
+    pub fn dump(picked: &[super::Clue]) {
+        let Ok(path) = std::env::var("ZZ_AXIS_DUMP") else { return };
+        let rows: Vec<(String, [f64; 7], f64, Vec<usize>)> =
+            ROWS.with(|r| r.borrow().clone());
+        let mut by_phrase: HashMap<String, ([f64; 7], f64, Vec<usize>)> = HashMap::new();
+        for (p, parts, score, cuts) in rows {
+            by_phrase.insert(p, (parts, score, cuts));
+        }
+        let visible: std::collections::HashSet<String> =
+            picked.iter().map(|c| c.phrase.clone()).collect();
+        let mut out = String::new();
+        out.push_str(&format!("POOL\t{}\n", by_phrase.len()));
+        let mut n = 0usize;
+        for (rank, entry) in by_phrase.iter().enumerate() {
+            let (phrase, (parts, score, _cuts)) = entry;
+            n += 1;
+            out.push_str(&format!(
+                "P\t{}\t{:.17}\t{}\t{}\t{}\n",
+                rank,
+                score,
+                parts.iter().map(|x| format!("{x:.17}")).collect::<Vec<_>>().join("\t"),
+                if visible.contains(phrase) { 1 } else { 0 },
+                phrase
+            ));
+        }
+        out.push_str(&format!("ROWS\t{n}\n"));
+        let _ = std::fs::write(path, out);
     }
 }
 
@@ -2223,13 +2295,19 @@ impl Partial {
         };
         let closed_penalty = closed_class_penalty(self.closed as f64, words as f64);
 
-        let combined = axes::SIMILARITY * similarity
-            + axes::NOVELTY * novelty
-            + axes::WORD_NOVELTY * word_novelty
-            + axes::FAMILIARITY * familiarity
-            + axes::RHYTHM * rhythm
-            + axes::SHAPE * shape_quality
-            + axes::CLOSED_CLASS * closed_penalty;
+        // ZZ_AXIS (scratch/w-2e5b93): the weighted contribution of each axis,
+        // recorded here so the measured per-axis spread is by construction
+        // the same quantity the score sums.
+        let axis_parts = [
+            axes::SIMILARITY * similarity,
+            axes::NOVELTY * novelty,
+            axes::WORD_NOVELTY * word_novelty,
+            axes::FAMILIARITY * familiarity,
+            axes::RHYTHM * rhythm,
+            axes::SHAPE * shape_quality,
+            axes::CLOSED_CLASS * closed_penalty,
+        ];
+        let combined = axis_parts.iter().sum();
 
         Metrics {
             combined,
@@ -2238,6 +2316,7 @@ impl Partial {
             word_novelty,
             rhythm,
             content,
+            axis_parts,
         }
     }
 
@@ -2248,10 +2327,14 @@ impl Partial {
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
-        let score = self
-            .metrics(target_boundaries, target_syllables, total_len, false)
-            .combined;
+        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
+        let score = m.combined;
+        // ZZ_AXIS (scratch/w-2e5b93): record this retained candidate's
+        // per-axis weighted contributions for the population spread dump.
         let words: Vec<ClueWord> = self.words().cloned().collect();
+        // ZZ_AXIS (scratch/w-2e5b93): record this retained candidate's
+        // per-axis weighted contributions for the population spread dump.
+        axis_spread::record(&words, m.axis_parts, score, &self.cuts);
         Clue {
             phrase: words
                 .iter()
@@ -2320,6 +2403,8 @@ struct Metrics {
     rhythm: f64,
     /// Share of the clue's words that are content words, in [0, 1].
     content: f64,
+    /// ZZ_AXIS (scratch/w-2e5b93): weighted contribution of each axis.
+    axis_parts: [f64; 7],
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between the
