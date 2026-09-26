@@ -18,6 +18,7 @@ pub(crate) struct FuzzyWord {
     pub(crate) word: String,
     pub(crate) ipa: String,
     pub(crate) ipa_len: usize,
+    pub(crate) syllables: usize,
     pub(crate) rarity: Option<f64>,
 }
 
@@ -312,6 +313,61 @@ pub(crate) fn normalize_ipa(ipa: &str) -> String {
         .collect()
 }
 
+/// Vowel pairs that form a single syllabic diphthong in the corpus
+/// inventory.  Everything else that looks like two adjacent vowels
+/// ("uə" in *accrual*, "iə" in *academia*) really is two syllables.
+const DIPHTHONGS: &[(char, char)] = &[
+    ('a', 'ɪ'),
+    ('a', 'ʊ'),
+    ('e', 'ɪ'),
+    ('o', 'ʊ'),
+    ('ɔ', 'ɪ'),
+    ('ɑ', 'ɪ'),
+    ('ɑ', 'ʊ'),
+    ('ɪ', 'ɚ'),
+    ('ʊ', 'ɚ'),
+];
+
+fn is_vowel_symbol(c: char) -> bool {
+    phonetics::vowels::INVENTORY
+        .iter()
+        .any(|v| v.starts_with(c) && v.chars().count() == 1)
+        || c == 'ɚ'
+}
+
+/// Count syllable nuclei in a stress-mark-free IPA transcription.
+///
+/// A Mad Gab clue only works if it can be *spoken* with the target's
+/// rhythm, so the search needs a cheap syllable estimate for both clue
+/// words and targets.  Syllable count is not derivable from raw IPA
+/// length (which is why the length proxy is only a weak signal), but it
+/// is cheap: count vowel nuclei and collapse diphthongs.
+///
+/// Words that contain no vowel symbol at all ("mm" -> /m/) are still
+/// spoken with one syllable, so they count as one.
+pub(crate) fn ipa_syllables(ipa: &str) -> usize {
+    let chars: Vec<char> = ipa.chars().collect();
+    let mut nuclei = 0usize;
+    let mut i = 0usize;
+    while i < chars.len() {
+        if !is_vowel_symbol(chars[i]) {
+            i += 1;
+            continue;
+        }
+        nuclei += 1;
+        if i + 1 < chars.len()
+            && DIPHTHONGS
+                .iter()
+                .any(|(a, b)| chars[i] == *a && chars[i + 1] == *b)
+        {
+            i += 2;
+            continue;
+        }
+        i += 1;
+    }
+    nuclei.max(usize::from(!ipa.is_empty()))
+}
+
 /// Build the fuzzy trie from the same preferred pronunciations used by
 /// the main corpus. The extra JSON parse gives us an iterable word
 /// list; lookup/source preference remains delegated to Corpus.
@@ -343,6 +399,7 @@ pub(crate) fn build_lexicon(
         alphabet.extend(chars.iter().copied());
         words.push(FuzzyWord {
             word,
+            syllables: ipa_syllables(&ipa),
             ipa,
             ipa_len: chars.len(),
             rarity: entry.rarity,
@@ -410,6 +467,7 @@ mod tests {
             word: "hits".into(),
             ipa: "hɪts".into(),
             ipa_len: 4,
+            syllables: 1,
             rarity: Some(100.0),
         }];
         let mut nodes = vec![TrieNode::default()];
@@ -455,5 +513,32 @@ mod tests {
         let mut stack = Vec::new();
         push_state(&mut stack, &mut best, 1, 1, 0.6, 0.5);
         assert!(stack.is_empty());
+    }
+
+    #[test]
+    fn syllable_count_collapses_diphthongs() {
+        for (ipa, expected) in [
+            ("hɪts", 1),
+            ("dʒʌstəs", 2),
+            ("keɪm", 1),
+            ("naɪs", 1),
+            ("naɪʒ", 1),
+            ("ɡoʊ", 1),
+            ("baʊt", 1),
+            ("bɔɪ", 1),
+            ("stʊpəd", 2),
+            ("ə", 1),
+            ("m", 1),
+            ("ɹɛkəɡnaɪzspitʃ", 4),
+            ("ɪtsdʒʌstəstʊpədɡeɪm", 6),
+            // Hiatus in CMUdict spelling really is two syllables.
+            ("əkɹuəl", 3),
+        ] {
+            assert_eq!(
+                ipa_syllables(ipa),
+                expected,
+                "syllable count for /{ipa}/"
+            );
+        }
     }
 }
