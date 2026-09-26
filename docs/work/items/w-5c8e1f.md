@@ -187,3 +187,35 @@ from `post-milestone-acceptance` at `27f9776` (which is the merge of `a3f19c`'s
 `79309a1` sweep fix). Agent `9a41d3` opened and running. Integration is this
 coordinator's job, not the front's: merge only on a pushed
 `MERGE RECOMMENDATION: MERGE`.
+
+### Pass `coord-7c31`, 2026-09-26T19:04Z: steered to close out; its HEAD has **two** guard failures, not one
+
+`9a41d3` is `running` (13 min) in `/workspace/madgab-score-9a41d3`, prompted (2 prompts, so
+the steer below was delivered). Its own log is the finding a later pass must not miss:
+on its HEAD `cargo test --release --test corpus_integration` is **9 passed / 3 failed** —
+`approximate_finds_classic_madgab_resegmentation` (the expected red), *and*
+`approximate_finds_recognize_speech_resegmentation`, *and* `approximate_output_is_locked`.
+`--lib` 53/0, `--test exact_determinism` 1/0, `--test approx_determinism` 2/0,
+`--test no_phrase_hard_coding` 6/0. Interleaved wall clock medians, 7 replicates:
+`It's just a stupid game` 2705 ms -> 2543 ms (-6.0 %), `recognize speech` 2233 ms -> 2293 ms
+(+2.7 %).
+
+So M7a as implemented costs the milestone's *green* guard as well as failing the red one.
+That is possible and was not excluded: criterion 5 records `wreck a nice beach` at raw rank
+27, 0.918313383 against a 0.917045726 cutoff, a margin of 0.00127, so a change to the
+similarity axis' definition is a coin flip on it. Whether the axis change or the pool it
+shifts is responsible is the front's to measure, and it has been told to measure it and
+state the margin rather than a verdict.
+
+Steered, in the background (`--steer`, blocking otherwise): establish the before/after raw
+rank and score of `wreck a nice beach` and of whatever `approximate_output_is_locked` shows
+moved; **do not** re-baseline, relax, edit or `#[ignore]` any of the three named tests (two
+guard failures is HOLD-relevant, and the recommendation must carry that honestly); commit and
+push `src/`, the red-first resegmentation guard and `REPORT-9a41d3.md` on
+`madgab-score-reseg-9a41d3`, whose remote ref is **still the base `27f9776`** after 13
+minutes of finished work. Integration remains the coordinator's job after its `MERGE` line.
+
+A new independent front is now open on the objective side, [w-558697](w-558697.md) (agent
+`558697`, `/workspace/madgab-axis-558697`), investigation only, one pushed report, no
+landing. It cannot contend with this front, and it is told to measure on
+`post-milestone-acceptance` and treat M7a as a separate composable proposal.
