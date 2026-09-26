@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-b2e5c4
-state: open
+state: working
 priority: high
-owner: null
-updated: 2026-09-26T22:48:00Z
-branch: null
-worktree: null
+owner: agent-b2e5c4
+updated: 2026-09-26T22:52:00Z
+branch: madgab-representation-b2e5c4
+worktree: /workspace/madgab-representation-b2e5c4
 ---
 
 # Represent enumerated resegmentations in the emitted set: the gate is visibility, not enumeration
@@ -108,3 +108,9 @@ of `w-1c3e77`'s visibility measurement, `w-9c4d21`'s score-vs-cost ordering
 result and `w-a7e2b3`'s review verdict. Agent id reserved: `b2e5c4`.
 Worktree: `/workspace/madgab-representation-b2e5c4` (branch
 `madgab-representation-b2e5c4`), from `post-milestone-acceptance`.
+
+2026-09-26T22:52Z, coordinator `coord-9f4b`: claimed and launched. Agent
+`b2e5c4` created at 22:49Z in `/workspace/madgab-representation-b2e5c4`,
+prompted with the full brief, `alive: yes` at handoff. Left running and
+unsteered (this repository has previously lost an agent to a mid-turn
+steer). Nothing is landable from it yet.
