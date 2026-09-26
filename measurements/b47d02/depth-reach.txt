@@ -1,0 +1,12 @@
+measurements/b47d02/probe-cap3.tsv 
+  segmentation-phases: 3071  with a depth>=3 offer: 1441  with depth>=4: 0
+  max depth per phase: {"1":11,"2":1619,"3":1441}
+measurements/b47d02/probe-cap4.tsv 
+  segmentation-phases: 3071  with a depth>=3 offer: 1441  with depth>=4: 0
+  max depth per phase: {"1":11,"2":1619,"3":1441}
+measurements/b47d02/probe-cap4-r1.tsv 
+  segmentation-phases: 3071  with a depth>=3 offer: 1441  with depth>=4: 0
+  max depth per phase: {"1":11,"2":1619,"3":1441}
+measurements/b47d02/probe-aux96.tsv 
+  segmentation-phases: 3069  with a depth>=3 offer: 2990  with depth>=4: 2773
+  max depth per phase: {"1":11,"2":68,"3":217,"4":2773}

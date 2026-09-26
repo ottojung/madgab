@@ -209,7 +209,7 @@ const ADJACENCY_PER_SLOT: usize = 2;
 /// class has `C(depth, k)` members per sweep step, so beyond two the
 /// classes outnumber the reserve and the sweep is not widened to
 /// compensate.
-const EMIT_PROFILE_MAX_DEEP: usize = 3;
+const EMIT_PROFILE_MAX_DEEP: usize = 4;
 
 /// The `k`-subsets of `0..len`, in lexicographic order.
 fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {

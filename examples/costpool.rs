@@ -26,6 +26,17 @@ const TARGETS: &[(&str, &[&str])] = &[
     ("my brother has a red car", &["car", "brother"]),
 ];
 
+/// Slot-exact witnesses: `(target, deep slots, words)`.  The membership test
+/// above is deliberately loose (a word occurring anywhere in some pool
+/// phrase), which cannot distinguish "the four requested words sit at the
+/// four requested slots in one phrase" from "each of them occurs somewhere".
+/// This table asks the strict question generically: is there **one** pool
+/// phrase whose token at each listed slot equals the listed word?  The check
+/// is data, not logic — no phrase is named in `src/`.
+const WITNESSES: &[(&str, &[usize], &[&str])] = &[
+    ("It's just a stupid game", &[0, 3, 4, 5], &["hits", "dupe", "hid", "came"]),
+];
+
 fn main() {
     for (target, wordings) in TARGETS {
         let g = Generator::from_json(
@@ -57,5 +68,39 @@ fn main() {
             pool.len(),
             members.join(" ")
         );
+    }
+    for (target, slots, words) in WITNESSES {
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 20_000,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let pool: Vec<String> = g
+            .generate(target)
+            .into_iter()
+            .map(|c| c.phrase.to_lowercase())
+            .collect();
+        let hits: Vec<&String> = pool
+            .iter()
+            .filter(|p| {
+                let toks: Vec<&str> = p.split(' ').collect();
+                slots.iter().zip(words.iter()).all(|(&s, &w)| {
+                    toks.get(s).map(|t| *t == w).unwrap_or(false)
+                })
+            })
+            .collect();
+        println!(
+            "WITNESS\t{}\tslots {:?}\tstrict members {}",
+            target.replace(' ', "_"),
+            slots,
+            hits.len()
+        );
+        for h in hits.iter().take(3) {
+            println!("WITNESS-PHRASE\t{h}");
+        }
     }
 }

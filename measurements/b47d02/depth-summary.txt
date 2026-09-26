@@ -1,0 +1,36 @@
+== measurements/b47d02/probe-cap3.tsv ==
+d1	off 16357	acc 15073	ref 1284	7.85%	meancost-acc 1.077
+d2	off 26266	acc 20137	ref 6129	23.33%	meancost-acc 1.217
+d3	off 2764	acc 1464	ref 1300	47.03%	meancost-acc 1.297
+ALL	off 45387	acc 36674	ref 8713	19.20%
+-- per target --
+It's_just_a_stupid_game	off 3404	acc 3054	ref 350	10.28%	d1 1153/1126/27  d2 1884/1691/193  d3 367/237/130
+a_whole_lot_of_trouble	off 3443	acc 2731	ref 712	20.68%	d1 1200/1134/66  d2 1976/1506/470  d3 267/91/176
+an_old_man_in_a_big_hat	off 4030	acc 2224	ref 1806	44.81%	d1 1546/1114/432  d2 2348/1091/1257  d3 136/19/117
+he_was_a_big_fat_man	off 3721	acc 2398	ref 1323	35.55%	d1 1281/1022/259  d2 2185/1274/911  d3 255/102/153
+my_brother_has_a_red_car	off 4053	acc 3392	ref 661	16.31%	d1 1553/1479/74  d2 2384/1886/498  d3 116/27/89
+put_it_back_on_the_shelf	off 3834	acc 2916	ref 918	23.94%	d1 1320/1200/120  d2 2278/1603/675  d3 236/113/123
+recognize_speech	off 3300	acc 3216	ref 84	2.55%	d1 1203/1203/0  d2 1790/1742/48  d3 307/271/36
+she_had_a_lot_of_money	off 3979	acc 3168	ref 811	20.38%	d1 1505/1412/93  d2 2307/1675/632  d3 167/81/86
+the_cat_sat_on_the_mat	off 3892	acc 3448	ref 444	11.41%	d1 1326/1290/36  d2 2312/1975/337  d3 254/183/71
+there_is_no_way_to_know	off 3859	acc 3340	ref 519	13.45%	d1 1322/1262/60  d2 2301/1927/374  d3 236/151/85
+what_are_you_going_to_do	off 3920	acc 3065	ref 855	21.81%	d1 1444/1332/112  d2 2231/1635/596  d3 245/98/147
+when_the_rain_finally_stopped	off 3952	acc 3722	ref 230	5.82%	d1 1504/1499/5  d2 2270/2132/138  d3 178/91/87
+== measurements/b47d02/probe-cap4.tsv ==
+d1	off 16357	acc 15069	ref 1288	7.87%	meancost-acc 1.077
+d2	off 26266	acc 20121	ref 6145	23.40%	meancost-acc 1.217
+d3	off 2764	acc 1460	ref 1304	47.18%	meancost-acc 1.296
+ALL	off 45387	acc 36650	ref 8737	19.25%
+-- per target --
+It's_just_a_stupid_game	off 3404	acc 3053	ref 351	10.31%	d1 1153/1126/27  d2 1884/1690/194  d3 367/237/130
+a_whole_lot_of_trouble	off 3443	acc 2731	ref 712	20.68%	d1 1200/1134/66  d2 1976/1506/470  d3 267/91/176
+an_old_man_in_a_big_hat	off 4030	acc 2212	ref 1818	45.11%	d1 1546/1115/431  d2 2348/1079/1269  d3 136/18/118
+he_was_a_big_fat_man	off 3721	acc 2389	ref 1332	35.80%	d1 1281/1017/264  d2 2185/1272/913  d3 255/100/155
+my_brother_has_a_red_car	off 4053	acc 3392	ref 661	16.31%	d1 1553/1480/73  d2 2384/1885/499  d3 116/27/89
+put_it_back_on_the_shelf	off 3834	acc 2913	ref 921	24.02%	d1 1320/1200/120  d2 2278/1600/678  d3 236/113/123
+recognize_speech	off 3300	acc 3216	ref 84	2.55%	d1 1203/1203/0  d2 1790/1742/48  d3 307/271/36
+she_had_a_lot_of_money	off 3979	acc 3170	ref 809	20.33%	d1 1505/1411/94  d2 2307/1678/629  d3 167/81/86
+the_cat_sat_on_the_mat	off 3892	acc 3445	ref 447	11.49%	d1 1326/1292/34  d2 2312/1970/342  d3 254/183/71
+there_is_no_way_to_know	off 3859	acc 3340	ref 519	13.45%	d1 1322/1262/60  d2 2301/1929/372  d3 236/149/87
+what_are_you_going_to_do	off 3920	acc 3065	ref 855	21.81%	d1 1444/1330/114  d2 2231/1636/595  d3 245/99/146
+when_the_rain_finally_stopped	off 3952	acc 3724	ref 228	5.77%	d1 1504/1499/5  d2 2270/2134/136  d3 178/91/87

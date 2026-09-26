@@ -1,0 +1,4 @@
+game cap4 {"med":2606,"min":2429,"max":3301,"spread":872}
+game cap3 {"med":2983,"min":2337,"max":3616,"spread":1279}
+speech cap4 {"med":2033,"min":1648,"max":2564,"spread":916}
+speech cap3 {"med":1988,"min":1685,"max":2417,"spread":732}

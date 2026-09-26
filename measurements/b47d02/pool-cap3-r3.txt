@@ -1,0 +1,13 @@
+It's_just_a_stupid_game	pool 19601	hits=true dupe=true hid=true came=true
+recognize_speech	pool 17083	wreck a nice beach=true
+a_whole_lot_of_trouble	pool 17890	a=true lot=true
+the_cat_sat_on_the_mat	pool 17750	cat=true sat=true
+put_it_back_on_the_shelf	pool 17297	shelf=true back=true
+when_the_rain_finally_stopped	pool 17348	rain=true stopped=true
+he_was_a_big_fat_man	pool 20000	fat=true man=true
+what_are_you_going_to_do	pool 16273	going=true do=true
+she_had_a_lot_of_money	pool 14919	money=true she=true
+there_is_no_way_to_know	pool 20000	know=true way=true
+an_old_man_in_a_big_hat	pool 14721	hat=true man=true
+my_brother_has_a_red_car	pool 17260	car=true brother=true
+WITNESS	It's_just_a_stupid_game	slots [0, 3, 4, 5]	strict members 0
