@@ -1425,6 +1425,10 @@ impl Generator {
                 .saturating_sub(held)
                 .clamp(1, LEXICAL_COMBINATIONS_PER_SEGMENTATION);
             let word_count = segmentation.spans.len().max(1) as f64;
+            // SCRATCH w-2f7a10 slots front: `Clue::cuts` for this
+            // segmentation, i.e. the structure key the pool dump reports.
+            let structure_ends: Vec<usize> =
+                segmentation.spans.iter().map(|&(_, e)| e).collect();
 
             let mut slots: Vec<Vec<SlotAlt>> =
                 Vec::with_capacity(segmentation.spans.len());
@@ -1517,12 +1521,128 @@ impl Generator {
             let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
-            for tuple in coverage_tuples(
+            // SCRATCH w-2f7a10 slots front: read-only per-slot trace.  No
+            // branch of this `if` changes any value the search uses.
+            // SCRATCH w-2f7a10 slots front: read-only per-slot trace.  It
+            // reads `slots` and appends lines to `ZZ_SLOT_OUT`; it changes no
+            // value the search consumes.
+            #[cfg(not(target_arch = "wasm32"))]
+            if zz_slots::match_all()
+                || zz_slots::wanted().as_deref() == Some(structure_ends.as_slice())
+            {
+                use std::fmt::Write as _;
+                let mut buf = String::new();
+                let _ = writeln!(
+                    buf,
+                    "STRUCT cuts={structure_ends:?} widths={widths:?} total_budget={total_budget}"
+                );
+                for (s, alts) in slots.iter().enumerate() {
+                    if zz_slots::match_all() {
+                        break;
+                    }
+                    for (i, a) in alts.iter().enumerate() {
+                        let word = self.fuzzy_lexicon.word(a.match_ref.word_idx).word.clone();
+                        let _ = writeln!(
+                            buf,
+                            "SLOT {s} rank {i} word {word} cost {:.6}",
+                            a.cost
+                        );
+                    }
+                }
+                for (s, alts) in slots.iter().enumerate() {
+                    for w in zz_slots::words() {
+                        let at = alts.iter().position(|a| {
+                            self.fuzzy_lexicon.word(a.match_ref.word_idx).word == w
+                        });
+                        match at {
+                            Some(i) => {
+                                let _ = writeln!(
+                                    buf,
+                                    "RANKSET slot {s} word {w} rank {i} cost {:.6}",
+                                    alts[i].cost
+                                );
+                            }
+                            None => {
+                                let _ = writeln!(buf, "RANKSET slot {s} word {w} ABSENT");
+                            }
+                        }
+                    }
+                }
+                if let Some(t) = zz_slots::tuple() {
+                    if t.len() != slots.len() {
+                        let _ = writeln!(
+                            buf,
+                            "COST tuple arity {} != slots {}",
+                            t.len(),
+                            slots.len()
+                        );
+                    } else if let Some(per) = t
+                        .iter()
+                        .enumerate()
+                        .map(|(s, &i)| {
+                            slots[s].get(i).map(|a| {
+                                (
+                                    s,
+                                    i,
+                                    self.fuzzy_lexicon
+                                        .word(a.match_ref.word_idx)
+                                        .word
+                                        .clone(),
+                                    a.cost,
+                                )
+                            })
+                        })
+                        .collect::<Option<Vec<_>>>()
+                    {
+                        let sum: f64 = per.iter().map(|p| p.3).sum();
+                        let best: Vec<f64> = slots
+                            .iter()
+                            .map(|alts| alts.first().map(|a| a.cost).unwrap_or(f64::NAN))
+                            .collect();
+                        for (s, i, word, cost) in &per {
+                            let others: f64 = best
+                                .iter()
+                                .enumerate()
+                                .filter(|(j, _)| j != s)
+                                .map(|(_, c)| *c)
+                                .sum();
+                            let _ = writeln!(
+                                buf,
+                                "COST slot {s} index {i} word {word} cost {cost:.6} \
+                                 best_costs={best:?} sum_others={others:.6} \
+                                 fits_budget={} needs={:.6}",
+                                others + cost <= total_budget + 1e-9,
+                                others + cost
+                            );
+                        }
+                        let _ = writeln!(
+                            buf,
+                            "COST total {sum:.6} total_budget {total_budget} fits={}",
+                            sum <= total_budget + 1e-9
+                        );
+                    } else {
+                        let _ = writeln!(buf, "COST requested index outside a slot width");
+                    }
+                }
+                zz_slots::emit(&buf);
+            }
+            // SCRATCH w-2f7a10 slots front: the reserve's actual output for
+            // this segmentation, captured, not re-derived.
+            let zz_reserve = coverage_tuples(
                 &widths,
                 profile_allowance,
                 EMIT_PROFILE_MAX_DEEP,
                 coverage_phase,
-            ) {
+            );
+            #[cfg(not(target_arch = "wasm32"))]
+            zz_reserve_trace(
+                &structure_ends,
+                &widths,
+                profile_allowance,
+                coverage_phase,
+                &zz_reserve,
+            );
+            for tuple in zz_reserve {
                 if profile_emitted >= profile_allowance
                     || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
                 {
@@ -1928,9 +2048,106 @@ impl Generator {
             }
         }
 
+        // SCRATCH w-2f7a10 slots front: the deduplicated pool the release
+        // binary produced on the default path, in global score order.  Sits
+        // after the sort and after the `phrase_signature` dedup and before
+        // `select_diverse`; it reads `clues` and writes a file, nothing else.
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
+            use std::fmt::Write as _;
+            let mut out = String::new();
+            for (i, c) in clues.iter().enumerate() {
+                let _ = writeln!(out, "{}\t{:.17}\t{:?}\t{:?}", i, c.score, c.phrase, c.cuts);
+            }
+            std::fs::write(&path, out).expect("zz pool dump");
+        }
+
         select_diverse(clues, self.config.top_n)
     }
 }
+
+/// SCRATCH w-2f7a10 slots front.  Read-only diagnostics: every function here
+/// returns `()` having only read search state and, at most, appended lines to
+/// the file named by `ZZ_SLOT_OUT`.  No value the search consumes is touched,
+/// no budget is re-set, and nothing here changes a word, a rank or a tuple.
+#[cfg(not(target_arch = "wasm32"))]
+mod zz_slots {
+    use std::io::Write as _;
+
+
+    /// The structure whose per-slot lists are dumped: `ZZ_STRUCT="3,10,13,15,19"`.
+    pub fn match_all() -> bool {
+        std::env::var("ZZ_ALL").is_ok()
+    }
+
+    pub fn wanted() -> Option<Vec<usize>> {
+        if match_all() {
+            return None;
+        }
+        std::env::var("ZZ_STRUCT").ok().map(|raw| {
+            raw.split(',')
+                .filter_map(|p| p.trim().parse::<usize>().ok())
+                .collect()
+        })
+    }
+
+    /// The words whose per-slot rank is reported: `ZZ_WORDS="hits,justice,..."`.
+    pub fn words() -> Vec<String> {
+        std::env::var("ZZ_WORDS")
+            .unwrap_or_default()
+            .split(',')
+            .map(|w| w.trim().to_lowercase())
+            .filter(|w| !w.is_empty())
+            .collect()
+    }
+
+    /// The coordinate combination under test: `ZZ_TUPLE="0,7,0,13,99,11"`.
+    pub fn tuple() -> Option<Vec<usize>> {
+        std::env::var("ZZ_TUPLE").ok().map(|raw| {
+            raw.split(',')
+                .filter_map(|p| p.trim().parse::<usize>().ok())
+                .collect()
+        })
+    }
+
+    pub fn emit(line: &str) {
+        if let Ok(path) = std::env::var("ZZ_SLOT_OUT") {
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+            {
+                let _ = writeln!(f, "{line}");
+            }
+        }
+    }
+
+    /// The reserve's own output for one segmentation: the tuples
+    /// `coverage_tuples` returned, with the widths, the reserve and the phase
+    /// that produced them.
+    pub fn reserve_trace(
+        ends: &[usize],
+        widths: &[usize],
+        reserve: usize,
+        phase: usize,
+        tuples: &[Vec<usize>],
+    ) {
+        let Some(want) = wanted() else { return };
+        if want != ends {
+            return;
+        }
+        emit(&format!(
+            "RESERVE cuts={ends:?} widths={widths:?} reserve={reserve} phase={phase} n={}",
+            tuples.len()
+        ));
+        for t in tuples {
+            emit(&format!("RESERVE_TUPLE {t:?}"));
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+use zz_slots::reserve_trace as zz_reserve_trace;
 
 // -----------------------------------------------------------------
 // Transcription and scoring
