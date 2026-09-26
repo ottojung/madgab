@@ -1838,21 +1838,67 @@ fn rhythm_match(clue_syllables: usize, target_syllables: usize) -> f64 {
 // Final proposal diversity
 // -----------------------------------------------------------------
 
-/// Trade-off between raw score and novelty of the proposal set.
-const MMR_LAMBDA: f64 = 0.35;
-
-/// Pick `top_n` proposals, trading score against redundancy with the
-/// proposals already chosen.
+/// Smallest number of structures a proposal may monopolise, and the
+/// largest fraction of the visible list any one structure may hold.
 ///
-/// The penalty used to be measured in the score spread *inside the
-/// requested top-N* — a few thousandths for any real search — so
-/// maximal redundancy was effectively free and the "diverse" set was
-/// fifty spellings of one clue.  Two things are fixed here: the penalty
-/// is measured against the spread of the whole candidate pool, and
-/// redundancy is the maximum over everything picked so far rather than
-/// only the previous pick.  A clue is redundant when it repeats another
-/// proposal's words *or* its word boundaries; the latter matters most,
-/// because two spellings of one resegmentation are the same puzzle.
+/// These are *policy* parameters of [`select_diverse`], not weights
+/// fitted to a target: a list of `n` slots is split between at least
+/// `STRUCTURE_FLOOR` different resegmentations, and a single structure
+/// is never given more than `1 / STRUCTURE_FLOOR` of the slots unless
+/// the pool itself contains fewer structures than that.
+const STRUCTURE_FLOOR: usize = 3;
+
+/// The word-boundary structure of a clue: the phoneme offsets at which
+/// one clue word ends and the next begins.  Two clues with the same
+/// structure are two spellings of the same resegmentation, which is the
+/// redundancy that matters for a Mad Gab list.
+fn clue_cuts(c: &Clue) -> Vec<usize> {
+    let mut cuts = Vec::new();
+    let mut at = 0usize;
+    for w in c.words.iter().skip(1) {
+        at += w.ipa.chars().count();
+        cuts.push(at);
+    }
+    cuts
+}
+
+/// Pick `top_n` proposals under an ordered rule, highest score first.
+///
+/// The rule, in order, is:
+///
+/// 1. **Represent the strong structures.**  Within the visible cutoff
+///    — the `top_n` best-scoring candidates the search found — take the
+///    best-scoring candidate of every boundary structure, in descending
+///    score order, until the list is full.  The list therefore always
+///    spans the resegmentations the search actually found rather than
+///    one per structure by accident of iteration order.  The cutoff is
+///    what bounds this step: a resegmentation too weak to reach the
+///    visible list does not get to spend a slot on it, however distinct
+///    it is.
+/// 2. **Then score, under a share cap.**  Walk the pool in descending
+///    score order and admit any candidate whose boundary structure is
+///    still under its [`STRUCTURE_FLOOR`]-th share of the list.  A
+///    candidate is admitted on its own score with no diversity penalty
+///    at all, so a near-equal alternative in an already-represented
+///    structure is visible; the slots a saturated structure gives up go
+///    to the best candidate of a structure that is under-filled, which
+///    is the trade the policy exists to make.
+/// 3. **Never return a short list.**  If the pool runs out with every
+///    structure at its cap, the cap is dropped and the list is filled in
+///    score order.
+///
+/// The difference from the previous policy is step 2.  A repeat of an
+/// already-shown structure used to be charged `MMR_LAMBDA` times the
+/// pool's score spread times a Jaccard overlap, i.e. up to `0.175 *
+/// spread`.  For a real search the spread is tens of thousandths, so a
+/// second member of a strong structure was priced far above any score
+/// difference it could be compared against: a candidate that cleared
+/// the visible cutoff was effectively unreachable, and the list was
+/// neither the best wordings nor one-per-structure — it was a blend
+/// that lost both.  Here a second member is admitted exactly when its
+/// own score earns it a slot, so a near-equal alternative in a
+/// represented structure is visible while a far-worse sibling is not,
+/// and the share cap is what stops one structure from owning the list.
 fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     if top_n == 0 || clues.is_empty() {
         return Vec::new();
@@ -1861,86 +1907,75 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         return clues;
     }
 
-    let words: Vec<Vec<String>> = clues
-        .iter()
-        .map(|c| {
-            c.phrase
-                .split_whitespace()
-                .map(normalized_word)
-                .collect()
-        })
-        .collect();
+    // `finish` hands us candidates in descending score order; sort by
+    // score (and phrase, for a deterministic tie-break) so the rule's
+    // "descending score order" is a property of this function.
+    let mut order: Vec<usize> = (0..clues.len()).collect();
+    order.sort_by(|&a, &b| {
+        cmp_desc(clues[a].score, clues[b].score)
+            .then_with(|| clues[a].phrase.cmp(&clues[b].phrase))
+    });
 
-    let bigrams: Vec<HashSet<String>> = words
-        .iter()
-        .map(|ws| {
-            ws.windows(2)
-                .map(|w| format!("{} {}", w[0], w[1]))
-                .collect()
-        })
-        .collect();
+    let structures: Vec<Vec<usize>> = clues.iter().map(clue_cuts).collect();
+    let cutoff = &order[..top_n];
 
-    let word_sets: Vec<HashSet<String>> =
-        words.iter().map(|ws| ws.iter().cloned().collect()).collect();
+    let mut picked: Vec<usize> = Vec::with_capacity(top_n);
+    let mut taken = vec![false; clues.len()];
+    let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
+    let mut represented: HashSet<Vec<usize>> = HashSet::new();
 
-    let boundaries: Vec<HashSet<usize>> = clues
-        .iter()
-        .map(|c| {
-            let mut cuts: Vec<usize> = Vec::new();
-            let mut at = 0usize;
-            for w in c.words.iter().skip(1) {
-                at += w.ipa.chars().count();
-                cuts.push(at);
-            }
-            cuts.into_iter().collect()
-        })
-        .collect();
-
-    let mut remaining: Vec<usize> = (0..clues.len()).collect();
-    let mut picked = Vec::with_capacity(top_n.min(clues.len()));
-    let mut max_overlap = vec![0.0_f64; clues.len()];
-
-    // Scale the penalty by the full spread of the candidate pool.  This
-    // states the policy directly: showing a structurally different
-    // resegmentation may cost as much score as the difference between
-    // the best and the worst candidate the search found.  Scaling by the
-    // spread *inside* the requested top-N instead — which is what this
-    // used to do — makes that spread a few thousandths for any real
-    // search, so the penalty vanishes and "diverse" does nothing.
-    let best = clues[0].score;
-    let worst = clues
-        .iter()
-        .map(|c| c.score)
-        .fold(f64::INFINITY, f64::min);
-    let score_scale = (best - worst).max(1e-6);
-
-    while picked.len() < top_n && !remaining.is_empty() {
-        if let Some(&last) = picked.last() {
-            for &i in &remaining {
-                let word_overlap = jaccard(&word_sets[i], &word_sets[last]);
-                let bigram_overlap = jaccard(&bigrams[i], &bigrams[last]);
-                let cut_overlap =
-                    jaccard_usize(&boundaries[i], &boundaries[last]);
-                let overlap = 0.3 * word_overlap
-                    + 0.2 * bigram_overlap
-                    + 0.5 * cut_overlap;
-                max_overlap[i] = max_overlap[i].max(overlap);
-            }
+    // 1. one representative per boundary structure, best first, within
+    // the visible cutoff.
+    for &i in cutoff {
+        if picked.len() == top_n {
+            break;
         }
-
-        let mut best_pos = 0;
-        let mut best_value = f64::NEG_INFINITY;
-        for (pos, &i) in remaining.iter().enumerate() {
-            let value =
-                clues[i].score - MMR_LAMBDA * score_scale * max_overlap[i];
-            if value > best_value {
-                best_value = value;
-                best_pos = pos;
-            }
+        if represented.insert(structures[i].clone()) {
+            admit(i, &structures, &mut picked, &mut taken, &mut counts);
         }
-
-        picked.push(remaining.remove(best_pos));
     }
+
+    // 2. then score: walk the pool in descending score order and admit
+    // any candidate whose structure still has room under the cap.  The
+    // walk is over the whole pool, not just the cutoff, because a
+    // structure-dominated cutoff cannot fill the list on its own: the
+    // slots a structure gives up are taken by the best candidate of an
+    // under-filled structure, which is exactly the trade the policy is
+    // meant to make.
+    //
+    // The cap is a share of the *list*, and the number of structures it
+    // is divided by is the number the search found in the whole pool,
+    // not the number that happened to reach the cutoff.  A cutoff with a
+    // single structure in it is a monoculture, not a reason to hand the
+    // whole list to that structure.
+    let available: HashSet<&[usize]> = structures.iter().map(Vec::as_slice).collect();
+    let cap = share_cap(top_n, available.len());
+    for &i in &order {
+        if picked.len() == top_n {
+            break;
+        }
+        if taken[i] {
+            continue;
+        }
+        if counts.get(&structures[i]).copied().unwrap_or(0) < cap {
+            admit(i, &structures, &mut picked, &mut taken, &mut counts);
+        }
+    }
+
+    // 3. a short list is worse than an unbalanced one: if the pool is
+    // exhausted with every structure at its cap, drop the cap.
+    for &i in &order {
+        if picked.len() == top_n {
+            break;
+        }
+        if !taken[i] {
+            admit(i, &structures, &mut picked, &mut taken, &mut counts);
+        }
+    }
+
+    // The list is shown in score order; the rule above decided
+    // membership, not presentation.
+    picked.sort_by(|&a, &b| cmp_desc(clues[a].score, clues[b].score));
 
     let mut slots: Vec<Option<Clue>> = clues.into_iter().map(Some).collect();
     picked
@@ -1949,20 +1984,31 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         .collect()
 }
 
-fn jaccard(a: &HashSet<String>, b: &HashSet<String>) -> f64 {
-    let union = a.len() + b.len();
-    if union == 0 {
-        return 0.0;
-    }
-    a.intersection(b).count() as f64 / union as f64
+/// How many members of one boundary structure `top_n` slots may hold,
+/// given how many structures the candidate pool offers.  With at least
+/// `STRUCTURE_FLOOR` structures to choose from, no structure may take
+/// more than a `1 / STRUCTURE_FLOOR` share; with fewer, the share is
+/// widened to what the pool can support, which for `STRUCTURE_FLOOR`
+/// structures is again `1 / STRUCTURE_FLOOR`.  At least two members are
+/// always allowed, so a structure is never a one-shot.
+fn share_cap(top_n: usize, available: usize) -> usize {
+    let floor = STRUCTURE_FLOOR.min(available.max(1));
+    top_n
+        .div_ceil(floor)
+        .max(2)
+        .max(top_n.div_ceil(available.max(1)))
 }
 
-fn jaccard_usize(a: &HashSet<usize>, b: &HashSet<usize>) -> f64 {
-    let union = a.len() + b.len();
-    if union == 0 {
-        return 0.0;
-    }
-    a.intersection(b).count() as f64 / union as f64
+fn admit(
+    i: usize,
+    structures: &[Vec<usize>],
+    picked: &mut Vec<usize>,
+    taken: &mut [bool],
+    counts: &mut HashMap<Vec<usize>, usize>,
+) {
+    picked.push(i);
+    taken[i] = true;
+    *counts.entry(structures[i].clone()).or_insert(0) += 1;
 }
 
 #[cfg(test)]
@@ -2058,13 +2104,74 @@ mod tests {
     }
 
     fn boundaries_of(c: &Clue) -> Vec<usize> {
-        let mut cuts = Vec::new();
-        let mut at = 0usize;
-        for w in c.words.iter().skip(1) {
-            at += w.ipa.chars().count();
-            cuts.push(at);
+        clue_cuts(c)
+    }
+
+    /// The defect this policy rule exists to fix: a second member of an
+    /// already-represented structure is priced on its own score, not
+    /// made unreachable.  A near-equal alternative is admitted; a much
+    /// worse sibling of the same structure is not.
+    #[test]
+    fn near_equal_alternative_in_a_shown_structure_is_selected() {
+        // Every word is three IPA chars, so "x y z" is the structure
+        // [3, 6] and "x y" / "x y z w" are the neighbouring ones.
+        let mut pool: Vec<Clue> = vec![
+            // Structure [3, 6]: a leader, a near-equal alternative and a
+            // far-worse sibling.
+            clue("lead0 rr ss", 0.9300),
+            clue("lead1 rr ss", 0.9296),
+            clue("lead2 rr ss", 0.7000),
+        ];
+        // Six further structures, each with a good member, so the
+        // near-equal alternative is competing for real slots.
+        for s in 0..6usize {
+            pool.push(clue(&format!("other{s} tt"), 0.9280 - s as f64 * 1e-3));
+            pool.push(clue(&format!("more{s} tt uu"), 0.9100 - s as f64 * 1e-3));
         }
-        cuts
+
+        let picked = select_diverse(pool, 6);
+        let phrases: Vec<&str> = picked.iter().map(|c| c.phrase.as_str()).collect();
+        assert!(
+            phrases.contains(&"lead0 rr ss") && phrases.contains(&"lead1 rr ss"),
+            "the best and the near-equal member of a shown structure must both be \
+             visible; got {phrases:?}"
+        );
+        assert!(
+            !phrases.contains(&"lead2 rr ss"),
+            "a far-worse sibling of a shown structure must not be visible; got {phrases:?}"
+        );
+        assert_eq!(picked.len(), 6);
+    }
+
+    /// The share cap: no single structure may take more than its
+    /// `STRUCTURE_FLOOR`-th share of the visible list, even when it owns
+    /// the whole cutoff.
+    #[test]
+    fn one_structure_cannot_take_the_whole_list() {
+        let top_n = 10;
+        let mut pool: Vec<Clue> = (0..top_n)
+            .map(|i| clue(&format!("own{i} rr ss"), 0.930 - i as f64 * 1e-4))
+            .collect();
+        // Two further structures, both weaker than the dominant one but
+        // reachable inside the top-N window.
+        for s in 0..6usize {
+            pool.push(clue(&format!("more{s} tt uu vv"), 0.920 - s as f64 * 1e-4));
+            pool.push(clue(&format!("other{s} tt"), 0.910 - s as f64 * 1e-4));
+        }
+
+        let picked = select_diverse(pool, top_n);
+        assert_eq!(picked.len(), top_n);
+        let owned = picked
+            .iter()
+            .filter(|c| boundaries_of(c) == vec![3, 6])
+            .count();
+        assert_eq!(
+            owned,
+            top_n.div_ceil(STRUCTURE_FLOOR),
+            "the dominant structure must be held to its share"
+        );
+        let distinct: HashSet<Vec<usize>> = picked.iter().map(boundaries_of).collect();
+        assert_eq!(distinct.len(), STRUCTURE_FLOOR, "got {distinct:?}");
     }
 
     /// The content-word axis is not decoration: two clues that are
