@@ -2359,11 +2359,9 @@ fn boundary_novelty(
         .filter(|&x| x < total_len && (!partial || x <= covered));
 
     let mut shared = 0usize;
-    let mut union = 0usize;
     let mut next_a = a.next();
     let mut next_b = b.next();
     while let (Some(x), Some(y)) = (next_a, next_b) {
-        union += 1;
         if x == y {
             shared += 1;
             next_a = a.next();
@@ -2374,13 +2372,22 @@ fn boundary_novelty(
             next_b = b.next();
         }
     }
-    union += usize::from(next_a.is_some()) + a.count();
-    union += usize::from(next_b.is_some()) + b.count();
 
-    if union == 0 {
-        return 0.0;
+    // F1: the charge is a threshold on the *retained share* of the
+    // target's own word boundaries, not a Jaccard distance, so the
+    // measure no longer depends on how many boundaries the clue invented.
+    let total = usize::from(next_b.is_some()) + b.count();
+    boundary_novelty_from_counts(shared, total)
+}
+
+/// F1 (scratch port from w-3f9c02): a threshold charge on the retained
+/// share of the target's word boundaries.
+fn boundary_novelty_from_counts(kept: usize, total: usize) -> f64 {
+    if total == 0 {
+        return 1.0;
     }
-    1.0 - shared as f64 / union as f64
+    let retained = kept as f64 / total as f64;
+    (2.0 - 2.0 * retained).clamp(0.0, 1.0)
 }
 
 /// The content-word penalty, given `closed` closed-class words out of
@@ -2817,19 +2824,11 @@ fn novelty_upper_bound(
     still_possible: usize,
     target_inner: usize,
 ) -> f64 {
-    let reachable = still_possible.min(target_inner.saturating_sub(shared));
-    let clue_floor = words.saturating_sub(1).max(shared);
-    let mut best = 0.0_f64;
-    for added in 0..=reachable {
-        let clue_inner = clue_floor.max(added);
-        let union = clue_inner + target_inner - shared - added;
-        if union == 0 {
-            continue;
-        }
-        let novelty = 1.0 - (shared + added) as f64 / union as f64;
-        best = best.max(novelty);
-    }
-    best.clamp(0.0, 1.0)
+    // F1: the charge depends only on how many of the target's boundaries
+    // the path keeps, and it falls as that count rises, so the largest
+    // charge still reachable is the one at the current count.
+    let _ = (words, still_possible);
+    boundary_novelty_from_counts(shared, target_inner)
 }
 
 /// Score of a span path that is still open, in the final scorer's own
