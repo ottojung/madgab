@@ -583,7 +583,7 @@ impl Generator {
         const SPAN_BAND_KEEP: usize = 4;
         const SPAN_RARITY_KEEP: usize = 4;
         const SEG_STATE_KEEP: usize = 32;
-        const SEGMENTATION_KEEP: usize = 256;
+        const SEGMENTATION_KEEP: usize = 2048;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
 
         // The lexical phase's budget is *global*.  These are the same two
@@ -895,6 +895,45 @@ impl Generator {
                     },
                 });
             }
+        }
+
+        // ZZ_SCRATCH: cheapest tiling of the target by a given word sequence,
+        // over the whole retained span lattice.
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(spec) = std::env::var("ZZ_MINCOST") {
+            let words: Vec<String> = spec
+                .split('|')
+                .map(|s| s.trim().to_lowercase())
+                .collect();
+            let mut dp = vec![f64::INFINITY; n + 1];
+            dp[0] = 0.0;
+            for w in &words {
+                let mut next = vec![f64::INFINITY; n + 1];
+                for p in 0..=n {
+                    if !dp[p].is_finite() {
+                        continue;
+                    }
+                    for edge in &span_lattice[p] {
+                        let Some(m) = edge.matches.iter().find(|m| {
+                            self.fuzzy_lexicon
+                                .word(m.word_idx)
+                                .word
+                                .eq_ignore_ascii_case(w)
+                        }) else {
+                            continue;
+                        };
+                        if dp[p] + m.cost < next[edge.end] - 1e-12 {
+                            next[edge.end] = dp[p] + m.cost;
+                        }
+                    }
+                }
+                dp = next;
+            }
+            eprintln!(
+                "ZZMINCOST n={n} min_total_cost={:.6} words={}",
+                dp[n],
+                words.len()
+            );
         }
 
         // Suffix relaxation over the span DAG: from every target offset,
@@ -1671,7 +1710,90 @@ impl Generator {
             // every target and every segmentation.  The measurement that
             // motivates it is in `docs/work/items/w-c1d3a7.md`.
 
+            // ZZ_SCRATCH: force a tuple into the pool to read its real score
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Ok(spec) = std::env::var("ZZ_INJECT") {
+                let want = spec.split('|').next().unwrap_or("");
+                let mine = segmentation
+                    .spans
+                    .iter()
+                    .map(|(a, b)| format!("{a}-{b}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if mine == want {
+                    if let Some(t) = spec.split('|').nth(1) {
+                        let tup: Vec<usize> = t
+                            .split(',')
+                            .filter_map(|x| x.parse().ok())
+                            .collect();
+                        if let Some(p) = build(&tup) {
+                            let m = p.metrics(
+                                &target_boundaries,
+                                target_syllables,
+                                n,
+                                false,
+                            );
+                            eprintln!("ZZINJ {tup:?} combined={:.9} axes={:?}", m.combined, m);
+                            eprintln!(
+                                "ZZINJW {:?} totcost={:.3}",
+                                tup.iter()
+                                    .enumerate()
+                                    .map(|(s, &i)| format!(
+                                        "{}({:.3})",
+                                        self.fuzzy_lexicon
+                                            .word(slots[s][i].match_ref.word_idx)
+                                            .word,
+                                        slots[s][i].cost
+                                    ))
+                                    .collect::<Vec<_>>(),
+                                tup.iter()
+                                    .enumerate()
+                                    .map(|(s, &i)| slots[s][i].cost)
+                                    .sum::<f64>()
+                            );
+                            recovered.push(p);
+                        }
+                    }
+                }
+            }
             let mut adjacency_emitted = 0usize;
+            // ZZ_SCRATCH
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Ok(spec) = std::env::var("ZZ_EVAL") {
+                let want = spec.split('|').next().unwrap_or("");
+                let mine = segmentation
+                    .spans
+                    .iter()
+                    .map(|(a, b)| format!("{a}-{b}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if mine == want {
+                    if let Some(t) = spec.split('|').nth(1) {
+                        let tup: Vec<usize> = t
+                            .split(',')
+                            .filter_map(|x| x.parse().ok())
+                            .collect();
+                        eprintln!("ZZEVAL {tup:?} bound={:.9} builds={}", bound(&tup), build(&tup).is_some());
+                    }
+                }
+            }
+            // ZZ_SCRATCH
+            #[cfg(not(target_arch = "wasm32"))]
+            if let Ok(spec) = std::env::var("ZZ_POOL") {
+                let want = spec.split('|').next().unwrap_or("");
+                let mine = segmentation
+                    .spans
+                    .iter()
+                    .map(|(a, b)| format!("{a}-{b}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                if mine == want {
+                    eprintln!("ZZPOOL n={} emit_allowance={emit_allowance} profile={profile_emitted} adj={adjacency_allowance} emitted={emitted}", pooled.len());
+                    for t in &pooled {
+                        eprintln!("ZZPOOLT {t:?} bound={:.9}", bound(t));
+                    }
+                }
+            }
             if adjacency_allowance > 0
                 && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
             {
@@ -1778,11 +1900,28 @@ impl Generator {
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| {
-                p.into_clue(
+                // ZZ_SCRATCH
+                #[cfg(not(target_arch = "wasm32"))]
+                let axis_dump = if std::env::var("ZZ_METRICS").is_ok() {
+                    Some(p.metrics(
+                        &target_boundaries,
+                        target_syllables,
+                        target_ipa.chars().filter(|c| *c != 'ˈ' && *c != 'ˌ').count(),
+                        false,
+                    ))
+                } else {
+                    None
+                };
+                let c = p.into_clue(
                     target_ipa,
                     target_boundaries,
                     target_syllables,
-                )
+                );
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(m) = axis_dump {
+                    eprintln!("ZZMETRICS {:?} {m:?}", c.phrase);
+                }
+                c
             })
             .collect();
 
