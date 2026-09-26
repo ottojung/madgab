@@ -23,6 +23,17 @@ pub struct Clue {
     pub words: Vec<ClueWord>,
     /// Composite score in [0, 1] — higher is better.
     pub score: f64,
+    /// Phoneme offsets into the target's IPA stream at which this clue's
+    /// word boundaries fall, the last one being the end of the stream.
+    ///
+    /// This is the clue's *resegmentation*: the word-boundary structure
+    /// the search aligned it at.  It is reported rather than re-derived
+    /// from [`Self::words`] because under an approximate alignment
+    /// the two disagree — a clue word consumes a run of the target's
+    /// phonemes, which is not the same run as its own transcription — and
+    /// every consumer that wanted the structure was therefore reading a
+    /// corrupted one.  See [`clue_structure`].
+    pub cuts: Vec<usize>,
 }
 
 /// One word inside a candidate clue.
@@ -1554,6 +1565,7 @@ impl Partial {
             ipa: target_ipa.to_string(),
             words: self.words,
             score,
+            cuts: self.cuts,
         }
     }
 }
@@ -2190,17 +2202,27 @@ fn span_score_bound(
 const STRUCTURE_FLOOR: usize = 3;
 
 /// The word-boundary structure of a clue: the phoneme offsets at which
-/// one clue word ends and the next begins.  Two clues with the same
-/// structure are two spellings of the same resegmentation, which is the
-/// redundancy that matters for a Mad Gab list.
-fn clue_cuts(c: &Clue) -> Vec<usize> {
-    let mut cuts = Vec::new();
-    let mut at = 0usize;
-    for w in c.words.iter().skip(1) {
-        at += w.ipa.chars().count();
-        cuts.push(at);
-    }
-    cuts
+/// one clue word ends and the next begins, as the search aligned them (see
+/// [`Clue::cuts`]).  Two clues with the same structure are two
+/// spellings of the same resegmentation, which is the redundancy that
+/// matters for a Mad Gab list.
+///
+/// The last entry is the end of the target's stream, not an inner
+/// boundary, so it is dropped.
+///
+/// These offsets used to be re-derived here by summing each clue word's
+/// own IPA length.  That is equivalent only when every alignment is
+/// phonetically exact: under an approximate alignment a word consumes a
+/// run of the *target's* phonemes, so the accumulated offsets drift, and
+/// every wording of one resegmentation was counted as its own structure.
+/// Measured on real searches, that made the share cap in
+/// [`select_diverse`] a no-op — for one target the 300 best-scoring
+/// candidates were all wordings of a single resegmentation, and the
+/// "represent the strong structures" step of the policy had nothing to
+/// represent.  See
+/// [../../docs/work/items/w-04f83f.md](../../docs/work/items/w-04f83f.md).
+fn clue_structure(c: &Clue) -> Vec<usize> {
+    c.cuts[..c.cuts.len().saturating_sub(1)].to_vec()
 }
 
 /// Pick `top_n` proposals under an ordered rule, highest score first.
@@ -2257,7 +2279,7 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
             .then_with(|| clues[a].phrase.cmp(&clues[b].phrase))
     });
 
-    let structures: Vec<Vec<usize>> = clues.iter().map(clue_cuts).collect();
+    let structures: Vec<Vec<usize>> = clues.iter().map(clue_structure).collect();
     let cutoff = &order[..top_n];
 
     let mut picked: Vec<usize> = Vec::with_capacity(top_n);
@@ -2363,6 +2385,57 @@ mod tests {
         "ka":   { "rarity": 5000,"ipa": { "cmu": "kæ" } }
     }"#;
 
+    /// The regression this change is about: a clue's resegmentation is
+    /// the set of target-stream offsets the *search* cut at, and under an
+    /// approximate alignment that is not the same thing as summing the
+    /// clue words' own IPA lengths.
+    ///
+    /// The two words below differ from their target spans only in how
+    /// many target phonemes they consumed, and that is only possible
+    /// under a non-phonetic alignment: a clue word may carry material the
+    /// target does not have, or leave some of the target's out.
+    /// Re-deriving the offsets from the clue words therefore invents a
+    /// structure the search never chose, and every consumer of the
+    /// structure — the diversity policy's share cap, and the integration
+    /// test that checks it — then groups wordings of one resegmentation
+    /// as if they were unrelated.
+    #[test]
+    fn clue_structure_is_the_alignment_not_the_words_own_lengths() {
+        let target_phrase = TargetPhrase::new("alpha beta");
+        // Nine phonemes of target. The first word consumes five of them
+        // while carrying three characters; the second consumes four while
+        // carrying seven.
+        let aligned = Partial::empty()
+            .extend_parts(
+                &target_phrase, "first", "abcde", None, false, 5, 0.0,
+            )
+            .extend_parts(
+                &target_phrase, "second", "abcdefg", None, false, 4, 0.0,
+            );
+        assert_eq!(aligned.cuts, vec![5, 9]);
+
+        let clue = aligned.into_clue("abcdefghi", &[5, 9], 2);
+        // The search cut at 5. The second clue word carries seven
+        // characters, so summing the words' own lengths would have said 7.
+        assert_eq!(clue_structure(&clue), vec![5]);
+
+        let naive: Vec<usize> = {
+            let mut at = 0usize;
+            let mut cuts = Vec::new();
+            for w in clue.words.iter().skip(1) {
+                at += w.ipa.chars().count();
+                cuts.push(at);
+            }
+            cuts
+        };
+        assert_eq!(
+            naive,
+            vec![7],
+            "this fixture is only meaningful while the two notions differ"
+        );
+    }
+
+
     #[test]
     fn transcribes_known_phrase() {
         let g = Generator::from_json(TINY, GeneratorConfig::default()).unwrap();
@@ -2406,11 +2479,21 @@ mod tests {
                 sub_cost: 0.0,
             })
             .collect();
+        // Every word is three IPA characters, so the cumulative offsets
+        // are just the running total of the word lengths.
+        let cuts: Vec<usize> = words
+            .iter()
+            .scan(0usize, |at, w| {
+                *at += w.ipa.chars().count();
+                Some(*at)
+            })
+            .collect();
         Clue {
             phrase: phrase.to_string(),
             ipa: "bbb".to_string(),
             words,
             score,
+            cuts,
         }
     }
 
@@ -2434,18 +2517,45 @@ mod tests {
         for i in 0..40 {
             pool.push(clue(&format!("ee{i} b b b b"), 0.82 + i as f64 * 1e-4));
         }
+        let map = structure_map(&pool);
         let picked = select_diverse(pool, 10);
         assert_eq!(picked.len(), 10);
-        let distinct: HashSet<Vec<usize>> =
-            picked.iter().map(boundaries_of).collect();
+        let distinct: HashSet<&Vec<usize>> =
+            picked.iter().map(|c| boundaries_of(&map, c)).collect();
         assert!(
             distinct.len() >= 6,
             "expected proposals spanning several resegmentations, got {distinct:?}"
         );
     }
 
-    fn boundaries_of(c: &Clue) -> Vec<usize> {
-        clue_cuts(c)
+    /// The boundary structure of a synthetic pool.
+    ///
+    /// Structures are supplied by the fixture rather than derived, the
+    /// way the search supplies them: a candidate's structure is the set
+    /// of target-stream offsets it was aligned at, and these fixtures have
+    /// no target stream.  Each word is three IPA characters, so
+    /// `x y z` is [3, 6] and the neighbours are [3] and [3, 6, 9].
+    fn structures_for(clues: &[Clue]) -> Vec<Vec<usize>> {
+        clues
+            .iter()
+            .map(|c| c.cuts[..c.cuts.len().saturating_sub(1)].to_vec())
+            .collect()
+    }
+
+    fn structure_map(clues: &[Clue]) -> HashMap<String, Vec<usize>> {
+        clues
+            .iter()
+            .zip(structures_for(clues))
+            .map(|(c, s)| (c.phrase.clone(), s))
+            .collect()
+    }
+
+    fn boundaries_of<'a>(
+        map: &'a HashMap<String, Vec<usize>>,
+        c: &Clue,
+    ) -> &'a Vec<usize> {
+        map.get(&c.phrase)
+            .expect("candidate came from this pool")
     }
 
     /// The defect this policy rule exists to fix: a second member of an
@@ -2500,18 +2610,20 @@ mod tests {
             pool.push(clue(&format!("other{s} tt"), 0.910 - s as f64 * 1e-4));
         }
 
+        let map = structure_map(&pool);
         let picked = select_diverse(pool, top_n);
         assert_eq!(picked.len(), top_n);
         let owned = picked
             .iter()
-            .filter(|c| boundaries_of(c) == vec![3, 6])
+            .filter(|c| *boundaries_of(&map, c) == vec![3, 6])
             .count();
         assert_eq!(
             owned,
             top_n.div_ceil(STRUCTURE_FLOOR),
             "the dominant structure must be held to its share"
         );
-        let distinct: HashSet<Vec<usize>> = picked.iter().map(boundaries_of).collect();
+        let distinct: HashSet<&Vec<usize>> =
+            picked.iter().map(|c| boundaries_of(&map, c)).collect();
         assert_eq!(distinct.len(), STRUCTURE_FLOOR, "got {distinct:?}");
     }
 
