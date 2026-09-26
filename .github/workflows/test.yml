@@ -18,6 +18,8 @@ jobs:
       - name: unit tests
         run: cargo test --lib --bins --no-fail-fast
       - name: real-corpus integration tests
+        env:
+          MADGAB_TRACE_PHRASES: "hits justice dupe hid came|wreck a nice beach"
         run: cargo test --release --test corpus_integration --no-fail-fast
       - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
