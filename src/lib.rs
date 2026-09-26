@@ -2211,6 +2211,11 @@ struct Partial {
     reused_count: usize,
     familiarity_sum: f64,
     shape_sum: f64,
+    /// Clue words of one syllable or fewer, for the `PUNCH` axis.  The
+    /// syllable count is already computed on the extension path for
+    /// `syllables`, so this is a comparison against a value the
+    /// candidate already holds, not a second count.
+    punch_count: usize,
 }
 
 impl Partial {
@@ -2226,6 +2231,7 @@ impl Partial {
             reused_count: 0,
             familiarity_sum: 0.0,
             shape_sum: 0.0,
+            punch_count: 0,
         }
     }
 
@@ -2338,11 +2344,16 @@ impl Partial {
         let familiarity = word_familiarity(rarity);
         let reuses = target.reuse.reuses(word);
         let shape = lexical_shape_quality(word, familiarity);
+        let syllables = approx::ipa_syllables(ipa);
 
         Self {
             words: Some(word_node),
             sub_cost_total: self.sub_cost_total + word_sub_cost,
-            syllables: self.syllables + approx::ipa_syllables(ipa),
+            syllables: self.syllables + syllables,
+            // `ipa_syllables` floors an empty transcription at zero and a
+            // non-empty one at one, so `== 1` is "one syllable or fewer"
+            // and a word with no IPA at all is not counted as punch.
+            punch_count: self.punch_count + usize::from(syllables == 1),
             closed: self.closed + usize::from(closed),
             cheap_score: self.cheap_score + word_bonus + rarity_penalty - word_sub_cost,
             cuts: Rc::new(cuts),
@@ -2404,13 +2415,45 @@ impl Partial {
         };
         let closed_penalty = closed_class_penalty(self.closed as f64, words as f64);
 
+        // A Mad Gab answer has to be *sayable in one pass* by a listener
+        // who has never heard the target.  `RHYTHM` reads only the total
+        // syllable count, which a redistribution across words satisfies
+        // for free, and `SIMILARITY` charges edit cost over the whole
+        // IPA stream, so a twelve-phone polysyllable that happens to be
+        // cheap scores like a three-phone monosyllable one.  Nothing in
+        // the objective constrains the clue to be *pronounceable at the
+        // pace of the target sentence*, and the answer without that
+        // constraint is the lookalike-polysyllable clue, which is
+        // phonetically excellent and humanly unusable: the solver cannot
+        // get through it in one pass, so the wordplay never lands.
+        //
+        // This is the share of clue words of one syllable or fewer, and
+        // it asks the clue to be as short-worded as the target is, so
+        // it bites hardest exactly where the target has long words.
+        let punch = self.punch_count as f64 / words.max(1) as f64;
+
+        // Written as `w * (v - 1)` rather than `w * v`.  The six existing
+        // weights sum to exactly 1.00 and `CLOSED_CLASS` is the only
+        // signed one, so the objective's maximum is already exactly 1.0
+        // and there is zero headroom: `+ w*v` would push every
+        // all-axes-perfect clue above the documented `Clue::score` upper
+        // bound at any weight above print precision.  Shifting the axis
+        // by its own maximum makes the term non-positive and leaves the
+        // bound where it was.  It is *ordering*-identical to the `+ w*v`
+        // form — the same constant comes off every candidate, so no
+        // comparison between two candidates changes — which is what makes
+        // it the right choice rather than a different axis.  It does not
+        // by itself settle `approximate_output_is_locked`, which locks
+        // printed score *strings*: a band that is not entirely
+        // monosyllabic still moves, by up to `w`.
         let combined = axes::SIMILARITY * similarity
             + axes::NOVELTY * novelty
             + axes::WORD_NOVELTY * word_novelty
             + axes::FAMILIARITY * familiarity
             + axes::RHYTHM * rhythm
             + axes::SHAPE * shape_quality
-            + axes::CLOSED_CLASS * closed_penalty;
+            + axes::CLOSED_CLASS * closed_penalty
+            + axes::PUNCH * (punch - 1.0);
 
         Metrics {
             combined,
@@ -2483,6 +2526,12 @@ mod axes {
     /// Closed-class (function) word share, subtracted.  The share is
     /// squared by `closed_class_penalty` before it gets here.
     pub const CLOSED_CLASS: f64 = -super::CLOSED_CLASS_WEIGHT;
+    /// Share of clue words of one syllable or fewer, `PUNCH`, also
+    /// non-positive: `metrics` applies it as `w * (v - 1)`, so a clue
+    /// that is entirely monosyllabic pays nothing and one with no
+    /// monosyllable at all pays the full weight.  0.10 is comparable to
+    /// `FAMILIARITY` and half of `SIMILARITY`.
+    pub const PUNCH: f64 = 0.10;
 
     /// Per-word share of the similarity axis, used by the single-word
     /// ranking proxies in `generate_approximate` (`quality`,
