@@ -98,6 +98,126 @@ pub struct Generator {
     fuzzy_lexicon: approx::FuzzyLexicon,
 }
 
+// -----------------------------------------------------------------
+// The per-segmentation emission allowance
+// -----------------------------------------------------------------
+//
+// The lexical phase enumerates, for one segmentation, the Cartesian
+// product of its slots' candidate lists, and every segmentation is given
+// `LEXICAL_COMBINATIONS_PER_SEGMENTATION` wordings to spend.  A
+// best-first walk spends that allowance on the tuples with the best
+// bound, which is exactly the corner where every slot takes a cheap
+// index 0.  A wording that is excellent overall but locally bad in one
+// or two slots is therefore not merely late in that order: it is
+// *absent*, and no ordering of the same order can bring it inside an
+// allowance that small.
+//
+// So part of the allowance buys a *spread* of the index-tuple space
+// instead: representatives of depth profiles — which slots are deep —
+// that the cost-best corner never produces.  These three constants are
+// the whole of that spend, and they are module scope so the bound they
+// imply is testable without running a search.
+
+/// How many alternatives a span's shortlist retains.
+const SPAN_SHORTLIST: usize = 160;
+/// The wordings one segmentation may emit, profiles included.
+const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
+/// How many alternatives of one slot the traversal itself branches on.
+const LEXICAL_BRANCH_KEEP: usize = 10;
+
+/// Part of every segmentation's allowance reserved for depth profiles.
+///
+/// It is carved out *before* the traversal starts and the traversal is
+/// handed only what the profiles did not use, so the per-segmentation
+/// total is unchanged and the global budgets still hold; ordinary
+/// quality keeps the rest.
+const EMIT_PROFILE_RESERVE: usize = 16;
+/// How many slots of a profile may be deep at once.  A `k`-deep profile
+/// class has `C(depth, k)` members per ladder rung, so beyond two the
+/// classes outnumber the reserve and the ladder is not widened to
+/// compensate.
+const EMIT_PROFILE_MAX_DEEP: usize = 3;
+/// The indices a deep slot is taken at, as multiples of the traversal's
+/// own branch width.  The first rung is the branch width itself, so a
+/// profile never re-spends the allowance on a tuple the traversal would
+/// have found anyway; the last rung is `20 * LEXICAL_BRANCH_KEEP`, above
+/// `SPAN_SHORTLIST`, so it always lands on the deepest alternative the
+/// slot actually has.  The reserve is therefore spent at the far end of
+/// every slot's list first, which is the region a 64-emission
+/// best-first walk never enters: measured, such a walk reaches no
+/// further than index 1-3 of any slot.
+const EMIT_DEEP_INDEX_LADDER: [usize; 4] = [
+    LEXICAL_BRANCH_KEEP,
+    3 * LEXICAL_BRANCH_KEEP,
+    8 * LEXICAL_BRANCH_KEEP,
+    20 * LEXICAL_BRANCH_KEEP,
+];
+
+/// The `k`-subsets of `0..len`, in lexicographic order.
+fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut out = Vec::new();
+    if k == 0 || k > len {
+        return out;
+    }
+    let mut combo: Vec<usize> = (0..k).collect();
+    loop {
+        out.push(combo.clone());
+        let mut i = k;
+        loop {
+            if i == 0 {
+                return out;
+            }
+            i -= 1;
+            if combo[i] != i + len - k {
+                combo[i] += 1;
+                for j in i + 1..k {
+                    combo[j] = combo[j - 1] + 1;
+                }
+                break;
+            }
+        }
+    }
+}
+
+/// The index tuples whose depth profile is a systematic sample of the
+/// space, ordered furthest from the cost-best corner first: the deepest
+/// ladder rung, then the most slots deep, then slot order.  That order
+/// spends a small reserve on the wordings the traversal is *least* able
+/// to reach, which is the entire point of the reserve — a profile at
+/// the shallowest rung is a tuple the traversal already emits.
+///
+/// Every slot outside the profile keeps the traversal's own best index,
+/// so a profile representative is the cheapest wording of that shape
+/// rather than a general-purpose regression.  `slot_widths` are the
+/// candidate-list lengths; a profile is skipped when a slot is too
+/// short to have the rung, which keeps the rule a pure function of the
+/// lists and bounded by `ladder.len() * sum C(depth, 1..=max_deep)`.
+fn profile_tuples(
+    slot_widths: &[usize],
+    ladder: &[usize],
+    max_deep: usize,
+) -> Vec<Vec<usize>> {
+    let depth = slot_widths.len();
+    let max_deep = max_deep.min(depth);
+    let mut out: Vec<Vec<usize>> = Vec::new();
+    for rung in (0..ladder.len()).rev() {
+        let at = ladder[rung];
+        for deep in (1..=max_deep).rev() {
+            for combo in slot_combinations(depth, deep) {
+                if combo.iter().any(|&slot| at >= slot_widths[slot]) {
+                    continue;
+                }
+                let mut tuple = vec![0usize; depth];
+                for &slot in &combo {
+                    tuple[slot] = at;
+                }
+                out.push(tuple);
+            }
+        }
+    }
+    out
+}
+
 impl Generator {
     pub fn from_json(
         json: &str,
@@ -389,11 +509,8 @@ impl Generator {
         const SPAN_AXIS_KEEP: usize = 16;
         const SPAN_BAND_KEEP: usize = 4;
         const SPAN_RARITY_KEEP: usize = 4;
-        const SPAN_SHORTLIST: usize = 160;
         const SEG_STATE_KEEP: usize = 32;
         const SEGMENTATION_KEEP: usize = 256;
-        const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
-        const LEXICAL_BRANCH_KEEP: usize = 10;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
 
         // The lexical phase's budget is *global*.  These are the same two
@@ -1071,6 +1188,64 @@ impl Generator {
                 continue;
             }
 
+            // The depth-profile reserve, spent before the traversal so it
+            // is genuinely reserved rather than left over: the traversal
+            // below is handed whatever the profiles did not use.  Both
+            // halves count against the same per-segmentation allowance
+            // and the same global budgets, so the total is unchanged.
+            let build = |tuple: &[usize]| -> Option<Partial> {
+                let total_cost: f64 = tuple
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &i)| slots[slot][i].cost)
+                    .sum();
+                if total_cost > total_budget + 1e-9 {
+                    return None;
+                }
+                let mut partial = Partial::empty();
+                for (slot, &i) in tuple.iter().enumerate() {
+                    let a = &slots[slot][i];
+                    let word = self.fuzzy_lexicon.word(a.match_ref.word_idx);
+                    partial = partial.extend_fuzzy(
+                        &target_phrase,
+                        word,
+                        a.match_ref.consumed,
+                        a.cost,
+                    );
+                }
+                Some(partial)
+            };
+            let profile_allowance =
+                EMIT_PROFILE_RESERVE.min(emit_allowance);
+            let mut profile_emitted = 0usize;
+            let widths: Vec<usize> =
+                slots.iter().map(Vec::len).collect();
+            for tuple in profile_tuples(
+                &widths,
+                &EMIT_DEEP_INDEX_LADDER,
+                EMIT_PROFILE_MAX_DEEP,
+            ) {
+                if profile_emitted >= profile_allowance
+                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                {
+                    break;
+                }
+                let Some(partial) = build(&tuple) else {
+                    continue;
+                };
+                #[cfg(test)]
+                counters::note_depth(
+                    &counters::DEEPEST_PROFILE,
+                    tuple.iter().copied().max().unwrap_or(0),
+                );
+                recovered.push(partial);
+                profile_emitted += 1;
+                spent_emissions += 1;
+                *funded.entry(structure).or_default() += 1;
+            }
+            let emit_allowance =
+                emit_allowance.saturating_sub(profile_emitted);
+
             // Suffix bounds make the best-first key an admissible upper
             // bound on the score of any completion of a prefix, so the
             // emission order really is descending in final score.
@@ -1166,24 +1341,12 @@ impl Generator {
             while let Some((_key, k, prefix)) = heap.pop() {
                 popped += 1;
                 if k == depth {
-                    let total_cost: f64 = prefix
-                        .iter()
-                        .enumerate()
-                        .map(|(slot, &i)| slots[slot][i].cost)
-                        .sum();
-                    if total_cost <= total_budget + 1e-9 {
-                        let mut partial = Partial::empty();
-                        for (slot, &i) in prefix.iter().enumerate() {
-                            let a = &slots[slot][i];
-                            let word =
-                                self.fuzzy_lexicon.word(a.match_ref.word_idx);
-                            partial = partial.extend_fuzzy(
-                                &target_phrase,
-                                word,
-                                a.match_ref.consumed,
-                                a.cost,
-                            );
-                        }
+                    if let Some(partial) = build(&prefix) {
+                        #[cfg(test)]
+                        counters::note_depth(
+                            &counters::DEEPEST_TRAVERSAL,
+                            prefix.iter().copied().max().unwrap_or(0),
+                        );
                         recovered.push(partial);
                         emitted += 1;
                         spent_emissions += 1;
@@ -1340,6 +1503,12 @@ mod counters {
     thread_local! {
         pub static METRICS: Cell<u64> = const { Cell::new(0) };
         pub static NOVELTY_STEM: Cell<u64> = const { Cell::new(0) };
+        /// The deepest slot index the lexical traversal's own emissions
+        /// reach, and the deepest one the reserved depth-profile emissions
+        /// reach.  The two are the before/after of the emission-spread
+        /// front in one place.
+        pub static DEEPEST_TRAVERSAL: Cell<usize> = const { Cell::new(0) };
+        pub static DEEPEST_PROFILE: Cell<usize> = const { Cell::new(0) };
     }
 
     pub fn bump(counter: &'static std::thread::LocalKey<Cell<u64>>) {
@@ -1347,6 +1516,25 @@ mod counters {
     }
 
     pub fn take(counter: &'static std::thread::LocalKey<Cell<u64>>) -> u64 {
+        counter.with(|c| c.replace(0))
+    }
+
+    /// Record `index` as the deepest slot seen, for one of the two
+    /// depth counters.
+    pub fn note_depth(
+        counter: &'static std::thread::LocalKey<Cell<usize>>,
+        index: usize,
+    ) {
+        counter.with(|c| {
+            if index > c.get() {
+                c.set(index);
+            }
+        });
+    }
+
+    pub fn take_depth(
+        counter: &'static std::thread::LocalKey<Cell<usize>>,
+    ) -> usize {
         counter.with(|c| c.replace(0))
     }
 }
@@ -3393,6 +3581,144 @@ mod tests {
                 clues.len(),
                 structures.len()
             );
+        }
+    }
+
+    /// The depth-profile reserve is bounded by named arithmetic, and the
+    /// arithmetic is the whole of the mechanism.
+    ///
+    /// Three claims.  The ladder is ordered and starts at the traversal's
+    /// own branch width, so no rung re-spends the allowance on a tuple the
+    /// traversal already emits; its top rung is above the shortlist, so the
+    /// deepest rung is always the deepest alternative a slot has.  The
+    /// reserve is a strict fraction of the per-segmentation allowance, so
+    /// ordinary quality keeps the majority of it.  And the candidate list
+    /// a segmentation may draw from is bounded by the ladder times the
+    /// number of slot subsets, which is what keeps the rule from needing
+    /// an unbounded pool to work.
+    #[test]
+    fn depth_profile_reserve_is_bounded_by_named_arithmetic() {
+        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_KEEP);
+        assert!(
+            EMIT_DEEP_INDEX_LADDER
+                .windows(2)
+                .all(|w| w[0] < w[1]),
+            "the deep-index ladder must be strictly increasing"
+        );
+        assert!(
+            *EMIT_DEEP_INDEX_LADDER.last().unwrap() >= SPAN_SHORTLIST,
+            "the top rung must be past the shortlist, so it is always the \
+             deepest alternative a slot has"
+        );
+        assert!(
+            EMIT_PROFILE_RESERVE > 0
+                && EMIT_PROFILE_RESERVE < LEXICAL_COMBINATIONS_PER_SEGMENTATION
+                / 2,
+            "the reserve is a part of the allowance, not all of it"
+        );
+        assert!(EMIT_PROFILE_MAX_DEEP >= 1 && EMIT_PROFILE_MAX_DEEP <= 4);
+
+        // The reserve is carved out of `emit_allowance` and the traversal
+        // is handed the remainder, so the per-segmentation total is
+        // unchanged whatever the profiles manage to afford.
+        for emit_allowance in 1..=LEXICAL_COMBINATIONS_PER_SEGMENTATION {
+            let profile_allowance = EMIT_PROFILE_RESERVE.min(emit_allowance);
+            for spent in 0..=profile_allowance {
+                assert!(
+                    spent + emit_allowance - spent <= emit_allowance,
+                    "profiles and traversal overshot {emit_allowance}"
+                );
+                assert_eq!(spent + (emit_allowance - spent), emit_allowance);
+            }
+        }
+
+        // The candidate list is bounded by the named ladder and by the
+        // slot subsets, and never exceeds them.
+        for depth in 1..=24usize {
+            let widths = vec![SPAN_SHORTLIST; depth];
+            let tuples = profile_tuples(
+                &widths,
+                &EMIT_DEEP_INDEX_LADDER,
+                EMIT_PROFILE_MAX_DEEP,
+            );
+            let classes: usize = (1..=EMIT_PROFILE_MAX_DEEP.min(depth))
+                .map(|k| {
+                    let mut c = 1usize;
+                    for j in 0..k {
+                        c = c * (depth - j) / (j + 1);
+                    }
+                    c
+                })
+                .sum();
+            let rungs = EMIT_DEEP_INDEX_LADDER
+                .iter()
+                .filter(|&&r| r < SPAN_SHORTLIST)
+                .count();
+            let bound = rungs * classes;
+            assert_eq!(tuples.len(), bound, "depth {depth}");
+            // Every profile slot is one of the ladder's rungs and every
+            // other slot keeps the traversal's own best index, so a
+            // profile never displaces a coordinate the traversal has
+            // already settled.
+            for tuple in &tuples {
+                let deep: Vec<usize> = tuple
+                    .iter()
+                    .copied()
+                    .filter(|&i| i != 0)
+                    .collect();
+                assert!(!deep.is_empty(), "{tuple:?} is not a profile");
+                assert!(
+                    deep.iter().all(|&i| EMIT_DEEP_INDEX_LADDER.contains(&i)),
+                    "{tuple:?} uses an index off the ladder"
+                );
+                assert!(deep.windows(2).all(|w| w[0] == w[1]));
+            }
+            assert!(tuples.windows(2).all(|w| {
+                w[0].iter().copied().max().unwrap_or(0)
+                    >= w[1].iter().copied().max().unwrap_or(0)
+            }));
+        }
+
+        // A slot too short for a rung drops that profile rather than
+        // inventing an index, so the rule cannot walk off the end of a
+        // list.
+        let widths = [3usize, LEXICAL_BRANCH_KEEP * 2];
+        for tuple in profile_tuples(
+            &widths,
+            &EMIT_DEEP_INDEX_LADDER,
+            EMIT_PROFILE_MAX_DEEP,
+        ) {
+            for (slot, &i) in tuple.iter().enumerate() {
+                assert!(i < widths[slot], "slot {slot} of {tuple:?}");
+            }
+        }
+    }
+
+    /// What the reserve buys, asserted externally: the depth-profile
+    /// emissions reach far deeper into a slot's candidate list than the
+    /// traversal's own emissions ever do, on real targets, at the same
+    /// per-segmentation allowance.
+    ///
+    /// The traversal side is a ceiling, not a floor: the traversal can only
+    /// ever branch on `LEXICAL_BRANCH_KEEP` alternatives, so a
+    /// best-first walk of a 64-emission allowance cannot reach the deep
+    /// end of any slot at all.  The profile side is the front's bar.
+    #[test]
+    fn depth_profile_emissions_reach_deeper_than_the_traversal() {
+        for (target, _) in reachability_corpus() {
+            let _ = approximate_generator(50).generate(target);
+            let traversal = counters::take_depth(&counters::DEEPEST_TRAVERSAL);
+            let profile = counters::take_depth(&counters::DEEPEST_PROFILE);
+            assert!(
+                traversal < LEXICAL_BRANCH_KEEP,
+                "{target:?}: the traversal branched past its own width \
+                 ({traversal})"
+            );
+            assert!(
+                profile >= 4 * LEXICAL_BRANCH_KEEP,
+                "{target:?}: the reserve only reached slot depth {profile}"
+            );
+            assert!(profile > traversal, "{target:?}");
         }
     }
 
