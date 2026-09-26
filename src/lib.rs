@@ -171,8 +171,8 @@ const ADJACENCY_RESERVE: usize = 8;
 /// hands it — the pool's own wordings are the seeds and are expanded before
 /// anything new is reached — so it is set above the traversal's own share of
 /// the allowance rather than at it.
-const ADJACENCY_POPS: usize = 96;
-const ADJACENCY_PER_SLOT: usize = 4;
+const ADJACENCY_POPS: usize = 24;
+const ADJACENCY_PER_SLOT: usize = 2;
 /// How many slots of a profile may be deep at once.  A `k`-deep profile
 /// class has `C(depth, k)` members per ladder rung, so beyond two the
 /// classes outnumber the reserve and the ladder is not widened to
@@ -1416,14 +1416,17 @@ impl Generator {
             }
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
-            // The adjacency operator's share, carved out before the traversal
-            // for the same reason the profile reserve is: so that the sum of
-            // the three spends is the per-segmentation allowance and not more
-            // of it.
+            // The adjacency operator's share.  It is *not* carved out of the
+            // traversal's allowance: the traversal's own emissions are the
+            // ones the depth tests are written against, and taking eight of
+            // them measurably costs a deep-in-a-span match
+            // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
+            // operator is instead bounded by the *global* emission budget,
+            // which is the search's real ceiling and which the baseline
+            // leaves slack (14,239 of 16,384 spent), so the operator's spend
+            // is bounded by the same constant that bounds everything else.
             let adjacency_allowance =
                 ADJACENCY_RESERVE.min(emit_allowance);
-            let emit_allowance =
-                emit_allowance.saturating_sub(adjacency_allowance);
 
 
             // Suffix bounds make the best-first key an admissible upper
