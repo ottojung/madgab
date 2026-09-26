@@ -1903,6 +1903,27 @@ impl Generator {
             }
         }
 
+        // ZZ_POOL_OUT (SCRATCH, scratch/2f7a10-verify only): dump the
+        // deduplicated pool exactly as it stands here, i.e. after the sort and
+        // after the `phrase_signature` dedup and immediately before
+        // `select_diverse` admits or drops anything.  This is the pool the
+        // release binary actually produces on the default path, so every
+        // pool-membership number taken from this dump is admissible.  The
+        // hunk is read-only, allocates only when the variable is set, touches
+        // no counter and cannot be reached by the search; visible output is
+        // byte-identical with it unset and set (proved in
+        // docs/measure-2f7a10-verify.md).  Ported from scratch/2f7a10-base;
+        // nothing was merged.
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
+            use std::fmt::Write as _;
+            let mut out = String::new();
+            for (i, c) in clues.iter().enumerate() {
+                let _ = writeln!(out, "{}\t{:.17}\t{:?}\t{:?}", i, c.score, c.phrase, c.cuts);
+            }
+            std::fs::write(&path, out).expect("zz pool dump");
+        }
+
         select_diverse(clues, self.config.top_n)
     }
 }
