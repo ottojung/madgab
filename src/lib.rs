@@ -611,8 +611,15 @@ impl Generator {
                         continue;
                     }
                     let word = self.fuzzy_lexicon.word(m.word_idx);
-                    let next = partial
-                        .extend_fuzzy(&target_phrase, word, m.consumed, m.cost);
+                    // This beam is position-indexed, not segmentation-
+                    // indexed, so it has no floor to be relative to.
+                    let next = partial.extend_fuzzy(
+                        &target_phrase,
+                        word,
+                        m.consumed,
+                        m.cost,
+                        0.0,
+                    );
                     let q = p + m.consumed;
                     if q > n {
                         continue;
@@ -1426,6 +1433,21 @@ impl Generator {
             // below is handed whatever the profiles did not use.  Both
             // halves count against the same per-segmentation allowance
             // and the same global budgets, so the total is unchanged.
+            // The additive cost of this segmentation's all-argmin
+            // tuple: the cheapest wording it admits.  It is the floor
+            // the similarity axis is measured against, and it is the
+            // same quantity the suffix-minimum table below starts from
+            // (`suf_min_cost[0]`), so the traversal's admissible bound
+            // needs no extra work to stay consistent with it.
+            let segmentation_floor: f64 = slots
+                .iter()
+                .map(|here| {
+                    here.iter()
+                        .map(|a| a.cost)
+                        .fold(f64::INFINITY, f64::min)
+                })
+                .sum();
+
             let build = |tuple: &[usize]| -> Option<Partial> {
                 let total_cost: f64 = tuple
                     .iter()
@@ -1444,6 +1466,7 @@ impl Generator {
                         word,
                         a.match_ref.consumed,
                         a.cost,
+                        segmentation_floor,
                     );
                 }
                 Some(partial)
@@ -1560,7 +1583,9 @@ impl Generator {
                 }
                 let k = prefix.len();
                 axes::SIMILARITY
-                    * (1.0 - (cost + suf_min_cost[k]) / 4.0).clamp(0.0, 1.0)
+                    * (1.0
+                        - (cost + suf_min_cost[k] - segmentation_floor) / 4.0)
+                        .clamp(0.0, 1.0)
                     + axes::NOVELTY * novelty
                     + axes::WORD_NOVELTY
                         * (1.0
@@ -2150,6 +2175,15 @@ struct Partial {
     reused_count: usize,
     familiarity_sum: f64,
     shape_sum: f64,
+    /// Additive substitution cost of the all-argmin tuple of the
+    /// segmentation this candidate was built from, i.e. the cheapest
+    /// wording that segmentation admits.  The similarity axis is
+    /// measured against it rather than against an absolute IPA-edit
+    /// budget, so it asks how much worse than the best wording *this*
+    /// segmentation admits a candidate is.  Zero where there is no
+    /// segmentation behind the candidate (the exact path and the
+    /// position-only beam), which leaves their scoring unchanged.
+    cost_floor: f64,
 }
 
 impl Partial {
@@ -2165,6 +2199,7 @@ impl Partial {
             reused_count: 0,
             familiarity_sum: 0.0,
             shape_sum: 0.0,
+            cost_floor: 0.0,
         }
     }
 
@@ -2195,6 +2230,7 @@ impl Partial {
             lexical::is_closed_class(&p.word),
             consumed,
             word_sub_cost,
+            0.0,
         )
     }
 
@@ -2204,6 +2240,7 @@ impl Partial {
         word: &approx::FuzzyWord,
         consumed: usize,
         word_sub_cost: f64,
+        segmentation_floor: f64,
     ) -> Self {
         self.extend_parts(
             target,
@@ -2213,6 +2250,7 @@ impl Partial {
             word.closed,
             consumed,
             word_sub_cost,
+            segmentation_floor,
         )
     }
 
@@ -2225,6 +2263,7 @@ impl Partial {
         closed: bool,
         consumed: usize,
         word_sub_cost: f64,
+        segmentation_floor: f64,
     ) -> Self {
         let len = ipa.chars().count();
         let word_bonus = (len as f64).min(6.0) / 6.0;
@@ -2289,6 +2328,7 @@ impl Partial {
             reused_count: self.reused_count + usize::from(reuses),
             familiarity_sum: self.familiarity_sum + familiarity,
             shape_sum: self.shape_sum + shape,
+            cost_floor: segmentation_floor,
         }
     }
 
@@ -2301,7 +2341,14 @@ impl Partial {
     ) -> Metrics {
         #[cfg(test)]
         counters::bump(&counters::METRICS);
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        // Relative to the floor of the segmentation the candidate was
+        // built from: how much worse than the cheapest wording that
+        // segmentation admits.  `cost_floor` is 0.0 when there is no
+        // segmentation behind the candidate, where this is the previous
+        // absolute form.
+        let similarity =
+            (1.0 - (self.sub_cost_total - self.cost_floor) / 4.0)
+                .clamp(0.0, 1.0);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
@@ -3344,10 +3391,10 @@ mod tests {
         // carrying seven.
         let aligned = Partial::empty()
             .extend_parts(
-                &target_phrase, "first", "abcde", None, false, 5, 0.0,
+                &target_phrase, "first", "abcde", None, false, 5, 0.0, 0.0,
             )
             .extend_parts(
-                &target_phrase, "second", "abcdefg", None, false, 4, 0.0,
+                &target_phrase, "second", "abcdefg", None, false, 4, 0.0, 0.0,
             );
         assert_eq!(*aligned.cuts, vec![5, 9]);
 
@@ -3700,7 +3747,13 @@ mod tests {
             let consumed = 3;
             pool.push(
                 Partial::empty()
-                    .extend_fuzzy(target, &word, consumed, (i % 7) as f64 * 0.05),
+                    .extend_fuzzy(
+                        target,
+                        &word,
+                        consumed,
+                        (i % 7) as f64 * 0.05,
+                        0.0,
+                    ),
             );
         }
         pool
@@ -3756,7 +3809,7 @@ mod tests {
                 rarity: Some(1_000.0),
                 closed: false,
             };
-            p = p.extend_fuzzy(&target, &word, 3, 0.0);
+            p = p.extend_fuzzy(&target, &word, 3, 0.0, 0.0);
         }
 
         assert_eq!(p.word_count(), words.len());
@@ -3777,6 +3830,7 @@ mod tests {
                     closed: false,
                 },
                 3,
+                0.0,
                 0.0,
             );
         assert_eq!(p.word_count(), words.len(), "extension mutated its prefix");
@@ -3894,7 +3948,8 @@ mod tests {
                     },
                     closed: extra % 2 == 1,
                 };
-                multi = multi.extend_fuzzy(&target, &word, 3, 0.1 * extra as f64);
+                multi =
+                    multi.extend_fuzzy(&target, &word, 3, 0.1 * extra as f64, 0.0);
             }
             for p in [p, multi] {
                 for partial in [true, false] {
@@ -4443,6 +4498,7 @@ mod tests {
                 g.fuzzy_lexicon.word(m.word_idx),
                 m.consumed,
                 m.cost,
+                0.0,
             );
             at += m.consumed;
         }
@@ -4808,6 +4864,7 @@ mod tests {
                             g.fuzzy_lexicon.word(m.word_idx),
                             m.consumed,
                             m.cost,
+                            0.0,
                         ));
                     }
                 }

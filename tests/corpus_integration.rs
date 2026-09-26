@@ -494,3 +494,77 @@ fn approximate_output_is_locked() {
         assert_eq!(&got, expected, "approximate output changed for {target:?}");
     }
 }
+
+/// The approximate mode's job is to *resegment*: to say the target's
+/// phones as a different set of words.  This asserts that property of
+/// the generator rather than of any one dictionary lookup, so it stays
+/// meaningful as the ranking moves.
+///
+/// A visible proposal counts as a full resegmentation when it shares no
+/// word with the target.  Two words count as the same word when one is
+/// a prefix of the other with at least three letters on both sides, so
+/// a clipped target word (`it's` -> `it`) counts as shared rather than
+/// letting a contraction masquerade as a resegmentation.
+///
+/// No wording is named here: the targets are ordinary sentences and the
+/// assertion is a property of the proposal set.
+#[test]
+fn approximate_proposals_include_a_full_resegmentation() {
+    fn letters(s: &str) -> String {
+        s.to_lowercase()
+            .chars()
+            .filter(|c| c.is_ascii_alphabetic())
+            .collect()
+    }
+    fn same_word(a: &str, b: &str) -> bool {
+        a == b
+            || (a.len() >= 3
+                && b.len() >= 3
+                && (a.starts_with(b) || b.starts_with(a)))
+    }
+
+    const TARGETS: &[&str] = &[
+        "It's just a stupid game",
+        "the cat sat on the mat",
+        "when the rain finally stopped",
+        "an old man in a big hat",
+        "recognize speech",
+        "what are you going to do",
+        "a whole lot of trouble",
+    ];
+
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 50,
+            beam_width: 64,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+
+    for target in TARGETS {
+        let target_words: Vec<String> =
+            target.split_whitespace().map(letters).collect();
+        let clues = g.generate(target);
+        assert!(!clues.is_empty(), "no proposals for {target:?}");
+
+        let full = clues.iter().filter(|c| {
+            !c.words.iter().any(|w| {
+                let w = letters(&w.word);
+                target_words.iter().any(|t| same_word(t, &w))
+            })
+        });
+        assert!(
+            full.count() > 0,
+            "{target:?}: none of the {} visible proposals is a full \
+             resegmentation; got: {:?}",
+            clues.len(),
+            clues
+                .iter()
+                .map(|c| c.phrase.as_str())
+                .collect::<Vec<_>>()
+        );
+    }
+}
