@@ -340,16 +340,83 @@ is bounded by the score, and the score is where the next front has to go.
 
 ### 9. Housekeeping
 
-* The measurement instrumentation (`ZZ_INJECT`, `ZZ_METRICS`, `ZZ_SEGS`,
-  `ZZ_SLOTS`, `ZZ_POOL`, `ZZ_EVAL`, `ZZ_TOTALS`, `SEGMENTATION_KEEP = 2048`)
-  lives on the **scratch branch `scratch/c1d3a7-measure`** and in a separate
-  worktree, never on `madgab-adjacency`. No `zz_*` test, no `.bench/`, no
-  `MADGAB_*` diagnostic and no build tree is on this branch; the
-  `MADGAB_TRACE_*` hooks that do exist in `src/lib.rs` are pre-existing
-  (w-5f1c04 and earlier) and are untouched by this item.
+* **Corrected.** An earlier version of this section claimed no `zz_*` or
+  `MADGAB_*` diagnostic was on this branch. That was wrong: the five
+  `// ZZ_SCRATCH` markers had been committed inside `src/lib.rs` (they were
+  left behind by a rebase that moved a commit whose working tree also carried
+  the instrumentation). They are gone as of the w-6f3a91 cleanup commit, and
+  `src/lib.rs` on this branch now contains no `ZZ_` string at all. The
+  instrumentation itself lives on the **scratch branch
+  `scratch/c1d3a7-measure`** in a separate worktree and was never integrated.
+  The `MADGAB_TRACE_*` hooks that do remain in `src/lib.rs` are pre-existing
+  (w-5f1c04 and earlier) and are untouched by this item; this section makes no
+  claim about them beyond that.
+* No `zz_*` test, no `.bench/` tree, no build tree and no `scratch/` directory
+  is on this branch.
 * Branch `madgab-adjacency` is pushed at every stage of the work; the remote
   sha was confirmed by `git ls-remote --heads origin madgab-adjacency` after
   each push, after an early pass in which a detached HEAD left the branch
   ref behind the working tree and the first two pushes were silently no-ops.
+  `commit.gpgsign` has to be disabled per-commit on this host
+  (`git -c commit.gpgsign=false commit`), and that also applies to `git
+  rebase`, which otherwise fails mid-sequence and leaves a stale
+  `rebase-merge` directory behind in the worktree's gitdir.
+
+### 10. Post-close-out correction: the win is the walk's, and it is isolated
+
+[w-6f3a91](w-6f3a91.md) found that `ADJACENCY_POPS` was a hand-picked constant
+below the seed count it was documented to exceed, and that the operator's
+admissions were being charged to the traversal's own per-structure depth
+account. Both are fixed, and the fix changed the measurements above, so they
+are restated here rather than left to rot.
+
+**Attribution, measured.** With the walk disabled (`ADJACENCY_RESERVE = 0`,
+which leaves the funding change and everything else in place) the visible list
+on `congratulations on your promotion` is **identical to the baseline**. With
+the walk enabled it improves. So the whole of the win in §4 is the
+adjacency walk, and none of it is the funding change — which is a stronger
+claim than the close-out made, and the right way round for the review.
+
+**ENUMERATED and RANKED, separately, on the final head:**
+
+| | baseline | final head |
+|---|---|---|
+| canonical clue **ENUMERATED** (in the deduplicated pool) | no | **no** |
+| canonical clue **RANKED** (visible top 50) | no | **no** |
+| `wreck a nice beach` **ENUMERATED** | yes | **yes** |
+| `wreck a nice beach` **RANKED** | raw rank 27, 0.918313383 | **raw rank 27, 0.918313383** |
+
+The canonical clue is still absent from a pool of 18,065, against a visible
+cutoff of 0.915691888 — and §2 and §3 explain why that is a score fact, not a
+reach fact, so the operator's failure to enumerate it is not new information.
+
+**Cost, paired runs against the baseline binary in the same session, three
+runs each, medians.** The baseline binary is built from `5f7df59`, whose
+`src/` is byte-identical to the accumulation head `3496b86`.
+
+| target | search base | search final | pool base | pool final | visible list |
+|---|---|---|---|---|---|
+| `It's just a stupid game` | 1,384 ms | 1,373 ms | 17,231 | 18,065 | identical |
+| `recognize speech` | 1,195 ms | 1,195 ms | 15,329 | 16,027 | identical |
+| `I love you` | 448 ms | 417 ms | 8,961 | 9,366 | identical |
+| `a whole lot of trouble` | 1,222 ms | 1,319 ms (+8%) | 15,630 | 16,547 | identical |
+| `congratulations on your promotion` | 2,280 ms | 2,336 ms (+2%) | 11,214 | 12,122 | **improved** |
+| `Coors light` | 547 ms | 631 ms (+15%) | 11,628 | 12,415 | identical |
+
+Median wall clock **+2%**; three targets unchanged or faster, three between +2%
+and +15%, on a host whose run-to-run spread on the same binary is ±15%. Pool
+grows 2.6–8.1%. No list got worse. This is a real but small cost, and it is
+stated as one rather than as "within noise".
+
+**Test results on the final head** (rebased onto `3496b86`):
+
+* `cargo test --release --lib` — **50 passed, 0 failed**.
+* `cargo test --release --test corpus_integration` — **9 passed, 1 failed**:
+  the known single blocker, reported verbatim above and unchanged.
+* `cargo test --release --test exact_determinism` — **1 passed**.
+* `cargo test --release --test approx_determinism` — **2 passed**.
+* `approximate_output_is_locked` passes **unmodified**; `I love you`'s visible
+  list is byte-identical to the baseline's, so there is no re-baselining to
+  justify and none was made.
 
 
