@@ -311,8 +311,8 @@ impl Generator {
         const SPAN_AXIS_KEEP: usize = 16;
         const SEG_STATE_KEEP: usize = 8;
         const SEGMENTATION_KEEP: usize = 64;
-        const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 256;
-        const LEXICAL_HEAP_POP_LIMIT: usize = 4096;
+        const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
+        const LEXICAL_HEAP_POP_LIMIT: usize = 1024;
 
         let target_inner: HashSet<usize> = target_boundaries
             .iter()
@@ -340,11 +340,16 @@ impl Generator {
                     let word = self.fuzzy_lexicon.word(m.word_idx);
                     let familiarity = word_familiarity(word.rarity);
                     let reused =
-                        target_words.contains(&normalized_word(&word.word));
+                        candidate_reuses_target(&word.word, &target_words);
                     -0.1125 * m.cost
-                        + 0.15 * familiarity
+                        + 0.10 * familiarity
                         - if reused { 0.10 } else { 0.0 }
-                        + 0.01 * (word.ipa_len.min(8) as f64)
+                        + 0.05
+                            * lexical_shape_quality(
+                                &word.word,
+                                familiarity,
+                            )
+                        + 0.0125 * (word.ipa_len.min(4) as f64)
                 };
 
                 // A span shortlist is a portfolio, not simply the
@@ -533,7 +538,8 @@ impl Generator {
                     + 0.10
                         * (1.0
                             - path.min_reused as f64 / denom)
-                    + 0.15 * path.max_familiarity_sum / denom
+                    + 0.10 * path.max_familiarity_sum / denom
+                    + 0.05
                     + 0.05
                         * (path.max_ipa_len_sum as f64
                             / (4.0 * denom))
@@ -569,16 +575,21 @@ impl Generator {
                 matches.sort_by(|a, b| {
                     let rank = |m: &approx::FuzzyMatch| {
                         let word = self.fuzzy_lexicon.word(m.word_idx);
-                        let reused = target_words
-                            .contains(&normalized_word(&word.word));
+                        let familiarity = word_familiarity(word.rarity);
+                        let reused =
+                            candidate_reuses_target(&word.word, &target_words);
                         -0.1125 * m.cost
                             - if reused {
                                 0.10 / word_count
                             } else {
                                 0.0
                             }
-                            + 0.15
-                                * word_familiarity(word.rarity)
+                            + 0.10 * familiarity / word_count
+                            + 0.05
+                                * lexical_shape_quality(
+                                    &word.word,
+                                    familiarity,
+                                )
                                 / word_count
                             + 0.0125
                                 * word.ipa_len.min(4) as f64
@@ -605,16 +616,21 @@ impl Generator {
                     .map(|(slot, &index)| {
                         let m = &alternatives[slot][index];
                         let word = self.fuzzy_lexicon.word(m.word_idx);
-                        let reused = target_words
-                            .contains(&normalized_word(&word.word));
+                        let familiarity = word_familiarity(word.rarity);
+                        let reused =
+                            candidate_reuses_target(&word.word, &target_words);
                         -0.1125 * m.cost
                             - if reused {
                                 0.10 / word_count
                             } else {
                                 0.0
                             }
-                            + 0.15
-                                * word_familiarity(word.rarity)
+                            + 0.10 * familiarity / word_count
+                            + 0.05
+                                * lexical_shape_quality(
+                                    &word.word,
+                                    familiarity,
+                                )
                                 / word_count
                             + 0.0125
                                 * word.ipa_len.min(4) as f64
@@ -899,7 +915,7 @@ impl Partial {
         let reused = self
             .words
             .iter()
-            .filter(|w| target_words.contains(&normalized_word(&w.word)))
+            .filter(|w| candidate_reuses_target(&w.word, target_words))
             .count() as f64;
         let word_novelty = 1.0 - reused / self.words.len().max(1) as f64;
 
@@ -921,11 +937,25 @@ impl Partial {
             / self.words.len().max(1) as f64;
         let length_signal = (avg_word_ipa_len / 4.0).min(1.0);
 
+        let shape_quality = if self.words.is_empty() {
+            0.0
+        } else {
+            self.words
+                .iter()
+                .map(|w| {
+                    let familiarity = word_familiarity(w.rarity);
+                    lexical_shape_quality(&w.word, familiarity)
+                })
+                .sum::<f64>()
+                / self.words.len() as f64
+        };
+
         let combined = 0.45 * similarity
             + 0.25 * novelty
             + 0.10 * word_novelty
-            + 0.15 * familiarity
-            + 0.05 * length_signal;
+            + 0.10 * familiarity
+            + 0.05 * length_signal
+            + 0.05 * shape_quality;
 
         Metrics {
             combined,
