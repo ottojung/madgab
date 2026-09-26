@@ -200,7 +200,82 @@ impl FuzzyLexicon {
                             .cmp(&self.words[b.word_idx].word)
                     })
             });
-            matches.truncate(MATCHES_PER_SPAN.min(matches.len()));
+
+            if matches.len() > MATCHES_PER_SPAN {
+                const CHEAP_KEEP: usize = 96;
+                const COST_BANDS: usize = 4;
+                const BAND_KEEP: usize =
+                    (MATCHES_PER_SPAN - CHEAP_KEEP) / COST_BANDS;
+
+                let ordered = matches.clone();
+                let mut selected = Vec::with_capacity(MATCHES_PER_SPAN);
+                let mut seen = HashSet::new();
+
+                for m in ordered.iter().take(CHEAP_KEEP) {
+                    if seen.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut bands: Vec<Vec<FuzzyMatch>> =
+                    (0..COST_BANDS).map(|_| Vec::new()).collect();
+                let scale = budget.max(1e-9);
+                for &m in &ordered {
+                    let band = (((m.cost / scale) * COST_BANDS as f64)
+                        .floor() as usize)
+                        .min(COST_BANDS - 1);
+                    bands[band].push(m);
+                }
+
+                for band in &mut bands {
+                    band.sort_by(|a, b| {
+                        rarity_key(self.words[a.word_idx].rarity)
+                            .cmp(&rarity_key(self.words[b.word_idx].rarity))
+                            .then_with(|| {
+                                a.cost
+                                    .partial_cmp(&b.cost)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                            .then_with(|| {
+                                self.words[a.word_idx]
+                                    .word
+                                    .cmp(&self.words[b.word_idx].word)
+                            })
+                    });
+                    for m in band.iter().take(BAND_KEEP) {
+                        if seen.insert(m.word_idx) {
+                            selected.push(*m);
+                        }
+                    }
+                }
+
+                if selected.len() < MATCHES_PER_SPAN {
+                    for m in &ordered {
+                        if seen.insert(m.word_idx) {
+                            selected.push(*m);
+                            if selected.len() == MATCHES_PER_SPAN {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                selected.sort_by(|a, b| {
+                    a.consumed
+                        .cmp(&b.consumed)
+                        .then_with(|| {
+                            a.cost
+                                .partial_cmp(&b.cost)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        })
+                        .then_with(|| {
+                            rarity_key(self.words[a.word_idx].rarity)
+                                .cmp(&rarity_key(self.words[b.word_idx].rarity))
+                        })
+                });
+                *matches = selected;
+            }
+
             out.extend(matches.iter().copied());
         }
         out
