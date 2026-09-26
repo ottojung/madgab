@@ -3,8 +3,8 @@ work_item: true
 id: w-c4e8d7
 state: working
 priority: high
-owner: coord-3f9a
-updated: 2026-09-26T16:58:00Z
+owner: coord-5d21
+updated: 2026-09-26T16:10:00Z
 branch: madgab-enum-reach
 worktree: /workspace/madgab-enum-reach
 agent: c4e8d70
