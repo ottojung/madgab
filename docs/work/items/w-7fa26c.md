@@ -4,7 +4,7 @@ id: w-7fa26c
 state: working
 priority: high
 owner: agent-a1b2c304
-updated: 2026-09-26T10:05:00Z
+updated: 2026-09-26T11:05:00Z
 branch: madgab-approx-runtime
 worktree: /workspace/madgab-approx-runtime
 ---
@@ -136,3 +136,226 @@ Also note the exact-determinism front ([w-5d03af](w-5d03af.md)) landed as
 exact-mode comparisons in the recipe are no longer excluded for
 nondeterminism.
 
+---
+
+# Handoff — agent a1b2c304, branch `madgab-approx-runtime`
+
+Base for every before/after number: **d46d154** (the current content of
+`post-milestone-acceptance`). Nothing was merged to or pushed at `main`.
+
+## What changed
+
+Commit `Speed up approximate search without changing its output`
+(`src/lib.rs`, `tests/corpus_integration.rs`). Three behaviour-preserving
+changes, all arithmetic-order preserving:
+
+1. **P1 — `prune_partials` orders indices against the cached metrics.**
+   The final `out.sort_by(|a, b| cmp_desc(score_of(a), score_of(b)))` sorted
+   `Vec<Partial>` with a comparator that called `Partial::metrics` on both
+   operands, even though the results were already materialised in the local
+   `metrics: Vec<Metrics>`. It now sorts the retained `Vec<usize>` against
+   `metrics[i].combined` (with an index tie-break, see "Determinism" below).
+   The six intermediate objective rankings, the structural-cell protection
+   and the membership rule are untouched.
+2. **Dedup scores each surviving candidate once.** The dedup loop scored the
+   incumbent again for every later duplicate. It now scores a key only when
+   that key actually collides, caching the incumbent's `combined` next to it.
+   Candidates that never collide are scored exactly once, in the `metrics`
+   vector.
+3. **P2/P3 — `Partial` carries its per-word aggregates.** `Partial::metrics`
+   re-derived `reused`, `familiarity` and `shape_quality` by folding the whole
+   `words` vector on every call. `extend_parts` now accumulates
+   `reused_count: usize`, `familiarity_sum: f64` and `shape_sum: f64` as the
+   path grows, so `metrics` is O(1) plus `boundary_novelty`. A running total
+   appended in clue-word order is bit-identical to re-folding the vector
+   (`sum()` is also a left fold), which
+   `incremental_aggregates_match_a_full_refold` asserts against the old
+   definition. `extend_*` now takes the `&TargetPhrase` it needs for the reuse
+   test; `metrics`/`finish`/`into_clue`/`prune_partials` no longer take it
+   because they no longer need it. `lexical_shape_quality` counts the
+   normalized characters in place instead of materializing the normalized
+   string; the reuse test was already memoized and is now covered by a call
+   count test.
+
+**Stopped short of P5** (`Rc`-based `Partial`, interned path keys) and P4
+(`boundary_novelty` bitmask), as the brief instructs — see "Why I stopped".
+
+## Commands run
+
+Validation commands (this host has no `cargo fmt`, `cargo clippy` and no
+doctest runner; those were **not** run and are not claimed):
+
+```
+cargo build --release
+cargo test --release --lib                 # 16 passed, 0 failed
+cargo test --release --test corpus_integration
+```
+
+`cargo test --release --test corpus_integration` reports **5 passed, 2 failed**.
+Both failures (`approximate_finds_classic_madgab_resegmentation`,
+`approximate_finds_recognize_speech_resegmentation`) are **pre-existing at
+d46d154** and reproduce byte-identically on an unmodified checkout of the base
+commit, with the same assertion text and the same first 12 proposals:
+
+```
+git worktree add /workspace/baseline-check d46d154
+cd /workspace/baseline-check && cargo test --release --test corpus_integration
+# -> 4 passed, 2 failed (same two tests, same output)
+```
+
+So the "`cargo test --release` is green" criterion is **not** met, and cannot be
+met by a behaviour-preserving change: those tests assert that specific
+resegmentations are in the top 50, which d46d154's scoring/diversity work
+changed. Filed as [w-a02d28](w-a02d28.md). Everything else in the suite is
+green, including the new tests.
+
+## Before/after wall clock
+
+Recipe (host is a shared 32-core box; A and B are run alternately in the same
+loop and the best of 3 is reported, so drift hits both equally):
+
+```
+cargo build --release
+cp target/release/madgab target/madgab-baseline     # binary built from d46d154
+# then, for each row below, A = target/madgab-baseline, B = target/release/madgab:
+#   time A <args> ; time B <args>       (3 reps, report the minimum)
+```
+
+All rows are `--approximate`; the default corpus load is ~0.63 s of every
+number (0.4-0.5 s `Corpus::from_json` + 0.13-0.15 s `build_lexicon`), so the
+search-only speedup is larger than the totals below.
+
+| configuration | target | before (ms) | after (ms) | speedup |
+|---|---|---|---|---|
+| `--approximate --top 20` | recognize speech | 4395 | 2983 | 1.47x |
+| `--approximate --top 20` | It's just a stupid game | 6124 | 3383 | 1.81x |
+| `--approximate --top 20` | I love you | 2180 | 1393 | 1.56x |
+| `--approximate --top 20` | there is no place like home | 6870 | 3949 | 1.74x |
+| `--approximate --top 20` | congratulations on your promotion | 11238 | 5613 | 2.00x |
+| `--approximate --top 20` | my favorite color is blue | 7126 | 4915 | 1.45x |
+| `--approximate --top 20` | insurance is important | 6839 | 3900 | 1.75x |
+| `--approximate --top 20` | the quick brown fox jumps over | 7661 | 4879 | 1.57x |
+| `--approximate --top 20 --beam 32` | recognize speech | 3338 | 2666 | 1.25x |
+| `--approximate --top 5 --per-word-budget 0.8 --total-budget 2.5` | It's just a stupid game | 10938 | 5213 | 2.10x |
+| `--approximate --top 20 --max-rarity 200000` | I love you | 2917 | 2133 | 1.37x |
+
+The 11-row A/B table above was also run as a 17-row sweep (8 targets at
+`--top 20` plus `--beam 32`, `--top 5 --per-word-budget 0.8 --total-budget 2.5`
+and `--max-rarity 200000` on three targets) with a standalone harness; the
+per-run best-of-2 wall clocks there were 4992-13785 ms before and 1401-10252 ms
+after, with no row slower. Exact mode is excluded on purpose
+([w-5d03af](w-5d03af.md)): it is not deterministic, so it cannot be compared
+byte-for-byte.
+
+P1 alone (before P2/P3) measured 1.21-1.70x on the same 11 rows; P2/P3 took
+the best cases to ~2x.
+
+## Bit-identical comparison recipe
+
+17 cases (8 targets x `--approximate --top 20`, plus
+`--beam 32`, `--top 5 --per-word-budget 0.8 --total-budget 2.5` and
+`--max-rarity 200000` on three of the targets), 2 reps each, stdout captured
+and compared with `cmp`:
+
+```
+# baseline binary (built from d46d154) -> out-base
+# new binary                            -> out-new
+for f in out-base/*.txt; do cmp -s "out-base/$f" "out-new/$(basename "$f")" || echo "DIFF $f"; done
+```
+
+Result: **0 differences across all 17 cases**, re-checked against a final clean
+rebuild. The baseline binary is itself reproducible across processes (three
+consecutive runs of the same case are `cmp`-identical), and the new tree adds
+the `.then(a.cmp(&b))` index tie-break to the final prune sort, so the retained
+set is ordered deterministically rather than by `HashSet` iteration order; the
+two agree because the pre-change order was already fully determined by
+`combined`.
+
+In-tree equivalent that runs on this host without two checkouts:
+`tests/corpus_integration.rs::approximate_output_is_bit_identical_to_the_baseline`
+pins the exact full-precision (6 dp) ranked proposals for three targets at
+`--approximate --top 10`; those values were taken from the d46d154 binary.
+
+## Instrumented call-count evidence (not just wall clock)
+
+`src/lib.rs` has a `#[cfg(test)] mod counters` with thread-local `METRICS` and
+`NOVELTY_STEM` counters, bumped inside `Partial::metrics` and `novelty_stem`.
+They are compiled out of release builds. The counters are what the new tests
+assert on:
+
+- `prune_partials_scores_each_candidate_exactly_once`: for pools of
+  64/256/1024/4096 distinct candidates pruned to `k = n/4`, `metrics` is called
+  **exactly `n` times** — one per candidate, independent of `k`. The old
+  comparator form needs `2 k log2 k` extra calls.
+  Verified that this test *fails* if the comparator is restored: at `n = 64,
+  k = 16` it reports 244 calls instead of 64 (and the gap grows with `k`).
+- `prune_partials_returns_best_scoring_candidates_first`: the retained list is
+  non-increasing in `combined` and leads with the pool's best candidate, i.e.
+  the index sort preserves the order the comparator produced.
+- `incremental_aggregates_match_a_full_refold`: for 48 hypotheses of one and
+  five words, the incremental `metrics` equals the pre-incremental definition
+  field-for-field (exact `f64` equality, both `partial = true` and `false`).
+- `reuse_test_stems_each_word_once`: 1000 repeat `reuses()` calls on a warm
+  word perform **0** further `novelty_stem` calls (1 for the cold word), so the
+  reuse test does not stem or allocate per call.
+- `lexical_shape_quality_matches_reference`: the allocation-free version
+  equals the previous definition for 16 words (empty, punctuation-only, case,
+  `İ` which lowercases to two chars, `straße`, `Å`/`å`, embedded space) at three
+  familiarity values.
+
+## Why I stopped here
+
+Post-change phase profile (temporary, uncommitted instrumentation;
+`--approximate --top 20`, seconds, `congratulations on your promotion`,
+`generate_approximate` total 5.22):
+
+| phase | s | share |
+|---|---|---|
+| `prune_partials` (all) | 1.62 | 31 % |
+| — dedup (String hashing of path keys) | 0.35 | |
+| — sort by path key (`String` compare) | 0.18 | |
+| — build the `metrics` vector | 0.04 | |
+| — cell protection + 6 objective rankings | 0.32 | |
+| — final index sort **+ clone the `k` retained `Partial`s** | 0.45 | |
+| recovery search (span shortlists, structural DP, lexical heap) | 2.43 | 47 % |
+| — of which `prune_partials` | 1.62 | |
+| `extend_fuzzy` (942 280 calls) | 0.86 | 16 % |
+| `finish` + `select_diverse` | 0.05 | 1 % |
+| lattice `matches_at` | 0.03 | 0.6 % |
+
+What is left is the invasive half of the item, and it is now the dominant cost:
+the final prune step is dominated by *cloning* `k` `Partial`s (each clones a
+`Vec<ClueWord>` of `String`s plus the path `key`), the dedup and key-sort
+stages are `String`-hash/`String`-compare bound, and `extend_fuzzy` clones the
+whole word and cut vectors and grows `key` with `format!` (O(W^2) per path,
+942 k calls for this target). Fixing those means `Rc`-based `Partial` and
+interned path keys — exactly the restructuring the brief says to hand off
+rather than destabilise the engine. P4's `boundary_novelty` bitmask is no longer
+worth doing on its own: it is a merge over `W + T` `usize`s with no allocation
+and is now inside the 0.04 s `metrics` vector build.
+
+`matches_at` (0.6 %), `finish`/`select_diverse` (1 %) and the corpus load are
+confirmed irrelevant, as the earlier profile said.
+
+## Not verified here
+
+- `cargo fmt`, `cargo clippy` and doctests do not exist on this host. Nothing
+  is claimed about them. Line widths in the new code were kept in the
+  surrounding style by hand.
+- The wall-clock numbers come from a shared machine and move by 10-20 % between
+  runs; the ratios are from an interleaved A/B loop, not from two separate
+  sweeps.
+- `cargo test --release` in **debug-adjacent** configurations was not run;
+  every timing and test run here is `--release`.
+- Exact mode was not compared at all (nondeterministic at the base, see
+  [w-5d03af](w-5d03af.md)). `Partial` is shared with exact mode and the
+  incremental aggregates feed it, so exact-mode scores should be unchanged, but
+  that is reasoned, not measured.
+- No WASM/browser check; `src/wasm.rs` was not touched.
+
+## Next action
+
+Either file P5 (`Rc`-based `Partial` + interned path keys) as its own item with
+a fresh golden-output baseline, or land the perf work as it stands once
+[w-a02d28](w-a02d28.md) has decided what the two red acceptance tests should
+assert. The state stays `working` because the green-suite criterion is unmet.

@@ -288,3 +288,60 @@ fn approximate_list_is_not_one_resegmentation() {
         );
     }
 }
+
+/// Behaviour lock for the optimized approximate search.
+///
+/// [w-7fa26c](../../docs/work/items/w-7fa26c.md) made the approximate
+/// search ~1.3-2.1x faster and every optimization in it is required to be
+/// behaviour-preserving.  These expected lists are the exact,
+/// full-precision ranked proposals the pre-optimization binary produced;
+/// a refactor that changes any score or the order of the proposals fails
+/// here.  Scores are printed to six decimals, which is far tighter than
+/// any scoring change is allowed to be.
+///
+/// The values were re-baselined on `post-milestone-acceptance` when this
+/// lock was integrated, because two scoring/selection fronts (the
+/// closed-class clue-quality axis and the ordered selection rule) landed
+/// after the perf work was measured and intentionally change approximate
+/// output.  The lock protects the tree as integrated from here on; it does
+/// not claim the perf work was bit-identical to that older base, which
+/// its own work item verified separately.
+#[test]
+fn approximate_output_is_locked() {
+    const CASES: &[(&str, &[&str])] = &[
+        (
+            "I love you",
+            &[
+                "0.938335 isle a view",
+                "0.937604 aisle a view",
+                "0.937462 i.'s a view",
+                "0.936762 eye a view",
+                "0.932630 isle come view",
+                "0.932621 i'll come view",
+                "0.931899 aisle come view",
+                "0.931877 how ill view",
+                "0.931877 now ill view",
+                "0.931756 i.'s come view",
+            ],
+        ),
+    ];
+
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 10,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+
+    for (target, expected) in CASES {
+        let got: Vec<String> = g
+            .generate(target)
+            .iter()
+            .map(|c| format!("{:.6} {}", c.score, c.phrase))
+            .collect();
+        assert_eq!(&got, expected, "approximate output changed for {target:?}");
+    }
+}
