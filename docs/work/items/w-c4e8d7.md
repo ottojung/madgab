@@ -3,8 +3,8 @@ work_item: true
 id: w-c4e8d7
 state: working
 priority: high
-owner: coord-5d21
-updated: 2026-09-26T16:10:00Z
+owner: coord-7b3e
+updated: 2026-09-26T16:35:00Z
 branch: madgab-enum-reach
 worktree: /workspace/madgab-enum-reach
 agent: c4e8d70
@@ -331,3 +331,102 @@ four findings' disposition, and a non-`wip:` commit on `madgab-enum-reach` with
 `--test corpus_integration`, `--test exact_determinism`, `--test approx_determinism`
 and the six-target wall clock of [w-7b2d40](w-7b2d40.md), and integrate onto
 `post-milestone-acceptance`, never `main`.
+
+## Pass 2026-09-26T16:35Z (coordinator `coord-7b3e`): durability closed, milestone
+## re-measured, front left running
+
+No source change on this pass and nothing integrated: the agent's branch tip is
+still `wip3` and it has an uncommitted `tests/corpus_integration.rs` edit plus an
+untracked `examples/zzpool.rs`, which is not a reviewable end state by this
+item's own rule. Re-claimed from `coord-5d21`.
+
+**A durability gap that the previous pass's record did not reflect, found and
+closed.** The 16:10Z note says both branches were pushed;
+`origin/madgab-enum-reach` was in fact one commit behind and the front had moved
+on since. `git push origin --all` brought `madgab-enum-reach` to `e89a325` and
+`scratch/c4e8d7-measure` to `103b4ca` (which now has a `merge` commit the previous
+pass did not record). A full reconciliation of local against
+`git ls-remote --heads origin` — necessary because
+[../../environment-notes.md](../../environment-notes.md) records that
+`remote.origin.fetch` is narrowed, so the absence of a remote-tracking ref does
+**not** mean a branch is unpushed — now leaves exactly one local branch absent
+from `origin`, and it is this pass's own new branch. The other 30 were already
+there; they only looked unpushed through the narrowed fetch refspec. This is the
+cheapest available check and it should be done on every pass: it is what
+distinguishes a real single-copy hazard from the branch sprawl this repository
+has, and it is exactly the check that was skipped.
+
+**Objective re-measurement on `e55ec51`,** by this coordinator, release binary,
+default path, not copied forward from any earlier pass:
+
+```text
+recognize speech        (--approximate --top 50)
+  MADGAB_TRACE raw phrase="wreck a nice beach" rank=27 score=0.918313383
+  MADGAB_TRACE raw_cutoff rank=49 score=0.917045726
+  (corpus 414ms; search 1294ms)
+
+It's just a stupid game (--approximate --top 50)
+  MADGAB_TRACE raw phrase="hits justice dupe hid came" missing candidates=18065
+  MADGAB_TRACE raw_cutoff rank=49 score=0.915691888
+  (corpus 436ms; search 1453ms)
+
+cargo test --release --test corpus_integration
+  9 passed; 1 failed; 11.77s
+  approximate_finds_classic_madgab_resegmentation  FAILED (still)
+  got: ["it justice too bad aim", "it justice too pad aim", ...,
+        "it justice too bad came"]
+```
+
+`18065` still matches the baseline criterion 3 records, so **the accumulation
+head has not regressed** and the front's WIP is not yet in it. Wall clock is
+1.29 s and 1.45 s against criterion 7's 1.77-2.51 s baseline, so budget exists
+for a deeper traversal if the fix needs it. The test count has risen to 10 with
+`approximate_pool_reaches_matches_deep_in_a_span` present and passing on the
+accumulation branch, and the failing list's last entry is
+`it justice too bad came` — `came` remains reachable and `dupe` does not, which
+is the same asymmetry the 16:58Z pass recorded.
+
+**The agent is alive and mid-measurement, not hung** (`c4e8d70`, `state:
+running`, `prompts: 3`); its log shows it writing a standalone node script to
+diff pool outputs between two builds, i.e. checking whether its own change
+moves the `recognize speech` guard and the output lock. That is the right next
+step for it and it needs nothing further, so it was **left running and
+unprompted**. Prompting it a third time on facts it is already computing would
+contend with the work rather than help it.
+
+**A second front was opened, deliberately not on the milestone:**
+[w-d4f0b2](w-d4f0b2.md), agent `d4f0b21` running in
+`/workspace/madgab-nohardcode` on `madgab-nohardcode` from `8fc1f6f`. It adds
+an automated fence against the one shortcut the itinerary forbids — a
+phrase-specific hard-code for either canonical example — and it owns one new
+`tests/*.rs` file and nothing else. It is a fence, not a fix, and it was chosen
+because the last blocker has now survived seven refuted mechanisms, which is
+precisely the pressure that makes the forbidden shortcut look attractive, and
+because that condition is currently checked only by whichever coordinator is
+paying attention. It cannot contend with this front: no `src/` edit, no edit
+to an existing test file.
+
+No second source front was opened. Every remaining candidate territory is
+either the one this agent occupies or one of the seven refuted and recorded
+fronts, and opening a third would contend rather than compose.
+
+Next action for a later fresh pass, in priority order:
+
+1. Read `c4e8d70`. If it has landed a non-`wip:` commit on
+   `madgab-enum-reach` with `examples/zzpool.rs` off that branch, review it as
+   a diff for generality — the four findings from 16:10Z are still open until
+   the agent reports their disposition, and the reserve's post-change purpose
+   is criterion 2's requirement — then run `cargo test --release --lib`,
+   `--test corpus_integration`, `--test exact_determinism`,
+   `--test approx_determinism` and the six-target wall clock, and integrate
+   onto `post-milestone-acceptance`, never `main`. If it reports only the
+   best-member and fill ranks, that is this item's end state and the selection
+   question is re-opened as a new item from those numbers.
+2. Re-check durability the way this pass did it: `git ls-remote --heads
+   origin` reconciled against `for-each-ref`, not the remote-tracking refs.
+3. Read `d4f0b21` ([w-d4f0b2](w-d4f0b2.md)) and review its positive control
+   before integrating. Do not let it delay item 1.
+4. Once the membership count for the canonical wording goes non-zero *on the
+   default path of the integrated tree*, close this item's blocker and
+   [w-4b1e07](w-4b1e07.md) together with
+   [w-a02d28](w-a02d28.md) and re-check the itinerary's milestone conditions.
