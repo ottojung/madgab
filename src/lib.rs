@@ -2384,7 +2384,7 @@ fn boundary_novelty(
 /// share of the target's word boundaries.
 fn boundary_novelty_from_counts(kept: usize, total: usize) -> f64 {
     if total == 0 {
-        return 1.0;
+        return 0.0;
     }
     let retained = kept as f64 / total as f64;
     (2.0 - 2.0 * retained).clamp(0.0, 1.0)
@@ -2995,69 +2995,39 @@ fn clue_structure(c: &Clue) -> Vec<usize> {
 ///
 /// The rule, in order, is:
 ///
-/// 1. **Represent the structures, first and one slot each.**  Walk the
-///    whole pool in descending score order and admit the best-scoring
-///    candidate of every boundary structure the pool holds, until the
-///    list is full.  Coverage is bought before depth: a slot goes to a
-///    structure the list has not seen yet in preference to a second
-///    member of one it has, so the list spans the resegmentations the
-///    search found rather than the top of the score order repeated.
-///    The walk is bounded by the list itself — it stops as soon as
-///    `top_n` structures are represented, or when the pool runs out —
-///    so the cost is one pass over the pool, not a wider search.
-/// 2. **Then depth, under a share cap.**  Spend whatever slots step 1
-///    could not use — which is every slot when the pool holds at least
-///    `top_n` structures — on further members of the structures already
-///    shown, in descending score order, and only while a structure is
+/// 1. **Represent the strong structures.**  Within the visible cutoff
+///    — the `top_n` best-scoring candidates the search found — take the
+///    best-scoring candidate of every boundary structure, in descending
+///    score order, until the list is full.  The list therefore always
+///    spans the resegmentations the search actually found rather than
+///    one per structure by accident of iteration order.  The cutoff is
+///    what bounds this step: a resegmentation too weak to reach the
+///    visible list does not get to spend a slot on it, however distinct
+///    it is.
+/// 2. **Then score, under a share cap.**  Walk the pool in descending
+///    score order and admit any candidate whose boundary structure is
 ///    still under its [`STRUCTURE_FLOOR`]-th share of the list.  A
 ///    candidate is admitted on its own score with no diversity penalty
-///    at all, so a near-equal alternative in a shown structure is
-///    visible.
+///    at all, so a near-equal alternative in an already-represented
+///    structure is visible; the slots a saturated structure gives up go
+///    to the best candidate of a structure that is under-filled, which
+///    is the trade the policy exists to make.
 /// 3. **Never return a short list.**  If the pool runs out with every
 ///    structure at its cap, the cap is dropped and the list is filled in
 ///    score order.
 ///
-/// The difference from the previous policy is step 1.  It used to look
-/// only inside the visible cutoff, `order[..top_n]`, on the stated
-/// ground that "a resegmentation too weak to reach the visible list does
-/// not get to spend a slot on it, however distinct it is".  That ground
-/// is the defect.  A cutoff is the `top_n` best-scoring candidates, and
-/// on a real approximate search those are almost all wordings of a
-/// handful of structures, so the cutoff holds five or six of them and
-/// the representative step fills five or six of fifty slots.  The
-/// remaining slots were then filled by the score walk, which spends
-/// them on the *second* member of the structures already at the top:
-/// measured at `--approximate --top 50` on six targets, pools of
-/// 15,712-18,065 candidates over 313-352 structures, the list held 5-11
-/// structures and was full at global rank 51-102, so every candidate of
-/// the 300-odd structures the list had never seen was never examined at
-/// all.  That is a monoculture wearing a diversity policy's clothes: the
-/// cap is satisfied, the `STRUCTURE_FLOOR`-th share is respected, and
-/// the list still shows one resegmentation six ways.
-///
-/// The other half of the old policy — that a near-equal alternative in
-/// a shown structure must be visible, and a far-worse sibling must not —
-/// survives as step 2 and is unchanged; what changes is that it now runs
-/// on the slots coverage leaves rather than ahead of it.  A pool with
-/// fewer structures than slots is exactly the case where it has slots to
-/// spend, which is the regime it was written for.
-///
-/// The share cap is what stops one structure from owning the list, and a
-/// second member is admitted exactly when its own score earns it a slot
-/// on top of the structure's one representative: a near-equal
-/// alternative in a represented structure is visible, a far-worse
-/// sibling is not, and neither is reachable while a structure the list
-/// has never shown is still waiting for a slot.
-///
-/// (The policy before both of these charged a repeat of an
-/// already-shown structure `MMR_LAMBDA` times the
+/// The difference from the previous policy is step 2.  A repeat of an
+/// already-shown structure used to be charged `MMR_LAMBDA` times the
 /// pool's score spread times a Jaccard overlap, i.e. up to `0.175 *
 /// spread`.  For a real search the spread is tens of thousandths, so a
 /// second member of a strong structure was priced far above any score
 /// difference it could be compared against: a candidate that cleared
 /// the visible cutoff was effectively unreachable, and the list was
 /// neither the best wordings nor one-per-structure — it was a blend
-/// that lost both.)
+/// that lost both.  Here a second member is admitted exactly when its
+/// own score earns it a slot, so a near-equal alternative in a
+/// represented structure is visible while a far-worse sibling is not,
+/// and the share cap is what stops one structure from owning the list.
 fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     if top_n == 0 || clues.is_empty() {
         return Vec::new();
@@ -3076,23 +3046,16 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     });
 
     let structures: Vec<Vec<usize>> = clues.iter().map(clue_structure).collect();
+    let cutoff = &order[..top_n];
 
     let mut picked: Vec<usize> = Vec::with_capacity(top_n);
     let mut taken = vec![false; clues.len()];
     let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
     let mut represented: HashSet<Vec<usize>> = HashSet::new();
 
-    // 1. one representative per boundary structure, best member first,
-    // over the whole pool.  The cutoff is deliberately *not* the bound
-    // here: the `top_n` best-scoring candidates of a real search are
-    // wordings of a handful of structures, so a cutoff-bounded
-    // representative step spends one slot per structure on five or six
-    // structures and leaves the rest of the list to the score walk,
-    // which spends it on second members of the same few.  The bound is
-    // the list: the walk stops at `top_n` representatives, and at the
-    // end of the pool at the latest, so the extra cost is one pass over
-    // a pool that step 2 was already going to walk.
-    for &i in &order {
+    // 1. one representative per boundary structure, best first, within
+    // the visible cutoff.
+    for &i in cutoff {
         if picked.len() == top_n {
             break;
         }
@@ -3101,12 +3064,13 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         }
     }
 
-    // 2. then depth: spend the slots coverage left on further members of
-    // the structures already shown, in descending score order, and only
-    // while a structure is under its share of the list.  A pool holding
-    // at least `top_n` structures leaves none, which is the point: the
-    // list spans `top_n` resegmentations rather than one resegmentation
-    // `cap` times over.
+    // 2. then score: walk the pool in descending score order and admit
+    // any candidate whose structure still has room under the cap.  The
+    // walk is over the whole pool, not just the cutoff, because a
+    // structure-dominated cutoff cannot fill the list on its own: the
+    // slots a structure gives up are taken by the best candidate of an
+    // under-filled structure, which is exactly the trade the policy is
+    // meant to make.
     //
     // The cap is a share of the *list*, and the number of structures it
     // is divided by is the number the search found in the whole pool,
