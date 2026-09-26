@@ -396,6 +396,24 @@ impl Generator {
         const LEXICAL_BRANCH_KEEP: usize = 10;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
 
+        // The lexical phase's budget is *global*.  These are the same two
+        // products the old per-segmentation caps implied when multiplied
+        // out by `SEGMENTATION_KEEP` — they were always the real worst
+        // case and were only ever reached implicitly, by multiplying two
+        // constants that were written to bound one segmentation each.
+        // Naming them changes who the budget belongs to, not how much of
+        // it there is: the arithmetic is deliberately identical, so the
+        // time and memory bound of the search is unchanged by this
+        // commit and only its *distribution* moves.
+        //
+        // `LEXICAL_GLOBAL_EMISSION_BUDGET` bounds how many wordings reach
+        // the pool; `LEXICAL_GLOBAL_POP_BUDGET` bounds the heap work that
+        // produces them, and is the one that actually bounds wall clock.
+        const LEXICAL_GLOBAL_EMISSION_BUDGET: usize =
+            SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION;
+        const LEXICAL_GLOBAL_POP_BUDGET: usize =
+            SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
+
         // The score of the worst clue the ordinary beam already put in
         // the pool.  This is the bar the search already commits to — it
         // is the same pool size `final_keep` fixes above, not a new one.
@@ -903,9 +921,102 @@ impl Generator {
         // was independently cheap and familiar.  A resegmentation that
         // is excellent overall but needs one locally expensive word — the
         // normal case for a real Mad Gab answer — was never reachable.
+        //
+        // The *global* budget is what this loop spends, and it is spent on
+        // boundary structures rather than on segmentations.  Measured on
+        // real targets at `top_n = 50`, the retained pool holds 137-180
+        // distinct boundary structures while the visible list shows 4-12
+        // of them.  The old loop gave every one of the up-to-256 retained
+        // segmentations its own full `LEXICAL_COMBINATIONS_PER_SEGMENTATION`
+        // wordings, so a structure realized by thirty alignments was
+        // funded 1920 deep while a structure realized by one was funded 64
+        // deep — the budget went almost entirely on wordings competing for
+        // the same handful of structure slots, and the rare resegmentations
+        // were the ones starved.
+        //
+        // So the budget is now shared out per *structure*:
+        //
+        // * `breadth` is `structure_wording_allowance` — the number of
+        //   wordings of one structure the display policy can admit at all
+        //   (see that function).  Every structure's best alignment is
+        //   funded that far, and the schedule is breadth-first over
+        //   structures, so no structure can be starved by a stronger one;
+        // * whatever is left of `LEXICAL_GLOBAL_EMISSION_BUDGET` becomes
+        //   each structure's *equal share* of the whole budget
+        //   (`structure_depth_ceiling`), spent as extra depth on the same
+        //   structures once breadth is paid for.
+        //
+        // The total is unchanged: `structure_depth_ceiling` sums to at most
+        // the global budget, which is the product the old per-segmentation
+        // caps already implied.  This moves spend between structures; it
+        // does not buy more of it.
         let mut recovered = Vec::new();
-        for (_, segmentation) in segmentations {
+        let breadth = structure_wording_allowance(self.config.top_n);
+        // A structure's wordings, and how many of its retained
+        // segmentations have been enumerated.  The key is the
+        // segmentation's own span list, which is exactly what `Clue::cuts`
+        // later reports, so the search and the display policy count the
+        // same structure rather than two re-derived versions of it.
+        let mut funded: HashMap<&[(usize, usize)], usize> = HashMap::new();
+        // Breadth-first schedule over structures: every structure's best
+        // alignment is enumerated before any structure's second.  Without
+        // it a share rule starves the tail for exactly the reason the
+        // per-slot cap did — the late-ranked resegmentations never get a
+        // turn.
+        let mut schedule: Vec<usize> = Vec::with_capacity(segmentations.len());
+        let depth_ceiling = {
+            let mut by_structure: Vec<Vec<usize>> = Vec::new();
+            let mut where_: HashMap<&[(usize, usize)], usize> = HashMap::new();
+            for (i, (_, seg)) in segmentations.iter().enumerate() {
+                match where_.get(seg.spans.as_slice()) {
+                    Some(&g) => by_structure[g].push(i),
+                    None => {
+                        where_.insert(seg.spans.as_slice(), by_structure.len());
+                        by_structure.push(vec![i]);
+                    }
+                }
+            }
+            let ceiling = structure_depth_ceiling(
+                LEXICAL_GLOBAL_EMISSION_BUDGET,
+                by_structure.len(),
+                breadth,
+            );
+            let mut round = 0usize;
+            loop {
+                let before = schedule.len();
+                for group in &by_structure {
+                    if let Some(&i) = group.get(round) {
+                        schedule.push(i);
+                    }
+                }
+                if schedule.len() == before {
+                    break;
+                }
+                round += 1;
+            }
+            ceiling
+        };
+        let mut spent_emissions = 0usize;
+        let mut spent_pops = 0usize;
+        for &index in &schedule {
+            if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
+            {
+                break;
+            }
+            let (_, segmentation) = &segmentations[index];
+            let structure: &[(usize, usize)] = &segmentation.spans;
+            // This segmentation may be funded whatever its structure has
+            // not already been funded, up to the per-segmentation ceiling:
+            // the first alignment of a structure gets the breadth the
+            // display policy can use, and later alignments of the same
+            // structure share what is left of the structure's depth.
+            let held = funded.get(structure).copied().unwrap_or(0);
+            let emit_allowance = depth_ceiling
+                .saturating_sub(held)
+                .clamp(1, LEXICAL_COMBINATIONS_PER_SEGMENTATION);
             let word_count = segmentation.spans.len().max(1) as f64;
+
             let mut slots: Vec<Vec<SlotAlt>> =
                 Vec::with_capacity(segmentation.spans.len());
             let mut possible = true;
@@ -1075,7 +1186,17 @@ impl Generator {
                         }
                         recovered.push(partial);
                         emitted += 1;
-                        if emitted >= LEXICAL_COMBINATIONS_PER_SEGMENTATION {
+                        spent_emissions += 1;
+                        *funded.entry(structure).or_default() += 1;
+                        // This segmentation's share of its structure's
+                        // depth, and the global budget.  The old code had
+                        // only the first shape of limit and applied it per
+                        // segmentation, so `SEGMENTATION_KEEP` alignments
+                        // each bought 64 wordings of a resegmentation the
+                        // display policy fills after 17.
+                        if emitted >= emit_allowance
+                            || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                        {
                             break;
                         }
                     }
@@ -1095,6 +1216,7 @@ impl Generator {
                     }
                 }
             }
+            spent_pops += popped;
         }
 
         completed.extend(recovered);
@@ -2506,6 +2628,52 @@ fn share_cap(top_n: usize, available: usize) -> usize {
         .max(top_n.div_ceil(available.max(1)))
 }
 
+/// How many wordings of one boundary structure the lexical enumeration
+/// always funds, whatever else the budget is doing.
+///
+/// This is [`share_cap`] evaluated against the *floor* rather than against
+/// the number of structures a real pool turns out to hold, so it is the
+/// tightest cap the display policy can impose and it is known before the
+/// search runs.  It is the right breadth for the search because the two
+/// numbers are two ends of the same contract: the enumeration is filling a
+/// list of `top_n` slots, [`select_diverse`] is choosing what goes in them,
+/// and a structure's share of that list is capped.  This many wordings of a
+/// structure are therefore *selectable*; deeper than this is depth, which
+/// exists to give rare resegmentations a chance at a strong wording rather
+/// than to fill slots that are already filled.
+///
+/// Measured on five real targets at `--approximate --top 50`, the retained
+/// pool holds 137-180 distinct structures of which 4-12 are visible, and
+/// each visible structure is filled to its cap (17 = `share_cap(50, 180)`)
+/// out of the 48-64 wordings of it that the old per-segmentation budget
+/// produced.  The record is in `docs/work/items/w-6b2f04.md`.
+fn structure_wording_allowance(top_n: usize) -> usize {
+    share_cap(top_n, STRUCTURE_FLOOR)
+}
+
+/// Total wordings one boundary structure may be funded, out of the global
+/// emission budget.
+///
+/// `budget` is the whole lexical phase's allowance and `structures` is how
+/// many distinct boundary structures it has to cover, so this is the equal
+/// share: `structures * ceiling <= budget` whenever the equal share is the
+/// binding term, which is what makes the per-structure caps sum to at most
+/// the global budget rather than exceeding it.
+///
+/// It is floored at `breadth`, so a pool with more structures than the
+/// budget has room for still gets every structure a full turn, and capped
+/// by the caller at the per-segmentation ceiling, so no single alignment can
+/// absorb a share meant for many.
+fn structure_depth_ceiling(
+    budget: usize,
+    structures: usize,
+    breadth: usize,
+) -> usize {
+    budget
+        .div_ceil(structures.max(1))
+        .max(breadth)
+}
+
 fn admit(
     i: usize,
     structures: &[Vec<usize>],
@@ -3145,6 +3313,88 @@ mod tests {
             },
         )
         .unwrap()
+    }
+
+    /// The global lexical budget is shared out per boundary structure,
+    /// and the sharing rule is arithmetic rather than chosen.
+    ///
+    /// Two properties, and only two, because the mechanism is exactly two
+    /// numbers: the per-structure ceiling is an equal share of the global
+    /// budget, and it never falls below the breadth the display policy can
+    /// admit.  So the per-structure ceilings either sum to at most the
+    /// global budget, or every structure is still guaranteed its full
+    /// breadth and the budget is the binding constraint at the loop
+    /// instead.
+    #[test]
+    fn structure_depth_ceiling_shares_the_global_budget() {
+        const BUDGET: usize = 16_384;
+        for breadth in [2usize, 4, 7, 17] {
+            let mut previous = usize::MAX;
+            for structures in 1..=4096 {
+                let ceiling = structure_depth_ceiling(BUDGET, structures, breadth);
+                assert!(ceiling >= breadth, "{structures} structures");
+                assert!(
+                    ceiling <= previous,
+                    "ceiling grew at {structures} structures"
+                );
+                previous = ceiling;
+                if ceiling > breadth {
+                    assert!(
+                        structures * ceiling <= BUDGET,
+                        "{structures} structures at {ceiling} each exceed {BUDGET}"
+                    );
+                }
+            }
+        }
+        // A pool with more structures than the budget can fund still gets
+        // every structure a full turn.
+        assert_eq!(
+            structure_depth_ceiling(BUDGET, 100_000, 17),
+            17
+        );
+    }
+
+    /// The breadth the enumeration guarantees is the breadth the display
+    /// policy can admit, and it is derived from the same contract rather
+    /// than restated.
+    #[test]
+    fn structure_breadth_is_the_display_policys_own_share_cap() {
+        for top_n in [1usize, 5, 10, 20, 50, 200, 4096] {
+            let breadth = structure_wording_allowance(top_n);
+            assert_eq!(breadth, share_cap(top_n, STRUCTURE_FLOOR));
+            assert!(breadth >= 2, "a structure is never a one-shot");
+        }
+        let mut previous = 0;
+        for top_n in [1usize, 10, 20, 50, 200, 4096] {
+            let breadth = structure_wording_allowance(top_n);
+            assert!(breadth >= previous, "breadth shrank at top_n={top_n}");
+            previous = breadth;
+        }
+    }
+
+    /// What the change buys, asserted externally: approximate mode keeps
+    /// spanning several boundary structures on real targets.
+    ///
+    /// Deliberately a floor and not an equality.  A tighter claim — that
+    /// the visible list spans *more* structures than before — would be a
+    /// measurement of one run rather than a property, and a claim about
+    /// the depth of any one structure in the returned proposals would be
+    /// broader than this mechanism, because the ordinary beam also
+    /// contributes clues to the same pool.
+    #[test]
+    fn approximate_proposals_span_several_boundary_structures() {
+        for (target, _) in reachability_corpus() {
+            let clues = approximate_generator(50).generate(target);
+            assert!(clues.len() >= STRUCTURE_FLOOR, "{target:?}");
+            let structures: HashSet<Vec<usize>> =
+                clues.iter().map(clue_structure).collect();
+            assert!(
+                structures.len() >= STRUCTURE_FLOOR,
+                "{target:?}: {} visible slots span only {} boundary                  structures",
+                clues.len(),
+                structures.len()
+            );
+        }
     }
 
     /// Score of an explicit word sequence, by cheapest alignment over
