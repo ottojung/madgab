@@ -122,8 +122,23 @@ pub struct Generator {
 const SPAN_SHORTLIST: usize = 160;
 /// The wordings one segmentation may emit, profiles included.
 const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
-/// How many alternatives of one slot the traversal itself branches on.
-const LEXICAL_BRANCH_KEEP: usize = 10;
+/// The width every slot of the per-segmentation traversal is *opened* at,
+/// and the factor by which it is widened when — and only when — the
+/// traversal has exhausted the current width and still wants wordings.
+///
+/// This is not a ceiling.  A candidate at any rank of any slot is pushed as
+/// soon as the traversal reaches a level that can afford it, and a level the
+/// traversal never reaches is never paid for, so the uniform pre-filter that
+/// used to sit in front of the traversal — and made a word at walk rank 99
+/// of a slot unreachable by any visit order — is gone.  See
+/// [`next_branch_stage`] and `docs/work/items/w-9d4e17.md`.
+///
+/// The first stage is the number the traversal used to be capped at, so the
+/// first stage costs exactly what the cap cost, and the growth factor is the
+/// smallest that gets from it to a `SPAN_SHORTLIST`-wide list in three
+/// stages (10 -> 40 -> 160).
+const LEXICAL_BRANCH_STAGE_0: usize = 10;
+const LEXICAL_BRANCH_STAGE_GROWTH: usize = 4;
 
 /// Part of every segmentation's allowance reserved for depth profiles.
 ///
@@ -137,20 +152,29 @@ const EMIT_PROFILE_RESERVE: usize = 16;
 /// classes outnumber the reserve and the ladder is not widened to
 /// compensate.
 const EMIT_PROFILE_MAX_DEEP: usize = 3;
-/// The indices a deep slot is taken at, as multiples of the traversal's
-/// own branch width.  The first rung is the branch width itself, so a
-/// profile never re-spends the allowance on a tuple the traversal would
-/// have found anyway; the last rung is `20 * LEXICAL_BRANCH_KEEP`, above
-/// `SPAN_SHORTLIST`, so it always lands on the deepest alternative the
-/// slot actually has.  The reserve is therefore spent at the far end of
-/// every slot's list first, which is the region a 64-emission
-/// best-first walk never enters: measured, such a walk reaches no
-/// further than index 1-3 of any slot.
+/// The indices a deep slot is taken at, as multiples of the width the
+/// traversal *opens* at.  The first rung is that opening width, and the last
+/// is `20 *` it, above `SPAN_SHORTLIST`, so it always lands on the deepest
+/// alternative the slot actually has.  The reserve is therefore spent at the
+/// far end of every slot's list first.
+///
+/// The first rung is no longer guaranteed redundant with the traversal, and
+/// that is a real coupling rather than a comment: since the traversal's width
+/// became a property of its own budget, it *can* open index 10, 30 or 80 of
+/// a slot when it drains at a narrow width with appetite left, so part of
+/// what this reserve buys is reachable by the traversal as well.  The two
+/// spends share one per-segmentation allowance — the traversal is handed
+/// `emit_allowance - profile_emitted` — so they are not additive, and the
+/// composition is measured in `docs/work/items/w-9d4e17.md` rather than
+/// assumed.  What the reserve still buys that the traversal does not is
+/// *coverage*: it walks whole depth profiles, so it spends its 16 on a
+/// systematic sample of the index-tuple space, where the traversal spends its
+/// share on whatever is nearest-optimal.
 const EMIT_DEEP_INDEX_LADDER: [usize; 4] = [
-    LEXICAL_BRANCH_KEEP,
-    3 * LEXICAL_BRANCH_KEEP,
-    8 * LEXICAL_BRANCH_KEEP,
-    20 * LEXICAL_BRANCH_KEEP,
+    LEXICAL_BRANCH_STAGE_0,
+    3 * LEXICAL_BRANCH_STAGE_0,
+    8 * LEXICAL_BRANCH_STAGE_0,
+    20 * LEXICAL_BRANCH_STAGE_0,
 ];
 
 /// The `k`-subsets of `0..len`, in lexicographic order.
@@ -176,6 +200,29 @@ fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {
                 break;
             }
         }
+    }
+}
+
+/// The next per-slot width the per-segmentation traversal should open, or
+/// `None` when it has already read every alternative every slot has.
+///
+/// A slot's depth is a property of the traversal, not of the list: the walk
+/// opens at [`LEXICAL_BRANCH_STAGE_0`], reads that width to exhaustion, and
+/// asks for the next one *only* if it is still hungry.  So the width is
+/// geometric (three stages span a `SPAN_SHORTLIST`-wide list from 10) and
+/// saturates at the widest list present, which means no candidate is ever
+/// removed by a width rule — a word at any rank of any slot is pushed as
+/// soon as the traversal reaches the level that can afford it, and a level
+/// the traversal never reaches is never paid for.
+fn next_branch_stage(current: usize, widest: usize) -> Option<usize> {
+    // `max(1)` only matters for the degenerate `current == 0`, which the
+    // traversal cannot reach (an empty slot is skipped before it runs); it
+    // keeps the schedule from stalling at zero width.
+    let wider = current.max(1).saturating_mul(LEXICAL_BRANCH_STAGE_GROWTH);
+    if widest <= current || wider <= current {
+        None
+    } else {
+        Some(wider.min(widest))
     }
 }
 
@@ -1334,50 +1381,143 @@ impl Generator {
             heap.push((quantized(bound(&[])), 0usize, empty.clone()));
             let mut seen: HashSet<(usize, Rc<[usize]>), BuildHasherDefault<FxHasher>> =
                 HashSet::default();
-            seen.insert((0, empty));
+            seen.insert((0, empty.clone()));
 
+            // How deep any single slot may be read is *not* a property of
+            // the list: it is a property of what this traversal is still
+            // willing to spend.  `cap` opens at `LEXICAL_BRANCH_STAGE_0`
+            // and is widened — geometrically, up to the widest list here —
+            // only after the current width has been walked to exhaustion
+            // *and* the traversal still wants wordings.  So a level the
+            // traversal never needs to visit costs nothing, and no candidate
+            // can be missing merely because it sat at rank 99 of a slot that
+            // a uniform pre-filter had already truncated.
+            let widest = widths.iter().copied().max().unwrap_or(0);
+            let mut cap = LEXICAL_BRANCH_STAGE_0.min(widest);
             let mut emitted = 0usize;
             let mut popped = 0usize;
-            while let Some((_key, k, prefix)) = heap.pop() {
-                popped += 1;
-                if k == depth {
-                    if let Some(partial) = build(&prefix) {
-                        #[cfg(test)]
-                        counters::note_depth(
-                            &counters::DEEPEST_TRAVERSAL,
-                            prefix.iter().copied().max().unwrap_or(0),
-                        );
-                        recovered.push(partial);
-                        emitted += 1;
-                        spent_emissions += 1;
-                        *funded.entry(structure).or_default() += 1;
-                        // This segmentation's share of its structure's
-                        // depth, and the global budget.  The old code had
-                        // only the first shape of limit and applied it per
-                        // segmentation, so `SEGMENTATION_KEEP` alignments
-                        // each bought 64 wordings of a resegmentation the
-                        // display policy fills after 17.
-                        if emitted >= emit_allowance
-                            || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
-                        {
-                            break;
+            // The traversal runs in passes over the heap.  A walk is the
+            // search itself: pop, expand, emit.  When a walk drains without
+            // filling its allowance, the only thing the next stage needs is
+            // the list of nodes the walk already expanded, so that it can
+            // open their newly legal children instead of re-expanding the
+            // lattice.  That list is written only by a *replay* — a second,
+            // identical pass over a freshly seeded heap that records what it
+            // expands and emits nothing — and a replay is scheduled only
+            // once the traversal has already decided it wants a wider stage.
+            // So the pass that runs on every segmentation of every target
+            // allocates nothing per pop, which matters because the
+            // measurement in w-9d4e17 is that a widening never happens at
+            // all on a multi-clause real target.
+            let mut replaying = false;
+            let mut opened = cap;
+            let mut expanded: Vec<(usize, Rc<[usize]>)> = Vec::new();
+            let root: Rc<[usize]> = empty.clone();
+            'stages: loop {
+                let mut finished = false;
+                while let Some((_key, k, prefix)) = heap.pop() {
+                    if !replaying {
+                        popped += 1;
+                    }
+                    if k == depth {
+                        if let Some(partial) = build(&prefix) {
+                            if !replaying {
+                                #[cfg(test)]
+                                counters::note_depth(
+                                    &counters::DEEPEST_TRAVERSAL,
+                                    prefix.iter().copied().max().unwrap_or(0),
+                                );
+                                recovered.push(partial);
+                                emitted += 1;
+                                spent_emissions += 1;
+                                *funded.entry(structure).or_default() += 1;
+                            }
+                            // This segmentation's share of its structure's
+                            // depth, and the global budget.  The old code
+                            // had only the first shape of limit and applied
+                            // it per segmentation, so `SEGMENTATION_KEEP`
+                            // alignments each bought 64 wordings of a
+                            // resegmentation the display policy fills after
+                            // 17.  `emitted` counts this segmentation's
+                            // wordings across every stage, and a replay
+                            // advances none of the counters it is mirroring,
+                            // so it stops in exactly the place the walk it
+                            // replays stopped.
+                            if emitted >= emit_allowance
+                                || spent_emissions
+                                    >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                            {
+                                finished = true;
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+
+                    if !replaying && popped >= LEXICAL_HEAP_POP_LIMIT {
+                        finished = true;
+                        break;
+                    }
+                    if replaying {
+                        // Only a node that was expanded is worth widening: a
+                        // leaf has no children, and its index tuple is
+                        // already a wording.
+                        expanded.push((k, prefix.clone()));
+                    }
+                    for i in 0..slots[k].len().min(cap) {
+                        let mut next = prefix.to_vec();
+                        next.push(i);
+                        let next: Rc<[usize]> = Rc::from(next);
+                        if seen.insert((k + 1, next.clone())) {
+                            heap.push((quantized(bound(&next)), k + 1, next));
                         }
                     }
-                    continue;
+                }
+                if finished {
+                    break 'stages;
                 }
 
-                if popped >= LEXICAL_HEAP_POP_LIMIT {
-                    break;
-                }
-
-                for i in 0..slots[k].len().min(LEXICAL_BRANCH_KEEP) {
-                    let mut next = prefix.to_vec();
-                    next.push(i);
-                    let next: Rc<[usize]> = Rc::from(next);
-                    if seen.insert((k + 1, next.clone())) {
-                        heap.push((quantized(bound(&next)), k + 1, next));
+                // The heap is empty.  Either the replay is done and the
+                // wider stage is waiting for its new children, or this width
+                // could not fill the traversal's appetite and the question
+                // is whether to open the next one at all.
+                if replaying {
+                    cap = next_branch_stage(opened, widest)
+                        .expect("a stage was opened only when one was available");
+                    for (k, prefix) in expanded.drain(..) {
+                        for i in opened..slots[k].len().min(cap) {
+                            let mut next = prefix.to_vec();
+                            next.push(i);
+                            let next: Rc<[usize]> = Rc::from(next);
+                            if seen.insert((k + 1, next.clone())) {
+                                heap.push((quantized(bound(&next)), k + 1, next));
+                            }
+                        }
                     }
+                    replaying = false;
+                    continue 'stages;
                 }
+                if next_branch_stage(cap, widest).is_none() {
+                    break 'stages;
+                }
+                if popped >= LEXICAL_HEAP_POP_LIMIT
+                    || spent_pops + popped >= LEXICAL_GLOBAL_POP_BUDGET
+                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                {
+                    break 'stages;
+                }
+                // Re-seed and replay at the *current* width, so the replay
+                // expands exactly the nodes the exhausted walk expanded and
+                // leaves exactly the frontier it left.  Only then is the
+                // wider width opened, and only the newly legal children are
+                // added — so the wider stage pops only nodes the narrow stage
+                // never reached, instead of re-walking the lattice.
+                opened = cap;
+                heap.clear();
+                seen.clear();
+                seen.insert((0, root.clone()));
+                heap.push((quantized(bound(&[])), 0, root.clone()));
+                replaying = true;
             }
             spent_pops += popped;
         }
@@ -3541,6 +3681,95 @@ mod tests {
         );
     }
 
+    /// The width a slot is opened at is the *first* stage, not a ceiling:
+    /// the schedule has to be able to reach every alternative of the widest
+    /// slot, so that the traversal can never be the reason a candidate is
+    /// missing.  It must also stay logarithmic in the width, because a
+    /// stage the traversal does not need is work nobody asked for.
+    #[test]
+    fn branch_stage_schedule_reads_every_alternative_in_log_stages() {
+        let start = LEXICAL_BRANCH_STAGE_0;
+        for widest in 1..=SPAN_SHORTLIST {
+            let mut cap = start.min(widest);
+            let mut stages = 0;
+            while let Some(wider) = next_branch_stage(cap, widest) {
+                assert!(wider > cap, "stage {cap}->{wider} on widest {widest}");
+                cap = wider;
+                stages += 1;
+                assert!(
+                    stages <= 8,
+                    "widest={widest} needed {stages} stages to reach {cap}"
+                );
+            }
+            assert_eq!(
+                cap,
+                widest,
+                "the schedule must end at the widest slot, not short of it"
+            );
+        }
+        // Geometric, and three stages span a 160-wide shortlist from 10.
+        assert_eq!(next_branch_stage(10, SPAN_SHORTLIST), Some(40));
+        assert_eq!(next_branch_stage(40, SPAN_SHORTLIST), Some(160));
+        assert_eq!(next_branch_stage(SPAN_SHORTLIST, SPAN_SHORTLIST), None);
+    }
+
+    /// The rule is asked for a wider stage only when the traversal has run
+    /// out of nodes at the current one, so a stage the traversal never needs
+    /// is never opened: a slot no wider than the first stage, and a
+    /// saturated one, both answer `None` rather than a wider number.
+    #[test]
+    fn branch_stage_schedule_never_offers_depth_the_lists_do_not_have() {
+        for cap in 0..=SPAN_SHORTLIST {
+            assert_eq!(
+                next_branch_stage(cap, cap),
+                None,
+                "cap {cap} offered depth beyond {cap}"
+            );
+            for widest in 0..=cap {
+                assert_eq!(
+                    next_branch_stage(cap, widest),
+                    None,
+                    "cap {cap} with widest {widest} should be exhausted"
+                );
+            }
+            for widest in (cap + 1)..=SPAN_SHORTLIST {
+                let wider = next_branch_stage(cap, widest).expect("there is depth");
+                assert!(
+                    wider <= widest,
+                    "cap {cap} offered {wider} for a widest slot of {widest}"
+                );
+            }
+        }
+    }
+
+    /// The reserve and the traversal draw on one per-segmentation allowance,
+    /// so this front's width is not additive with the reserve's spend.  The
+    /// arithmetic the two share is the opening width itself, and it is
+    /// asserted here so a change to one that silently changes the other is
+    /// caught at the arithmetic rather than in a pool size.
+    #[test]
+    fn the_reserve_ladder_and_the_width_schedule_share_one_width() {
+        // The first rung is the opening width, so the reserve's shallowest
+        // profile is the first thing the traversal would have emitted.
+        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
+        // Every rung is a width the traversal could in principle open, and
+        // the deepest is past the widest list, so the reserve always spends
+        // at the far end of some slot.
+        assert!(EMIT_DEEP_INDEX_LADDER[1] > LEXICAL_BRANCH_STAGE_0);
+        assert!(EMIT_DEEP_INDEX_LADDER[3] >= SPAN_SHORTLIST);
+        // The stages the schedule can open are exactly the widths between
+        // the opening width and the widest list, so no rung is a width the
+        // traversal can spend and the reserve cannot.
+        let mut cap = LEXICAL_BRANCH_STAGE_0;
+        while let Some(wider) = next_branch_stage(cap, SPAN_SHORTLIST) {
+            assert!(
+                !EMIT_DEEP_INDEX_LADDER.contains(&wider) || wider == SPAN_SHORTLIST,
+                "a ladder rung and an openable width coincide at {wider}"
+            );
+            cap = wider;
+        }
+    }
+
     /// The breadth the enumeration guarantees is the breadth the display
     /// policy can admit, and it is derived from the same contract rather
     /// than restated.
@@ -3598,7 +3827,7 @@ mod tests {
     /// an unbounded pool to work.
     #[test]
     fn depth_profile_reserve_is_bounded_by_named_arithmetic() {
-        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_KEEP);
+        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
         assert!(
             EMIT_DEEP_INDEX_LADDER
                 .windows(2)
@@ -3682,7 +3911,7 @@ mod tests {
         // A slot too short for a rung drops that profile rather than
         // inventing an index, so the rule cannot walk off the end of a
         // list.
-        let widths = [3usize, LEXICAL_BRANCH_KEEP * 2];
+        let widths = [3usize, LEXICAL_BRANCH_STAGE_0 * 2];
         for tuple in profile_tuples(
             &widths,
             &EMIT_DEEP_INDEX_LADDER,
@@ -3695,14 +3924,31 @@ mod tests {
     }
 
     /// What the reserve buys, asserted externally: the depth-profile
-    /// emissions reach far deeper into a slot's candidate list than the
-    /// traversal's own emissions ever do, on real targets, at the same
+    /// emissions reach further into a slot's candidate list than the
+    /// traversal's own emissions do, on real targets, at the same
     /// per-segmentation allowance.
     ///
-    /// The traversal side is a ceiling, not a floor: the traversal can only
-    /// ever branch on `LEXICAL_BRANCH_KEEP` alternatives, so a
-    /// best-first walk of a 64-emission allowance cannot reach the deep
-    /// end of any slot at all.  The profile side is the front's bar.
+    /// **This front's bar changed, and the change is measured.** It used to
+    /// read `traversal < LEXICAL_BRANCH_KEEP`, which was true by
+    /// construction: the traversal could not even push a node at index 10.
+    /// Since the width became a property of the traversal's own budget that
+    /// is no longer a ceiling, and on two of the three corpus targets the
+    /// traversal now *does* cross it — reaching index 38 on one and 31 on
+    /// another, and emitting 65 and 41 wordings at index 10 or deeper.  So
+    /// the traversal partly buys what the reserve buys, and the two spends
+    /// share one allowance.
+    ///
+    /// What survives is the front's actual purpose, and it is asserted
+    /// rather than assumed: the traversal still does not reach the rung the
+    /// reserve is really buying — `EMIT_DEEP_INDEX_LADDER[2]`, index 80,
+    /// which the reserve reaches on every target — so the reserve's spend is
+    /// still coverage the traversal does not have.  The measured
+    /// composition is in `docs/work/items/w-9d4e17.md`, including the fact
+    /// that the reserve's emission count is *unchanged* by the traversal's
+    /// widening (3807 / 3681 / 938 before and after on this corpus): the two
+    /// spends share the allowance without cannibalising each other, because
+    /// the reserve spends first and is bounded by `EMIT_PROFILE_RESERVE`
+    /// whatever the traversal does with the remainder.
     #[test]
     fn depth_profile_emissions_reach_deeper_than_the_traversal() {
         for (target, _) in reachability_corpus() {
@@ -3710,12 +3956,13 @@ mod tests {
             let traversal = counters::take_depth(&counters::DEEPEST_TRAVERSAL);
             let profile = counters::take_depth(&counters::DEEPEST_PROFILE);
             assert!(
-                traversal < LEXICAL_BRANCH_KEEP,
-                "{target:?}: the traversal branched past its own width \
-                 ({traversal})"
+                traversal < EMIT_DEEP_INDEX_LADDER[2],
+                "{target:?}: the traversal reached the reserve's own rung \
+                 ({traversal}), so the reserve is no longer buying coverage \
+                 the traversal lacks"
             );
             assert!(
-                profile >= 4 * LEXICAL_BRANCH_KEEP,
+                profile >= 4 * LEXICAL_BRANCH_STAGE_0,
                 "{target:?}: the reserve only reached slot depth {profile}"
             );
             assert!(profile > traversal, "{target:?}");

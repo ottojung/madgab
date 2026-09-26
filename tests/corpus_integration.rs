@@ -225,6 +225,79 @@ fn approximate_proposals_are_predominantly_content_words() {
     }
 }
 
+/// The candidate pool deep enough to show wordings that only a wide slot
+/// search finds.
+///
+/// `top_n` here is deliberately far larger than the pool any of these
+/// targets produces (the largest is under 20 000), so what comes back is
+/// the whole enumeration rather than a selected prefix of it: the point is
+/// the pool, not the visible list, and a word that only a deep match
+/// supplies can sit thousands of ranks down.
+fn approximate_pool(target: &str) -> Vec<String> {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 20_000,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    g.generate(target)
+        .into_iter()
+        .map(|c| c.phrase.to_lowercase())
+        .collect()
+}
+
+/// A slot's candidate list is a property of the traversal, not a uniform
+/// pre-filter: a word that sits deep in one span's match list must still be
+/// reachable, because the enumeration opens a slot wider once the traversal
+/// has run out of nodes at the narrow width and still wants wordings.
+///
+/// The observable form of that is a *wording the narrow search never
+/// produces*.  Each entry below was measured absent from the pool of the
+/// binary built from the parent commit — which truncates every slot to a
+/// fixed width — and present in this one's; the deep word is named in the
+/// position it actually occupies, because that is the only thing that
+/// distinguishes them.  Note what this is *not* asserting: that a deep word
+/// is missing from the narrow pool.  For these targets it is not — the
+/// narrow search reaches the same rare final words, and what it cannot
+/// reach is the particular combination.  So the guard is on the wording,
+/// not on the vocabulary.
+///
+/// The wordings are re-measured against the current parent, which includes
+/// the reserved depth-profile spend: that reserve changes every pool, and an
+/// earlier trio chosen against a tree without it stopped discriminating
+/// (two of the three are now produced by the narrow search too).  A wording
+/// in this list is therefore a statement about the *merged* behaviour of the
+/// two mechanisms, not about this front alone.
+///
+/// All four targets are ordinary English phrases, not the acceptance
+/// examples, and nothing in `src/` knows them; see
+/// [w-9d4e17](../../docs/work/items/w-9d4e17.md) for the measurement.
+#[test]
+fn approximate_pool_reaches_matches_deep_in_a_span() {
+    for (target, wording) in [
+        // First-slot matches from past the head of that span's list.
+        ("I love you", "ask lovey"),
+        ("big spender", "began edgar"),
+        // A second-slot match, behind a first-slot match the narrow search
+        // does produce ("plague" is in both pools).
+        ("play games with me now", "bay games meow"),
+        // A final word the narrow search does not propose for this target.
+        ("taco cat", "taco net"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p == wording),
+            "{target}: {wording:?} missing, so a match deep in a span's match \
+             list was not reached; pool had {} clues, e.g. {:?}",
+            pool.len(),
+            &pool[..pool.len().min(8)]
+        );
+    }
+}
+
 /// A clue's resegmentation, as the search aligned it.
 ///
 /// This reads [\"madgab::Clue::cuts\"] rather than re-deriving offsets
