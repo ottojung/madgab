@@ -7,6 +7,292 @@ use serde::Deserialize;
 /// clue word to a target span.
 const GAP_COST: f64 = 0.20;
 
+// -----------------------------------------------------------------
+// Phonemic confusability
+// -----------------------------------------------------------------
+//
+// The matcher's currency has to be *phonemic*, but the corpus alphabet
+// is a mixed transliteration: some phonemes are spelled with Latin
+// letters (`k`, `t`, `d`, `s`) and some with IPA characters (U+0261
+// for the voiced velar stop, U+03B8 for the voiceless dental
+// fricative). A distance between single *codepoints* therefore measures
+// orthography, not phonology: across the 75 corpus symbols it averages
+// 0.78, and 93.8% of distinct-symbol pairs come out dearer than a
+// single gap, so the substitution branch is bypassed almost everywhere
+// and the search pays for indels instead. The worst case is the two
+// velar stops, one Latin and one IPA, which come out at the maximum
+// 1.0 -- so a plain voicing alternation is charged *more* than deleting
+// the segment and putting a different one back.
+//
+// So the substitution cost is rebuilt from articulatory features: each
+// symbol gets a coarse place/manner/voicing triple if it is a
+// consonant, or a height/backness/rounding/reduction vector if it is a
+// vowel, and the cost of substituting one symbol for another is the
+// weighted distance between those descriptions. The weights are
+// ordered by how reliably a listener recovers the cue, so the cost of a
+// substitution is small exactly when a listener would not have noticed
+// it. Everything is keyed on the same corpus alphabet the matcher
+// already collects; no symbol is listed on account of a word it
+// happens to appear in.
+
+// Coarse places of articulation.
+const PLACE_BILABIAL: i32 = 0;
+const PLACE_LABIODENTAL: i32 = 1;
+const PLACE_DENTAL: i32 = 2;
+const PLACE_ALVEOLAR: i32 = 3;
+const PLACE_POSTALVEOLAR: i32 = 4;
+const PLACE_PALATAL: i32 = 5;
+const PLACE_VELAR: i32 = 6;
+const PLACE_UVULAR: i32 = 7;
+const PLACE_GLOTTAL: i32 = 8;
+
+// Places collapsed into regions, so that the distance between two
+// places saturates: beyond a point, every place change sounds equally
+// wrong, so a far pair is not scored as many times worse as a near one.
+fn place_region(place: i32) -> i32 {
+    match place {
+        PLACE_BILABIAL | PLACE_LABIODENTAL => 0,
+        PLACE_DENTAL | PLACE_ALVEOLAR => 1,
+        PLACE_POSTALVEOLAR | PLACE_PALATAL => 2,
+        PLACE_VELAR | PLACE_UVULAR => 3,
+        _ => 4,
+    }
+}
+
+// Coarse manners of articulation.
+const MANNER_STOP: i32 = 0;
+const MANNER_FRICATIVE: i32 = 2;
+const MANNER_NASAL: i32 = 3;
+const MANNER_APPROXIMANT: i32 = 4;
+const MANNER_LATERAL: i32 = 5;
+const MANNER_TRILL: i32 = 6;
+
+// Vowel heights, low to close.
+const HEIGHT_LOW: i32 = 0;
+const HEIGHT_CLOSE_MID: i32 = 2;
+const HEIGHT_NEAR_CLOSE: i32 = 3;
+
+// Vowel backness, 0 (front) to 2 (back).
+const BACK_FRONT: i32 = 0;
+const BACK_CENTRAL: i32 = 1;
+const BACK_BACK: i32 = 2;
+
+// Weights, in the matcher's own cost units, per unit of feature
+// distance.
+const W_VOICE: f64 = 0.10;
+const W_PLACE: f64 = 0.22;
+const W_MANNER: f64 = 0.24;
+const W_HEIGHT: f64 = 0.07;
+const W_BACK: f64 = 0.06;
+const W_ROUND: f64 = 0.05;
+const W_RHOTIC: f64 = 0.05;
+
+/// A reduced vowel is heard as whatever the schwa is heard as, so a
+/// comparison involving one is discounted: the reduction itself is
+/// free, and only the residual difference is charged.
+const REDUCED_DISCOUNT: f64 = 0.5;
+
+/// Two symbols of different kinds are not a phonetic confusion at all,
+/// only a disagreement about what sort of sound belongs there, so this
+/// is near-maximal but still below the cross-kind cap below it.
+const CROSS_KIND_COST: f64 = 0.80;
+
+/// A symbol that is not in the corpus alphabet at all. Charging the
+/// maximum keeps an unexpected symbol from being cheap by accident.
+const UNKNOWN_COST: f64 = 1.0;
+
+/// The coarse articulatory description of one corpus symbol.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Segment {
+    Consonant {
+        place: i32,
+        manner: i32,
+        voiced: bool,
+    },
+    Vowel {
+        height: i32,
+        back: i32,
+        round: bool,
+        rhotic: bool,
+        reduced: bool,
+    },
+}
+
+impl Segment {
+    fn c(place: i32, manner: i32, voiced: bool) -> Segment {
+        Segment::Consonant {
+            place,
+            manner,
+            voiced,
+        }
+    }
+
+    fn v(
+        height: i32,
+        back: i32,
+        round: bool,
+        rhotic: bool,
+        reduced: bool,
+    ) -> Segment {
+        Segment::Vowel {
+            height,
+            back,
+            round,
+            rhotic,
+            reduced,
+        }
+    }
+}
+
+/// Describe one symbol of the corpus alphabet articulatorily.
+///
+/// The table is written over the symbol *inventory*, not over words: each
+/// arm is a class of sounds, and a symbol appears because of how it is
+/// articulated, never because of a phrase it turns up in. Both spellings
+/// of a class have to be present, because the corpus mixes notations --
+/// the alveolar family is written with Latin letters while the velar and
+/// labiodental ones are written with IPA characters -- and the classes
+/// only line up across the two notations if both are described.
+fn describe(c: char) -> Option<Segment> {
+    // Stops.
+    Some(match c {
+        'p' => Segment::c(PLACE_BILABIAL, MANNER_STOP, false),
+        't' => Segment::c(PLACE_ALVEOLAR, MANNER_STOP, false),
+        'k' => Segment::c(PLACE_VELAR, MANNER_STOP, false),
+        'q' => Segment::c(PLACE_UVULAR, MANNER_STOP, false),
+        'b' => Segment::c(PLACE_BILABIAL, MANNER_STOP, true),
+        'd' => Segment::c(PLACE_ALVEOLAR, MANNER_STOP, true),
+        '\u{0261}' => Segment::c(PLACE_VELAR, MANNER_STOP, true),
+        // Fricatives.
+        'f' => Segment::c(PLACE_LABIODENTAL, MANNER_FRICATIVE, false),
+        '\u{03B8}' => Segment::c(PLACE_DENTAL, MANNER_FRICATIVE, false),
+        's' => Segment::c(PLACE_ALVEOLAR, MANNER_FRICATIVE, false),
+        '\u{0283}' => Segment::c(PLACE_POSTALVEOLAR, MANNER_FRICATIVE, false),
+        'h' => Segment::c(PLACE_GLOTTAL, MANNER_FRICATIVE, false),
+        'v' => Segment::c(PLACE_LABIODENTAL, MANNER_FRICATIVE, true),
+        '\u{00F0}' => Segment::c(PLACE_DENTAL, MANNER_FRICATIVE, true),
+        'z' => Segment::c(PLACE_ALVEOLAR, MANNER_FRICATIVE, true),
+        '\u{0292}' => Segment::c(PLACE_POSTALVEOLAR, MANNER_FRICATIVE, true),
+        // Nasals.
+        'm' => Segment::c(PLACE_BILABIAL, MANNER_NASAL, true),
+        'n' => Segment::c(PLACE_ALVEOLAR, MANNER_NASAL, true),
+        '\u{014B}' => Segment::c(PLACE_VELAR, MANNER_NASAL, true),
+        // Lateral.
+        'l' => Segment::c(PLACE_ALVEOLAR, MANNER_LATERAL, true),
+        // Approximants, trill and glides.
+        '\u{0279}' => Segment::c(PLACE_ALVEOLAR, MANNER_APPROXIMANT, true),
+        '\u{027E}' => Segment::c(PLACE_ALVEOLAR, MANNER_TRILL, true),
+        'j' => Segment::c(PLACE_PALATAL, MANNER_APPROXIMANT, true),
+        'w' => Segment::c(PLACE_BILABIAL, MANNER_APPROXIMANT, true),
+        // Vowels: front unrounded.
+        'i' | '\u{026A}' => {
+            Segment::v(HEIGHT_NEAR_CLOSE, BACK_FRONT, false, false, false)
+        }
+        'e' | '\u{025B}' => {
+            Segment::v(HEIGHT_CLOSE_MID, BACK_FRONT, false, false, false)
+        }
+        '\u{00E6}' => Segment::v(HEIGHT_LOW, BACK_FRONT, false, false, false),
+        // Vowels: central. This is the reduced family, and it is the
+        // one class a listener cannot resolve at all.
+        '\u{0259}' | '\u{0250}' | '\u{1D4A}' => {
+            Segment::v(HEIGHT_CLOSE_MID, BACK_CENTRAL, false, false, true)
+        }
+        '\u{025A}' | '\u{025D}' => {
+            Segment::v(HEIGHT_CLOSE_MID, BACK_CENTRAL, false, true, true)
+        }
+        '\u{0275}' => {
+            Segment::v(HEIGHT_CLOSE_MID, BACK_CENTRAL, true, false, true)
+        }
+        // Vowels: back.
+        'u' | '\u{028A}' => {
+            Segment::v(HEIGHT_NEAR_CLOSE, BACK_BACK, true, false, false)
+        }
+        'o' | '\u{0254}' => {
+            Segment::v(HEIGHT_CLOSE_MID, BACK_BACK, true, false, false)
+        }
+        '\u{0251}' | '\u{028C}' => {
+            Segment::v(HEIGHT_LOW, BACK_BACK, false, false, false)
+        }
+        '\u{0252}' => Segment::v(HEIGHT_LOW, BACK_BACK, true, false, false),
+        _ => return None,
+    })
+}
+
+/// The cost of hearing one symbol where the other side produced another.
+///
+/// This is the whole of the substitution model: a feature distance,
+/// capped, and discounted when either side is a reduced vowel. A pair
+/// in the same class is free, which is the "folded pair" the matcher
+/// needs for the unstressed-vowel alternations that dominate connected
+/// speech.
+pub(crate) fn confusability(a: char, b: char) -> f64 {
+    if a == b {
+        return 0.0;
+    }
+    let (Some(x), Some(y)) = (describe(a), describe(b)) else {
+        return UNKNOWN_COST;
+    };
+
+    use Segment::{Consonant as C, Vowel as V};
+    let raw = match (x, y) {
+        (
+            C {
+                place: place_x,
+                manner: manner_x,
+                voiced: voiced_x,
+            },
+            C {
+                place: place_y,
+                manner: manner_y,
+                voiced: voiced_y,
+            },
+        ) => {
+            let region = (place_region(place_x) - place_region(place_y)).abs();
+            let place_steps = region.min(2);
+            let manner_steps = (manner_x - manner_y).abs().min(2);
+            let voice = i32::from(voiced_x != voiced_y);
+            W_VOICE * voice as f64
+                + W_PLACE * place_steps as f64
+                + W_MANNER * manner_steps as f64
+        }
+        (
+            V {
+                height: h_x,
+                back: b_x,
+                round: r_x,
+                rhotic: rh_x,
+                reduced: red_x,
+            },
+            V {
+                height: h_y,
+                back: b_y,
+                round: r_y,
+                rhotic: rh_y,
+                reduced: red_y,
+            },
+        ) => {
+            let base = W_HEIGHT * (h_x - h_y).abs() as f64
+                + W_BACK * (b_x - b_y).abs() as f64
+                + W_ROUND * i32::from(r_x != r_y) as f64
+                + W_RHOTIC * i32::from(rh_x != rh_y) as f64;
+            if red_x || red_y {
+                base * REDUCED_DISCOUNT
+            } else {
+                base
+            }
+        }
+        _ => CROSS_KIND_COST,
+    };
+
+    // A substitution that costs more than deleting the symbol and
+    // inserting a different one is never worth taking, so the table is
+    // capped just below two gaps. Above that the search already has the
+    // cheaper indel, and a table that keeps climbing past it only
+    // distorts the best-first ordering.
+    raw.min(2.0 * GAP_COST).min(UNKNOWN_COST)
+}
+
+
 /// Bound the number of word alternatives exposed for any one target
 /// span after trie traversal. Search still sees multiple acoustic and
 /// lexical alternatives, but pathological homophone clusters cannot
@@ -161,12 +447,7 @@ impl FuzzyLexicon {
                         self.substitution_costs
                             .get(&(target_char, clue_char))
                             .copied()
-                            .unwrap_or_else(|| {
-                                phonetics::distance(
-                                    &target_char.to_string(),
-                                    &clue_char.to_string(),
-                                )
-                            })
+                            .unwrap_or_else(|| confusability(target_char, clue_char))
                     };
                     push_state(
                         &mut stack,
@@ -434,16 +715,17 @@ pub(crate) fn build_lexicon(
     // Precompute the small IPA-symbol substitution table once. Target
     // symbols normally come from the same corpus alphabet; the search
     // has a safe fallback for anything outside it.
+    //
+    // The entries are phonemic confusabilities, not codepoint
+    // distances: see the confusability block above for why the
+    // distinction matters. A symbol the table cannot describe still
+    // gets a cost, via `confusability`'s fallback, so no pair is ever
+    // accidentally free.
     let alphabet: Vec<char> = alphabet.into_iter().collect();
     let mut substitution_costs = HashMap::new();
     for &a in &alphabet {
         for &b in &alphabet {
-            let cost = if a == b {
-                0.0
-            } else {
-                phonetics::distance(&a.to_string(), &b.to_string())
-            };
-            substitution_costs.insert((a, b), cost);
+            substitution_costs.insert((a, b), confusability(a, b));
         }
     }
 
