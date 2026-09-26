@@ -4475,6 +4475,92 @@ mod tests {
         }
     }
 
+    /// The reach of the coverage reserve into one cell, measured, and the
+    /// arithmetic that closes `docs/work/items/w-9c4d21.md`.
+    ///
+    /// That item opened on the claim that the reserve's reach is limited by
+    /// three *fixed* constants — [`EMIT_PROFILE_MAX_DEEP`], the
+    /// [`LEXICAL_BRANCH_STAGE_0`] floor inside [`sweep_index`], and
+    /// [`EMIT_PROFILE_RESERVE`] — and that deriving them from measured state
+    /// would therefore widen it.  It does not, and this test is the
+    /// measurement.  The shape class below is the one measured on the corpus
+    /// target the item names: five slots, one narrower than the traversal's
+    /// first stage, three at the shortlist width and one between.  Only
+    /// widths appear here, so nothing in it names a phrase.
+    ///
+    /// Three facts, in order.
+    ///
+    /// 1. **The alphabet.**  Every coordinate the reserve draws is either 0
+    ///    or in `LEXICAL_BRANCH_STAGE_0..narrowest-of-its-subset`, because
+    ///    the subset is drawn from its *narrowest* slot's span.  So a
+    ///    coordinate that is deep in a 160-wide slot is unreachable whenever
+    ///    a narrower slot shares its profile, and a coordinate *inside* the
+    ///    traversal's own opening width is unreachable too, because the
+    ///    reserve never draws below the floor.
+    /// 2. **The density.**  A whole run's sample into this cell is at most
+    ///    `EMIT_PROFILE_RESERVE` tuples per scheduled segmentation, so at
+    ///    most `EMIT_PROFILE_RESERVE * phases` distinct tuples, against a
+    ///    cell of `prod(widths)` tuples.  Here that is 4,096 out of
+    ///    2,666,496,000 — one part in 651,000 — and no derivation of the
+    ///    three constants changes the number of *draws*, only which points
+    ///    they land on.
+    /// 3. **The consequence.**  A wording deep in four of five slots at
+    ///    unrelated ranks is a single point of a four-dimensional cell, and
+    ///    the reserve is a sparse systematic sample of that cell, so it is
+    ///    not drawn.  Raising the depth cap to the class's own size, drawing
+    ///    each member from its own slot's list, dropping the floor to 0 and
+    ///    trebling the reserve were all measured on the real search and none
+    ///    of them draws it.
+    ///
+    /// This is a characterisation of the mechanism, not a claim that the
+    /// reach should stay this small: a change that widens the alphabet will
+    /// fail assertion 1, and that failure is the point — it means the
+    /// density argument above has to be re-measured rather than inherited.
+    #[test]
+    fn the_coverage_reserve_cannot_reach_a_four_deep_coordinate() {
+        let widths = [SPAN_SHORTLIST, 7, SPAN_SHORTLIST, SPAN_SHORTLIST, 93];
+        let depth = widths.len();
+        // One phase per scheduled segmentation; `SEGMENTATION_KEEP` is
+        // scoped inside the search, so the count is written out here for the
+        // same reason `ADJACENCY_GLOBAL_RESERVE` writes its fraction out.
+        let phases = 256usize;
+        let per = EMIT_PROFILE_RESERVE;
+        let mut union: HashSet<Vec<usize>> = HashSet::new();
+
+        for phase in 0..phases {
+            // `depth` as the cap, not `EMIT_PROFILE_MAX_DEEP`: this is the
+            // reserve at its most generous, which is the version that has to
+            // be able to draw a four-deep profile at all.
+            for tuple in coverage_tuples(&widths, per, depth, phase) {
+                let deep: Vec<usize> = (0..depth)
+                    .filter(|&slot| tuple[slot] != 0)
+                    .collect();
+                let narrowest =
+                    deep.iter().map(|&s| widths[s]).min().unwrap();
+                for &slot in &deep {
+                    assert!(
+                        tuple[slot] >= LEXICAL_BRANCH_STAGE_0
+                            && tuple[slot] < narrowest,
+                        "phase {phase}: slot {slot} drew {} from a \
+                         subset whose narrowest list is {narrowest}",
+                        tuple[slot]
+                    );
+                }
+                union.insert(tuple);
+            }
+        }
+
+        // The density, as named arithmetic rather than a measured constant.
+        let volume: u64 = widths.iter().map(|&w| w as u64).product();
+        assert!(union.len() <= per * phases);
+        assert!(
+            volume / (per as u64 * phases as u64) >= 100_000,
+            "cell {volume} is only {}x the run's {per}x{phases} draws, \
+             so the density argument this test rests on no longer holds",
+            volume / (per as u64 * phases as u64)
+        );
+        assert!(!union.contains(&vec![7usize, 0, 13, 99, 11]));
+    }
 
     /// What the reserve buys, asserted externally: the depth-profile
     /// emissions reach further into a slot's candidate list than the
