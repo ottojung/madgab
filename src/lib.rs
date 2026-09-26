@@ -311,6 +311,41 @@ impl Generator {
             if matches.is_empty() {
                 continue;
             }
+            // TEMP-PROBE match recall (removed before commit).
+            if std::env::var("MADGAB_DIAG").is_ok() {
+                for probe in ["dupe", "hid", "nice", "came", "beach"] {
+                    if let Some((rank, m)) = matches
+                        .iter()
+                        .enumerate()
+                        .find(|(_, m)| Partial::norm_word(&m.word) == *probe)
+                    {
+                        eprintln!(
+                            "DIAGM p={p} match {probe} rank={rank}/{} consumed={} cost={:.3}",
+                            matches.len(),
+                            m.consumed,
+                            m.cost
+                        );
+                    }
+                }
+            }
+            // TEMP-PROBE (removed before commit).
+            if std::env::var("MADGAB_DIAG").is_ok() {
+                for probe in [
+                    "hits",
+                    "hits justice",
+                    "hits justice dupe",
+                    "hits justice dupe hid",
+                    "hits justice dupe hid came",
+                    "wreck",
+                    "wreck a",
+                    "wreck a nice",
+                    "wreck a nice beach",
+                ] {
+                    if beam[p].pool.values().any(|part| part.lex == probe) {
+                        eprintln!("DIAG p={p} pool-has '{probe}' cheap={:.4}", beam[p].pool.values().find(|part| part.lex == probe).map(|q| q.cheap_score).unwrap_or(0.0));
+                    }
+                }
+            }
             // Per-match step constants: everything about a step's
             // cheap contribution is partial-independent, so
             // precompute once per position with the same helper the
@@ -372,9 +407,52 @@ impl Generator {
             } else {
                 beam[p].take_selected()
             };
+            // TEMP-PROBE expansion census (removed before commit).
+            if std::env::var("MADGAB_DIAG").is_ok() && (p == 13 || p == 14 || p == 9) {
+                let mut nprefix = 0usize;
+                for partial in &here {
+                    if partial.lex == "hits justice dupe" || partial.lex == "wreck a" {
+                        nprefix += 1;
+                        eprintln!("DIAGX prefix '{}' sub={:.3} cheap={:.4} nov={:.4}", partial.lex, partial.sub_cost_total, partial.cheap_score, partial.nov);
+                    }
+                }
+                eprintln!("DIAGX p={p} closing={closing} here={} nprefix={nprefix} matches={}", here.len(), matches.len());
+            }
+            // Prefix boundary cuts for the novelty term, rebuilt per
+            // expansion into a reused buffer (no steady-state
+            // allocation): every pair below derives its novelty
+            // delta from these plus its match length.
+            let mut cuts_buf: Vec<usize> = Vec::new();
             for partial in &here {
                 let remaining_budget = total_budget - partial.sub_cost_total;
-                for (mi, m) in matches.iter().enumerate() {
+                // TEMP-DIAG pair probe (removed before commit).
+                let probe_partial = std::env::var("MADGAB_DIAG").is_ok()
+                    && (partial.lex == "hits justice dupe"
+                        || partial.lex == "hits justice dupe hid"
+                        || partial.lex == "wreck a");
+                // Budget truncation: `matches` arrive sorted by
+                // ascending acoustic cost (see `match_ord`), so every
+                // match past the cutoff would fail the remaining-
+                // budget check below without touching any state.
+                // Skipping them by binary search is exactly behavior-
+                // preserving (refused pairs never insert) and saves
+                // most of the hot pair loop once partials have spent
+                // their budgets.
+                let cutoff = matches
+                    .partition_point(|m| m.cost <= remaining_budget + 1e-9);
+                // Prefix boundary cuts for the novelty term, rebuilt
+                // per expansion into the reused buffer above.
+                cuts_buf.clear();
+                cuts_buf.reserve(partial.words.len());
+                {
+                    let mut cum = 0usize;
+                    for w in &partial.words {
+                        cum += w.ipa.chars().count();
+                        cuts_buf.push(cum);
+                    }
+                }
+                let cuts = &cuts_buf;
+                for (mi, m) in matches.iter().enumerate().take(cutoff) {
                     if m.cost > remaining_budget + 1e-9 {
                         continue;
                     }
@@ -385,20 +463,47 @@ impl Generator {
                     }
                     let end = p + m.consumed;
                     let terminal = end == n;
+                    // Incremental boundary novelty for this link,
+                    // shared bit-identically by the lazy gate below
+                    // and the extension builder (a drifted gate could
+                    // skip admittable candidates).
+                    let nov_delta = prefix_novelty(&cuts, m.ipa.chars().count(), &target_boundaries)
+                        - partial.nov;
                     // Lazy gate first (allocation-free refusal path).
                     // Terminal parses skip it: they are retained by
                     // final score below, and the heuristic gate cannot
                     // see closing novelty.
                     if !terminal {
-                        let cand_cheap = partial.cheap_score + c_cheap;
-                        if !beam[end].would_admit(
+                        let cand_cheap =
+                            partial.cheap_score + c_cheap + NOVELTY_WEIGHT * nov_delta;
+                        // TEMP-DIAG pair probe (removed before commit).
+                        let probe = probe_partial
+                            && (mnorm[mi] == "hid" || mnorm[mi] == "nice");
+                        let verdict = beam[end].would_admit(
                             partial,
                             &m.ipa,
                             &mnorm[mi],
                             partial.words.len() + 1,
                             cand_sub,
                             cand_cheap,
-                        ) {
+                        );
+                        if probe {
+                            let cell = BeamPos::cell_of(partial.words.len() + 1, cand_sub);
+                            let (fam_n, fam_min) = beam[end]
+                                .groups
+                                .get(&cell)
+                                .and_then(|b| b.get(&m.ipa))
+                                .map(|v| {
+                                    let min = v
+                                        .iter()
+                                        .map(|(_, bits, _, _)| f64::from_bits(*bits))
+                                        .fold(f64::INFINITY, f64::min);
+                                    (v.len(), min)
+                                })
+                                .unwrap_or((0, f64::NAN));
+                            eprintln!("DIAG3 gate={verdict} p={p} '{}'+{} end={end} cand_cheap={cand_cheap:.4} sub={cand_sub:.3} cost={:.3} consumed={} famsize={fam_n} fammin={fam_min:.4}", partial.lex, m.word, m.cost, m.consumed);
+                        }
+                        if !verdict {
                             continue;
                         }
                     }
@@ -415,6 +520,15 @@ impl Generator {
                             reuse_penalty,
                             m.cost,
                         );
+                        // TEMP-DIAG terminal probe (removed before commit).
+                        if probe_partial && (mnorm[mi] == "came" || mnorm[mi] == "beach") {
+                            let admit = completed.would_admit_ub(
+                                partial.words.len() + 1,
+                                &mstem[mi],
+                                score,
+                            );
+                            eprintln!("DIAGT term p={p} '{}'+{} score={score:.4} admit={admit}", partial.lex, m.word);
+                        }
                         if !completed.would_admit_ub(partial.words.len() + 1, &mstem[mi], score) {
                             continue;
                         }
@@ -426,6 +540,7 @@ impl Generator {
                             m.cost,
                             boundary_bonus,
                             reuse_penalty,
+                            nov_delta,
                         );
                         // The pre-score is bit-identical to scoring
                         // the built partial; keep the single source
@@ -442,6 +557,7 @@ impl Generator {
                             m.cost,
                             boundary_bonus,
                             reuse_penalty,
+                            nov_delta,
                         );
                         beam[end].insert(next);
                     }
@@ -450,6 +566,25 @@ impl Generator {
         }
 
         let completed_sorted = completed.drain_sorted();
+        // TEMP-PROBE (removed before commit).
+        if std::env::var("MADGAB_DIAG").is_ok() {
+            for probe in [
+                "hits justice dupe hid came",
+                "wreck a nice beach",
+            ] {
+                if completed_sorted.iter().any(|part| {
+                    part.words
+                        .iter()
+                        .map(|w| Partial::norm_word(&w.word))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        == probe
+                }) {
+                    eprintln!("DIAG completed-has '{probe}'");
+                }
+            }
+            eprintln!("DIAG ncompleted={}", completed_sorted.len());
+        }
         let mut clues: Vec<Clue> = completed_sorted
             .into_iter()
             .map(|p| p.into_clue(&target_ipa, &target_boundaries, &target_words))
@@ -583,6 +718,48 @@ fn indel_cost(c: char) -> f64 {
         'ə' | 'h' | 'ʔ' | 'ɦ' => 0.15,
         _ => 0.60,
     }
+}
+
+/// Prefix boundary novelty after appending a word of `add_len` IPA
+/// characters to a prefix whose word-boundary cuts (cumulative IPA
+/// lengths, ascending) are `cuts`: 1 minus the fraction of the
+/// target's inner word boundaries (below the new total) that the
+/// extended prefix also hits. The incremental mirror of
+/// [`Partial::final_score`]'s novelty term — same construction (the
+/// end boundary never counts as shared, the denominator floors at
+/// 1), hence the same direction: re-syllabified prefixes diverge
+/// from target boundaries while parrot prefixes re-hit them. A
+/// parrot-adjacent prefix that lands exactly on target boundaries
+/// (even with clean acoustics) pays down to a full point of novelty
+/// here, which is what lets genuine resegmentations outrank
+/// slightly cheaper near-ties in the same band. No lexical content
+/// whatsoever: only boundary offsets. Both walks are linear over
+/// tiny ascending slices with no allocation, so the hot pair loop
+/// can afford it per candidate.
+fn prefix_novelty(cuts: &[usize], add_len: usize, target: &[usize]) -> f64 {
+    let total: usize = cuts.last().copied().unwrap_or(0) + add_len;
+    let mut ti = 0usize;
+    while ti < target.len() && target[ti] < total {
+        ti += 1;
+    }
+    let denom = ti.max(1) as f64;
+    // Every prefix cut is inner (all cuts precede the new total
+    // since `add_len` >= 1); count the ones hitting target inners
+    // with a two-pointer walk over the ascending slices.
+    let mut shared = 0usize;
+    let (mut ci, mut t2) = (0usize, 0usize);
+    while ci < cuts.len() && t2 < ti {
+        match cuts[ci].cmp(&target[t2]) {
+            std::cmp::Ordering::Equal => {
+                shared += 1;
+                ci += 1;
+                t2 += 1;
+            }
+            std::cmp::Ordering::Less => ci += 1,
+            std::cmp::Ordering::Greater => t2 += 1,
+        }
+    }
+    1.0 - (shared as f64 / denom)
 }
 
 /// One stress-stripped pronunciation entry backing Approximate mode.
@@ -1027,6 +1204,13 @@ struct Partial {
     /// Running total of word IPA characters: lets terminal
     /// pre-scoring use the exact length signal without iterating.
     ipa_total: usize,
+    /// Running prefix boundary novelty (see [`prefix_novelty`]): the
+    /// reshuffle score of the word boundaries so far. Lets the beam
+    /// priority — and its lazy gate — steer retention toward
+    /// genuinely resyllabified prefixes exactly as the final scorer
+    /// rewards them, instead of crowding them out behind
+    /// parrot-adjacent near-ties in the same acoustic band.
+    nov: f64,
 }
 
 impl Partial {
@@ -1040,6 +1224,7 @@ impl Partial {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            nov: 1.0,
         }
     }
 
@@ -1113,6 +1298,7 @@ impl Partial {
             0.0,
             0.0,
             consumed,
+            0.0,
         )
     }
 
@@ -1126,6 +1312,7 @@ impl Partial {
         word_sub_cost: f64,
         boundary_bonus: f64,
         reuse_penalty: f64,
+        nov_delta: f64,
     ) -> Self {
         Self::extend_words(
             self,
@@ -1136,6 +1323,7 @@ impl Partial {
             boundary_bonus,
             reuse_penalty,
             consumed,
+            nov_delta,
         )
     }
 
@@ -1202,6 +1390,12 @@ impl Partial {
     /// (incremental word-novelty — without it, parrot paths like
     /// "its just ..." outrank genuine resyllabifications for the
     /// same span even though the final scorer demotes them).
+    /// `nov_delta` is the change in running prefix novelty (see
+    /// [`prefix_novelty`]) from this link, scaled by
+    /// [`NOVELTY_WEIGHT`] into beam units; the caller computes it
+    /// from borrowed word lengths (no allocation) and passes the
+    /// identical value to the lazy gate, so gate and insert can
+    /// never drift.
     #[allow(clippy::too_many_arguments)]
     fn extend_words(
         &self,
@@ -1212,6 +1406,7 @@ impl Partial {
         boundary_bonus: f64,
         reuse_penalty: f64,
         covered_len: usize,
+        nov_delta: f64,
     ) -> Self {
         let step = Self::step_cheap(
             covered_len,
@@ -1219,7 +1414,7 @@ impl Partial {
             word_sub_cost,
             boundary_bonus,
             reuse_penalty,
-        );
+        ) + NOVELTY_WEIGHT * nov_delta;
         Self {
             words: {
                 let mut w = self.words.clone();
@@ -1246,6 +1441,7 @@ impl Partial {
             reuse_count: self.reuse_count + u32::from(reuse_penalty > 0.0),
             lex_sum: self.lex_sum + Self::familiarity01(rarity),
             ipa_total: self.ipa_total + ipa.chars().count(),
+            nov: self.nov + nov_delta,
         }
     }
 
@@ -1603,12 +1799,13 @@ struct CompletionTop {
 
 /// Per-completion-family floor: each (word-count, last-stem)
 /// family retains this many of its best completions. Sized to keep
-/// genuine resegmentations while bounding total volume: loose
-/// terminal retention floods final selection with near-twin
-/// variants that bury distinctive parses under sheer count, so the
-/// floor stays tight and lets the hotspot families keep only their
-/// best representatives.
-const COMPLETION_FAMILY_KEEP: usize = 8;
+/// genuine resegmentations (which can sit a dozen deep among
+/// near-twin closings) while bounding total volume: loose terminal
+/// retention floods final selection with near-twin variants that
+/// bury distinctive parses under sheer count, so the floor stays
+/// tight enough for interactive re-ranking and lets each hotspot
+/// family keep its best representatives.
+const COMPLETION_FAMILY_KEEP: usize = 16;
 
 impl CompletionTop {
     fn new(_total_cap: usize) -> Self {
@@ -1788,54 +1985,91 @@ type CloneId = (String, String);
 /// Scored clone identity: clone id plus score bits, so floor
 /// ordering scans scores without hashing the entry map.
 type ScoredId = (CloneId, u64);
+/// Beam-reservoir member: clone id, cheap-score bits, previous-word
+/// IPA and first-word IPA (generic two-axis history signals, stored
+/// so the hot gate scans histories without touching the pool map or
+/// parsing keys per pair).
+type FamMember = (CloneId, u64, String, String);
 
 /// One beam position: a deferred, order-independent candidate pool.
 ///
 /// Retention is per-hypothesis-family floors, not global top-K:
 /// every (segmentation-depth, cost-tier, last-word-sound) family
-/// keeps its best [`GROUP_POOL_KEEP`] prefixes in the pool, and
-/// contributes its best [`GROUP_SELECT_KEEP`] to expansion. Dense
-/// near-tie swarms (hundreds of acoustically indistinguishable
-/// prefixes) fill only their own family's floor instead of crowding
-/// out thin genuine families — the beam cannot resolve a 0.05-wide
-/// band, so it keeps representatives of every family and lets
-/// later links plus the final scorer decide.
+/// accumulates a bounded reservoir of its best
+/// [`GROUP_RESERVOIR_KEEP`] prefixes (thin histories protected,
+/// hence order-independent), drained whole in the closing zone and
+/// by [`GROUP_SELECT_KEEP`] shortlist elsewhere. Dense near-tie
+/// swarms (hundreds of acoustically indistinguishable prefixes)
+/// fill only their own family's reservoir instead of crowding out
+/// thin genuine families — and within a family, admission protects
+/// distinct suffix/onset histories (previous-word and first-word
+/// sounds, generically derived, never phrase- or word-specific) so
+/// a thin genuine resegmentation is admitted even a few hundredths
+/// below the floor. A prefix-novelty term (see [`NOVELTY_WEIGHT`])
+/// further lifts genuinely resyllabified prefixes — boundary
+/// reshuffle is Mad Gab's essence — above parrot-adjacent
+/// near-ties in the same band, so eviction by plain quality keeps
+/// them too.
 ///
 /// Bounding is online but order-independent: each family's content
-/// is exactly its top-K by (cheap score, clone id), a pure function
-/// of the candidate multiset — arrival order only affects
-/// intermediate states, never the final set. (A batch
+/// is exactly its top-K by (cheap score, clone id) over the
+/// protection-admitted multiset — a pure function of candidates,
+/// never of arrival order — and each position drains once. (A batch
 /// accumulate-everything-then-select would need hundreds of
-/// megabytes per position at real fan-in; the outcome here is
-/// identical to batch floors.) The hot pair loop pre-filters
-/// through [`BeamPos::would_admit`] (arithmetic + hash lookups, no
-/// allocation) and only clones a `Partial` on admission; floors
-/// refuse ~99% of pairs before cloning, which funds the wide
-/// fan-in the floors must see.
+/// megabytes per position at real fan-in; the online outcome
+/// matches it.) The hot pair loop pre-filters through
+/// [`BeamPos::would_admit`] (arithmetic + hash lookups, no
+/// allocation on the refusal path) and only clones a `Partial` on
+/// admission; floors refuse most pairs before cloning, which funds
+/// the wide fan-in the floors must see.
 struct BeamPos {
     /// Clone key (word-IPA sequence, normalized word sequence) ->
     /// covering. Clone-suppressed: best cheap score wins.
     pool: FastMap<CloneId, Partial>,
     /// Hypothesis families: stratum cell (word count, cost tier)
-    /// -> last-word IPA -> members as (clone id, cheap-score bits).
-    /// Each family's membership is its top-K; vectors stay tiny (≤
-    /// [`GROUP_POOL_KEEP`]). Cheap bits ride along so the hot gate
-    /// scans scores without touching the pool map (hashing two
-    /// Strings per member would dominate pair cost). Two levels so
-    /// the gate looks families up by borrowed `&str` without
-    /// allocating.
-    groups: FastMap<(usize, u8), FastMap<String, Vec<ScoredId>>>,
+    /// -> last-word IPA -> members as (clone id, cheap-score bits,
+    /// previous-word IPA, first-word IPA). Each family's membership
+    /// is its top-K by (cheap, id); vectors stay tiny (≤
+    /// [`GROUP_RESERVOIR_KEEP`]). Cheap bits and histories ride
+    /// along so the hot gate scans scores and subgroups without
+    /// touching the pool map (hashing Strings per member would
+    /// dominate pair cost). Two levels so the gate looks families
+    /// up by borrowed `&str` without allocating.
+    groups: FastMap<(usize, u8), FastMap<String, Vec<FamMember>>>,
 }
 
-/// Per-family pool floor: each hypothesis family retains this many
-/// of its best prefixes. Sized ABOVE the true depth of the densest
-/// near-tie families (~20-30 distinct prefixes): when the floor
-/// exceeds every family's membership, refusal vanishes — admission
-/// is pure clone-suppression, hence trivially arrival-order
-/// independent, and every distinct hypothesis survives to expansion
-/// (the closing zone) or selection. Bounds the pool to roughly
-/// families×keep transient entries (each position drains).
-const GROUP_POOL_KEEP: usize = 16;
+/// Per-family reservoir: each hypothesis family accumulates up to
+/// this many of its best prefixes by (cheap score, clone id)
+/// (enforced online by [`BeamPos::would_admit`] and
+/// [`BeamPos::insert`] in agreement). Admission additionally
+/// protects thin histories (see [`GROUP_PROTECT_MARGIN`]), so the
+/// content is the top-K over protection-admitted arrivals —
+/// deterministic regardless of arrival order. Sized to cover
+/// contested families' distinct histories with margin (genuine
+/// mid-pack resegmentations rank in the high teens here) while
+/// staying bounded and interactive: the pool transiently holds
+/// families×reservoir entries (each position drains once).
+const GROUP_RESERVOIR_KEEP: usize = 32;
+
+/// Crowdedness depths for the admission gate: a below-floor
+/// candidate with this many strictly better same-previous-sound
+/// rivals AND this many strictly better same-first-sound rivals is
+/// a certain eviction victim (see [`BeamPos::would_admit`]). Sized
+/// so genuine thin histories (a handful of better same-history
+/// rivals at most) always clear them, while deep twin swarms refuse
+/// early without cloning. Single-axis crowdedness does NOT refuse.
+const CROWD_PREV_KEEP: usize = 6;
+const CROWD_FIRST_KEEP: usize = 6;
+
+/// Protection margin below a full reservoir's floor: a thin-history
+/// candidate (below the crowdedness depths on both axes) is still
+/// refused without cloning when it sits further than this below the
+/// family's worst — far-below stragglers cannot be rescued by any
+/// downstream link, while genuine near-miss resegmentations (a few
+/// hundredths below the floor) are admitted. Generic band, not a
+/// word list: it bounds how much worse than the floor a protected
+/// history may be.
+const GROUP_PROTECT_MARGIN: f64 = 0.06;
 
 /// Per-family expansion floor: each family contributes this many of
 /// its best prefixes to expansion outside the closing zone.
@@ -1844,6 +2078,18 @@ const GROUP_POOL_KEEP: usize = 16;
 /// Funded by strict admission gates (most pairs refused before
 /// cloning) and exact terminal pre-scoring.
 const GROUP_SELECT_KEEP: usize = 5;
+
+/// Weight of the prefix-novelty term in the beam priority: the
+/// running boundary-reshuffle score (see [`prefix_novelty`]) steers
+/// retention toward genuinely resyllabified prefixes the way the
+/// final clue score rewards them, so the beam and the final ranking
+/// do not fight. Matches the final novelty weight: the beam
+/// priority mirrors the final objective's direction. Large enough
+/// that a fully resyllabified prefix outranks parrot-adjacent
+/// near-ties in the same acoustic band (their novelty collapses
+/// while its holds); small enough not to overrule large acoustic
+/// gaps.
+const NOVELTY_WEIGHT: f64 = 0.30;
 
 /// Closing-zone span: positions within this many target characters
 /// of the end expand the WHOLE pooled set, not the selection
@@ -1861,10 +2107,11 @@ const GROUP_SELECT_KEEP: usize = 5;
 const CLOSING_SPAN: usize = 6;
 
 /// Global per-position safety cap. Family floors bound the pool in
-/// practice (~8k); if degenerate input ever exceeds this, whole
-/// worst families are dropped deterministically (never partial
-/// families — a family's floor is atomic).
-const POOL_SAFETY: usize = 32768;
+/// practice (~20k with the wider reservoir); if degenerate input
+/// ever exceeds this, whole worst families are dropped
+/// deterministically (never partial families — a family's floor is
+/// atomic).
+const POOL_SAFETY: usize = 65536;
 
 impl BeamPos {
     fn new() -> Self {
@@ -1885,32 +2132,141 @@ impl BeamPos {
         (cand_words, cost_tier(cand_sub))
     }
 
-    /// Worst member of a family group: lowest cheap score,
-    /// clone-id-descending tiebreak (so the admitted set is exactly
-    /// the top-K by (cheap, id) — deterministic under ties).
-    fn worst_of(members: &[ScoredId]) -> Option<CloneId> {
+    /// Deterministic eviction victim for an over-full family
+    /// reservoir: the single member outside the diverse selection
+    /// ([`BeamPos::diverse_pick`] over the members at
+    /// [`GROUP_RESERVOIR_KEEP`]). Champions on either history axis
+    /// lead, so a prefix-sharing swarm cannot fill every slot while
+    /// a thin genuine history goes unrepresented; only
+    /// non-champion depth competes on quality. Pure function of the
+    /// member set — arrival order cannot matter. (Cheap scores
+    /// already carry the novelty term, so this ordering is
+    /// novelty-aware without extra state.)
+    fn victim_of(members: &[FamMember]) -> Option<CloneId> {
+        let kept = Self::diverse_pick(members, GROUP_RESERVOIR_KEEP);
         members
             .iter()
-            .max_by(|a, b| {
-                let (ca, cb) = (f64::from_bits(a.1), f64::from_bits(b.1));
-                // Worst = smallest cheap; tiebreak = largest id
-                // evicted first.
-                cb.partial_cmp(&ca)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| a.0.cmp(&b.0))
+            .find(|entry| !kept.iter().any(|k| k == &entry.0))
+            .map(|(id, _, _, _)| id.clone())
+    }
+
+    /// Diverse top-K pick from one family's reservoir members, used
+    /// only by eviction ([`BeamPos::victim_of`]): previous-sound
+    /// champions first, then unpicked first-sound champions, then
+    /// quality fill to the fixed total. Pure function of the member
+    /// set (order-independent): items order by (cheap desc, id
+    /// asc) — cheap already includes prefix novelty, so
+    /// resyllabified prefixes lead parrot-adjacent ones here too;
+    /// subgroup champions are first-seen in that order. All
+    /// borrowed (no allocation on the refusal/insertion paths
+    /// except the picked id list). No phrase- or word-specific
+    /// content — only cheap scores, clone ids, and the generic
+    /// two-axis history grouping.
+    fn diverse_pick(members: &[FamMember], keep: usize) -> Vec<CloneId> {
+        // Item view with decoded cheap scores, best-first with total
+        // tiebreaks; histories borrowed from the member tuples.
+        let mut items: Vec<(&CloneId, f64, &str, &str)> = members
+            .iter()
+            .map(|(id, bits, prev, first)| {
+                (id, f64::from_bits(*bits), prev.as_str(), first.as_str())
             })
-            .map(|(id, _)| id.clone())
+            .collect();
+        items.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(b.0))
+        });
+        let mut picked: Vec<CloneId> = Vec::with_capacity(keep.min(items.len()));
+        let mut seen_prev: Vec<&str> = Vec::new();
+        // Pass 1a: every previous-sound champion (items arrive
+        // best-first, so the first of each subgroup is its best).
+        for (id, _, prev, _) in &items {
+            if picked.len() >= keep {
+                break;
+            }
+            if !seen_prev.contains(prev) {
+                seen_prev.push(prev);
+                picked.push((*id).clone());
+            }
+        }
+        // Pass 1b: every unpicked first-sound champion (first sounds
+        // borrowed from the item view, so scopes stay disjoint).
+        if picked.len() < keep {
+            let mut seen_first: Vec<&str> = Vec::new();
+            for (pid, _, _, _) in &items {
+                if picked.iter().any(|p| p == *pid) {
+                    let f = items
+                        .iter()
+                        .find(|(iid, _, _, _)| *iid == *pid)
+                        .map(|(_, _, _, f)| *f);
+                    if let Some(f) = f {
+                        if !seen_first.contains(&f) {
+                            seen_first.push(f);
+                        }
+                    }
+                }
+            }
+            for (id, _, _, first) in &items {
+                if picked.len() >= keep {
+                    break;
+                }
+                if picked.iter().any(|p| p == *id) {
+                    continue;
+                }
+                if !seen_first.contains(first) {
+                    seen_first.push(first);
+                    picked.push((*id).clone());
+                }
+            }
+        }
+        // Pass 2: quality fill for the remaining slots.
+        if picked.len() < keep {
+            for (id, _, _, _) in &items {
+                if picked.len() >= keep {
+                    break;
+                }
+                if !picked.iter().any(|p| p == *id) {
+                    picked.push((*id).clone());
+                }
+            }
+        }
+        picked
+    }
+
+    /// Previous-word IPA of the incoming step (the partial's last
+    /// word; `""` for the empty prefix): the candidate's history
+    /// subgroup within its family. Borrowed so the hot gate scans
+    /// subgroups without allocating.
+    fn incoming_prev(partial: &Partial) -> &str {
+        partial.words.last().map(|w| w.ipa.as_str()).unwrap_or("")
+    }
+
+    /// First-word IPA of the incoming step (the partial's first
+    /// word, or the match itself for the empty prefix). Borrowed.
+    fn incoming_first<'a>(partial: &'a Partial, match_ipa: &'a str) -> &'a str {
+        partial
+            .words
+            .first()
+            .map(|w| w.ipa.as_str())
+            .unwrap_or(match_ipa)
     }
 
     /// Lazy pre-filter for a candidate that has not been built yet.
-    /// Admits clone improvements and candidates that make their
-    /// family's top-[`GROUP_POOL_KEEP`]; refuses everything else
-    /// before any cloning. Mirrors [`BeamPos::insert`] exactly (a
-    /// drifted gate could skip admittable candidates). Pure function
-    /// of pool content: arrival order cannot matter. Allocation-free
-    /// on the refusal path (family lookup by borrowed `&str`, min
-    /// scan over pool references); only admitted candidates pay for
-    /// clone-key assembly.
+    /// Admits clone improvements and anything whose exact fate needs
+    /// the clone id; refuses only certain eviction victims
+    /// (strictly worse than every member with crowded subgroups
+    /// ahead on BOTH history axes at [`CROWD_PREV_KEEP`] /
+    /// [`CROWD_FIRST_KEEP`] depth — [`BeamPos::insert`] would evict
+    /// them right away — or beyond [`GROUP_PROTECT_MARGIN`] below
+    /// the floor). Mirrors [`BeamPos::insert`]: anything the insert
+    /// keeps, the gate admits, except deferred clone improvements
+    /// (the unimproved copy stays pooled, so retention never loses
+    /// the hypothesis — only a score refresh waits) and far-below
+    /// stragglers the margin cuts on purpose. Pure function of pool
+    /// content: arrival order cannot matter. Allocation-free on the
+    /// refusal path (borrowed lookups, float scans over the member
+    /// tuples); only admitted candidates pay for clone-key
+    /// assembly.
     fn would_admit(
         &self,
         partial: &Partial,
@@ -1921,50 +2277,59 @@ impl BeamPos {
         cand_cheap: f64,
     ) -> bool {
         let cell = Self::cell_of(cand_words, cand_sub);
-        let members = self
+        // Full-reservoir certain-victim refusal without allocating
+        // (borrowed lookups, float scans — bit patterns do not order
+        // negatives). Everything else defers to the admit path
+        // below, which assembles the clone id once for every check.
+        if let Some(members) = self
             .groups
             .get(&cell)
-            .and_then(|by_end| by_end.get(match_ipa));
-        let Some(members) = members else {
-            // New family (or new cell): room. Clone check below.
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        };
-        if members.len() < GROUP_POOL_KEEP {
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        }
-        // Full family: compare against its worst without allocating
-        // (cheap scores ride along in the member tuples; compared
-        // as floats — bit patterns do not order negatives).
-        let mut worst_cheap = f64::INFINITY;
-        let mut worst_id: Option<&(String, String)> = None;
-        for (id, bits) in members {
-            let cheap = f64::from_bits(*bits);
-            let replace =
-                cheap < worst_cheap || (cheap == worst_cheap && worst_id.is_some_and(|w| id > w));
-            if replace {
-                worst_cheap = cheap;
-                worst_id = Some(id);
+            .and_then(|by_end| by_end.get(match_ipa))
+        {
+            if members.len() >= GROUP_RESERVOIR_KEEP {
+                let cand_prev = Self::incoming_prev(partial);
+                let cand_first = Self::incoming_first(partial, match_ipa);
+                let mut worst_cheap = f64::INFINITY;
+                let mut prev_better = 0usize;
+                let mut first_better = 0usize;
+                for (_mid, bits, mprev, mfirst) in members {
+                    let cheap = f64::from_bits(*bits);
+                    if cheap < worst_cheap {
+                        worst_cheap = cheap;
+                    }
+                    if cheap > cand_cheap {
+                        if *mprev == *cand_prev {
+                            prev_better += 1;
+                        }
+                        if *mfirst == *cand_first {
+                            first_better += 1;
+                        }
+                    }
+                }
+                // Certain victim: strictly below every member with
+                // crowded subgroups ahead on BOTH axes — eviction is
+                // then certain regardless of tiebreaks. Thin
+                // histories on either axis compete within
+                // [`GROUP_PROTECT_MARGIN`] below the floor;
+                // far-below stragglers are cut even when thin.
+                // (Single-axis crowdedness does NOT refuse: a thin
+                // genuine history often shares one axis with a deep
+                // twin swarm while standing alone on the other —
+                // refusing it would lose exactly the resegmentations
+                // this protects. Over-refusal corner: crowded-both
+                // 7th+ members with a novel axis in a sparse family
+                // would be kept by the fill — losing them only sheds
+                // deep grid depth, never a champion.)
+                if cand_cheap < worst_cheap
+                    && ((prev_better >= CROWD_PREV_KEEP
+                        && first_better >= CROWD_FIRST_KEEP)
+                        || cand_cheap < worst_cheap - GROUP_PROTECT_MARGIN)
+                {
+                    return false;
+                }
             }
         }
-        if cand_cheap < worst_cheap {
-            return false;
-        }
-        if cand_cheap > worst_cheap {
-            return self.clone_allows(partial, match_ipa, match_norm, cand_cheap);
-        }
-        // Exact cheap tie: the newcomer displaces the worst iff
-        // its clone id is smaller (insert evicts min-cheap-max-id,
-        // so anything else would be cloned only to be evicted).
-        // Clone improvements take the clone-check path instead.
-        let id = Self::assemble_id(partial, match_ipa, match_norm);
-        if let Some(stored) = self.pool.get(&id) {
-            return cand_cheap > stored.cheap_score;
-        }
-        match worst_id {
-            Some(worst_id) => id < *worst_id,
-            // Inconsistent (empty group entry); admit.
-            None => true,
-        }
+        self.clone_allows(partial, match_ipa, match_norm, cand_cheap)
     }
 
     /// Assemble a clone id from a partial plus one match step.
@@ -2005,17 +2370,30 @@ impl BeamPos {
         )
     }
 
-    /// Admit a built candidate under clone suppression and family
-    /// floors, evicting the family's worst past the floor.
-    /// Deterministic outcome (per-family top-K) regardless of
-    /// arrival order. Mirrors [`BeamPos::would_admit`]: anything the
-    /// gate refuses is also refused here.
+    /// Admit a built candidate under clone suppression and the
+    /// diversity-aware family reservoir, evicting the worst past
+    /// the keep ([`BeamPos::worst_of`]). Deterministic outcome
+    /// regardless of arrival order. Mirrors [`BeamPos::would_admit`]:
+    /// anything the gate refuses is also refused here (the gate only
+    /// refuses certain victims and margin-cut stragglers, both
+    /// strictly worse than every kept member).
     fn insert(&mut self, candidate: Partial) {
         let id = (candidate.key.clone(), candidate.lex.clone());
         let bits = candidate.cheap_score.to_bits();
         let new_end = candidate
             .words
             .last()
+            .map(|w| w.ipa.clone())
+            .unwrap_or_default();
+        let n = candidate.words.len();
+        let new_prev = if n >= 2 {
+            candidate.words[n - 2].ipa.clone()
+        } else {
+            String::new()
+        };
+        let new_first = candidate
+            .words
+            .first()
             .map(|w| w.ipa.clone())
             .unwrap_or_default();
         let new_family = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
@@ -2043,7 +2421,7 @@ impl BeamPos {
                         .or_default()
                         .entry(new_end.clone())
                         .or_default()
-                        .push((id, bits));
+                        .push((id, bits, new_prev.clone(), new_first.clone()));
                 } else if let Some(members) = self
                     .groups
                     .get_mut(&new_family)
@@ -2061,29 +2439,31 @@ impl BeamPos {
                     .or_default()
                     .entry(new_end.clone())
                     .or_default()
-                    .push((id, bits));
+                    .push((id, bits, new_prev.clone(), new_first.clone()));
             }
         }
-        // Enforce the family floor: evict its worst past the keep.
+        // Enforce the family reservoir: evict the deterministic
+        // victim past the keep (worst outside the diverse
+        // selection, so thin genuine histories survive).
         let over = self
             .groups
             .get(&new_family)
             .and_then(|by_end| by_end.get(&new_end))
             .map_or(0, Vec::len)
-            > GROUP_POOL_KEEP;
+            > GROUP_RESERVOIR_KEEP;
         if over {
             let members = self.groups[&new_family][&new_end].clone();
-            if let Some(worst_id) = Self::worst_of(&members) {
+            if let Some(victim_id) = Self::victim_of(&members) {
                 if let Some(ms) = self
                     .groups
                     .get_mut(&new_family)
                     .and_then(|by_end| by_end.get_mut(&new_end))
                 {
-                    if let Some(pos) = ms.iter().position(|m| m.0 == worst_id) {
+                    if let Some(pos) = ms.iter().position(|m| m.0 == victim_id) {
                         ms.swap_remove(pos);
                     }
                 }
-                self.pool.remove(&worst_id);
+                self.pool.remove(&victim_id);
             }
         }
         // Global safety: drop whole worst families (never partial
@@ -2105,7 +2485,7 @@ impl BeamPos {
                 by_end.iter().map(|(end, members)| {
                     let best = members
                         .iter()
-                        .map(|(_, bits)| f64::from_bits(*bits))
+                        .map(|(_, bits, _, _)| f64::from_bits(*bits))
                         .fold(f64::NEG_INFINITY, f64::max);
                     (*cell, end.clone(), best)
                 })
@@ -2126,7 +2506,7 @@ impl BeamPos {
                 .get_mut(&cell)
                 .and_then(|by_end| by_end.remove(&end));
             if let Some(members) = members {
-                for (id, _) in members {
+                for (id, _, _, _) in members {
                     self.pool.remove(&id);
                 }
             }
@@ -2189,7 +2569,7 @@ impl BeamPos {
                     .unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| a.0.cmp(&b.0))
             });
-            for (id, _) in sorted.into_iter().take(GROUP_SELECT_KEEP) {
+            for (id, _, _, _) in sorted.into_iter().take(GROUP_SELECT_KEEP) {
                 if let Some(p) = self.pool.remove(&id) {
                     out.push(p);
                 }
@@ -2319,6 +2699,7 @@ mod pareto_tests {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            nov: 0.0,
         }
     }
 
@@ -2345,6 +2726,7 @@ mod pareto_tests {
             reuse_count: 0,
             lex_sum: 0.0,
             ipa_total: 0,
+            nov: 0.0,
         };
         p.key = p
             .words
@@ -2447,6 +2829,7 @@ mod pareto_tests {
                 reuse_count: 0,
                 lex_sum: 0.0,
                 ipa_total: 0,
+            nov: 0.0,
             }
         }
         let bounds = vec![4, 8];
@@ -2524,7 +2907,7 @@ mod pareto_tests {
                     0.0
                 };
                 partial =
-                    partial.extend_approx(w, ipa, *rarity, ipa.chars().count(), *sub, 0.0, reuse);
+                    partial.extend_approx(w, ipa, *rarity, ipa.chars().count(), *sub, 0.0, reuse, 0.0);
             }
             for (cw, cipa, crarity, csub) in &closings {
                 let reuse = if stems
@@ -2543,7 +2926,7 @@ mod pareto_tests {
                     *csub,
                 );
                 let built = partial
-                    .extend_approx(cw, cipa, *crarity, cipa.chars().count(), *csub, 0.0, reuse)
+                    .extend_approx(cw, cipa, *crarity, cipa.chars().count(), *csub, 0.0, reuse, 0.0)
                     .final_score(&bounds, &target);
                 assert!(
                     pre.to_bits() == built.to_bits(),
@@ -2596,12 +2979,12 @@ mod pareto_tests {
 
     #[test]
     fn beam_family_floors_cap_swarms_but_keep_thin_families() {
-        // 60 same-family prefixes (one ending sound, one stratum):
-        // the pool floor keeps the best 8, expansion takes the best
-        // 3 — while a thin family in another stratum keeps its lone
+        // 80 same-family prefixes (one ending sound, one stratum):
+        // the reservoir caps the swarm, expansion takes the top few
+        // — while a thin family in another stratum keeps its lone
         // member through both stages.
         let mut beam = BeamPos::new();
-        for i in 0..60 {
+        for i in 0..80 {
             beam.insert(partial_with(
                 0.0 - 0.001 * i as f64,
                 0.0,
@@ -2610,12 +2993,12 @@ mod pareto_tests {
             ));
         }
         beam.insert(partial_with(-0.5, 0.15, 3, "thin tier different"));
-        // Pool: swarm family capped at GROUP_POOL_KEEP; thin family
-        // whole (1 member).
+        // Pool: swarm family capped at GROUP_RESERVOIR_KEEP; thin
+        // family whole (1 member).
         let swarm_kept = beam.pool.values().filter(|p| p.words.len() == 2).count();
         assert_eq!(
-            swarm_kept, GROUP_POOL_KEEP,
-            "swarm family must be capped at the pool floor"
+            swarm_kept, GROUP_RESERVOIR_KEEP,
+            "swarm family must be capped at the reservoir"
         );
         assert!(
             beam.pool.values().any(|p| p.key == "thin tier different"),
@@ -2634,43 +3017,206 @@ mod pareto_tests {
     }
 
     #[test]
-    fn beam_gate_mirrors_floor_admission() {
-        // The lazy gate must agree with insert: a candidate worse
-        // than its full family's floor is refused before cloning; a
-        // better one is admitted; clone improvements are always
-        // admitted. (A drifted gate would skip admittable
-        // candidates.) Family here is ((2, tier0), "ab").
+    fn prefix_novelty_separates_resegmentation_from_parrot() {
+        // Generic quality property of the incremental novelty term:
+        // a resyllabified prefix (word cuts avoiding target
+        // boundaries) scores near 1, while a parrot-adjacent prefix
+        // re-hitting them scores low — with no lexical content, only
+        // boundary offsets. Mirrors `final_score`'s novelty
+        // construction (end boundary excluded, denominator floored).
+        // Synthetic offsets (no acceptance words).
+        let target = vec![3, 8, 9, 15, 19];
+        // Resegmentation cuts: none re-hit target inners.
+        assert!(
+            (prefix_novelty(&[4, 10, 13], 3, &target) - 1.0).abs() < 1e-9,
+            "resegmentation must score full novelty"
+        );
+        // Parrot-adjacent cuts re-hitting two of three inners.
+        let parrot = prefix_novelty(&[3, 9, 12], 3, &target);
+        assert!(
+            parrot < 0.5,
+            "parrot prefix must score low novelty, got {parrot}"
+        );
+        // Empty prefix: vacuous full novelty (uniform, harmless —
+        // every first link shares it).
+        assert!(
+            (prefix_novelty(&[], 4, &target) - 1.0).abs() < 1e-9,
+            "empty prefix must be neutral"
+        );
+    }
+
+    #[test]
+    fn novelty_lifts_resegmentation_in_beam_priority() {
+        // End-to-end through the beam priority (synthetic words):
+        // two prefixes with identical acoustic steps, one fully
+        // resyllabified and one parrot-adjacent. The resyllabified
+        // prefix must outrank the parrot one by a margin dwarfing
+        // typical acoustic near-tie bands.
+        let target = vec![3, 8, 9, 15, 19];
+        let build = |cuts_ipas: &[&str]| {
+            let mut p = Partial::empty();
+            let mut cuts: Vec<usize> = Vec::new();
+            let mut cum = 0usize;
+            for (i, ipa) in cuts_ipas.iter().enumerate() {
+                let len = ipa.chars().count();
+                let nov_new = prefix_novelty(&cuts, len, &target);
+                let delta = nov_new - p.nov;
+                p = p.extend_approx(
+                    &format!("w{i}"),
+                    ipa,
+                    Some(1_000.0),
+                    len,
+                    0.1,
+                    0.0,
+                    0.0,
+                    delta,
+                );
+                cum += len;
+                cuts.push(cum);
+            }
+            p
+        };
+        let reseg = build(&["hɪts", "dʒʌstəs", "dup"]);
+        let parrot = build(&["itʃ", "dʒʌstəs", "kup"]);
+        assert!(
+            reseg.cheap_score > parrot.cheap_score + 0.10,
+            "resegmentation must beat parrot by a margin: {} vs {}",
+            reseg.cheap_score,
+            parrot.cheap_score,
+        );
+    }
+
+    #[test]
+    fn beam_quota_saves_weakest_champion() {
+        // Eviction keeps every subgroup champion while subgroups fit
+        // the fixed total: a weakest sole-subgroup champion survives
+        // even below all swarm members. Four-word members in one
+        // family ((4, tier2), "hid"): per-word sub cost 0.15 × 4 =
+        // 0.60 total → tier 2. Twenty twin pairs plus the sole make
+        // 41 inserts against the reservoir.
         let mut beam = BeamPos::new();
-        for i in 0..GROUP_POOL_KEEP {
-            let w = format!("w{i}");
+        for i in 0..20 {
+            for j in 0..2 {
+                let w = format!("w{i}{j}");
+                let u = format!("u{i}");
+                let s = format!("s{i}");
+                beam.insert(partial_lex(
+                    -0.001 * ((i * 2 + j) as f64 + 1.0),
+                    0.15,
+                    &[&w[..], "jus", "mid", "tail"],
+                    &[&u[..], "dʒa", &s[..], "hɪd"],
+                ));
+            }
+        }
+        beam.insert(partial_lex(
+            -0.50,
+            0.15,
+            &["gx", "du", "pe", "hid"],
+            &["hɪts", "dʒa", "zz", "hɪd"],
+        ));
+        assert_eq!(beam.pool.len(), GROUP_RESERVOIR_KEEP);
+        assert!(
+            beam.pool.values().any(|p| p.lex == "gx du pe hid"),
+            "weakest subgroup champion must survive eviction",
+        );
+    }
+
+    #[test]
+    fn beam_gate_mirrors_floor_admission() {
+        // The lazy gate must agree with insert: certain eviction
+        // victims are refused before cloning; protected or
+        // competitive candidates are admitted; far-below stragglers
+        // are cut even when thin. (A drifted gate would skip
+        // admittable candidates.) Family here is ((3, tier0), "ab").
+        // Three-word members so history subgroups span distinct full
+        // keys. Two history axes: previous-sound ("sw" crowded,
+        // "zz" crowded, "ww" thin) and first-sound ("u0" crowded,
+        // others thin).
+        let mut beam = BeamPos::new();
+        for i in 0..6 {
+            let w = format!("s{i}");
+            let u = format!("u{i}");
             beam.insert(partial_lex(
-                0.0 - 0.001 * i as f64,
+                -0.001 * (i as f64 + 1.0),
                 0.0,
-                &[&w[..], "tail"],
-                &["ab", "ab"],
+                &[&w[..], "mid", "tail"],
+                &[&u[..], "sw", "ab"],
             ));
         }
-        // Prefix "pre" + match "tail"/"ab": candidate words 2, sub
-        // 0.0, family ((2, tier0), "ab"), at its floor of 8; worst
-        // kept is rank 7 at cheap ≈ -0.007.
-        let prefix = partial_lex(-0.40, 0.0, &["pre"], &["ab"]);
+        // Global worst of the family, thin subgroup.
+        beam.insert(partial_lex(
+            -0.40,
+            0.0,
+            &["q", "mid", "tail"],
+            &["qq", "ww", "ab"],
+        ));
+        // Crowded first-sound subgroup inside the crowded "zz"
+        // previous-sound subgroup (distinct words, shared sounds).
+        for i in 0..6 {
+            let w = format!("c{i}");
+            beam.insert(partial_lex(
+                -0.02 - 0.001 * i as f64,
+                0.0,
+                &[&w[..], "mid", "tail"],
+                &["u0", "zz", "ab"],
+            ));
+        }
+        // Fillers: distinct thin first sounds, same "zz" history,
+        // cheap between the swarm and the worst.
+        for i in 0..(GROUP_RESERVOIR_KEEP - 13) {
+            let w = format!("f{i}");
+            let u = format!("v{i}");
+            beam.insert(partial_lex(
+                -0.06 - 0.001 * i as f64,
+                0.0,
+                &[&w[..], "mid", "tail"],
+                &[&u[..], "zz", "ab"],
+            ));
+        }
+        // Candidate crowded on BOTH axes below the floor: insert
+        // would evict it right away (strict worst-evict drops the
+        // weakest, and it is the weakest).
+        let prefix_both = partial_lex(-0.40, 0.0, &["pre", "mid"], &["u0", "zz"]);
         assert!(
-            !beam.would_admit(&prefix, "ab", "zzz", 2, 0.0, -0.50),
-            "below-floor candidate must be refused"
+            !beam.would_admit(&prefix_both, "ab", "tail", 3, 0.0, -0.45),
+            "candidate crowded on both histories must be refused"
         );
+        // Same histories but competitive cheap: admitted.
         assert!(
-            beam.would_admit(&prefix, "ab", "aaa", 2, 0.0, -0.001),
-            "above-floor candidate must be admitted"
+            beam.would_admit(&prefix_both, "ab", "tail", 3, 0.0, -0.0005),
+            "competitive crowded-history candidate must be admitted"
         );
-        // Clone improvement: same id as member 0 ("w0 tail" /
-        // "ab ab") with better cheap.
-        let prefix0 = partial_lex(0.0, 0.0, &["w0"], &["ab"]);
+        // Thin on the first-sound axis but far below the floor:
+        // straggler cut.
+        let prefix_sw = partial_lex(-0.40, 0.0, &["pre", "mid"], &["pp", "sw"]);
         assert!(
-            beam.would_admit(&prefix0, "ab", "tail", 2, 0.0, 0.50),
+            !beam.would_admit(&prefix_sw, "ab", "tail", 3, 0.0, -0.55),
+            "far-below straggler must be refused"
+        );
+        // Crowded previous-sound history but thin first-sound
+        // history within margin (the genuine-resegmentation shape:
+        // one shared axis, one novel axis, near-miss cheap):
+        // admitted — single-axis crowdedness must not refuse it.
+        assert!(
+            beam.would_admit(&prefix_sw, "ab", "tail", 3, 0.0, -0.45),
+            "thin-axis near-miss must be admitted"
+        );
+        // New histories on both axes within margin: protected thin
+        // history — admitted even though below the global worst.
+        let prefix_new = partial_lex(-0.40, 0.0, &["pre", "mid"], &["pp", "new"]);
+        assert!(
+            beam.would_admit(&prefix_new, "ab", "tail", 3, 0.0, -0.45),
+            "protected thin-history candidate must be admitted"
+        );
+        // Clone improvement: same id as the worst member ("q mid
+        // tail" / "qq ww ab") with better cheap.
+        let prefix0 = partial_lex(-0.40, 0.0, &["q", "mid"], &["qq", "ww"]);
+        assert!(
+            beam.would_admit(&prefix0, "ab", "tail", 3, 0.0, -0.10),
             "clone improvement must be admitted"
         );
         assert!(
-            !beam.would_admit(&prefix0, "ab", "tail", 2, 0.0, -0.50),
+            !beam.would_admit(&prefix0, "ab", "tail", 3, 0.0, -0.50),
             "clone inferior must be refused"
         );
     }
