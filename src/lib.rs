@@ -1580,6 +1580,32 @@ impl BeamPos {
             == 0
     }
 
+    /// Weakest member in a full cell whose last-word ending has
+    /// another representative. Evicting it preserves the set of
+    /// acoustically distinct endings already represented by the cell.
+    fn redundant_ending_worst(&self, cell: (usize, u8)) -> Option<usize> {
+        self.cell_members.get(&cell).and_then(|members| {
+            members
+                .iter()
+                .copied()
+                .filter(|&i| {
+                    self.entries[i]
+                        .words
+                        .last()
+                        .and_then(|w| self.ending_counts.get(&(cell, w.ipa.clone())))
+                        .copied()
+                        .unwrap_or(0)
+                        > 1
+                })
+                .min_by(|&a, &b| {
+                    self.entries[a]
+                        .cheap_score
+                        .partial_cmp(&self.entries[b].cheap_score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        })
+    }
+
     /// Weakest member the candidate strictly dominates (candidate
     /// at least as good on both axes and strictly better on one),
     /// if any. Deliberately strict (no EPSILON slack): eviction must
@@ -1709,12 +1735,33 @@ impl BeamPos {
         // ENDING_EPS of it. Endings are the perceptually salient
         // part of a clue; this guarantees every distinct ending a
         // foothold without growing the cell.
-        let victim = self
+        // At the hard cap, preserve established ending diversity.
+        // If a strict improvement can displace a member from an ending
+        // that already has another representative, do that before
+        // removing the cell's sole representative of an ending.
+        let strict_min = self
             .cell_min
             .get(&cell)
             .filter(|(_, min)| candidate.cheap_score > *min)
-            .map(|(idx, _)| *idx)
-            .or_else(|| self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total));
+            .map(|(idx, _)| *idx);
+        let victim = if strict_min.is_some() {
+            self.redundant_ending_worst(cell)
+                .filter(|&idx| candidate.cheap_score > self.entries[idx].cheap_score)
+                .or_else(|| {
+                    // No redundant ending can be improved: only evict
+                    // the scalar minimum when the candidate's own
+                    // ending is not already represented. A duplicate
+                    // must not churn out a unique ending.
+                    let cand_end = candidate.words.last().map(|w| w.ipa.as_str());
+                    let cand_end_count = cand_end
+                        .and_then(|ipa| self.ending_counts.get(&(cell, ipa.to_string())))
+                        .copied()
+                        .unwrap_or(0);
+                    if cand_end_count == 0 { strict_min } else { None }
+                })
+        } else {
+            self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total)
+        };
         if let Some(idx) = victim {
             self.replace(idx, candidate);
             return;
