@@ -319,15 +319,15 @@ impl Generator {
         // global resegmentation.  First retain a small set of promising
         // target-span structures; only then explore lexical alternatives
         // inside each retained structure.
+        /// One retained target span: the words that can fill it, and
+        /// the extremums of the score components they contribute.  The
+        /// extremums are what a span path is summarized by, so they are
+        /// computed once here rather than per candidate.
         #[derive(Clone)]
         struct SpanEdge {
             end: usize,
             matches: Vec<approx::FuzzyMatch>,
-            min_cost: f64,
-            max_familiarity: f64,
-            min_reused: usize,
-            min_syllables: usize,
-            max_syllables: usize,
+            extremes: SpanExtremes,
         }
 
         /// One word available to fill a span, with the score components
@@ -353,16 +353,14 @@ impl Generator {
             }
         }
 
+        /// A chain of target spans.  `extremes` summarizes every score
+        /// component the chain has committed to, and `shared` counts
+        /// the target inner boundaries it reproduces.
         #[derive(Clone)]
         struct SegPath {
             spans: Vec<(usize, usize)>,
-            /// Target inner boundaries this segmentation reproduces.
             shared: usize,
-            min_cost: f64,
-            max_familiarity_sum: f64,
-            min_reused: usize,
-            min_syllables_sum: usize,
-            max_syllables_sum: usize,
+            extremes: SpanExtremes,
             rank: f64,
         }
 
@@ -376,11 +374,37 @@ impl Generator {
         const LEXICAL_BRANCH_KEEP: usize = 10;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
 
+        // The score of the worst clue the ordinary beam already put in
+        // the pool.  This is the bar the search already commits to — it
+        // is the same pool size `final_keep` fixes above, not a new one.
+        // A span path is discarded outright only when its admissible
+        // bound is under it, which is sound: nothing the bound covers
+        // could have entered the output anyway.
+        let mut incumbent: Vec<f64> = completed
+            .iter()
+            .map(|p| {
+                p.metrics(
+                    &target_phrase,
+                    &target_boundaries,
+                    target_syllables,
+                    n,
+                    false,
+                )
+                .combined
+            })
+            .collect();
+        incumbent.sort_by(|a, b| cmp_desc(*a, *b));
+        let incumbent = incumbent
+            .get(final_keep - 1)
+            .copied()
+            .unwrap_or(f64::NEG_INFINITY);
+
         let target_inner: HashSet<usize> = target_boundaries
             .iter()
             .copied()
             .filter(|&b| b < n)
             .collect();
+        let target_inner_count = target_inner.len();
 
         let mut span_lattice: Vec<Vec<SpanEdge>> =
             (0..n).map(|_| Vec::new()).collect();
@@ -572,6 +596,16 @@ impl Generator {
                         )
                     })
                     .fold(0.0, f64::max);
+                let max_shape = selected
+                    .iter()
+                    .map(|m| {
+                        let word = self.fuzzy_lexicon.word(m.word_idx);
+                        lexical_shape_quality(
+                            &word.word,
+                            word_familiarity(word.rarity),
+                        )
+                    })
+                    .fold(0.0, f64::max);
                 let min_reused = usize::from(selected.iter().all(|m| {
                     let word = self.fuzzy_lexicon.word(m.word_idx);
                     target_phrase
@@ -593,14 +627,79 @@ impl Generator {
                 span_lattice[p].push(SpanEdge {
                     end,
                     matches: selected,
-                    min_cost,
-                    max_familiarity,
-                    min_reused,
-                    min_syllables,
-                    max_syllables,
+                    extremes: SpanExtremes {
+                        min_cost,
+                        max_familiarity,
+                        max_shape,
+                        min_reused,
+                        min_syllables,
+                        max_syllables,
+                    },
                 });
             }
         }
+
+        // Suffix relaxation over the span DAG: from every target offset,
+        // the least that finishing the target from there can be worth.
+        // A completion has to follow one path, so the relaxation joins
+        // the alternatives by taking, per axis, the value that holds
+        // whichever one it picks.  This is what makes
+        // [`span_score_bound`] admissible over a *partial* span path.
+        let mut tail: Vec<Option<SpanExtremes>> = vec![None; n + 1];
+        tail[n] = Some(SpanExtremes::ZERO);
+        for p in (0..n).rev() {
+            let mut acc: Option<SpanExtremes> = None;
+            for edge in &span_lattice[p] {
+                let Some(after) = tail[edge.end] else {
+                    continue;
+                };
+                acc = Some(match acc {
+                    None => edge.extremes.upper_plus(after),
+                    Some(so_far) => so_far.best_of(
+                        edge.extremes.upper_plus(after),
+                    ),
+                });
+            }
+            tail[p] = acc;
+        }
+
+        // Three keys, all built from the final scorer's own weights and
+        // all derived from the same per-span extremums:
+        //
+        // * [`partial_span_score`] ranks the representatives kept inside
+        //   a DP state,
+        // * [`complete_span_score`] orders the finished structures the
+        //   lexical enumeration expands,
+        // * [`span_score_bound`] is the admissible one, and is the only
+        //   key allowed to discard a path outright.
+        let span_partial = |words: usize, s: &SegPath| -> f64 {
+            partial_span_score(s.extremes, words, target_syllables)
+        };
+
+        let span_objective = |words: usize, s: &SegPath| -> f64 {
+            complete_span_score(
+                s.extremes,
+                words,
+                s.shared,
+                target_inner_count,
+                target_syllables,
+            )
+        };
+
+        let span_bound = |at: usize, words: usize, s: &SegPath| -> f64 {
+            let Some(tail) = tail[at] else {
+                return f64::NEG_INFINITY;
+            };
+            span_score_bound(
+                s.extremes,
+                tail,
+                words,
+                s.shared,
+                n - at,
+                target_inner_count,
+                target_syllables,
+            )
+        };
 
         // Structural DP.  For a fixed (position, word count, number of
         // shared target boundaries), all future structural possibilities
@@ -621,11 +720,7 @@ impl Generator {
             vec![SegPath {
                 spans: Vec::new(),
                 shared: 0,
-                min_cost: 0.0,
-                max_familiarity_sum: 0.0,
-                min_reused: 0,
-                min_syllables_sum: 0,
-                max_syllables_sum: 0,
+                extremes: SpanExtremes::ZERO,
                 rank: 0.0,
             }],
         );
@@ -637,7 +732,7 @@ impl Generator {
                     for edge in &span_lattice[p] {
                         let next_words = word_count + 1;
                         if next_words > max_words
-                            || path.min_cost + edge.min_cost
+                            || path.extremes.min_cost + edge.extremes.min_cost
                                 > total_budget + 1e-9
                         {
                             continue;
@@ -651,39 +746,30 @@ impl Generator {
                         let mut spans = path.spans.clone();
                         spans.push((p, edge.end));
 
-                        let min_cost = path.min_cost + edge.min_cost;
-                        let max_familiarity_sum =
-                            path.max_familiarity_sum
-                                + edge.max_familiarity;
-                        let min_reused =
-                            path.min_reused + edge.min_reused;
-                        let min_syllables_sum = path.min_syllables_sum
-                            + edge.min_syllables;
-                        let max_syllables_sum = path.max_syllables_sum
-                            + edge.max_syllables;
-                        let denom = next_words as f64;
-                        let rank = -0.1125 * min_cost
-                            + 0.15 * max_familiarity_sum / denom
-                            - 0.10 * min_reused as f64 / denom
-                            + 0.30
-                                * rhythm_match_in(
-                                    min_syllables_sum,
-                                    max_syllables_sum,
-                                    target_syllables,
-                                );
+                        let extended = SegPath {
+                            spans: Vec::new(),
+                            shared: next_shared,
+                            extremes: path.extremes
+                                .upper_plus(edge.extremes),
+                            rank: 0.0,
+                        };
+
+                        // A path whose admissible bound is already under
+                        // the incumbent cannot enter the output, so it is
+                        // not carried forward at all.
+                        if span_bound(edge.end, next_words, &extended)
+                            < incumbent
+                        {
+                            continue;
+                        }
 
                         let bucket = seg_states[edge.end]
                             .entry((next_words, next_shared))
                             .or_default();
                         bucket.push(SegPath {
                             spans,
-                            shared: next_shared,
-                            min_cost,
-                            max_familiarity_sum,
-                            min_reused,
-                            min_syllables_sum,
-                            max_syllables_sum,
-                            rank,
+                            rank: span_partial(next_words, &extended),
+                            ..extended
                         });
                         bucket.sort_by(|a, b| cmp_desc(a.rank, b.rank));
                         bucket.truncate(SEG_STATE_KEEP);
@@ -692,38 +778,17 @@ impl Generator {
             }
         }
 
-        let target_inner_count = target_inner.len();
         let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
-        for ((word_count, shared), paths) in
+        for ((word_count, _shared), paths) in
             std::mem::take(&mut seg_states[n])
         {
             if word_count == 0 {
                 continue;
             }
-            let clue_inner = word_count.saturating_sub(1);
-            let union = target_inner_count + clue_inner - shared;
-            let novelty = if union == 0 {
-                0.0
-            } else {
-                1.0 - shared as f64 / union as f64
-            };
-            let denom = word_count as f64;
             for path in paths {
-                let upper = 0.25
-                    * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
-                    + 0.15 * novelty
-                    + 0.15
-                        * (1.0
-                            - path.min_reused as f64 / denom)
-                    + 0.10 * path.max_familiarity_sum / denom
-                    + 0.30
-                        * rhythm_match_in(
-                            path.min_syllables_sum,
-                            path.max_syllables_sum,
-                            target_syllables,
-                        )
-                    + 0.05;
-                segmentations.push((upper, path));
+                // The path is complete here, so novelty is exact and
+                // the scorer's own weights apply without reservation.
+                segmentations.push((span_objective(word_count, &path), path));
             }
         }
         segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
@@ -1660,6 +1725,215 @@ fn rhythm_match(clue_syllables: usize, target_syllables: usize) -> f64 {
 }
 
 // -----------------------------------------------------------------
+// Bounds over the approximate lattice
+// -----------------------------------------------------------------
+
+/// Extremums of the score components contributed by a run of target
+/// spans.  Each field is extremized in the direction that can only
+/// *raise* the final score, so a run summarized this way dominates
+/// every alignment it can actually produce.
+///
+/// Syllables are a range rather than an extremum, because the rhythm
+/// axis reads a range: a clue whose chosen words sum to some syllable
+/// count inside `min_syllables..=max_syllables` scores no worse than
+/// one that lands on the closest end.
+#[derive(Clone, Copy, Debug)]
+struct SpanExtremes {
+    min_cost: f64,
+    max_familiarity: f64,
+    max_shape: f64,
+    min_reused: usize,
+    min_syllables: usize,
+    max_syllables: usize,
+}
+
+impl SpanExtremes {
+    const ZERO: SpanExtremes = SpanExtremes {
+        min_cost: 0.0,
+        max_familiarity: 0.0,
+        max_shape: 0.0,
+        min_reused: 0,
+        min_syllables: 0,
+        max_syllables: 0,
+    };
+
+    /// Add a run in front of this one.  Used to relax a prefix into a
+    /// whole path: each field is the best the concatenation can offer.
+    fn upper_plus(self, other: SpanExtremes) -> SpanExtremes {
+        SpanExtremes {
+            min_cost: self.min_cost + other.min_cost,
+            max_familiarity: self.max_familiarity + other.max_familiarity,
+            max_shape: self.max_shape + other.max_shape,
+            min_reused: self.min_reused + other.min_reused,
+            min_syllables: self.min_syllables + other.min_syllables,
+            max_syllables: self.max_syllables + other.max_syllables,
+        }
+    }
+
+    /// Join two candidate continuations by taking, per axis, the value
+    /// that holds whichever one a completion picks.  Used to relax the
+    /// rest of the target: any completion follows one path through the
+    /// span DAG, so the bound has to hold for the best of the options,
+    /// not the worst.  That means the `min_*` fields are minimized and
+    /// the `max_*` fields maximized.
+    fn best_of(self, other: SpanExtremes) -> SpanExtremes {
+        SpanExtremes {
+            min_cost: self.min_cost.min(other.min_cost),
+            max_familiarity: self.max_familiarity.max(other.max_familiarity),
+            max_shape: self.max_shape.max(other.max_shape),
+            min_reused: self.min_reused.min(other.min_reused),
+            min_syllables: self.min_syllables.min(other.min_syllables),
+            max_syllables: self.max_syllables.max(other.max_syllables),
+        }
+    }
+}
+
+/// Boundary novelty is the one axis that is not a sum over spans: it
+/// compares the clue's inner cuts with the target's as sets.
+///
+/// The two counts cannot be chosen independently.  A clue inner cut that
+/// lands on a target inner boundary is counted in *both* the shared set
+/// and the clue's own set, so naming `added` the boundaries a completion
+/// adds to the shared count and `clue_inner` the clue's final inner cut
+/// count, the reachable triples satisfy
+///
+/// ```text
+/// shared_final = shared + added
+/// clue_inner  >= max(words - 1, shared, added)
+/// ```
+///
+/// and the novelty is `1 - shared_final / (clue_inner + target_inner -
+/// shared_final)`.  That ratio is *not* monotone in `added` on its own,
+/// so rather than reason about which extreme wins, the maximum is taken
+/// over the small set of reachable `added` values directly.  The result
+/// is an upper bound, and because the search only ever uses it to discard
+/// a span path, a loose one costs time and never quality.
+fn novelty_upper_bound(
+    words: usize,
+    shared: usize,
+    still_possible: usize,
+    target_inner: usize,
+) -> f64 {
+    let reachable = still_possible.min(target_inner.saturating_sub(shared));
+    let clue_floor = words.saturating_sub(1).max(shared);
+    let mut best = 0.0_f64;
+    for added in 0..=reachable {
+        let clue_inner = clue_floor.max(added);
+        let union = clue_inner + target_inner - shared - added;
+        if union == 0 {
+            continue;
+        }
+        let novelty = 1.0 - (shared + added) as f64 / union as f64;
+        best = best.max(novelty);
+    }
+    best.clamp(0.0, 1.0)
+}
+
+/// Score of a span path that is still open, in the final scorer's own
+/// weights.
+///
+/// Boundary novelty is deliberately absent.  It is a function of where
+/// the path *ends*, so scoring an open path as if it had ended credits
+/// it with a novelty it has not earned, and the shorter the path the
+/// more inflated that credit is — which is precisely the bias that
+/// makes a "rank" built this way prefer short paths.  Every other axis
+/// is already fixed by the path taken so far.
+fn partial_span_score(
+    ext: SpanExtremes,
+    words: usize,
+    target_syllables: usize,
+) -> f64 {
+    let denom = words.max(1) as f64;
+    -0.0625 * ext.min_cost
+        + 0.10 * ext.max_familiarity / denom
+        - 0.15 * ext.min_reused as f64 / denom
+        + 0.30 * rhythm_match_in(
+            ext.min_syllables,
+            ext.max_syllables,
+            target_syllables,
+        )
+        + 0.05 * ext.max_shape / denom
+}
+
+/// Score of a *finished* span path, where boundary novelty is exact.
+/// This is the same quantity the final scorer will compute for the best
+/// alignment of this structure, so it is the right key for ordering
+/// the structures the lexical enumeration expands.
+fn complete_span_score(
+    ext: SpanExtremes,
+    words: usize,
+    shared: usize,
+    target_inner: usize,
+    target_syllables: usize,
+) -> f64 {
+    let denom = words.max(1) as f64;
+    let union = words.saturating_sub(1) + target_inner - shared;
+    let novelty = if union == 0 {
+        0.0
+    } else {
+        (1.0 - shared as f64 / union as f64).clamp(0.0, 1.0)
+    };
+    0.25 * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+        + 0.15 * novelty
+        + 0.15 * (1.0 - ext.min_reused as f64 / denom)
+        + 0.10 * ext.max_familiarity / denom
+        + 0.30 * rhythm_match_in(
+            ext.min_syllables,
+            ext.max_syllables,
+            target_syllables,
+        )
+        + 0.05 * ext.max_shape / denom
+}
+
+/// Admissible upper bound on the final score of *every* alignment
+/// reachable through a span path.
+///
+/// `head` summarizes the spans already taken and `tail` summarizes every
+/// way of finishing the target from where the path currently stands.
+/// Relaxing both upward and taking the scorer's own weights gives, for
+/// every axis, a value no reachable alignment can beat:
+///
+/// * `similarity` falls with cost, so the cheapest possible tail wins;
+/// * `word_novelty` falls with reuse, so the least-reusing tail wins,
+///   divided by the *smallest* word count the path can end at;
+/// * `familiarity` and `shape` rise with the words chosen, so the
+///   most favorable tail wins, again over the smallest word count;
+/// * `rhythm` peaks when the syllable total lands on the target's, and
+///   the reachable totals lie inside the relaxed range, whose closest
+///   point to the target is what `rhythm_match_in` returns;
+/// * `novelty` is bounded by [`novelty_upper_bound`].
+///
+/// Being sound rather than tight, this is the right key for discarding a
+/// path outright and the wrong key for ranking one against another.
+fn span_score_bound(
+    head: SpanExtremes,
+    tail: SpanExtremes,
+    words: usize,
+    shared: usize,
+    still_possible: usize,
+    target_inner: usize,
+    target_syllables: usize,
+) -> f64 {
+    let ext = head.upper_plus(tail);
+    let denom = words.max(1) as f64;
+    0.25 * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+        + 0.15 * novelty_upper_bound(
+            words,
+            shared,
+            still_possible,
+            target_inner,
+        )
+        + 0.15 * (1.0 - ext.min_reused as f64 / denom)
+        + 0.10 * ext.max_familiarity / denom
+        + 0.30 * rhythm_match_in(
+            ext.min_syllables,
+            ext.max_syllables,
+            target_syllables,
+        )
+        + 0.05 * ext.max_shape / denom
+}
+
+// -----------------------------------------------------------------
 // Final proposal diversity
 // -----------------------------------------------------------------
 
@@ -1910,6 +2184,435 @@ mod tests {
         assert!((rhythm_match(6, 6) - 1.0).abs() < 1e-9);
         assert!((rhythm_match(7, 6) - 0.5).abs() < 1e-9);
         assert!(rhythm_match(9, 6).abs() < 1e-9);
+    }
+
+    // -----------------------------------------------------------------
+    // Reachability: the bounds that decide what the approximate search
+    // is allowed to drop.
+    // -----------------------------------------------------------------
+
+    fn approximate_generator(top_n: usize) -> Generator {
+        Generator::from_json(
+            open_english_pronouncing_dictionary::CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap()
+    }
+
+    /// Score of an explicit word sequence, by cheapest alignment over
+    /// the target stream, with the real final scorer.
+    fn score_alignment(
+        g: &Generator,
+        target: &str,
+        words: &[&str],
+    ) -> Option<f64> {
+        let (ipa, boundaries, syllables) =
+            transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+        let chars: Vec<char> = ipa.chars().collect();
+        let total = chars.len();
+        let target_phrase = TargetPhrase::new(target);
+
+        let mut at = 0usize;
+        let mut partial = Partial::empty();
+        for &w in words {
+            let wanted = w.to_lowercase();
+            let mut best: Option<approx::FuzzyMatch> = None;
+            for m in g.fuzzy_lexicon.matches_at(&chars, at, 0.5, 1) {
+                let word = g.fuzzy_lexicon.word(m.word_idx);
+                if word.word.to_lowercase() != wanted {
+                    continue;
+                }
+                if best.is_some() && best.unwrap().cost <= m.cost {
+                    continue;
+                }
+                best = Some(m);
+            }
+            let m = best?;
+            partial = partial.extend_fuzzy(
+                g.fuzzy_lexicon.word(m.word_idx),
+                m.consumed,
+                m.cost,
+            );
+            at += m.consumed;
+        }
+        if at != total {
+            return None;
+        }
+        Some(
+            partial
+                .metrics(&target_phrase, &boundaries, syllables, total, false)
+                .combined,
+        )
+    }
+
+    /// Per-span extremums over the *whole* fuzzy lattice (not the
+    /// search's shortlist), and the suffix relaxation over the resulting
+    /// span DAG.  Taking the extremums over everything the lattice
+    /// offers keeps this reference strictly more generous than the
+    /// search's own summary, so a violation is the search's fault.
+    fn lattice_spans_and_tail(
+        g: &Generator,
+        target: &str,
+    ) -> (Vec<Vec<(usize, SpanExtremes)>>, Vec<Option<SpanExtremes>>) {
+        let (ipa, _, _) =
+            transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+        let chars: Vec<char> = ipa.chars().collect();
+        let n = chars.len();
+        let mut spans: Vec<Vec<(usize, SpanExtremes)>> =
+            (0..n).map(|_| Vec::new()).collect();
+        for p in 0..n {
+            let lattice = g.fuzzy_lexicon.matches_at(&chars, p, 0.5, 1);
+            let mut ends: Vec<usize> =
+                lattice.iter().map(|m| p + m.consumed).collect();
+            ends.sort_unstable();
+            ends.dedup();
+            for end in ends {
+                let mut ext = SpanExtremes {
+                    min_cost: f64::INFINITY,
+                    max_familiarity: 0.0,
+                    max_shape: 0.0,
+                    min_reused: usize::MAX,
+                    min_syllables: usize::MAX,
+                    max_syllables: 0,
+                };
+                for m in lattice.iter().filter(|m| p + m.consumed == end) {
+                    let word = g.fuzzy_lexicon.word(m.word_idx);
+                    let familiarity = word_familiarity(word.rarity);
+                    ext.min_cost = ext.min_cost.min(m.cost);
+                    ext.max_familiarity =
+                        ext.max_familiarity.max(familiarity);
+                    ext.max_shape = ext.max_shape.max(
+                        lexical_shape_quality(&word.word, familiarity),
+                    );
+                    ext.min_syllables =
+                        ext.min_syllables.min(word.syllables);
+                    ext.max_syllables =
+                        ext.max_syllables.max(word.syllables);
+                }
+                // Reuse is a property of the target's own words, and the
+                // lattice can contain both reusing and fresh words for
+                // one span, so the minimum here is zero.
+                ext.min_reused = 0;
+                spans[p].push((end, ext));
+            }
+        }
+        let mut tail: Vec<Option<SpanExtremes>> = vec![None; n + 1];
+        tail[n] = Some(SpanExtremes::ZERO);
+        for p in (0..n).rev() {
+            let mut acc: Option<SpanExtremes> = None;
+            for (end, ext) in &spans[p] {
+                let Some(after) = tail[*end] else { continue };
+                let joined = ext.upper_plus(after);
+                acc = Some(match acc {
+                    None => joined,
+                    Some(so_far) => so_far.best_of(joined),
+                });
+            }
+            tail[p] = acc;
+        }
+        (spans, tail)
+    }
+
+    /// Concrete alignments of real targets, to check the bounds against.
+    /// Deliberately not restricted to what the search returns.
+    fn reachability_corpus() -> Vec<(&'static str, Vec<Vec<&'static str>>)> {
+        vec![
+            (
+                "It's just a stupid game",
+                vec![
+                    vec!["hits", "justice", "dupe", "hid", "came"],
+                    vec!["it", "justice", "two", "end", "game"],
+                    vec!["ich", "just", "a", "stoop", "a", "gave"],
+                ],
+            ),
+            (
+                "recognize speech",
+                vec![
+                    vec!["wreck", "a", "nice", "beach"],
+                    vec!["wreck", "a", "now", "spits"],
+                    vec!["reckon", "i", "speaks"],
+                ],
+            ),
+            (
+                "I love you",
+                vec![
+                    vec!["eye", "love", "you"],
+                    vec!["alive", "views"],
+                ],
+            ),
+        ]
+    }
+
+    #[test]
+    fn novelty_upper_bound_dominates_every_reachable_jaccard() {
+        for words in 1..8usize {
+            for shared in 0..=3usize {
+                for still in 0..8usize {
+                    let ub = novelty_upper_bound(words, shared, still, 4);
+                    for clue_inner in 0..words {
+                        for target_shared in 0..=4usize {
+                            // Only reachable triples: a boundary the path
+                            // already shares is also one of the clue's own
+                            // inner cuts, and the counts only grow.
+                            if target_shared < shared
+                                || clue_inner < shared
+                                || target_shared - shared > clue_inner
+                            {
+                                continue;
+                            }
+                            let union = clue_inner + 4 - target_shared;
+                            let novelty = if union == 0 {
+                                0.0
+                            } else {
+                                1.0 - target_shared as f64 / union as f64
+                            };
+                            assert!(
+                                ub + 1e-12 >= novelty,
+                                "words={words} shared={shared} still={still} \
+                                 clue_inner={clue_inner} \
+                                 target_shared={target_shared}: \
+                                 bound {ub} below {novelty}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The load-bearing property: the value the search computes for a
+    /// span structure must be at least what the real final scorer gives
+    /// every alignment of it, and the admissible bound must dominate
+    /// even before the structure has finished.  If this fails, the
+    /// search is discarding alignments for a reason that has nothing to
+    /// do with how good they are.
+    #[test]
+    fn structural_bounds_dominate_the_real_scorer() {
+        let g = approximate_generator(10);
+        for (target, candidates) in reachability_corpus() {
+            let (ipa, boundaries, syllables) =
+                transcribe_with_boundaries(g.corpus(), target, true)
+                    .unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let total = chars.len();
+            let target_inner = boundaries
+                .iter()
+                .copied()
+                .filter(|&b| b < total)
+                .count();
+            let (spans, tail) = lattice_spans_and_tail(&g, target);
+            let tail = tail[0].expect("every target has a span path");
+
+            for words in candidates {
+                let Some(score) =
+                    score_alignment(&g, target, &words)
+                else {
+                    continue;
+                };
+
+                // Rebuild the structure this alignment occupies.
+                let mut at = 0usize;
+                let mut head = SpanExtremes::ZERO;
+                let mut shared = 0usize;
+                let mut followed = true;
+                for &w in &words {
+                    let wanted = w.to_lowercase();
+                    let found = g
+                        .fuzzy_lexicon
+                        .matches_at(&chars, at, 0.5, 1)
+                        .into_iter()
+                        .filter(|m| {
+                            g.fuzzy_lexicon
+                                .word(m.word_idx)
+                                .word
+                                .to_lowercase()
+                                == wanted
+                        })
+                        .min_by(|a, b| {
+                            a.cost.partial_cmp(&b.cost).unwrap_or(
+                                std::cmp::Ordering::Equal,
+                            )
+                        });
+                    let Some(m) = found else {
+                        followed = false;
+                        break;
+                    };
+                    let end = at + m.consumed;
+                    let Some((_, ext)) =
+                        spans[at].iter().find(|(e, _)| *e == end)
+                    else {
+                        followed = false;
+                        break;
+                    };
+                    head = head.upper_plus(*ext);
+                    if end < total && boundaries.contains(&end) {
+                        shared += 1;
+                    }
+                    at = end;
+                }
+                assert!(
+                    followed && at == total,
+                    "{target:?} {words:?} does not follow the lattice"
+                );
+
+                let keyed = complete_span_score(
+                    head,
+                    words.len(),
+                    shared,
+                    target_inner,
+                    syllables,
+                );
+                assert!(
+                    keyed + 1e-12 >= score,
+                    "{target:?} {words:?}: structure key {keyed} is below \
+                     the real score {score}"
+                );
+
+                let bound = span_score_bound(
+                    SpanExtremes::ZERO,
+                    tail,
+                    words.len(),
+                    0,
+                    total,
+                    target_inner,
+                    syllables,
+                );
+                assert!(
+                    bound + 1e-12 >= score,
+                    "{target:?} {words:?}: admissible bound {bound} is \
+                     below the real score {score}"
+                );
+            }
+        }
+    }
+
+    /// The property the whole front exists for: an alignment that the
+    /// fuzzy lattice offers and that scores well enough to belong in the
+    /// output must actually be in the pool the search enumerates.
+    ///
+    /// The reference is an independent beam over the fuzzy lattice, keyed
+    /// on the *real* final scorer, so it does not share the search's span
+    /// DP, its per-span shortlist or its lexical enumeration.  Whatever
+    /// it finds at or above the top-`n` cutoff has to be present.
+    #[test]
+    fn high_scoring_lattice_alignments_survive_into_the_enumerated_pool() {
+        /// Partials kept per target offset by the reference beam.  Wide
+        /// enough that a good resegmentation is not pruned purely for
+        /// having an expensive word in it.
+        const REFERENCE_KEEP: usize = 24;
+
+        for (target, _) in reachability_corpus() {
+            let pool = approximate_generator(4096).generate(target);
+            assert!(!pool.is_empty(), "{target:?} produced no clues");
+            let mut ranked = pool.clone();
+            ranked.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let cutoff = ranked[9].score;
+            let signatures: HashSet<String> = pool
+                .iter()
+                .map(|c| phrase_signature(&c.phrase))
+                .collect();
+
+            let g = approximate_generator(10);
+            let (ipa, boundaries, syllables) =
+                transcribe_with_boundaries(g.corpus(), target, true)
+                    .unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let total = chars.len();
+            let target_phrase = TargetPhrase::new(target);
+            let mut beam: Vec<Partial> = vec![Partial::empty()];
+            let mut reference_best = f64::NEG_INFINITY;
+
+            for at in 0..total {
+                let mut next: Vec<Partial> = Vec::new();
+                for partial in &beam {
+                    if partial.sub_cost_total > 1.5 + 1e-9 {
+                        continue;
+                    }
+                    let remaining = 1.5 - partial.sub_cost_total;
+                    for m in
+                        g.fuzzy_lexicon.matches_at(&chars, at, 0.5, 1)
+                    {
+                        if m.cost > remaining + 1e-9 {
+                            continue;
+                        }
+                        next.push(partial.extend_fuzzy(
+                            g.fuzzy_lexicon.word(m.word_idx),
+                            m.consumed,
+                            m.cost,
+                        ));
+                    }
+                }
+                next.sort_by(|a, b| {
+                    let sa = a.metrics(
+                        &target_phrase,
+                        &boundaries,
+                        syllables,
+                        total,
+                        true,
+                    )
+                    .combined;
+                    let sb = b.metrics(
+                        &target_phrase,
+                        &boundaries,
+                        syllables,
+                        total,
+                        true,
+                    )
+                    .combined;
+                    cmp_desc(sa, sb).then_with(|| a.key.cmp(&b.key))
+                });
+                // Distinct alignments only: the reference is about which
+                // resegmentations are reachable, not about how many
+                // spellings of one resegmentation exist.
+                let mut seen: HashSet<String> = HashSet::new();
+                next.retain(|p| seen.insert(p.key.clone()));
+                next.truncate(REFERENCE_KEEP);
+                for p in &next {
+                    if p.cuts.last().copied() == Some(total) {
+                        let score = p
+                            .metrics(
+                                &target_phrase,
+                                &boundaries,
+                                syllables,
+                                total,
+                                false,
+                            )
+                            .combined;
+                        reference_best = reference_best.max(score);
+                        if score + 1e-12 >= cutoff {
+                            let phrase: Vec<&str> = p
+                                .words
+                                .iter()
+                                .map(|w| w.word.as_str())
+                                .collect();
+                            let signature = phrase_signature(&phrase.join(" "));
+                            assert!(
+                                signatures.contains(&signature),
+                                "{target:?}: the reference beam found \
+                                 {signature:?} scoring {score}, at or \
+                                 above the {cutoff} top-10 cutoff, but the \
+                                 search did not enumerate it"
+                            );
+                        }
+                    }
+                }
+                beam = next;
+            }
+            assert!(
+                reference_best + 1e-12 <= ranked[0].score,
+                "{target:?}: the search's best clue scores {} but an \
+                 independent lattice beam reached {reference_best}",
+                ranked[0].score
+            );
+        }
     }
 
     #[test]
