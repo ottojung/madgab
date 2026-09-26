@@ -1407,6 +1407,31 @@ impl Generator {
             let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
+            let zz_canon = std::env::var("ZZ_SLOT_OUT").is_ok() || std::env::var("ZZ_TUPLE_OUT").is_ok();
+            #[cfg(not(target_arch = "wasm32"))]
+            let zz_canon = zz_canon
+                && segmentation.spans
+                    == [(0usize, 3usize), (3, 10), (10, 13), (13, 15), (15, 19)];
+            if zz_canon {
+                if std::env::var("ZZ_TUPLE_OUT").is_ok() {
+                    eprintln!(
+                        "ZZ_TUPLE phase {} reserve {} -> {:?}",
+                        coverage_phase,
+                        profile_allowance,
+                        coverage_tuples(&widths, profile_allowance, EMIT_PROFILE_MAX_DEEP, coverage_phase)
+                    );
+                }
+                if std::env::var("ZZ_SLOT_OUT").is_ok() {
+                    eprintln!("ZZ_SLOT widths {:?}", widths);
+                    for (si, s) in slots.iter().enumerate() {
+                        for (ri, a) in s.iter().enumerate() {
+                            let w = self.fuzzy_lexicon.word(a.match_ref.word_idx);
+                            eprintln!("ZZ_SLOT slot {} rank {} {:?} cost {:.3} fam {:.3}", si, ri, w.word, a.cost, a.familiarity);
+                        }
+                    }
+                }
+            }
+
             for tuple in coverage_tuples(
                 &widths,
                 profile_allowance,
@@ -1815,6 +1840,16 @@ impl Generator {
                     cutoff.score,
                     cutoff.phrase
                 );
+            }
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::File::create(&path) {
+                for c in &clues {
+                    let _ = writeln!(f, "{}\t{:?}\t{:.9}", c.phrase.to_lowercase(), c.cuts, c.score);
+                }
             }
         }
 
