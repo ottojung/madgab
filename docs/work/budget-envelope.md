@@ -8,9 +8,29 @@ is clean and `git diff HEAD -- src/` is empty.
 
 ## Verdict, first
 
-**The 8x lever is affordable and it buys nothing. It is not merely
-insufficient; it is arithmetically incapable of mattering, and so is 16x, and
-so is 256x.**
+**One word: affordable-but-insufficient.**
+
+Not affordable is refuted — 16x on both ceilings costs **+0.8 s** (1.57 s to
+2.37 s) and grows the pool **6.4x** to 100,576. Sufficient is refuted much
+harder than the 8x question required: the canonical clue is **not enumerated
+at 1x, 2x, 4x, 8x, 16x, 64x or 256x**, and the candidate pool *saturates* at
+177,029 by 64x, which is the size of the set the search can reach at all.
+
+**Cheapest multiple at which the canonical clue is enumerated: there is none,
+up to 256x.** And the reason is not a shortfall to be bought — it is that
+`LEXICAL_GLOBAL_EMISSION_BUDGET` is already at its maximum reachable value at
+**1x**, so every multiple above 1x multiplies a number that cannot be spent.
+
+**Is a knob genuinely needed? No, and nothing should be landed.** The
+measurement's conclusion is that the shipped constants are correct and
+non-binding; the defect is `LEXICAL_BRANCH_KEEP = 10` (per-slot width), which
+is [w-9d4e17](../items/w-9d4e17.md)'s and [w-3b8e15](../items/w-3b8e15.md)'s
+to change, not this branch's. So this branch lands **documentation only**,
+`docs/work/budget-envelope.md`, with no constant change to review or inherit.
+The `src/lib.rs` in this worktree is modified only while a sweep is running
+and is reverted before every commit; `git diff HEAD -- src/` is empty at every
+commit on this branch and the branch's entire diff against its base is one
+added file.
 
 The deciding numbers, all from the release binary on
 `It's just a stupid game` at `--approximate --top 50`:
@@ -59,20 +79,32 @@ and including 256x.** The budget family is closed: not "expensive", not
 
 ## Is it a budget problem or a scoring problem?
 
-**Neither. It is a width/reach problem, and the scoring question is still
-open behind it.** The spec's distinction was "enumerated-and-cut" (scoring)
-versus "genuinely ranked" (budget). The measured answer is a third case, and
-it is worth stating precisely because it relocates the milestone:
+**For the milestone clue, neither: it is a width/reach problem, and the
+scoring question is a second, independent wall behind it.** The spec's
+distinction was "enumerated-and-cut" (scoring) versus "genuinely ranked"
+(budget). The canonical clue turns out to be a third case, which is worth
+stating precisely because it relocates the milestone:
 
-- The clue is **not enumerated** at any multiple, so it is never cut by the
-  score cutoff and never ranked. It is absent from the pool itself.
+- The clue is **not enumerated** at any multiple from 1x to 256x, so it is
+  never cut by the score cutoff and never ranked. It is absent from the pool
+  itself.
 - The cutoff arithmetic is therefore *not* what is blocking it today, but it
   would be the next wall. The clue's score is **0.819901** against a rank-49
   cutoff of **0.915691888** on `It's just a stupid game` — a gap of 0.0958.
   Even a hypothetical enumeration fix would surface it at rank ~400, not in
-  the visible 50. Recorded so the number is not re-derived, and so that
-  [w-04f83f](../items/w-04f83f.md) / [w-2e5b93](../items/w-2e5b93.md) know
-  that a reach fix alone does not close the milestone.
+  the visible 50.
+
+**But the sweep does return the enumerated-but-cut case, on other real
+probes, and that is the part that relocates work rather than closing it.**
+`congratulations new wrap a motion` (pool rank 439, score 0.866674019) and
+`now ill of` for `I love you` (pool rank 299, score 0.913463121) are both
+genuine readable resegments that the search **produces** and the scorer
+**discards**, at every budget multiple including 1x. A scorer admitting them
+would have to lower the cutoff by 0.0107 and 0.0162. So
+[w-04f83f](../items/w-04f83f.md) / [w-2e5b93](../items/w-2e5b93.md) are not
+working on a hypothetical: there is a measured, enumerated, cut population
+for them to recover, and the budget lever cannot recover any of it. Full
+table and provenance below.
 
 ## Measurement 1: the required sweep, 1x / 2x / 4x / 8x / 16x
 
@@ -82,40 +114,105 @@ it is worth stating precisely because it relocates the milestone:
 binary, `--approximate --top 50`, one target per row, **search wall clock is
 the median of 3 runs**; each run reports its own `search Nms`.
 
-Pool, cutoff and every found-or-missing verdict are **identical across all
-five multiples on every target**, so the table is given once with the
-multiple range in the header.
+Pool size, ENUMERATED and RANKED are **identical across all five multiples
+on every target**; only the wall clock moves, and only by run-to-run noise.
+The 25 rows are given in full rather than collapsed, because the answer to
+"does 8x buy anything" has to be readable one row at a time.
 
-| target | probe phrase | 1x…16x pool | enumerated? | raw rank / score | rank-49 cutoff | in visible top 50? | search 1x | search 16x |
-|---|---|---|---|---|---|---|---|---|
-| `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 15,710 | **no** | — | 0.915691888 | no | 1627 ms | 1683 ms |
-| `recognize speech` | `wreck a nice beach` **(milestone's other half)** | enumerated at pool rank 27 | **yes, at every multiple** | 27 / 0.918313383 | 0.917045726 | **yes, printed rank 28** | 1523 ms | 1399 ms |
-| `congratulations on your promotion` | `congratulations new wrap a motion` | ranked 439 | yes, at every multiple | 439 / 0.866674019 | 0.877365489 | no | 2829 ms | 2754 ms |
-| `a whole lot of trouble` | `hole la tongue true able` | 13,247 | **no** | — | 0.895695875 | no | 1563 ms | 1436 ms |
-| `I love you` | `now ill of` | ranked 299 | yes, at every multiple | 299 / 0.913463121 | 0.929627967 | no | 480 ms | 464 ms |
+| multiple | emission budget | pop budget | target | probe | search wall clock | pool | ENUMERATED | pool rank / score | RANKED (visible top 50) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1x | 16,384 | 1,024,000 | `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 1627 ms | 15,710 | **NO** | — | **no** |
+| 2x | 32,768 | 2,048,000 | `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 1420 ms | 15,710 | **NO** | — | **no** |
+| 4x | 65,536 | 4,096,000 | `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 1520 ms | 15,710 | **NO** | — | **no** |
+| 8x | 131,072 | 8,192,000 | `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 1503 ms | 15,710 | **NO** | — | **no** |
+| 16x | 262,144 | 16,384,000 | `It's just a stupid game` | `hits justice dupe hid came` **(canonical)** | 1683 ms | 15,710 | **NO** | — | **no** |
+| 1x | 16,384 | 1,024,000 | `recognize speech` | `wreck a nice beach` **(other half)** | 1523 ms | 13,251 | **yes** | 27 / 0.918313383 | **yes** (printed rank 28) |
+| 2x | 32,768 | 2,048,000 | `recognize speech` | `wreck a nice beach` **(other half)** | 1331 ms | 13,251 | **yes** | 27 / 0.918313383 | **yes** (printed rank 28) |
+| 4x | 65,536 | 4,096,000 | `recognize speech` | `wreck a nice beach` **(other half)** | 1363 ms | 13,251 | **yes** | 27 / 0.918313383 | **yes** (printed rank 28) |
+| 8x | 131,072 | 8,192,000 | `recognize speech` | `wreck a nice beach` **(other half)** | 1586 ms | 13,251 | **yes** | 27 / 0.918313383 | **yes** (printed rank 28) |
+| 16x | 262,144 | 16,384,000 | `recognize speech` | `wreck a nice beach` **(other half)** | 1399 ms | 13,251 | **yes** | 27 / 0.918313383 | **yes** (printed rank 28) |
+| 1x | 16,384 | 1,024,000 | `congratulations on your promotion` | `congratulations new wrap a motion` | 2829 ms | 7,725 | **yes** | 439 / 0.866674019 | **no** |
+| 2x | 32,768 | 2,048,000 | `congratulations on your promotion` | `congratulations new wrap a motion` | 2556 ms | 7,725 | **yes** | 439 / 0.866674019 | **no** |
+| 4x | 65,536 | 4,096,000 | `congratulations on your promotion` | `congratulations new wrap a motion` | 2705 ms | 7,725 | **yes** | 439 / 0.866674019 | **no** |
+| 8x | 131,072 | 8,192,000 | `congratulations on your promotion` | `congratulations new wrap a motion` | 2767 ms | 7,725 | **yes** | 439 / 0.866674019 | **no** |
+| 16x | 262,144 | 16,384,000 | `congratulations on your promotion` | `congratulations new wrap a motion` | 2754 ms | 7,725 | **yes** | 439 / 0.866674019 | **no** |
+| 1x | 16,384 | 1,024,000 | `a whole lot of trouble` | `hole la tongue true able` | 1563 ms | 13,247 | **NO** | — | **no** |
+| 2x | 32,768 | 2,048,000 | `a whole lot of trouble` | `hole la tongue true able` | 1445 ms | 13,247 | **NO** | — | **no** |
+| 4x | 65,536 | 4,096,000 | `a whole lot of trouble` | `hole la tongue true able` | 1392 ms | 13,247 | **NO** | — | **no** |
+| 8x | 131,072 | 8,192,000 | `a whole lot of trouble` | `hole la tongue true able` | 1453 ms | 13,247 | **NO** | — | **no** |
+| 16x | 262,144 | 16,384,000 | `a whole lot of trouble` | `hole la tongue true able` | 1436 ms | 13,247 | **NO** | — | **no** |
+| 1x | 16,384 | 1,024,000 | `I love you` | `now ill of` | 480 ms | 8,670 | **yes** | 299 / 0.913463121 | **no** |
+| 2x | 32,768 | 2,048,000 | `I love you` | `now ill of` | 427 ms | 8,670 | **yes** | 299 / 0.913463121 | **no** |
+| 4x | 65,536 | 4,096,000 | `I love you` | `now ill of` | 446 ms | 8,670 | **yes** | 299 / 0.913463121 | **no** |
+| 8x | 131,072 | 8,192,000 | `I love you` | `now ill of` | 489 ms | 8,670 | **yes** | 299 / 0.913463121 | **no** |
+| 16x | 262,144 | 16,384,000 | `I love you` | `now ill of` | 464 ms | 8,670 | **yes** | 299 / 0.913463121 | **no** |
 
-Wall clock, per target, all five multiples (median of 3, ms):
-
-| target | 1x | 2x | 4x | 8x | 16x |
-|---|---|---|---|---|---|
-| `It's just a stupid game` | 1627 | 1420 | 1520 | 1503 | 1683 |
-| `recognize speech` | 1523 | 1331 | 1363 | 1586 | 1399 |
-| `congratulations on your promotion` | 2829 | 2556 | 2705 | 2767 | 2754 |
-| `a whole lot of trouble` | 1563 | 1445 | 1392 | 1453 | 1436 |
-| `I love you` | 480 | 427 | 446 | 489 | 464 |
-
-That is run-to-run noise on a loaded host (the raw triples for the canonical
-target are 1624/1627/2025, 1446/1420/1378, 1520/1563/1519, 1503/2097/1482,
-1717/1683/1674). There is **no cost curve**: 16x the global budget costs
-nothing measurable, which is the same fact as the pool being unchanged, seen
-from the other side.
+Every column except wall clock is a constant function of the multiple. Wall
+clock is noise on a loaded host: the canonical target raw triples are
+1624/1627/2025, 1446/1420/1378, 1520/1563/1519, 1503/2097/1482,
+1717/1683/1674. There is **no cost curve**: 16x the global emission budget
+and 16x the global pop budget cost nothing measurable, which is the same
+fact as the pool being unchanged, seen from the other side.
 
 Corpus load is 433-522 ms across all runs, against the ~419 ms baseline in
 the spec and the 402-507 ms in [w-8f3c61](../items/w-8f3c61.md) §1. The 1x
-pool of 15,710 reproduces the `--top 50` figure recorded in
+pools reproduce the `--top 50` figures already recorded in
 [w-6b2f04](../items/w-6b2f04.md) and [w-8f3c61](../items/w-8f3c61.md) §1
-exactly, which is the cross-check that the 1x baseline is the same tree they
-measured.
+exactly (`It's just a stupid game` 15,710; `congratulations on your
+promotion` 7,725), which is the cross-check that the 1x baseline is the same
+tree they measured.
+
+### The enumerated-but-cut case, which this sweep does exhibit
+
+The coordinator flagged this as the most valuable outcome available, so it is
+worth being exact about which of the two it is, per probe:
+
+| probe | target | ENUMERATED | RANKED | pool rank | score | rank-49 cutoff | gap |
+|---|---|---|---|---|---|---|---|
+| `hits justice dupe hid came` | `It's just a stupid game` | **no** | no | — | (0.819901) | 0.915691888 | (0.0958) |
+| `wreck a nice beach` | `recognize speech` | yes | **yes** | 27 | 0.918313383 | 0.917045726 | **-0.0013** |
+| `congratulations new wrap a motion` | `congratulations on your promotion` | **yes** | **no** | 439 | 0.866674019 | 0.877365489 | +0.0107 |
+| `hole la tongue true able` | `a whole lot of trouble` | **no** | no | — | — | 0.895695875 | — |
+| `now ill of` | `I love you` | **yes** | **no** | 299 | 0.913463121 | 0.929627967 | +0.0162 |
+
+Provenance of the probes, stated so the table is not over-read: the two
+canonical probes (`hits justice dupe hid came`, `wreck a nice beach`) are the
+milestone's own acceptance clues. The other three are real, readable
+resegmentations chosen as *depth* probes — the deepest genuinely-resegmented
+proposal the search produced for that target on a deeper `--top 1000`/`1500`
+run — so that "how deep does the pool reach" has a fixed landmark. That is
+why `congratulations new wrap a motion` (rank 439 of a `--top 1000` run) and
+`now ill of` (rank 299 of `--top 600`) are enumerated at `--top 50` while
+`hole la tongue true able` (rank 1250 of `--top 1500`) is not: the pool itself
+is a function of `top_n` through `structure_wording_allowance`, so a probe
+deeper than the `--top 50` pool cannot be in it. The `(0.819901)` in the
+first row is **quoted from [w-8f3c61](../items/w-8f3c61.md) §8.3**, not
+measured here, because the clue is not enumerated at any multiple and so has
+no score in the pool to read.
+
+So all three regimes are present, and they are stable across the whole 1x-16x
+range:
+
+- **enumerated-and-ranked**: `wreck a nice beach`. Score *above* the cutoff.
+  Nothing to fix; it is a working result at 1x.
+- **enumerated-and-cut**: `congratulations new wrap a motion` (rank 439) and
+  `now ill of` (rank 299). These are genuine, readable resegmentations that
+  the search *does* produce and the score cutoff discards. **This is the
+  scoring problem, and it is real and independent of the budget**: no budget
+  multiple moves either one, because both are already in the pool at 1x. For
+  a scorer to admit them, the cutoff would have to fall by 0.0107 and 0.0162
+  respectively.
+- **not enumerated**: the milestone clue. This is the reach problem, and the
+  budget is not what limits it.
+
+The important consequence for the next pass: **the milestone has two
+independent walls, in series, and the budget lever touches neither.** A
+scoring fix alone leaves the canonical clue absent; a reach fix alone would
+surface it at rank ~400, behind the same 0.0958 gap that stops the two
+probes above. [w-04f83f](../items/w-04f83f.md) /
+[w-2e5b93](../items/w-2e5b93.md) own the scoring wall and
+[w-3b8e15](../items/w-3b8e15.md) owns the reach wall; neither front can close
+the milestone alone.
 
 ### The milestone's other half
 
@@ -257,12 +354,33 @@ phrase-specific decision: the phrases are only ever passed to the existing
 
 ## Constraint proofs on this branch
 
-- `git diff HEAD -- src/` is **empty**. `git status --short` is empty. The
-  only committed path is this file.
+- **`git diff aac97e1 HEAD -- src/` is 0 bytes, and the branch's whole diff
+  against its base is one added file:**
+
+  ```text
+  $ git diff --name-status aac97e1 HEAD
+  A	docs/work/budget-envelope.md
+  $ git diff aac97e1 HEAD -- src/ | wc -c
+  0
+  ```
+
+  `git status --short` is empty and `git status --porcelain --ignored` shows
+  only `Cargo.lock` and `target/`, both gitignored.
+- **On the transient `M src/lib.rs`.** The multiplier experiment edits
+  `src/lib.rs` in the working tree, because that is the only way to vary a
+  compile-time constant. The edit exists **only while a sweep is running**: the
+  sweep restores the file from an in-memory copy of the original as its last
+  step, and it is restored again before every commit. A coordinator or another
+  agent reading `git status` mid-sweep will see `M src/lib.rs`; that is the
+  experiment in flight, not a pending change, and it is never staged. If a
+  future pass wants the experiment off this branch entirely, park it on a
+  scratch branch — but note that even a reverted, unstaged, uncommitted
+  experiment cannot reach any commit on this branch, which is what the fence
+  actually protects.
 - No `zz_*` test, no sweep script, no `.bench/` tree, no `MADGAB_*`
-  diagnostic added to the branch. The `MADGAB_TRACE_PHRASES` variable used
-  above is pre-existing shipped code (`src/lib.rs:1264`), invoked as an
-  environment variable only.
+  diagnostic added to the branch (`git ls-files` matches none). The
+  `MADGAB_TRACE_PHRASES` variable used above is pre-existing shipped code
+  (`src/lib.rs:1264`), invoked as an environment variable only.
 - No phrase-specific special-casing anywhere: the budget constants are
   integers, and the report's phrases are measurement probes passed to a
   pre-existing diagnostic. `git grep -i -E` over the branch's diff finds no
@@ -290,11 +408,24 @@ phrase-specific decision: the phrases are only ever passed to the existing
    the same conclusion [w-3b8e15](../items/w-3b8e15.md) is already chasing
    from the cost-model side, and this item's number is the budget-side
    confirmation that the budget is not a third option.
-3. **Keep the two findings separate in the next pass.** Reaching the clue
-   (width/order) and ranking it (score, gap of 0.0958 against the 0.9157
-   cutoff) are two problems owned by two different fronts. A fix to either
-   one alone does not close the milestone.
-4. `LEXICAL_GLOBAL_EMISSION_BUDGET` and `LEXICAL_GLOBAL_POP_BUDGET` are, as
-   of this measurement, **provably non-binding in the shipped
-   configuration**. That is arguably worth a comment in `src/lib.rs` in a
-   later pass — it is not this item's to make, since it is a `src/` change.
+3. **Keep the three regimes separate in the next pass.** Measured, stable
+   across 1x-256x, on real probes: *enumerated-and-ranked* (`wreck a nice
+   beach`, rank 28, already correct at 1x); *enumerated-and-cut*
+   (`congratulations new wrap a motion` at rank 439, `now ill of` at rank 299
+   — a measured, recoverable population that a scoring change can address and
+   no budget change can); and *not-enumerated* (the canonical clue, blocked
+   by `LEXICAL_BRANCH_KEEP = 10`). Reaching the clue (width/order,
+   [w-3b8e15](../items/w-3b8e15.md) / [w-9d4e17](../items/w-9d4e17.md)) and
+   ranking it (score, gap 0.0958 against the 0.9157 cutoff,
+   [w-04f83f](../items/w-04f83f.md) / [w-2e5b93](../items/w-2e5b93.md)) are
+   two problems in series, owned by two different fronts. A fix to either one
+   alone does not close the milestone.
+4. **No constant should be landed from this item.** The shipped
+   `LEXICAL_GLOBAL_EMISSION_BUDGET` and `LEXICAL_GLOBAL_POP_BUDGET` are
+   correct and provably non-binding; raising them is a no-op, so there is no
+   knob here worth reviewing. The one-line comment in `src/lib.rs` recording
+   *why* they are non-binding (the `256 * 64 = 16,384` identity) would be a
+   genuine improvement, but it is a `src/` change and belongs to whichever
+   front next owns `src/lib.rs` — suggest folding it into
+   [w-3b8e15](../items/w-3b8e15.md)'s diff rather than opening a branch for
+   it.
