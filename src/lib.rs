@@ -11,8 +11,121 @@ use serde::Serialize;
 
 mod approx;
 
+// ==== TEMP-PROF-BEGIN (measurement scaffolding; strip me) ====
+pub mod prof {
+    use std::sync::Mutex;
+    use std::time::Instant;
+
+    pub const N: usize = 40;
+    pub static NAMES: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+    pub static NANOS: [std::sync::atomic::AtomicU64; N] = {
+        #[allow(clippy::declare_interior_mutable_const)]
+        const Z: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        [Z; N]
+    };
+    pub static COUNT: [std::sync::atomic::AtomicU64; N] = {
+        #[allow(clippy::declare_interior_mutable_const)]
+        const Z: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        [Z; N]
+    };
+
+    pub fn enabled() -> bool {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| std::env::var("MADGAB_PROF").is_ok())
+    }
+
+    pub fn idx(name: &'static str) -> usize {
+        let mut names = NAMES.lock().unwrap();
+        if let Some(i) = names.iter().position(|n| *n == name) {
+            return i;
+        }
+        let i = names.len();
+        names.push(name);
+        i
+    }
+
+    pub struct T(std::time::Instant, usize);
+    impl T {
+        pub fn new(name: &'static str) -> Option<Self> {
+            if !enabled() {
+                return None;
+            }
+            Some(Self(Instant::now(), idx(name)))
+        }
+    }
+    impl Drop for T {
+        fn drop(&mut self) {
+            let d = self.0.elapsed().as_nanos() as u64;
+            NANOS[self.1].fetch_add(d, std::sync::atomic::Ordering::Relaxed);
+            COUNT[self.1].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    pub fn add(name: &'static str, nanos: u64) {
+        if !enabled() {
+            return;
+        }
+        let i = idx(name);
+        NANOS[i].fetch_add(nanos, std::sync::atomic::Ordering::Relaxed);
+        COUNT[i].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn dump() {
+        if !enabled() {
+            return;
+        }
+        let names = NAMES.lock().unwrap().clone();
+        for (i, name) in names.iter().enumerate() {
+            let n = NANOS[i].load(std::sync::atomic::Ordering::Relaxed);
+            let c = COUNT[i].load(std::sync::atomic::Ordering::Relaxed);
+            eprintln!(
+                "PROF\t{name}\t{:.4}\t{}",
+                n as f64 / 1e9,
+                c
+            );
+        }
+    }
+
+    pub fn reset() {
+        for i in 0..N {
+            NANOS[i].store(0, std::sync::atomic::Ordering::Relaxed);
+            COUNT[i].store(0, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
+    /// Exclusive (non-nested) phase accounting: attributes the time since
+    /// the previous `mark` to `name`. Only valid for strictly sequential
+    /// regions.
+    static LAST_MARK: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+
+    pub fn mark(name: &'static str) {
+        use std::sync::atomic::Ordering::Relaxed;
+        static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+        static LAST_MARK: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+        if !enabled() {
+            return;
+        }
+        let now = std::time::Instant::now();
+        let mut last = LAST.lock().unwrap();
+        if let Some(prev) = *last {
+            let d = now.duration_since(prev).as_nanos() as u64;
+            let i = idx(name);
+            NANOS[i].fetch_add(d, Relaxed);
+            COUNT[i].fetch_add(1, Relaxed);
+        }
+        *last = Some(now);
+    }
+
+    pub fn mark_reset() {
+        if enabled() {
+            *LAST_MARK.lock().unwrap() = None;
+        }
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+// ==== TEMP-PROF-END ====
 
 /// One candidate Mad Gab clue.
 #[derive(Debug, Clone, Serialize)]
@@ -89,7 +202,12 @@ impl Generator {
         json: &str,
         config: GeneratorConfig,
     ) -> Result<Self, phonetics::transcriptions::Error> {
-        let corpus = Corpus::from_json(json, config.max_rarity)?;
+        let _t = prof::T::new("00_from_json_total"); // TEMP-PROF
+        let _t = prof::T::new("01_corpus_from_json"); // TEMP-PROF
+        let corpus = Corpus::from_json(json, config.max_rarity)?; // TEMP-PROF
+        drop(_t); // TEMP-PROF
+        let _t = prof::T::new("02_build_lexicon"); // TEMP-PROF
+        drop(_t); // TEMP-PROF
 
         // The common/default configuration is rarity-bounded, so this
         // stays around 50k words. Avoid building a second 280k-word view
@@ -98,7 +216,10 @@ impl Generator {
         let fuzzy_lexicon = if config.max_rarity.is_some()
             || matches!(config.mode, SearchMode::Approximate { .. })
         {
-            approx::build_lexicon(json, &corpus, config.max_rarity)
+            // TEMP-PROF-BEGIN
+            let _t = prof::T::new("02b_build_lexicon_inner");
+            // TEMP-PROF-END
+            approx::build_lexicon(json, &corpus, config.max_rarity) // TEMP-PROF
         } else {
             approx::FuzzyLexicon::empty()
         };
@@ -179,8 +300,11 @@ impl Generator {
         per_word_budget: f64,
         total_budget: f64,
     ) -> Vec<Clue> {
+        // ==== TEMP-PROF-BEGIN ====
+        let _t = prof::T::new("10_gen_approx_total");
+        // ==== TEMP-PROF-END ====
         let Some((target_ipa, target_boundaries)) =
-            transcribe_with_boundaries(&self.corpus, target, true)
+            transcribe_with_boundaries(&self.corpus, target, true) // TEMP-PROF
         else {
             return Vec::new();
         };
@@ -194,19 +318,36 @@ impl Generator {
         // Candidate word/span alignments depend only on the target and
         // per-word edit budget, not on a particular beam hypothesis.
         // Build this expensive lattice once.
-        let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
-            .map(|p| {
-                self.fuzzy_lexicon.matches_at(
+        let lattice: Vec<Vec<approx::FuzzyMatch>> = { // TEMP-PROF
+            // TEMP-PROF-BEGIN
+            let _t = prof::T::new("20_lattice_matches_at");
+            let mut c = 0usize;
+            let mut lens = 0usize;
+            let mut v = Vec::with_capacity(n);
+            for p in 0..n {
+                let _t = prof::T::new("21_matches_at_one_pos");
+                let r = self.fuzzy_lexicon.matches_at(
                     &chars,
                     p,
                     per_word_budget,
                     self.config.min_word_ipa_chars,
-                )
-            })
-            .collect();
+                );
+                c += 1;
+                lens += r.len();
+                v.push(r);
+            }
+            eprintln!("PROFSTAT n={n} lattice_positions={c} lattice_entries={lens}");
+            v
+            // TEMP-PROF-END
+        }; // TEMP-PROF
 
         let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
         beam[0].push(Partial::empty());
+
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("30_main_beam_loop");
+        prof::mark_reset();
+        // TEMP-PROF-END
 
         for p in 0..n {
             if beam[p].is_empty() {
@@ -230,7 +371,12 @@ impl Generator {
                         continue;
                     }
                     let word = self.fuzzy_lexicon.word(m.word_idx);
-                    let next = partial.extend_fuzzy(word, m.consumed, m.cost);
+                    // TEMP-PROF-BEGIN
+                    let next = {
+                        let _t = prof::T::new("31_beam_extend_fuzzy");
+                        partial.extend_fuzzy(word, m.consumed, m.cost)
+                    };
+                    // TEMP-PROF-END
                     let q = p + m.consumed;
                     if q > n {
                         continue;
@@ -255,13 +401,18 @@ impl Generator {
                         self.config.beam_width.max(1)
                     };
                     if beam[q].len() > keep.saturating_mul(2) {
-                        let reduced = prune_partials(
-                            std::mem::take(&mut beam[q]),
-                            keep,
-                            &target_boundaries,
-                            &target_words,
-                            n,
-                        );
+                        // TEMP-PROF-BEGIN
+                        let reduced = {
+                            let _t = prof::T::new("32_beam_overflow_prune");
+                            prune_partials(
+                                std::mem::take(&mut beam[q]),
+                                keep,
+                                &target_boundaries,
+                                &target_words,
+                                n,
+                            )
+                        };
+                        // TEMP-PROF-END
                         beam[q] = reduced;
                     }
                 }
@@ -274,13 +425,19 @@ impl Generator {
             .saturating_mul(128)
             .max(1024)
             .min(8192);
-        let mut completed = prune_partials(
-            std::mem::take(&mut beam[n]),
-            final_keep,
-            &target_boundaries,
-            &target_words,
-            n,
-        );
+        let mut completed = { // TEMP-PROF
+            // TEMP-PROF-BEGIN
+        // TEMP-PROF
+            let _t = prof::T::new("33_final_prune_partials");
+            // TEMP-PROF-END
+            prune_partials(
+                std::mem::take(&mut beam[n]),
+                final_keep,
+                &target_boundaries,
+                &target_words,
+                n,
+            )
+        }; // TEMP-PROF
 
         // Recovery search: decouple segmentation survival from lexical
         // survival.  The ordinary beam is deliberately tight and fast,
@@ -321,6 +478,8 @@ impl Generator {
             .filter(|&b| b < n)
             .collect();
 
+        // TEMP-PROF (next mark closes the span-shortlist phase)
+        let _t = prof::T::new("41_span_shortlist_loop"); // TEMP-PROF
         let mut span_lattice: Vec<Vec<SpanEdge>> =
             (0..n).map(|_| Vec::new()).collect();
 
@@ -476,6 +635,9 @@ impl Generator {
         // shared target boundaries), all future structural possibilities
         // are identical.  Keep only a handful of strongest lexical
         // upper-bound representatives in each such state.
+        drop(_t); // TEMP-PROF closes 41_span_shortlist_loop
+        let _t = prof::T::new("40_span_shortlist"); // TEMP-PROF
+        let _t2 = prof::T::new("51_structural_dp_loop"); // TEMP-PROF
         let max_words = n.min(
             target_boundaries
                 .len()
@@ -554,6 +716,9 @@ impl Generator {
             }
         }
 
+        drop(_t2); // TEMP-PROF closes 51_structural_dp_loop
+        drop(_t); // TEMP-PROF closes 40_span_shortlist
+        let _t = prof::T::new("50_seg_structural_dp"); // TEMP-PROF
         let target_inner_count = target_inner.len();
         let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
         for ((word_count, shared), paths) in
@@ -588,6 +753,9 @@ impl Generator {
         }
         segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
         segmentations.truncate(SEGMENTATION_KEEP);
+        // TEMP-PROF-BEGIN
+        eprintln!("PROFSTAT segmentations={}", segmentations.len());
+        // TEMP-PROF-END
 
         #[cfg(not(target_arch = "wasm32"))]
         if let (Ok(span_spec), Ok(word_spec)) = (
@@ -653,6 +821,9 @@ impl Generator {
         // the actual final score and enumerate the best Cartesian-product
         // combinations with a bounded heap instead of repeatedly pruning
         // partial phrases.
+        // TEMP-PROF
+        drop(_t); // TEMP-PROF closes 50_seg_structural_dp
+        let _t = prof::T::new("60_lexical_heap_enum"); // TEMP-PROF
         let mut recovered = Vec::new();
         for (_, segmentation) in segmentations {
             let word_count = segmentation.spans.len().max(1) as f64;
@@ -796,6 +967,12 @@ impl Generator {
         }
 
         completed.extend(recovered);
+        // TEMP-PROF-BEGIN
+        // TEMP-PROF
+        drop(_t); // TEMP-PROF closes 60_lexical_heap_enum
+        eprintln!("PROFSTAT finish_candidates_in={}", completed.len());
+        let _t = prof::T::new("70_finish");
+        // TEMP-PROF-END
         self.finish(
             completed,
             &target_ipa,
@@ -811,11 +988,18 @@ impl Generator {
         target_boundaries: &[usize],
         target_words: &HashSet<String>,
     ) -> Vec<Clue> {
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("71_finish_into_clue");
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| p.into_clue(target_ipa, target_boundaries, target_words))
             .collect();
+        eprintln!("PROFSTAT finish_candidates={}", clues.len()); // TEMP-PROF
+        // TEMP-PROF-END
 
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("72_finish_sort");
+        // TEMP-PROF-END
         clues.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
@@ -823,6 +1007,9 @@ impl Generator {
                 .then_with(|| a.phrase.cmp(&b.phrase))
         });
 
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("73_finish_dedup");
+        // TEMP-PROF-END
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(c.phrase.to_lowercase()));
 
@@ -853,6 +1040,9 @@ impl Generator {
             }
         }
 
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("74_select_diverse");
+        // TEMP-PROF-END
         select_diverse(clues, self.config.top_n)
     }
 }
@@ -1047,24 +1237,39 @@ impl Partial {
         total_len: usize,
         partial: bool,
     ) -> Metrics {
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("90_partial_metrics");
+        // TEMP-PROF-END
         let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
-        let novelty = boundary_novelty(
-            &self.cuts,
-            target_boundaries,
-            total_len,
-            partial,
-        );
+        // TEMP-PROF-BEGIN
+        let novelty = {
+            let _t = prof::T::new("92_boundary_novelty");
+            boundary_novelty(
+                &self.cuts,
+                target_boundaries,
+                total_len,
+                partial,
+            )
+        };
+        // TEMP-PROF-END
 
-        let reused = self
-            .words
-            .iter()
-            .filter(|w| candidate_reuses_target(&w.word, target_words))
-            .count() as f64;
+        // TEMP-PROF-BEGIN
+        let reused = {
+            let _t = prof::T::new("93_candidate_reuses_target");
+            self.words
+                .iter()
+                .filter(|w| candidate_reuses_target(&w.word, target_words))
+                .count() as f64
+        };
+        // TEMP-PROF-END
         let word_novelty = 1.0 - reused / self.words.len().max(1) as f64;
 
         let familiarity = if self.words.is_empty() {
             0.0
         } else {
+            // TEMP-PROF-BEGIN
+            let _t = prof::T::new("94_familiarity_agg");
+            // TEMP-PROF-END
             self.words
                 .iter()
                 .map(|w| word_familiarity(w.rarity))
@@ -1083,6 +1288,9 @@ impl Partial {
         let shape_quality = if self.words.is_empty() {
             0.0
         } else {
+            // TEMP-PROF-BEGIN
+            let _t = prof::T::new("95_shape_quality_agg");
+            // TEMP-PROF-END
             self.words
                 .iter()
                 .map(|w| {
@@ -1229,13 +1437,21 @@ fn prune_partials(
     target_words: &HashSet<String>,
     total_len: usize,
 ) -> Vec<Partial> {
+    // TEMP-PROF-BEGIN
+    let _t = prof::T::new("80_prune_total");
+    // TEMP-PROF-END
     if k == 0 || candidates.is_empty() {
         return Vec::new();
     }
+    prof::add("P1_prune_calls", candidates.len() as u64);
+    prof::add("P2_prune_keep_k", k as u64);
 
     // Exact path duplicates (same words + same pronunciations) can be
     // generated through multiple edit alignments. Keep the better one.
     let mut dedup: HashMap<String, Partial> = HashMap::new();
+    // TEMP-PROF-BEGIN
+    let _t = prof::T::new("81_prune_dedup_loop");
+    // TEMP-PROF-END
     for candidate in candidates {
         match dedup.get(&candidate.key) {
             Some(old)
@@ -1250,16 +1466,22 @@ fn prune_partials(
             }
         }
     }
+    drop(_t); // TEMP-PROF
 
     let items: Vec<Partial> = dedup.into_values().collect();
     if items.len() <= k {
         return items;
     }
 
-    let metrics: Vec<Metrics> = items
-        .iter()
-        .map(|p| p.metrics(target_boundaries, target_words, total_len, true))
-        .collect();
+    let metrics: Vec<Metrics> = {
+        // TEMP-PROF-BEGIN
+        let _t = prof::T::new("83_prune_metrics_vector");
+        // TEMP-PROF-END
+        items
+            .iter()
+            .map(|p| p.metrics(target_boundaries, target_words, total_len, true))
+            .collect()
+    };
 
     let mut selected = HashSet::new();
 
@@ -1267,6 +1489,9 @@ fn prune_partials(
     // (word-count, acoustic-cost-band) cell. This prevents the huge
     // family of zero-cost/local optima from erasing every moderately
     // edited resegmentation.
+    // TEMP-PROF-BEGIN
+    let _t = prof::T::new("84_prune_cells_and_orders");
+    // TEMP-PROF-END
     let mut cells: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
     for (i, p) in items.iter().enumerate() {
         let band = ((p.sub_cost_total / 0.25) + 1e-9).floor() as usize;
@@ -1339,14 +1564,15 @@ fn prune_partials(
         }
         rank += 1;
     }
+    drop(_t); // TEMP-PROF
 
-    let mut out: Vec<Partial> = selected.into_iter().map(|i| items[i].clone()).collect();
-    out.sort_by(|a, b| {
-        let am = a.metrics(target_boundaries, target_words, total_len, true);
-        let bm = b.metrics(target_boundaries, target_words, total_len, true);
-        cmp_desc(am.combined, bm.combined)
-    });
-    out
+    let mut picked: Vec<usize> = selected.into_iter().collect();
+    // TEMP-PROF-BEGIN
+    let _t = prof::T::new("85_prune_final_sort_recompute");
+    // TEMP-PROF-END
+    picked.sort_by(|&a, &b| cmp_desc(metrics[a].combined, metrics[b].combined));
+    drop(_t); // TEMP-PROF
+    picked.into_iter().map(|i| items[i].clone()).collect()
 }
 
 fn cmp_desc(a: f64, b: f64) -> std::cmp::Ordering {

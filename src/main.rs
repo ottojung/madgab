@@ -175,6 +175,7 @@ fn main() -> ExitCode {
         for (i, clue) in clues.iter().enumerate() {
             println!("{:2}. [{:.3}] {}", i + 1, clue.score, clue.phrase);
         }
+        madgab::prof::dump(); // TEMP-PROF
         ExitCode::SUCCESS
     }
 }

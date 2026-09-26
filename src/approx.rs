@@ -80,6 +80,9 @@ impl FuzzyLexicon {
         budget: f64,
         min_word_ipa_chars: usize,
     ) -> Vec<FuzzyMatch> {
+        // TEMP-PROF-BEGIN
+        let _t = crate::prof::T::new("A0_matches_at_total");
+        // TEMP-PROF-END
         if start >= target.len() || budget < 0.0 || self.words.is_empty() {
             return Vec::new();
         }
@@ -94,6 +97,9 @@ impl FuzzyLexicon {
         let mut found: HashMap<(usize, usize), f64> = HashMap::new();
 
         while let Some((node_idx, consumed, cost)) = stack.pop() {
+            // TEMP-PROF-BEGIN
+            let _t = crate::prof::T::new("A1_matches_at_search_loop");
+            // TEMP-PROF-END
             if cost > budget + 1e-9 {
                 continue;
             }
@@ -136,6 +142,9 @@ impl FuzzyLexicon {
             }
 
             for (&clue_char, &child_idx) in &node.children {
+                // TEMP-PROF-BEGIN
+                let _t = crate::prof::T::new("A2_matches_at_children_expand");
+                // TEMP-PROF-END
                 // Insert one clue segment: extra material in the clue
                 // pronunciation that consumes no target segment.
                 push_state(
@@ -175,7 +184,10 @@ impl FuzzyLexicon {
             }
         }
 
-        let mut by_span: Vec<Vec<FuzzyMatch>> = vec![Vec::new(); remaining + 1];
+        let mut by_span: Vec<Vec<FuzzyMatch>> = vec![Vec::new(); remaining + 1]; // TEMP-PROF
+        // TEMP-PROF-BEGIN
+        let _t = crate::prof::T::new("A3_matches_at_postprocess");
+        // TEMP-PROF-END
         for ((consumed, word_idx), cost) in found {
             by_span[consumed].push(FuzzyMatch {
                 consumed,
