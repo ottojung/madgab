@@ -220,9 +220,20 @@ fn raising_top_n_does_not_retract_shown_proposals() {
 
 /// Targets for the pool guard.  Ordinary sentences of three different
 /// shapes - a two-word collocation, a short clause, a longer clause and
-/// a five-word phrase - and none of them is either of the two phrases
-/// the project's acceptance criteria are written in terms of, so this
-/// test cannot be satisfied by anything keyed to those.
+/// a five-word phrase.
+///
+/// Two of these four *are* the phrases the project's acceptance criteria
+/// are written in terms of (`recognize speech`, `it's just a stupid
+/// game`); an earlier revision of this comment claimed none of them was,
+/// which was false - see the `w-3e7b04` pass note in
+/// `docs/work/items/w-3e7b04.md` and the independent review's fence scan
+/// in `git show madgab-review-pool-3e7b04:REPORT-3e7b04.md`.  Including
+/// them makes this guard stricter, not weaker: run-to-run pool
+/// reproducibility is then required on exactly the inputs the project
+/// cares about, and a fix keyed to those phrases would have to make the
+/// pool reproduce on them, not merely pass some other target.  Note also
+/// that this is a *reproducibility* guard only; it says nothing about
+/// whether any particular proposal is correct or desirable.
 const POOL_TARGETS: &[&str] = &[
     "recognize speech",
     "a whole lot of trouble",
