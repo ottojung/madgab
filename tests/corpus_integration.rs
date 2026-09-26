@@ -221,7 +221,7 @@ fn approximate_completes_wreck_beach_family() {
     );
 }
 
-/// Acceptance target (currently unmet — ignored, not deleted): the
+/// Acceptance target: the
 /// exact canonical clue "hits justice dupe hid came" in the top 50.
 /// The chain reaches completion for the whole prefix family
 /// ("hits justice dupe ad/ed came" score ~0.945), but the "hid"
@@ -231,7 +231,6 @@ fn approximate_completes_wreck_beach_family() {
 /// phrase-specific favoritism. Re-enable if beam retention ever
 /// covers that depth.
 #[test]
-#[ignore]
 fn approximate_finds_classic_madgab_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
@@ -253,13 +252,12 @@ fn approximate_finds_classic_madgab_resegmentation() {
     );
 }
 
-/// Acceptance target (currently unmet — ignored, not deleted): the
+/// Acceptance target: the
 /// exact canonical clue "wreck a nice beach" in the top 50. Same
 /// story as above: the "wreck a" opening and "beach" keystone both
 /// complete, but the max-budget "nice" link (cost 0.75) is fairly
 /// mid-pack among its cell and does not survive bounded retention.
 #[test]
-#[ignore]
 fn approximate_finds_recognize_speech_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,

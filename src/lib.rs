@@ -977,7 +977,7 @@ impl Partial {
             _ => 0.0,
         };
         // Word-length, familiarity, resyllabification and reuse
-        // terms, plus half the phonetic cost: the cost term leans
+        // terms, plus the phonetic-cost weight used by the final similarity score: the cost term leans
         // cells toward clean links (without it, high-cost junk with
         // long common words outranks genuine low-cost
         // resegmentations), while hard budgets, cheapest-first
@@ -986,7 +986,7 @@ impl Partial {
         // heavier price would bury legitimate mid-cost links; a
         // lighter one lets junk flood the cells (and blow up memory
         // via unbounded downstream fan-out).
-        word_term + rarity_penalty - 0.5 * word_sub_cost + boundary_bonus - reuse_penalty
+        word_term + rarity_penalty - 0.1 * word_sub_cost + boundary_bonus - reuse_penalty
     }
 
     /// Shared beam priority step, kept as the incremental mirror of
@@ -995,7 +995,7 @@ impl Partial {
     /// over-segmented ones covering the same span — the old per-word
     /// length *bonus* did the opposite and let degenerate tiny-word
     /// paths dominate); longer words earn back a small fraction of
-    /// it; phonetic edits pay half their cost (full weight would
+    /// it; phonetic edits use the same -0.1-per-cost weight as the final similarity term (a heavier beam-only price would
     /// over-prune slightly-off close matches that the final scorer
     /// still ranks highly); rare words pay a small log-frequency
     /// penalty; `boundary_bonus` rewards word ends that resyllabify
