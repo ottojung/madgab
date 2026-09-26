@@ -292,6 +292,64 @@ pub(crate) fn confusability(a: char, b: char) -> f64 {
     raw.min(2.0 * GAP_COST).min(UNKNOWN_COST)
 }
 
+// -----------------------------------------------------------------
+// Indel cost by class
+// -----------------------------------------------------------------
+//
+// A gap is not one thing. Losing an `h` that the speaker never released
+// is not the same event as losing the `t` of a `t`-`d` pair: the first
+// is invisible, the second changes the word. A flat `GAP_COST` for both
+// is what makes a weak-segment resegmentation -- which is the *normal*
+// thing connected speech does at a word boundary -- look as expensive as
+// dropping a vowel that carries the word.
+//
+// So the indel cost is scaled by how *obligatory* the segment is, taken
+// from the same articulatory description the substitution table uses. The
+// scale is a property of the class, not of the word: a reduced central
+// vowel and a glottal fricative are segments English routinely fails to
+// produce, a sonorant is partly redundant, and a stop or a full vowel
+// carries the word and is charged the flat `GAP_COST`. This is the
+// mechanism the item calls folding, expressed over classes rather than
+// as a rewrite of the alphabet: the corpus has no codepoint duplication
+// to fold away, but it does have segments that go missing, and those
+// should not cost the same as segments that do not.
+
+/// How much of the flat `GAP_COST` a segment of this class is worth.
+///
+/// 1.0 means the segment is the word and losing it is a real edit; below
+/// 1.0 means a listener would not notice it going missing.
+fn obligatory_weight(segment: Segment) -> f64 {
+    use Segment::{Consonant as C, Vowel as V};
+    match segment {
+        // A reduced vowel is the segment English deletes first.
+        V {
+            reduced: true, ..
+        } => 0.25,
+        // A glottal fricative is frequently not articulated at all, and
+        // a sonorant is largely masked by its neighbours.
+        C {
+            manner: MANNER_FRICATIVE,
+            place: PLACE_GLOTTAL,
+            ..
+        } => 0.25,
+        C {
+            manner: MANNER_NASAL
+                | MANNER_APPROXIMANT
+                | MANNER_LATERAL
+                | MANNER_TRILL,
+            ..
+        } => 0.60,
+        // A full vowel, a stop or a suprasegmental fricative carries the
+        // word and is charged the flat cost.
+        _ => 1.0,
+    }
+}
+
+/// The cost of inserting or deleting one symbol, given what kind of
+/// segment it is.
+pub(crate) fn indel_cost(c: char) -> f64 {
+    GAP_COST * describe(c).map_or(1.0, obligatory_weight)
+}
 
 /// Bound the number of word alternatives exposed for any one target
 /// span after trie traversal. Search still sees multiple acoustic and
@@ -414,27 +472,31 @@ impl FuzzyLexicon {
 
             // Delete one target segment: the listener effectively
             // loses a weak segment while the clue pronunciation stays
-            // at the same trie node.
+            // at the same trie node. The charge depends on what kind of
+            // segment went missing, not just on the fact that one did.
             if consumed < remaining {
+                let lost = target[start + consumed];
                 push_state(
                     &mut stack,
                     &mut best,
                     node_idx,
                     consumed + 1,
-                    cost + GAP_COST,
+                    cost + indel_cost(lost),
                     budget,
                 );
             }
 
             for (&clue_char, &child_idx) in &node.children {
                 // Insert one clue segment: extra material in the clue
-                // pronunciation that consumes no target segment.
+                // pronunciation that consumes no target segment. As with
+                // a deletion, what arrives matters: a clue segment the
+                // speaker would not have produced is cheap to add.
                 push_state(
                     &mut stack,
                     &mut best,
                     child_idx,
                     consumed,
-                    cost + GAP_COST,
+                    cost + indel_cost(clue_char),
                     budget,
                 );
 
@@ -747,21 +809,20 @@ fn rarity_key(rarity: Option<f64>) -> u64 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn indel_trie_finds_inserted_initial_segment() {
-        // Build a tiny trie manually: /hɪts/ should match target /ɪts/
-        // by one inserted clue segment.
+    /// Build a one-word lexicon so the insertion branch can be exercised
+    /// without the corpus.
+    fn one_word_lexicon(word: &str, ipa: &str) -> FuzzyLexicon {
         let words = vec![FuzzyWord {
-            word: "hits".into(),
-            ipa: "hɪts".into(),
-            ipa_len: 4,
+            word: word.into(),
+            ipa: ipa.into(),
+            ipa_len: ipa.chars().count(),
             syllables: 1,
             rarity: Some(100.0),
             closed: false,
         }];
         let mut nodes = vec![TrieNode::default()];
         let mut node = 0;
-        for ch in "hɪts".chars() {
+        for ch in ipa.chars() {
             let next = nodes.len();
             nodes.push(TrieNode::default());
             nodes[node].children.insert(ch, next);
@@ -769,31 +830,157 @@ mod tests {
         }
         nodes[node].terminations.push(0);
 
-        let alphabet: Vec<char> = "hɪts".chars().collect();
+        let alphabet: Vec<char> = ipa.chars().collect();
         let mut substitution_costs = HashMap::new();
         for &a in &alphabet {
             for &b in &alphabet {
-                substitution_costs.insert(
-                    (a, b),
-                    if a == b {
-                        0.0
-                    } else {
-                        phonetics::distance(&a.to_string(), &b.to_string())
-                    },
-                );
+                substitution_costs.insert((a, b), confusability(a, b));
             }
         }
 
-        let lexicon = FuzzyLexicon {
+        FuzzyLexicon {
             words,
             nodes,
             substitution_costs,
-        };
+        }
+    }
+
+    #[test]
+    fn indel_trie_finds_inserted_initial_segment() {
+        // A clue segment the speaker would not have produced is found by
+        // insertion, and is charged the class weight of that segment.
+        let lexicon = one_word_lexicon("hits", "hɪts");
         let target: Vec<char> = "ɪts".chars().collect();
         let hits = lexicon.matches_at(&target, 0, 0.5, 1);
         assert!(hits
             .iter()
-            .any(|m| m.word_idx == 0 && (m.cost - GAP_COST).abs() < 1e-9));
+            .any(|m| m.word_idx == 0 && (m.cost - indel_cost('h')).abs() < 1e-9));
+    }
+
+    // ---- rule tests for the cost model ---------------------------
+    //
+    // These assert properties of the *rules* -- the feature distance and
+    // the indel class weight -- over symbol classes. No word, phrase or
+    // canonical example appears in them; the symbols are chosen as
+    // representatives of articulatory classes.
+
+    #[test]
+    fn substitution_of_identical_symbols_is_free() {
+        for &c in &['k', '\u{0261}', 't', 'a', '\u{0259}'] {
+            assert_eq!(confusability(c, c), 0.0, "U+{:04X}", c as u32);
+        }
+    }
+
+    #[test]
+    fn a_voicing_alternation_costs_less_than_a_place_alternation() {
+        // Same manner, same place, differing only in voicing: the cue a
+        // listener is worst at recovering, so it must be the cheapest
+        // kind of substitution.
+        let voicing = confusability('t', 'd');
+        // Same manner and voicing, different place.
+        let place = confusability('t', 'k');
+        assert!(
+            voicing < place,
+            "voicing {voicing} should be under place {place}"
+        );
+    }
+
+    #[test]
+    fn a_lax_tense_vowel_pair_costs_less_than_an_unrelated_vowel_pair() {
+        // Differing in one height step, versus differing in height and
+        // backness and rounding.
+        let near = confusability('\u{026A}', 'i');
+        let far = confusability('\u{026A}', '\u{0251}');
+        assert!(near < far, "near {near} should be under far {far}");
+    }
+
+    #[test]
+    fn folding_makes_a_reduced_pair_free() {
+        // Two central reduced symbols a listener cannot resolve are the
+        // same sound for this currency.
+        assert_eq!(
+            confusability('\u{0259}', '\u{0250}'),
+            0.0,
+            "the reduced central family should fold to one symbol"
+        );
+    }
+
+    #[test]
+    fn a_reduced_alternation_is_discounted() {
+        // The same vowel pair costs strictly less when one side is
+        // reduced, because an unstressed vowel is not recoverable.
+        let reduced = confusability('\u{0259}', 'i');
+        let unreduced = confusability('\u{0251}', 'i');
+        assert!(
+            reduced < unreduced,
+            "reduced {reduced} should be under unreduced {unreduced}"
+        );
+    }
+
+    #[test]
+    fn an_unrelated_pair_is_never_cheaper_than_two_gaps() {
+        // A substitution that outcosts delete-then-insert is never worth
+        // taking, so the table must be capped at or below two gaps.
+        // Consonant representatives, one per articulatory class, all
+        // drawn from the corpus alphabet. (The voiced velar is spelled
+        // with an IPA character there, not with a Latin `g`.)
+        let alphabet = "ptkbd\u{0261}fszv\u{00F0}mnlhwj\u{0279}\u{0283}\u{0292}\u{014B}";
+        for a in alphabet.chars() {
+            for b in alphabet.chars() {
+                if a == b {
+                    continue;
+                }
+                let cost = confusability(a, b);
+                assert!(
+                    cost <= 2.0 * GAP_COST + 1e-9,
+                    "U+{:04X}/U+{:04X} costs {cost}, above two gaps",
+                    a as u32,
+                    b as u32
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_symbol_outside_the_corpus_alphabet_is_not_free() {
+        assert!(confusability('\u{0259}', '\u{4e2d}') > GAP_COST);
+    }
+
+    #[test]
+    fn an_indel_of_a_weak_segment_costs_less_than_one_that_carries_the_word() {
+        // A reduced vowel and a glottal fricative are segments English
+        // routinely fails to produce; a stop and a full vowel are not.
+        let weak = indel_cost('\u{0259}');
+        let glottal = indel_cost('h');
+        let strong = indel_cost('t');
+        let full_vowel = indel_cost('\u{0251}');
+        assert!(
+            weak < strong,
+            "reduced vowel indel {weak} should be under stop indel {strong}"
+        );
+        assert!(
+            glottal < strong,
+            "glottal fricative indel {glottal} should be under stop indel {strong}"
+        );
+        assert!(
+            full_vowel < strong * 2.0,
+            "a full vowel is not free, but is not dearer than a stop"
+        );
+        assert!(
+            full_vowel > weak,
+            "a full vowel must cost more than a reduced vowel"
+        );
+    }
+
+    #[test]
+    fn every_indel_costs_at_least_the_reduced_rate() {
+        for c in "ptkbdgfszvmnlhjw\u{0259}\u{0251}\u{0279}".chars() {
+            assert!(
+                indel_cost(c) > 0.0,
+                "U+{:04X} indel must not be free",
+                c as u32
+            );
+        }
     }
 
     #[test]
