@@ -1885,6 +1885,14 @@ impl BeamPos {
         (cand_words, cost_tier(cand_sub))
     }
 
+    fn family_end(words: &[ClueWord]) -> String {
+        match words {
+            [] => String::new(),
+            [last] => last.ipa.clone(),
+            [.., before, last] => format!("{}|{}", before.ipa, last.ipa),
+        }
+    }
+
     /// Worst member of a family group: lowest cheap score,
     /// clone-id-descending tiebreak (so the admitted set is exactly
     /// the top-K by (cheap, id) — deterministic under ties).
@@ -2013,11 +2021,7 @@ impl BeamPos {
     fn insert(&mut self, candidate: Partial) {
         let id = (candidate.key.clone(), candidate.lex.clone());
         let bits = candidate.cheap_score.to_bits();
-        let new_end = candidate
-            .words
-            .last()
-            .map(|w| w.ipa.clone())
-            .unwrap_or_default();
+        let new_end = Self::family_end(&candidate.words);
         let new_family = Self::cell_of(candidate.words.len(), candidate.sub_cost_total);
         match self.pool.get(&id) {
             Some(p) => {
@@ -2028,7 +2032,7 @@ impl BeamPos {
                 // across families if the improved acoustics tier
                 // differently, and refreshing the cached score.
                 let old = self.pool.insert(id.clone(), candidate).expect("present");
-                let old_end = old.words.last().map(|w| w.ipa.clone()).unwrap_or_default();
+                let old_end = Self::family_end(&old.words);
                 let old_family = Self::cell_of(old.words.len(), old.sub_cost_total);
                 if (old_family, &old_end) != (new_family, &new_end) {
                     if let Some(by_end) = self.groups.get_mut(&old_family) {
