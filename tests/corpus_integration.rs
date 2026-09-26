@@ -225,14 +225,16 @@ fn approximate_proposals_are_predominantly_content_words() {
     }
 }
 
+/// A clue's resegmentation, as the search aligned it.
+///
+/// This reads [\"madgab::Clue::cuts\"] rather than re-deriving offsets
+/// by summing the clue words' own IPA lengths.  The two disagree under
+/// an approximate alignment — a clue word consumes a run of the target's
+/// phonemes, not its own transcription — so re-deriving reports one
+/// resegmentation as many, and this test was measuring the diversity
+/// policy's *belief* about the list rather than the list.
 fn clue_boundaries(c: &madgab::Clue) -> Vec<usize> {
-    let mut cuts = Vec::new();
-    let mut at = 0usize;
-    for w in c.words.iter().skip(1) {
-        at += w.ipa.chars().count();
-        cuts.push(at);
-    }
-    cuts
+    c.cuts[..c.cuts.len().saturating_sub(1)].to_vec()
 }
 
 /// Structural diversity on a real search: the visible list may not be
@@ -299,13 +301,21 @@ fn approximate_list_is_not_one_resegmentation() {
 /// here.  Scores are printed to six decimals, which is far tighter than
 /// any scoring change is allowed to be.
 ///
-/// The values were re-baselined on `post-milestone-acceptance` when this
-/// lock was integrated, because two scoring/selection fronts (the
-/// closed-class clue-quality axis and the ordered selection rule) landed
-/// after the perf work was measured and intentionally change approximate
-/// output.  The lock protects the tree as integrated from here on; it does
-/// not claim the perf work was bit-identical to that older base, which
-/// its own work item verified separately.
+/// The values have been re-baselined twice on
+/// `post-milestone-acceptance`, because scoring and selection fronts
+/// (the closed-class clue-quality axis, the ordered selection rule, and
+/// the resegmentation-offset fix in [w-04f83f]) landed after the perf
+/// work was measured and intentionally change approximate output.  The
+/// lock protects the tree as integrated from here on; it does not claim
+/// any of those changes was behaviour-preserving, which their own work
+/// items recorded.
+///
+/// The re-baseline in w-04f83f is a *selection* change only: no score
+/// moved, and the same candidates are in the pool.  The visible list
+/// differs because the diversity policy's share cap started working —
+/// it can now tell that several of the previous entries are wordings of
+/// one resegmentation — so the slots they gave up went to the best
+/// candidates of other resegurations.
 #[test]
 fn approximate_output_is_locked() {
     const CASES: &[(&str, &[&str])] = &[
@@ -316,12 +326,12 @@ fn approximate_output_is_locked() {
                 "0.937604 aisle a view",
                 "0.937462 i.'s a view",
                 "0.936762 eye a view",
-                "0.932630 isle come view",
-                "0.932621 i'll come view",
-                "0.931899 aisle come view",
                 "0.931877 how ill view",
                 "0.931877 now ill view",
-                "0.931756 i.'s come view",
+                "0.930994 isle of new",
+                "0.930262 aisle of new",
+                "0.930120 i.'s of new",
+                "0.929948 yeah ill view",
             ],
         ),
     ];
