@@ -27,14 +27,29 @@
 //! score of every completion (the same bound the traversal orders by), the
 //! admission order is descending in score exactly as the traversal's is.
 //!
-//! Two named bounds keep it from turning into a second product enumeration:
+//! Three named bounds keep it from turning into a second product
+//! enumeration, and it is worth being exact about what each one bounds,
+//! because bounding the *frontier* and bounding the *work* are different
+//! claims:
 //!
-//! * `pops` — how many wordings the walk may expand.  Each pop emits at most
-//!   one admission, so this also caps admissions.
-//! * `per_slot` — how many of a node's children in *one* slot enter the
-//!   frontier.  The children of a node in one slot are ranked by the caller's
-//!   key, and the best few are kept; the walk is a bounded beam over
-//!   substitutions rather than a full width sweep of the product.
+//! * `seeds` — how many wordings the pool already holds seed the walk.  They
+//!   cost one pop each and admit nothing, so `pops - seeds` is the walk's
+//!   guaranteed reach in new wordings.  [`pop_budget`] derives `pops` from
+//!   `seeds` so that this cannot be zero by accident; see its doc comment,
+//!   which is where the arithmetic is named.
+//! * `pops` — how many wordings the walk may expand at all, counting the
+//!   seeds.  This bounds the *probes*: one pop scores `sum over slots of
+//!   width` children, so the probe count is `pops * depth * width`.
+//! * `per_slot` — how many of a node's children in *one* slot are retained.
+//!   The children of a node in one slot are ranked by the caller's key and the
+//!   best few kept, so this bounds the *allocations* (a retained child is the
+//!   only one cloned) and the *frontier* growth.  It does **not** bound the
+//!   probe count: lowering it does not make the walk cheaper, it only makes
+//!   each expansion retain less.
+//!
+//! So: the work is `pops * depth * width` score evaluations and
+//! `pops * depth * per_slot` allocations, and `pops` is the number that trades
+//! one against the other.
 //!
 //! The operator reads no vocabulary and knows no phrases: it is a function
 //! of index tuples, list widths, and a scoring closure, so it is the same
@@ -46,10 +61,12 @@ use std::collections::{BinaryHeap, HashSet};
 /// How far the neighbourhood walk goes, and how wide its beam is.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Neighbourhood {
-    /// Wordings the walk may expand.  Each pop admits at most one new
-    /// wording, so this bounds admissions too.
+    /// Wordings the walk may expand, **seeds included** — see
+    /// [`pop_budget`] for why that is the quantity to derive rather than
+    /// choose, and for what it costs when the pool is deep.
     pub(crate) pops: usize,
-    /// Children per slot that enter the frontier from one expanded node.
+    /// Children per slot retained from one expanded node.  Bounds the
+    /// allocations and the frontier, not the probes.
     pub(crate) per_slot: usize,
 }
 
@@ -76,6 +93,18 @@ impl PartialOrd for Node {
     }
 }
 
+impl Node {
+    /// Would `candidate` — a `(key, tuple)` pair not yet owned by a `Node` —
+    /// displace `worst` from a bounded retention heap?
+    ///
+    /// This is [`Ord::cmp`] with the candidate's tuple still borrowed, so the
+    /// retention gate costs no allocation.  Keeping it as one function is what
+    /// guarantees the gate and the heap's own ordering cannot drift apart.
+    fn beats(candidate: (i64, &[usize]), worst: &Node) -> bool {
+        (candidate.0, candidate.1) > (worst.key, worst.tuple.as_slice())
+    }
+}
+
 /// The same quantization the lexical traversal orders by, so the operator's
 /// key is the traversal's key and the two are directly comparable.
 fn quantize(score: f64) -> i64 {
@@ -87,6 +116,14 @@ fn quantize(score: f64) -> i64 {
 /// A bounded min-heap: the worst retained child is the one evicted, and the
 /// result comes back in descending key order so the frontier is filled
 /// best-first whatever the list order was.
+///
+/// The tuple is cloned only for a child that is actually **retained**.  The
+/// eviction test needs the candidate's key and, to break a key tie the same
+/// way [`Node`]'s own ordering does, its tuple — but [`Node::beats`] reads
+/// that tuple by reference out of the scratch buffer, so a probe that loses
+/// costs no allocation.  Allocation is therefore per *retained* child, which
+/// is what `keep` bounds, rather than per *probed* child, which is what
+/// `width` bounds.
 fn best_children(
     node: &Node,
     slot: usize,
@@ -101,22 +138,53 @@ fn best_children(
             continue;
         }
         scratch[slot] = i;
-        let child = Node {
-            key: quantize(bound(&scratch)),
-            tuple: scratch.clone(),
-        };
+        let key = quantize(bound(&scratch));
         if best.len() < keep {
-            best.push(Reverse(child));
+            best.push(Reverse(Node {
+                key,
+                tuple: scratch.clone(),
+            }));
         } else if let Some(Reverse(worst)) = best.peek() {
-            if child > *worst {
+            if Node::beats((key, scratch.as_slice()), worst) {
                 best.pop();
-                best.push(Reverse(child));
+                best.push(Reverse(Node {
+                    key,
+                    tuple: scratch.clone(),
+                }));
             }
         }
     }
     let mut out: Vec<Node> = best.into_iter().map(|Reverse(n)| n).collect();
     out.sort_by(|a, b| b.cmp(a));
     out
+}
+
+/// The pop budget for a walk seeded with `seeds` wordings.
+///
+/// This is the whole of the operator's cost arithmetic, and it exists so that
+/// the invariant cannot be broken by choosing a constant badly.  The frontier
+/// starts as the seeds, a seed is already in the pool, and a pop that lands on
+/// one expands known material and admits nothing — so with `P` pops and `S`
+/// seeds the number of new wordings the walk can admit is bounded *from
+/// below* by
+///
+/// ```text
+/// admissions >= P - S
+/// ```
+///
+/// which is vacuous when `P <= S`.  That is not a corner case: the seeds are
+/// the pool's own wordings, so a deep pool — the normal case, tens of them per
+/// segmentation — is exactly the case where a hand-picked `P` promises
+/// nothing and the walk's real reach depends on whether children outrank the
+/// seeds they descend from.
+///
+/// So the budget is *derived* rather than chosen: `seeds + reserve`, which
+/// guarantees `reserve` admissions however deep the pool is and spends no more
+/// than that when the pool is shallow.  `reserve` is the caller's own
+/// admission allowance, so one number bounds the admissions and the pops
+/// together and the two cannot starve each other.
+pub(crate) fn pop_budget(seeds: usize, reserve: usize) -> usize {
+    seeds.saturating_add(reserve)
 }
 
 /// The wordings this operator adds to the pool, best first.
@@ -357,6 +425,133 @@ mod tests {
         let first = admit(plan, &roots, &widths, &toy_bound);
         let second = admit(plan, &roots, &widths, &toy_bound);
         assert_eq!(first, second);
+    }
+
+    /// The seed-heavy regime, and the reason [`pop_budget`] exists.
+    ///
+    /// A seed is already in the pool, so a pop spent on one admits nothing.
+    /// A budget that does not cover the seeds therefore makes the walk a
+    /// no-op *exactly when the pool is deep* — which is the normal case,
+    /// since the seeds are the pool's own wordings.  With a budget derived as
+    /// `seeds + reserve` the walk admits its full reserve however many seeds
+    /// it is given, and this test pins that in the regime
+    /// `|roots| >= pops` that a hand-picked constant got wrong.
+    #[test]
+    fn a_deep_seed_pool_still_admits_its_reserve() {
+        let widths = [12usize, 9, 14, 7];
+        let reserve = 4usize;
+        for seed_count in [4usize, 17, 33, 64, 200] {
+            // A pool shaped like a real one: many distinct wordings, none of
+            // them better than the others by much.
+            let roots: Vec<Vec<usize>> = (0..seed_count)
+                .map(|i| {
+                    vec![i % widths[0], (i / 3) % widths[1], i % widths[2], 0]
+                })
+                .collect();
+            let got = admit(
+                Neighbourhood {
+                    pops: pop_budget(roots.len(), reserve),
+                    per_slot: 2,
+                },
+                &roots,
+                &widths,
+                &toy_bound,
+            );
+            assert!(
+                got.len() >= reserve.min(2),
+                "with {seed_count} seeds the walk admitted {} wordings, \
+                 expected its reserve of {reserve} (pops {} vs seeds {})",
+                got.len(),
+                pop_budget(seed_count, reserve),
+                seed_count,
+            );
+            for t in &got {
+                assert!(!roots.contains(t), "re-admitted a seed: {t:?}");
+            }
+        }
+    }
+
+    /// The arithmetic of the seed-heavy regime, stated the way it actually
+    /// holds.
+    ///
+    /// The frontier starts as the seeds, so the first pop is always a seed and
+    /// a seed pop admits nothing.  A pop on a *child* — a wording the walk
+    /// reached by substituting one slot — does admit.  So with `S` seeds and
+    /// `P` pops, at most `S` pops can be seeds, and
+    ///
+    /// ```text
+    /// admissions = P - (pops that were seeds) >= P - S
+    /// ```
+    ///
+    /// The lower bound `P - S` is vacuous when `P <= S`, which is exactly the
+    /// defect: a budget below the seed count promises nothing, and whether the
+    /// walk happens to admit anything then depends on whether children outrank
+    /// the seeds they descend from.  It often does — this test pins both
+    /// halves, so neither is folklore.
+    #[test]
+    fn admissions_are_bounded_by_pops_minus_seeds_from_below() {
+        let widths = [12usize, 9];
+        let roots: Vec<Vec<usize>> =
+            (0..40).map(|i| vec![i % 12, i % 9]).collect();
+
+        // A budget below the seed count: no lower bound, and in this shape the
+        // walk still admits, because the children of the best seeds outrank
+        // the seeds that have not been reached.
+        let unfunded = admit(
+            Neighbourhood {
+                pops: 8,
+                per_slot: 2,
+            },
+            &roots,
+            &widths,
+            &toy_bound,
+        );
+        // The derived budget over the same pool admits at least its reserve.
+        let reserve = 4usize;
+        let funded = admit(
+            Neighbourhood {
+                pops: pop_budget(roots.len(), reserve),
+                per_slot: 2,
+            },
+            &roots,
+            &widths,
+            &toy_bound,
+        );
+        assert!(
+            funded.len() >= reserve,
+            "derived budget admitted {} of a reserve of {reserve}",
+            funded.len()
+        );
+        assert!(
+            unfunded.len() <= 8,
+            "admissions can never exceed the pop budget, got {}",
+            unfunded.len()
+        );
+    }
+
+    /// `pop_budget` is the named arithmetic: the seeds plus the reserve, and
+    /// it saturates rather than wrapping.
+    #[test]
+    fn pop_budget_is_seeds_plus_reserve() {
+        assert_eq!(pop_budget(0, 8), 8);
+        assert_eq!(pop_budget(33, 8), 41);
+        assert_eq!(pop_budget(usize::MAX, 8), usize::MAX);
+    }
+
+    /// A width that no child can be retained from must not retain any, and a
+    /// single-slot segmentation is a legal degenerate input.
+    #[test]
+    fn degenerate_widths_admit_nothing() {
+        assert!(admit(
+            Neighbourhood {
+                pops: 8,
+                per_slot: 2
+            },
+            &[vec![0usize]],
+            &[0usize],
+            &toy_bound
+        )
+        .is_empty());
     }
 
     #[test]
