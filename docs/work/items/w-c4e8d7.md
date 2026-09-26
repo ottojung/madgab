@@ -251,3 +251,83 @@ clock, and integrate onto `post-milestone-acceptance`, never `main`. If it
 reports only the best-member and fill ranks, that is this item's end state and
 the selection question is re-opened as a new item from those numbers rather than
 inside this one.
+
+## Pass 2026-09-26T16:10Z (coordinator `coord-5d21`): the mechanism is visible
+## and general; the front is left running with a review and a durability push
+
+No source change on this pass and nothing integrated: the agent's work is two
+`wip:`-titled commits and a further uncommitted edit, which is not a
+reviewable end state by this item's own rule. Re-claimed from `coord-3f9a`.
+`post-milestone-acceptance` was clean and identical to `origin` at `ab58c93`.
+
+**A real durability hazard, found and closed.** `origin/madgab-enum-reach` was
+still at `6f1022a` and `origin/scratch/c4e8d7-measure` **did not exist** — the
+previous pass recorded the scratch branch as already pushed, and it was not.
+So `a9c141a` and `ee5159a` (379 changed lines in `src/lib.rs`, the whole
+mechanism) existed in exactly one place: an agent worktree that the agent had
+just moved off the implementation branch. This coordinator pushed both, and
+`origin/madgab-enum-reach` is now `ee5159a` with
+`origin/scratch/c4e8d7-measure` at `6d0c6e0`.
+
+**What the agent has built, reviewed on the diff (`6f1022a..ee5159a`).** The
+reserve that spends part of each segmentation's 64 emissions on coverage
+instead of on the cost-best corner is no longer sampled at four geometric
+rungs (`EMIT_DEEP_INDEX_LADDER`, 10/30/80/200, spent deepest rung first). It is
+now a **uniform, phase-rotated systematic sample**: `sweep_index(width, per,
+nth, phase)` returns a uniform stride over exactly the part of a slot's list
+the traversal's first stage cannot generate, `coverage_tuples` walks slot
+subsets breadth-before-depth so a reserve smaller than the slot count still
+touches every slot, and a `coverage_phase` counter advanced once per
+segmentation rotates the sweep so a run's sweeps tile the lists rather than
+resampling one progression of them. `per` is the reserve, so the stride is
+`ceil(span/reserve)` and a single segmentation's reserve already tiles its
+list; the phase is what makes successive segmentations differ.
+
+Fences hold. The production region is three items and nothing else. No
+`axes::*` move, no `select_diverse` edit, no change to the span shortlist or
+`SPAN_SHORTLIST`, no relaxation of either acceptance test, and no phrase, word
+or substring of either canonical example anywhere in the diff. `sweep_index`
+returns `None` rather than an out-of-range index, and `build` still compares
+the tuple's total substitution cost against `total_budget` additively, so
+criterion 7's "derive the budget from the bound the search already respects"
+is satisfied without a new constant. `cargo test --release --lib` is 50/0 on
+the agent's tree.
+
+**The four review findings sent to the agent**, non-blocking, in one steer:
+
+1. the release-build default-path `MADGAB_TRACE_PHRASES` acceptance
+   measurement has still not been taken on its own tree, and a `ZZ_POOL_OUT`
+   dump from a scratch build is not admissible under this item's own rule;
+   baseline to beat is `candidates=18065`, `missing`, cutoff `0.915691888`,
+   1.71 s, and the `recognize speech` guard is at visible slot 46 of 50;
+2. deleting `the_reserve_ladder_and_the_width_schedule_share_one_width` removed
+   the only assertion that the reserve does not re-spend a width the traversal
+   can open, and `next_branch_stage` is still live in production at
+   `src/lib.rs:1674`, so the traversal can open 40 and 160 while the doc
+   comment claims the reserve's whole range is unreachable. True on this
+   corpus (w-9d4e17 measured the widening firing 0 times on the six real
+   targets), unproven in general, asserted unconditionally — this is the
+   post-change purpose criterion 2 requires, and the one place the diff
+   over-claims;
+3. the tiling property and its behaviour when the reserve does not divide the
+   span are derivable but unstated;
+4. criterion 4's test must observe the **pool**, not the rule's arithmetic,
+   must name neither acceptance phrase, and must not assert on an observable
+   that is byte-identical on the parent commit — which is how w-9d4e17's test
+   was rejected on 2026-09-26T12:53Z.
+
+No second front was opened. Every remaining candidate territory is either the
+one this agent occupies or one of the seven refuted and recorded fronts
+(`w-9d4e17`, `w-5f1c04`, `w-e07c42`, `w-be6d21`, `w-3f9c02`, `w-8a1d47`,
+`w-3b8e15`), and the itinerary warns against manufacturing a backlog from
+speculation. [w-2e5b93](w-2e5b93.md) stays gated: pool membership is still the
+whole requirement, so moving an axis weight would re-baseline
+`approximate_output_is_locked` for no gain.
+
+Next action for a later fresh pass: read `c4e8d70` again. It must report the
+release-build default-path measurement, the `recognize speech` guard, the
+four findings' disposition, and a non-`wip:` commit on `madgab-enum-reach` with
+`examples/zzpool.rs` off that branch. Then run `cargo test --release --lib`,
+`--test corpus_integration`, `--test exact_determinism`, `--test approx_determinism`
+and the six-target wall clock of [w-7b2d40](w-7b2d40.md), and integrate onto
+`post-milestone-acceptance`, never `main`.
