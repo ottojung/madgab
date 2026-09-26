@@ -1,13 +1,13 @@
 ---
 work_item: true
 id: w-5c8e1f
-state: working
+state: done
 priority: high
-owner: coord-3f10
-updated: 2026-09-26T18:52:00Z
-branch: madgab-score-reseg-9a41d3
-worktree: /workspace/madgab-score-9a41d3
-agents: 9a41d3 (opened by coord-3f10)
+owner: coord-9d1e
+updated: 2026-09-26T19:13:00Z
+branch: madgab-score-reseg-9a41d3 (40e158b, pushed, NOT merged - the front's own durable line is MERGE RECOMMENDATION: HOLD)
+worktree: /workspace/madgab-score-9a41d3 (removable; durable copy at origin/madgab-score-reseg-9a41d3)
+agents: 9a41d3 (succeeded, P2; report durable at git show madgab-score-reseg-9a41d3:REPORT-9a41d3.md)
 ---
 
 # The objective, not the enumeration, refuses a full resegmentation: make the
@@ -219,3 +219,50 @@ A new independent front is now open on the objective side, [w-558697](w-558697.m
 `558697`, `/workspace/madgab-axis-558697`), investigation only, one pushed report, no
 landing. It cannot contend with this front, and it is told to measure on
 `post-milestone-acceptance` and treat M7a as a separate composable proposal.
+
+### coord-9d1e pass, 2026-09-26T19:13Z: the front is terminal and durable, its recommendation is **HOLD**, and its result is a constraint rather than a change
+
+`9a41d3` is terminal (`succeeded`, P2) and everything it produced is durable:
+`origin/madgab-score-reseg-9a41d3` at `40e158b` (`49ae9c3` is the M7a change and
+the phrase-free resegmentation guard, `40e158b` is `REPORT-9a41d3.md`), and
+`git show madgab-score-reseg-9a41d3:REPORT-9a41d3.md` line 448 reads
+`MERGE RECOMMENDATION: HOLD`. **Not merged, and the hold is honoured**: two green
+guards go red on that head. Nothing on the accumulation branch changes because
+of this front.
+
+What it measured, which is the part worth keeping:
+
+- **M7a refuted on its own terms.** Making the similarity axis relative to the
+  segmentation floor (`1 - (total_cost - segmentation_floor) / 4`) moves
+  `wreck a nice beach` from raw rank **27** to **278**, so its margin against the
+  visible cutoff goes from `+0.00127` to `-0.00691`, and it costs
+  `approximate_output_is_locked` as well. The prediction in this item's own
+  "change to implement" section (criterion 5, quoted from `c81e55` §1) that the
+  guard sat one hundredth of a point from falling was right, and a change to
+  that axis' *definition* is a coin flip on it - which is what happened.
+- The canonical test stayed red, as this item said it would, so the goal of a
+  generated full resegmentation for `It's just a stupid game` is **not** reached.
+- The phrase-free resegmentation guard *is* landed on the front's branch
+  (`tests/corpus_integration.rs`, +74 lines, a table of ordinary targets and the
+  >=3-letter shared-prefix rule). It is worth carrying forward even though the
+  M7a change next to it is held: it is the general statement of the defect
+  `c81e55` §6 measured, and `c81e55`'s §6 census (0 of 50 on one target of 13,
+  29-50 of 50 on the rest) remains the metric any candidate axis has to move.
+
+**The constraint this hands to the objective front [w-558697](w-558697.md), and
+the reason the item closes rather than being retried.** `wreck a nice beach` is
+inside the visible band by 0.00127, so *any* change that rescales the similarity
+axis, redistributes mass between axes, or re-points the objective at a clue
+family will move it. A candidate axis therefore has to be **additive or
+orthogonal** to the six existing ones - it must be computable from information
+the scorer already has and leave the similarity axis' absolute form alone - or it
+buys its own lift at the price of the milestone's one green guard. That is a
+design constraint on the new-axis search, not a reason to reopen this item, and
+it is now stated in `w-558697`'s own text so the front that is already running
+does not have to rediscover it.
+
+Next action for a later fresh pass: nothing remains on this item. The objective
+front is [w-558697](w-558697.md), and this item's expected-outcome clause is
+what pointed at it: the search side is refuted by `c81e55` §4/§5 and `b47d02`,
+weights are closed by [w-3f9c02](w-3f9c02.md), and the remaining general degree
+of freedom is a **new** axis with an independent argument.
