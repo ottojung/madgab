@@ -79,8 +79,10 @@ fn main() -> ExitCode {
             }
             "--min-word-len" => {
                 args.remove(0);
-                config.min_word_ipa_chars =
-                    args.remove(0).parse::<usize>().unwrap_or(config.min_word_ipa_chars);
+                config.min_word_ipa_chars = args
+                    .remove(0)
+                    .parse::<usize>()
+                    .unwrap_or(config.min_word_ipa_chars);
             }
             "--approximate" => {
                 args.remove(0);
@@ -91,7 +93,10 @@ fn main() -> ExitCode {
             }
             "--per-word-budget" => {
                 args.remove(0);
-                approximate_per_word = args.remove(0).parse::<f64>().unwrap_or(approximate_per_word);
+                approximate_per_word = args
+                    .remove(0)
+                    .parse::<f64>()
+                    .unwrap_or(approximate_per_word);
                 if matches!(config.mode, SearchMode::Approximate { .. }) {
                     config.mode = SearchMode::Approximate {
                         per_word_budget: approximate_per_word,

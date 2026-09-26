@@ -39,10 +39,7 @@ fn canonical_words_have_expected_narrow_ipa() {
         let ipa = c
             .preferred_ipa(word)
             .unwrap_or_else(|| panic!("corpus must know {:?}", word));
-        let stripped: String = ipa
-            .chars()
-            .filter(|&ch| ch != 'ˈ' && ch != 'ˌ')
-            .collect();
+        let stripped: String = ipa.chars().filter(|&ch| ch != 'ˈ' && ch != 'ˌ').collect();
         let stripped = stripped.replace('g', "ɡ");
         assert!(
             stripped.contains(expected),
@@ -59,8 +56,7 @@ fn known_madgab_pair_is_searchable() {
     let g = gen_unfiltered();
     let c = g.corpus();
     for w in [
-        "it's", "just", "a", "stupid", "game", "hits", "justice", "dupe", "hid",
-        "came",
+        "it's", "just", "a", "stupid", "game", "hits", "justice", "dupe", "hid", "came",
     ] {
         assert!(
             c.preferred_ipa(w).is_some(),
@@ -81,7 +77,10 @@ fn generates_for_a_real_phrase() {
     )
     .unwrap();
     let clues = g.generate("I love you");
-    assert!(!clues.is_empty(), "expected at least one clue for 'I love you'");
+    assert!(
+        !clues.is_empty(),
+        "expected at least one clue for 'I love you'"
+    );
     for c in &clues {
         assert!(!c.phrase.is_empty());
         assert!(

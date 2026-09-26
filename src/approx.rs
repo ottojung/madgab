@@ -232,19 +232,13 @@ struct RawEntry {
 }
 
 pub(crate) fn normalize_ipa(ipa: &str) -> String {
-    ipa.chars()
-        .filter(|&c| c != 'ˈ' && c != 'ˌ')
-        .collect()
+    ipa.chars().filter(|&c| c != 'ˈ' && c != 'ˌ').collect()
 }
 
 /// Build the fuzzy trie from the same preferred pronunciations used by
 /// the main corpus. The extra JSON parse gives us an iterable word
 /// list; lookup/source preference remains delegated to Corpus.
-pub(crate) fn build_lexicon(
-    json: &str,
-    corpus: &Corpus,
-    max_rarity: Option<f64>,
-) -> FuzzyLexicon {
+pub(crate) fn build_lexicon(json: &str, corpus: &Corpus, max_rarity: Option<f64>) -> FuzzyLexicon {
     let raw: HashMap<String, RawEntry> =
         serde_json::from_str(json).expect("Corpus::from_json already validated this JSON");
 
@@ -263,6 +257,19 @@ pub(crate) fn build_lexicon(
         let ipa = normalize_ipa(ipa);
         if ipa.is_empty() {
             continue;
+        }
+
+        let letter_len = word.chars().filter(|c| c.is_alphabetic()).count();
+        let short_word_rarity_limit = match letter_len {
+            0 => Some(0.0),
+            1 | 2 => Some(5_000.0),
+            3 => Some(25_000.0),
+            _ => None,
+        };
+        if let Some(limit) = short_word_rarity_limit {
+            if entry.rarity.is_none_or(|rarity| rarity > limit) {
+                continue;
+            }
         }
         let chars: Vec<char> = ipa.chars().collect();
         alphabet.extend(chars.iter().copied());
