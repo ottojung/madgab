@@ -1416,6 +1416,12 @@ struct BeamPos {
     /// Powers ending-novelty admission: the first prefix with a
     /// given ending sound always finds a foothold in its cell.
     ending_counts: HashMap<((usize, u8), String), usize>,
+    /// ((word count, cost tier), two-word IPA suffix) -> member
+    /// count. The suffix is the last two word-IPAs joined by a
+    /// space (a lone first word keys on its own IPA). Powers
+    /// suffix2 diversity at the hard cap without retaining any
+    /// fuller segmentation state.
+    suffix2_counts: HashMap<((usize, u8), String), usize>,
     k: usize,
     cell_cap: usize,
     cell_hard: usize,
@@ -1429,6 +1435,7 @@ impl BeamPos {
             cell_members: HashMap::new(),
             cell_min: HashMap::new(),
             ending_counts: HashMap::new(),
+            suffix2_counts: HashMap::new(),
             k,
             cell_cap: (k / 8).max(8),
             cell_hard: (k / 8).max(8) * HARD_MULT,
@@ -1446,6 +1453,7 @@ impl BeamPos {
         self.cell_members.clear();
         self.cell_min.clear();
         self.ending_counts.clear();
+        self.suffix2_counts.clear();
         std::mem::take(&mut self.entries)
     }
 
@@ -1479,10 +1487,17 @@ impl BeamPos {
         if cell_count >= self.cell_cap
             && !self.cell_admits(cell, cell_count, cand_cheap, cand_sub)
             // Last resort (mirrors insert): a first-of-ending sound
-            // joins if within ENDING_EPS of the kept worst.
+            // joins if within ENDING_EPS of the kept worst, as does
+            // an unseen suffix2 when a duplicated-suffix bucket can
+            // take the displacement.
             // PicoWord endings stay under pico policy below.
             && (match_ipa.chars().count() < Self::PICO_LEN
-                || !self.novel_ending(cell, match_ipa, cand_cheap))
+                || (!self.novel_ending(cell, match_ipa, cand_cheap)
+                    && !self.novel_suffix2(
+                        cell,
+                        &Self::suffix2_for_gate(partial_key, partial_key_empty, match_ipa),
+                        cand_cheap,
+                    )))
         {
             // PicoWord candidates may still pass as clone
             // improvements (checked below): mirror insert(), which
@@ -1580,6 +1595,91 @@ impl BeamPos {
             == 0
     }
 
+    /// Two-word IPA suffix of a fully built candidate: the last two
+    /// word IPAs joined by a space (a lone first word keys on its
+    /// own IPA; empty partials have none).
+    fn suffix2_of_words(words: &[ClueWord]) -> Option<String> {
+        match words.len() {
+            0 => None,
+            1 => Some(words[0].ipa.clone()),
+            n => Some(format!("{} {}", words[n - 2].ipa, words[n - 1].ipa)),
+        }
+    }
+
+    /// Gate-side suffix2 assembly from the clone key (a space-joined
+    /// IPA sequence, so its last token is the partial's last-word
+    /// IPA) plus the incoming match IPA. No fuller state retained.
+    fn suffix2_for_gate(partial_key: &str, partial_key_empty: bool, match_ipa: &str) -> String {
+        if partial_key_empty {
+            return match_ipa.to_string();
+        }
+        match partial_key.split_whitespace().next_back() {
+            Some(last) => format!("{last} {match_ipa}"),
+            None => match_ipa.to_string(),
+        }
+    }
+
+    /// True when any suffix2 bucket in the cell holds 2+ members —
+    /// i.e. there is a duplicated-suffix victim available.
+    fn has_dup_suffix2(&self, cell: (usize, u8)) -> bool {
+        self.suffix2_counts
+            .iter()
+            .any(|((c, _), &n)| *c == cell && n >= 2)
+    }
+
+    /// Suffix2 novelty shared by the gate and [`BeamPos::insert`]:
+    /// true when the candidate's two-word suffix is unseen in its
+    /// cell, within ENDING_EPS of the kept worst, and a
+    /// duplicated-suffix bucket exists to take the displacement.
+    fn novel_suffix2(&self, cell: (usize, u8), suffix2: &str, cand_cheap: f64) -> bool {
+        let min = match self.cell_min.get(&cell) {
+            Some(&(_, min)) => min,
+            None => return true,
+        };
+        if cand_cheap <= min - ENDING_EPS {
+            return false;
+        }
+        if !self.has_dup_suffix2(cell) {
+            return false;
+        }
+        self.suffix2_counts
+            .get(&(cell, suffix2.to_string()))
+            .copied()
+            .unwrap_or(0)
+            == 0
+    }
+
+    /// Weakest member sitting in a duplicated-suffix bucket: the
+    /// preferred displacement victim at the hard cap, so diversity
+    /// turns over redundant twins before distinct hypotheses.
+    /// When `must_beat` holds, only members the candidate strictly
+    /// beats qualify (for strict-improvement displacements, which
+    /// must never replace a better member with a worse newcomer).
+    fn dup_suffix2_victim(&self, cell: (usize, u8), cand_cheap: f64, must_beat: bool) -> Option<usize> {
+        self.cell_members.get(&cell).and_then(|members| {
+            members
+                .iter()
+                .filter(|&&i| {
+                    if must_beat && self.entries[i].cheap_score >= cand_cheap {
+                        return false;
+                    }
+                    match Self::suffix2_of_words(&self.entries[i].words) {
+                        Some(s) => {
+                            self.suffix2_counts.get(&(cell, s)).copied().unwrap_or(0) >= 2
+                        }
+                        None => false,
+                    }
+                })
+                .min_by(|&&a, &&b| {
+                    self.entries[a]
+                        .cheap_score
+                        .partial_cmp(&self.entries[b].cheap_score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .copied()
+        })
+    }
+
     /// Weakest member the candidate strictly dominates (candidate
     /// at least as good on both axes and strictly better on one),
     /// if any. Deliberately strict (no EPSILON slack): eviction must
@@ -1637,8 +1737,10 @@ impl BeamPos {
     /// Full admission with clone-suppression and diversity caps.
     /// Cells grow freely to their soft share; past it, only
     /// non-epsilon-dominated candidates join (up to the hard cap),
-    /// and settled cells admit strict improvements or
-    /// epsilon-dominating displacements. Mirrors
+    /// and settled cells admit strict improvements (preferring
+    /// duplicated-suffix victims), epsilon-dominating displacements,
+    /// unseen-suffix2 novelty displacing a duplicated-suffix member,
+    /// or first-of-ending novelty. Mirrors
     /// [`BeamPos::would_admit`].
     fn insert(&mut self, candidate: Partial) {
         if self.k == 0 {
@@ -1702,22 +1804,41 @@ impl BeamPos {
             }
         }
         // Settled cell: displace the worst on a strict heuristic
-        // improvement, else a member the candidate epsilon-dominates,
-        // else (last resort) a first-of-ending displacement: a
-        // candidate whose last-word sound is absent from the cell
-        // joins by displacing the cell worst if it is within
-        // ENDING_EPS of it. Endings are the perceptually salient
-        // part of a clue; this guarantees every distinct ending a
-        // foothold without growing the cell.
-        let victim = self
+        // improvement (preferring a duplicated-suffix victim it
+        // beats, so diversity turns over redundant twins first),
+        // else a member the candidate epsilon-dominates, else an
+        // unseen suffix2 displacing a duplicated-suffix member,
+        // else (last resort) a first-of-ending displacement.
+        let strict_idx = self
             .cell_min
             .get(&cell)
             .filter(|(_, min)| candidate.cheap_score > *min)
-            .map(|(idx, _)| *idx)
-            .or_else(|| self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total));
-        if let Some(idx) = victim {
+            .map(|(idx, _)| *idx);
+        if let Some(min_idx) = strict_idx {
+            let victim = self
+                .dup_suffix2_victim(cell, candidate.cheap_score, true)
+                .or(Some(min_idx));
+            if let Some(idx) = victim {
+                self.replace(idx, candidate);
+                return;
+            }
+        }
+        if let Some(idx) =
+            self.dominates_some(cell, candidate.cheap_score, candidate.sub_cost_total)
+        {
             self.replace(idx, candidate);
             return;
+        }
+        // Suffix2 novelty at the hard cap: an unseen two-word
+        // suffix within ENDING_EPS displaces the weakest member of
+        // a duplicated-suffix bucket (mirrors the gate's check).
+        if let Some(suffix2) = Self::suffix2_of_words(&candidate.words) {
+            if self.novel_suffix2(cell, &suffix2, candidate.cheap_score) {
+                if let Some(idx) = self.dup_suffix2_victim(cell, candidate.cheap_score, false) {
+                    self.replace(idx, candidate);
+                    return;
+                }
+            }
         }
         // Last resort: first-of-ending novelty displaces the cell
         // worst (mirrors the gate's novelty check).
@@ -1738,6 +1859,9 @@ impl BeamPos {
         self.cell_members.entry(cell).or_default().push(idx);
         if let Some(w) = candidate.words.last() {
             *self.ending_counts.entry((cell, w.ipa.clone())).or_default() += 1;
+        }
+        if let Some(s) = Self::suffix2_of_words(&candidate.words) {
+            *self.suffix2_counts.entry((cell, s)).or_default() += 1;
         }
         self.entries.push(candidate);
         Self::lower_min(&mut self.cell_min, cell, idx, cheap);
@@ -1779,6 +1903,20 @@ impl BeamPos {
             }
             if let Some(n) = new_end {
                 *self.ending_counts.entry((new_cell, n)).or_default() += 1;
+            }
+        }
+        // Suffix2 census follows the words (and the cell on moves),
+        // mirroring the ending census. No fuller state retained.
+        let old_suf = Self::suffix2_of_words(&old.words);
+        let new_suf = Self::suffix2_of_words(&self.entries[idx].words);
+        if old_suf != new_suf || old_cell != new_cell {
+            if let Some(o) = old_suf {
+                if let Some(c) = self.suffix2_counts.get_mut(&(old_cell, o)) {
+                    *c = c.saturating_sub(1);
+                }
+            }
+            if let Some(n) = new_suf {
+                *self.suffix2_counts.entry((new_cell, n)).or_default() += 1;
             }
         }
         // Refresh minima that may have moved. A stale low minimum
