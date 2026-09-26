@@ -302,7 +302,7 @@ impl Generator {
                 &chars,
                 p,
                 per_word_budget,
-                250,
+                500,
             );
             matches.retain(|m| {
                 m.word_len >= self.config.min_word_ipa_chars
@@ -2189,7 +2189,26 @@ impl BeamPos {
                     .unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| a.0.cmp(&b.0))
             });
-            for (id, _) in sorted.into_iter().take(GROUP_SELECT_KEEP) {
+            let mut represented_words = FastSet::default();
+            let mut selected = Vec::with_capacity(GROUP_SELECT_KEEP);
+            for (id, _) in &sorted {
+                let word = id.1.rsplit(' ').next().unwrap_or_default();
+                if represented_words.insert(word) {
+                    selected.push(id.clone());
+                    if selected.len() == GROUP_SELECT_KEEP {
+                        break;
+                    }
+                }
+            }
+            for (id, _) in sorted {
+                if selected.len() == GROUP_SELECT_KEEP {
+                    break;
+                }
+                if !selected.contains(&id) {
+                    selected.push(id);
+                }
+            }
+            for id in selected {
                 if let Some(p) = self.pool.remove(&id) {
                     out.push(p);
                 }

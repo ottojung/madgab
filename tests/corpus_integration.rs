@@ -236,7 +236,6 @@ fn approximate_completes_wreck_beach_family() {
 /// cost. Re-enable if retention ever covers that depth without
 /// phrase-specific favoritism.
 #[test]
-#[ignore]
 fn approximate_finds_classic_madgab_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
@@ -272,7 +271,6 @@ fn approximate_finds_classic_madgab_resegmentation() {
 /// interactive budgets allow. Re-enable if retention ever covers
 /// that depth without phrase-specific favoritism.
 #[test]
-#[ignore]
 fn approximate_finds_recognize_speech_resegmentation() {
     let g = Generator::from_json(
         CORPUS_JSON,
