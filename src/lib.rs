@@ -224,6 +224,144 @@ impl Generator {
     }
 
     pub fn generate(&self, target: &str) -> Vec<Clue> {
+        let mut recovery = self.generate_once(target, false);
+        if matches!(self.config.mode, SearchMode::Approximate { .. }) {
+            recovery.extend(self.recover_approx(target));
+        }
+        recovery.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        recovery.dedup_by(|a, b| a.phrase == b.phrase);
+        select_diverse(recovery, self.config.top_n)
+    }
+
+    fn recover_approx(&self, target: &str) -> Vec<Clue> {
+        let Some((target_ipa, target_boundaries)) =
+            transcribe_normalized_with_boundaries(&self.corpus, target)
+        else {
+            return Vec::new();
+        };
+        let target_words: FastSet<String> = target
+            .split_whitespace()
+            .map(|w| {
+                w.to_lowercase()
+                    .trim_end_matches(['.', ',', '!', '?'])
+                    .to_string()
+            })
+            .collect();
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        let (per_word_budget, total_budget) = match self.config.mode {
+            SearchMode::Approximate {
+                per_word_budget,
+                total_budget,
+            } => (per_word_budget, total_budget),
+            SearchMode::Exact => return Vec::new(),
+        };
+        let mut states: Vec<Vec<Vec<Partial>>> = (0..=n)
+            .map(|_| (0..8).map(|_| Vec::new()).collect())
+            .collect();
+        states[0].push(vec![Partial::empty()]);
+        let mut completed = Vec::new();
+        for p in 0..n {
+            let matches = self.approx_trie.words_approximately_starting_at(
+                &self.approx_entries,
+                &chars,
+                p,
+                per_word_budget,
+                500,
+            );
+            let current = states[p].clone();
+            for by_words in &current {
+                for partial in by_words {
+                    for m in &matches {
+                        if m.word_len < self.config.min_word_ipa_chars
+                            || m.consumed < self.config.min_word_ipa_chars
+                            || partial.sub_cost_total + m.cost > total_budget + 1e-9
+                        {
+                            continue;
+                        }
+                        let norm = Partial::norm_word(&m.word);
+                        let stem = Partial::stem_word(&norm);
+                        let reuse = if target_words.iter().any(|t| {
+                            Partial::stems_match(&stem, &Partial::stem_word(&Partial::norm_word(t)))
+                        }) {
+                            0.10
+                        } else {
+                            0.0
+                        };
+                        let next = partial.extend_approx(
+                            &m.word, &m.ipa, m.rarity, m.consumed, m.cost, 0.0, reuse,
+                        );
+                        let end = p + m.consumed;
+                        if end == n {
+                            let score = next.final_score(&target_boundaries, &target_words);
+                            completed.push((next, score));
+                        } else if end < n {
+                            let words = next.words.len();
+                            let cell = &mut states[end][words.min(7)];
+                            cell.push(next);
+                            cell.sort_by(|a, b| {
+                                b.recovery_score(&target_boundaries)
+                                    .partial_cmp(&a.recovery_score(&target_boundaries))
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                                    .then_with(|| a.key.cmp(&b.key))
+                            });
+                            cell.truncate(128);
+                        }
+                    }
+                }
+            }
+            for words in &mut states[p] {
+                words.sort_by(|a, b| {
+                    b.recovery_score(&target_boundaries)
+                        .partial_cmp(&a.recovery_score(&target_boundaries))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| a.key.cmp(&b.key))
+                });
+                words.truncate(128);
+            }
+        }
+        completed.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.key.cmp(&b.0.key))
+        });
+        completed.dedup_by(|a, b| a.0.key == b.0.key && a.0.lex == b.0.lex);
+        if let Ok(phrase) = std::env::var("MADGAB_TRACE_PHRASE") {
+            let needle = phrase.to_lowercase();
+            if let Some((rank, (partial, score))) =
+                completed.iter().enumerate().find(|(_, (partial, _))| {
+                    partial
+                        .words
+                        .iter()
+                        .map(|w| w.word.to_lowercase())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        == needle
+                })
+            {
+                eprintln!(
+                    "madgab recovery phrase={phrase:?} rank={rank} score={score:.6} words={}",
+                    partial.words.len()
+                );
+            } else {
+                eprintln!("madgab recovery phrase={phrase:?} rank=absent");
+            }
+        }
+        completed
+            .into_iter()
+            .take(self.config.top_n.saturating_mul(64).max(8192))
+            .map(|(p, _)| p.into_clue(&target_ipa, &target_boundaries, &target_words))
+            .collect()
+    }
+
+    fn generate_once(&self, target: &str, _recovery: bool) -> Vec<Clue> {
         // Exact mode keeps the historical raw-IPA behavior. Approximate
         // mode works on a stress-stripped stream so lexical stress
         // marks (which legitimately differ between near-homophones)
@@ -1114,6 +1252,36 @@ impl Partial {
             0.0,
             consumed,
         )
+    }
+
+    fn recovery_score(&self, target_boundaries: &[usize]) -> f64 {
+        let count = self.words.len().max(1) as f64;
+        let total = self.ipa_total;
+        let mut clue_end = 0usize;
+        let mut shared = 0usize;
+        let mut ti = 0usize;
+        for w in &self.words {
+            clue_end += w.ipa.chars().count();
+            if clue_end >= total {
+                break;
+            }
+            while ti < target_boundaries.len() && target_boundaries[ti] < clue_end {
+                ti += 1;
+            }
+            if ti < target_boundaries.len() && target_boundaries[ti] == clue_end {
+                shared += 1;
+            }
+        }
+        let novelty = 1.0 - shared as f64 / target_boundaries.len().max(1) as f64;
+        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let word_novelty = 1.0 - self.reuse_count as f64 / count;
+        let length_signal = (total as f64 / count / 4.0).min(1.0);
+        let lexical = self.lex_sum / count;
+        0.40 * similarity
+            + 0.30 * novelty
+            + 0.15 * word_novelty
+            + 0.05 * length_signal
+            + 0.10 * lexical
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -2155,15 +2323,6 @@ impl BeamPos {
         });
         out
     }
-    /// Deterministically select the expansion shortlist and drain
-    /// the pool: every hypothesis family's best
-    /// [`GROUP_SELECT_KEEP`] prefixes, gathered across all families
-    /// in deterministic group order. No global budget: the floors
-    /// bound the shortlist, and the strict admission gates fund it
-    /// by refusing most pairs before cloning. Each position expands
-    /// exactly once, by this or by [`BeamPos::take_all`].
-    /// Positions in the closing zone (see
-    /// [`CLOSING_SPAN`]) use [`BeamPos::take_all`] instead.
     fn take_selected(&mut self) -> Vec<Partial> {
         if self.pool.is_empty() {
             self.groups.clear();
