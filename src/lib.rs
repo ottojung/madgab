@@ -489,11 +489,10 @@ impl Generator {
             return Vec::new();
         };
         let n = chars.len();
-        let cap = 500;
-        let state_cap = 12;
-        let mut states: Vec<FastMap<(usize, usize, usize, u8), Vec<DpPath>>> =
-            (0..=n).map(|_| FastMap::default()).collect();
-        states[0].insert((0, 0, 0, 0), vec![DpPath::new(Partial::empty())]);
+        let lattice_cap = std::env::var("MADGAB_LATTICE_CAP")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(320);
         let lattice: Vec<Vec<ApproxMatch>> = (0..n)
             .map(|p| {
                 let mut matches = self.approx_trie.words_approximately_starting_at(
@@ -501,81 +500,255 @@ impl Generator {
                     chars,
                     p,
                     per_word_budget,
-                    cap,
+                    lattice_cap,
                 );
                 matches.retain(|m| {
                     m.word_len >= self.config.min_word_ipa_chars
                         && m.consumed >= self.config.min_word_ipa_chars
+                        && p + m.consumed <= n
+                });
+                matches.sort_by(|a, b| {
+                    Partial::norm_word(&a.word)
+                        .cmp(&Partial::norm_word(&b.word))
+                        .then_with(|| a.consumed.cmp(&b.consumed))
+                        .then_with(|| a.ipa.chars().count().cmp(&b.ipa.chars().count()))
+                        .then_with(|| a.cost.total_cmp(&b.cost))
+                        .then_with(|| {
+                            a.rarity
+                                .unwrap_or(f64::INFINITY)
+                                .total_cmp(&b.rarity.unwrap_or(f64::INFINITY))
+                        })
+                        .then_with(|| a.ipa.cmp(&b.ipa))
+                });
+                let mut equivalent: FastSet<(String, usize, usize)> = FastSet::default();
+                matches.retain(|m| {
+                    equivalent.insert((
+                        Partial::norm_word(&m.word),
+                        m.consumed,
+                        m.ipa.chars().count(),
+                    ))
                 });
                 matches
             })
             .collect();
-        let mut completed: Vec<Partial> = Vec::new();
 
-        for p in 0..n {
-            let here = std::mem::take(&mut states[p]);
-            if here.is_empty() {
-                continue;
+        // Diagnostic hook used while developing the lattice search.  It is
+        // removed before release; keeping it here temporarily makes it cheap
+        // to verify that a troublesome lexical path is actually represented
+        // by the generic match lattice rather than being lost in search.
+        if let Ok(trace) = std::env::var("MADGAB_LATTICE_TRACE") {
+            let words: Vec<String> = trace.split_whitespace().map(|w| w.to_lowercase()).collect();
+            let mut frontier: Vec<(usize, f64)> = vec![(0, 0.0)];
+            for wanted in words {
+                let mut next_frontier = Vec::new();
+                for (pos, cost) in frontier {
+                    if pos >= lattice.len() {
+                        continue;
+                    }
+                    for m in &lattice[pos] {
+                        if m.word.to_lowercase() == wanted {
+                            next_frontier.push((pos + m.consumed, cost + m.cost));
+                        }
+                    }
+                }
+                eprintln!(
+                    "LATTICE cap={} word={} paths={:?}",
+                    lattice_cap, wanted, next_frontier
+                );
+                frontier = next_frontier;
             }
-            let matches = &lattice[p];
-            for (_state, paths) in here {
-                for path in paths {
-                    for m in &matches {
-                        if m.consumed < self.config.min_word_ipa_chars
-                            || path.partial.sub_cost_total + m.cost > total_budget + 1e-9
-                        {
-                            continue;
-                        }
-                        let end = p + m.consumed;
-                        if end > n {
-                            continue;
-                        }
-                        let q = path.partial.ipa_total + m.ipa.chars().count();
-                        let k = path.partial.words.len() + 1;
-                        let reused = u32::from(target_words_stem.iter().any(|t| {
+            if std::env::var_os("MADGAB_LATTICE_ONLY").is_some() {
+                return Vec::new();
+            }
+        }
+
+        // Quantize only the resource constraint, never the actual score. A
+        // centiphonetic unit is fine enough for the 1.5 default budget while
+        // keeping the backward table tiny. Rounding upward is conservative:
+        // a path admitted by this table always fits the exact floating budget.
+        const COST_SCALE: f64 = 100.0;
+        let units = |cost: f64| -> usize { (cost * COST_SCALE - 1e-9).ceil().max(0.0) as usize };
+        let budget_units = (total_budget * COST_SCALE + 1e-9).floor() as usize;
+
+        let mut best_suffix = vec![vec![f64::NEG_INFINITY; budget_units + 1]; n + 1];
+        best_suffix[n].fill(0.0);
+        for p in (0..n).rev() {
+            for b in 0..=budget_units {
+                for m in &lattice[p] {
+                    let edge_units = units(m.cost);
+                    if edge_units > b {
+                        continue;
+                    }
+                    let end = p + m.consumed;
+                    let tail = best_suffix[end][b - edge_units];
+                    if tail.is_finite() {
+                        let reused = target_words_stem.iter().any(|t| {
                             Partial::stems_match(
                                 &Partial::stem_word(&Partial::norm_word(&m.word)),
                                 t,
                             )
-                        }));
-                        let next = path.partial.extend_approx(
-                            &m.word,
-                            &m.ipa,
-                            m.rarity,
-                            m.consumed,
-                            m.cost,
-                            0.0,
-                            f64::from(reused) * 0.10,
-                        );
-                        if end == n {
-                            completed.push(next);
-                            continue;
-                        }
-                        let shared = u32::from(target_boundaries.contains(&q));
-                        let rank = path.rank - 0.10 * m.cost
-                            + 0.10 * Partial::familiarity01(m.rarity)
-                            - 0.15 * f64::from(reused)
-                            - 0.30 * f64::from(shared);
-                        let next_path = DpPath {
-                            partial: next,
-                            rank,
-                        };
-                        let bucket = states[end]
-                            .entry((q, k, cost_tier(next.sub_cost_total)))
-                            .or_default();
-                        insert_dp_path(bucket, next_path, state_cap);
+                        });
+                        let edge_proxy = -0.10 * m.cost
+                            + 0.08 * (Partial::familiarity01(m.rarity) - 1.0)
+                            - 0.10 * f64::from(reused);
+                        best_suffix[p][b] = best_suffix[p][b].max(edge_proxy + tail);
                     }
                 }
             }
         }
+        if !best_suffix[0][budget_units].is_finite() {
+            return Vec::new();
+        }
+
+        let candidate_cap = std::env::var("MADGAB_CANDIDATE_CAP")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or_else(|| {
+                self.config
+                    .top_n
+                    .max(1)
+                    .saturating_mul(256)
+                    .clamp(1024, 20_000)
+            });
+        let expansion_cap = candidate_cap.saturating_mul(80).max(20_000);
+        let mut heap = std::collections::BinaryHeap::new();
+        let mut seq = 0_u64;
+        let root = Partial::empty();
+        heap.push(DagNode {
+            search_score: 0.0,
+            bound: best_suffix[0][budget_units],
+            seq,
+            pos: 0,
+            remaining_units: budget_units,
+            shared_boundaries: 0,
+            partial: root,
+        });
+        let mut completed: Vec<Partial> = Vec::with_capacity(candidate_cap);
+        let mut dominance: FastMap<
+            (usize, usize, usize, usize, usize, u32, String, String),
+            [f64; 2],
+        > = FastMap::default();
+        let mut expansions = 0_usize;
+
+        while let Some(node) = heap.pop() {
+            if node.pos == n {
+                completed.push(node.partial);
+                if completed.len() >= candidate_cap {
+                    break;
+                }
+                continue;
+            }
+            if expansions >= expansion_cap {
+                break;
+            }
+            expansions += 1;
+
+            for m in &lattice[node.pos] {
+                let edge_units = units(m.cost);
+                if edge_units > node.remaining_units {
+                    continue;
+                }
+                let end = node.pos + m.consumed;
+                let remaining_units = node.remaining_units - edge_units;
+                if !best_suffix[end][remaining_units].is_finite() {
+                    continue;
+                }
+                if node.partial.sub_cost_total + m.cost > total_budget + 1e-9 {
+                    continue;
+                }
+                let reused = target_words_stem.iter().any(|t| {
+                    Partial::stems_match(&Partial::stem_word(&Partial::norm_word(&m.word)), t)
+                });
+                let reuse_penalty = 0.10 * f64::from(reused);
+                let next = node.partial.extend_approx(
+                    &m.word,
+                    &m.ipa,
+                    m.rarity,
+                    m.consumed,
+                    m.cost,
+                    0.0,
+                    reuse_penalty,
+                );
+                let shared_boundary = end != n && target_boundaries.contains(&next.ipa_total);
+                let shared_boundaries = node.shared_boundaries + usize::from(shared_boundary);
+                let boundary_penalty = if shared_boundary {
+                    0.30 / target_boundaries.len().saturating_sub(1).max(1) as f64
+                } else {
+                    0.0
+                };
+                let edge_score = -0.10 * m.cost + 0.08 * (Partial::familiarity01(m.rarity) - 1.0)
+                    - 0.10 * f64::from(reused)
+                    - boundary_penalty;
+                let search_score = node.search_score + edge_score;
+                let bound = search_score + best_suffix[end][remaining_units];
+                if end != n {
+                    let previous_word = if next.words.len() < 2 {
+                        String::new()
+                    } else {
+                        Partial::norm_word(&next.words[next.words.len() - 2].word)
+                    };
+                    let last_word = Partial::norm_word(&next.words.last().unwrap().word);
+                    let key = (
+                        end,
+                        remaining_units,
+                        next.ipa_total,
+                        next.words.len(),
+                        shared_boundaries,
+                        next.reuse_count,
+                        previous_word,
+                        last_word,
+                    );
+                    let best = dominance.entry(key).or_insert([f64::NEG_INFINITY; 2]);
+                    if best[1].is_finite() && bound <= best[1] {
+                        continue;
+                    }
+                    if bound > best[0] {
+                        best[1] = best[0];
+                        best[0] = bound;
+                    } else {
+                        best[1] = bound;
+                    }
+                }
+                seq = seq.wrapping_add(1);
+                heap.push(DagNode {
+                    search_score,
+                    bound,
+                    seq,
+                    pos: end,
+                    remaining_units,
+                    shared_boundaries,
+                    partial: next,
+                });
+            }
+        }
+
+        if let Ok(trace) = std::env::var("MADGAB_RESULT_TRACE") {
+            let wanted = trace
+                .split_whitespace()
+                .map(Partial::norm_word)
+                .collect::<Vec<_>>()
+                .join(" ");
+            let rank = completed
+                .iter()
+                .position(|p| p.lex == wanted)
+                .map(|i| i + 1);
+            eprintln!(
+                "A_STAR completions={} expansions={} trace_rank={:?}",
+                completed.len(),
+                expansions,
+                rank
+            );
+        }
+
         let mut clues: Vec<Clue> = completed
-            .drain(..)
+            .into_iter()
             .map(|p| p.into_clue(target_ipa, target_boundaries, target_words))
             .collect();
         clues.sort_by(|a, b| {
             b.score
                 .partial_cmp(&a.score)
                 .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.phrase.cmp(&b.phrase))
         });
         clues.dedup_by(|a, b| a.phrase == b.phrase);
         select_diverse(clues, self.config.top_n)
@@ -634,25 +807,34 @@ impl Generator {
     }
 }
 
-struct DpPath {
+struct DagNode {
+    search_score: f64,
+    bound: f64,
+    seq: u64,
+    pos: usize,
+    remaining_units: usize,
+    shared_boundaries: usize,
     partial: Partial,
-    rank: f64,
 }
 
-impl DpPath {
-    fn new(partial: Partial) -> Self {
-        Self { partial, rank: 0.0 }
+impl PartialEq for DagNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.seq == other.seq
     }
 }
-
-fn insert_dp_path(paths: &mut Vec<DpPath>, candidate: DpPath, cap: usize) {
-    paths.push(candidate);
-    paths.sort_by(|a, b| {
-        b.rank
-            .partial_cmp(&a.rank)
+impl Eq for DagNode {}
+impl PartialOrd for DagNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for DagNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.bound
+            .partial_cmp(&other.bound)
             .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    paths.truncate(cap);
+            .then_with(|| other.seq.cmp(&self.seq))
+    }
 }
 
 // -----------------------------------------------------------------
@@ -2352,38 +2534,6 @@ impl BeamPos {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn dp_state_retains_bounded_best_paths() {
-        let mut paths = Vec::new();
-        insert_dp_path(
-            &mut paths,
-            DpPath {
-                partial: Partial::empty(),
-                rank: 1.0,
-            },
-            2,
-        );
-        insert_dp_path(
-            &mut paths,
-            DpPath {
-                partial: Partial::empty(),
-                rank: 3.0,
-            },
-            2,
-        );
-        insert_dp_path(
-            &mut paths,
-            DpPath {
-                partial: Partial::empty(),
-                rank: 2.0,
-            },
-            2,
-        );
-        assert_eq!(paths.len(), 2);
-        assert_eq!(paths[0].rank, 3.0);
-        assert_eq!(paths[1].rank, 2.0);
-    }
 
     const TINY: &str = r#"{
         "cat":  { "rarity": 100, "ipa": { "cmu": "kæt" }, "alt_display": "CAT" },
