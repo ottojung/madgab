@@ -514,6 +514,81 @@ mod tests {
             .any(|m| m.word_idx == 0 && (m.cost - GAP_COST).abs() < 1e-9));
     }
 
+    // ZZ_PROBE (scratch/c4e8d7-measure only): line-level diagnosis of where a
+    // dictionary word is dropped on the default approximate path.
+    #[test]
+    fn zz_probe_span() {
+        let json = open_english_pronouncing_dictionary::CORPUS_JSON;
+        let raw: HashMap<String, RawEntry> =
+            serde_json::from_str(json).unwrap();
+        let corpus = Corpus::from_json(json, Some(50_000.0)).unwrap();
+
+        let target_ipa = crate::transcribe_with_boundaries(
+            &corpus,
+            "It's just a stupid game",
+            true,
+        )
+        .unwrap()
+        .0;
+        let chars: Vec<char> = target_ipa.chars().collect();
+        println!("ZZ target_ipa = {target_ipa}  n = {}", chars.len());
+        for (i, c) in chars.iter().enumerate() {
+            println!("ZZ   {i:2} {c}");
+        }
+
+        // 1. Is the word in the raw corpus at all, and at what rarity?
+        for w in ["dupe", "hits", "justice", "hid", "came", "tup", "group"] {
+            let entry = raw.get(w);
+            let ipa = corpus.preferred_ipa(w);
+            println!(
+                "ZZ raw {w:10} rarity = {:?}  ipa = {:?}",
+                entry.and_then(|e| e.rarity),
+                ipa
+            );
+        }
+
+        // 2. Does build_lexicon keep it?
+        let lex = build_lexicon(json, &corpus, Some(50_000.0));
+        println!("ZZ lexicon words = {}", lex.words.len());
+        for w in ["dupe", "hits", "justice", "hid", "came"] {
+            let idx = lex.words.iter().position(|f| f.word == w);
+            println!(
+                "ZZ lex {w:10} -> {:?}",
+                idx.map(|i| (lex.words[i].ipa.clone(), lex.words[i].rarity))
+            );
+        }
+
+        // 3. Does matches_at offer it for the span, and where in the list?
+        for start in [10usize, 3, 13, 15] {
+            let hits = lex.matches_at(&chars, start, 0.5, 1);
+            let mut n = 0;
+            for (i, m) in hits.iter().enumerate() {
+                let f = &lex.words[m.word_idx];
+                if f.word == "dupe" {
+                    println!(
+                        "ZZ span {start}-? out_idx {i} consumed {} cost {:.6} ipa {}",
+                        m.consumed, m.cost, f.ipa
+                    );
+                    n += 1;
+                }
+            }
+            if n == 0 {
+                println!("ZZ span {start}-? : dupe ABSENT from matches_at");
+            }
+            println!(
+                "ZZ span {start}-? : matches_at returned {} entries, consumed histogram {:?}",
+                hits.len(),
+                {
+                    let mut h = std::collections::BTreeMap::new();
+                    for m in &hits {
+                        *h.entry(m.consumed).or_insert(0usize) += 1;
+                    }
+                    h
+                }
+            );
+        }
+    }
+
     #[test]
     fn indel_trie_respects_budget() {
         let mut best = HashMap::new();

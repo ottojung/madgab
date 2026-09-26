@@ -1297,7 +1297,7 @@ impl Generator {
         // operator's spend is bounded independently of the traversal's.
         let mut adjacency_spend = ADJACENCY_GLOBAL_RESERVE;
         let mut spent_pops = 0usize;
-        for &index in &schedule {
+        for (schedule_position, &index) in schedule.iter().enumerate() {
             if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
                 || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
             {
@@ -1365,6 +1365,45 @@ impl Generator {
                 });
                 slots.push(alts);
             }
+
+            // ZZ_TRACE (scratch/c4e8d7-measure only)
+            #[cfg(not(target_arch = "wasm32"))]
+            let zz_pos: Vec<Option<usize>> = {
+                let mut v = vec![None; slots.len()];
+                if let Ok(w) = std::env::var("ZZ_TRACE") {
+                    for (slot, alts) in slots.iter().enumerate() {
+                        if let Some(pos) = alts.iter().position(|a| {
+                            self.fuzzy_lexicon
+                                .word(a.match_ref.word_idx)
+                                .word
+                                .eq_ignore_ascii_case(&w)
+                        }) {
+                            eprintln!(
+                                "ZZ_TRAIL word={w:?} structure={:?} seg_rank={} \
+                                 slot={slot} rank_in_slot={pos} slot_width={} \
+                                 edge_matches={} emit_allowance={} held_before={} \
+                                 cost={} contribution={}",
+                                segmentation.spans,
+                                schedule_position,
+                                alts.len(),
+                                span_lattice[segmentation.spans[slot].0]
+                                    .iter()
+                                    .find(|e| {
+                                        e.end == segmentation.spans[slot].1
+                                    })
+                                    .map(|e| e.matches.len())
+                                    .unwrap_or(0),
+                                emit_allowance,
+                                held,
+                                alts[pos].cost,
+                                alts[pos].contribution(word_count),
+                            );
+                            v[slot] = Some(pos);
+                        }
+                    }
+                }
+                v
+            };
 
             if !possible || slots.iter().any(Vec::is_empty) {
                 continue;
@@ -1584,6 +1623,21 @@ impl Generator {
                     if k == depth {
                         if let Some(partial) = build(&prefix) {
                             if !replaying {
+                                // ZZ_TRACE (scratch/c4e8d7-measure only)
+                                #[cfg(not(target_arch = "wasm32"))]
+                                for (slot, &p) in zz_pos.iter().enumerate() {
+                                    if Some(prefix[slot]) == p {
+                                        eprintln!(
+                                            "ZZ_EMIT word traced at structure={:?} \
+                                             seg_rank={schedule_position} slot={slot} \
+                                             index={} emitted={} total_emitted={}",
+                                            segmentation.spans,
+                                            prefix[slot],
+                                            emitted,
+                                            spent_emissions,
+                                        );
+                                    }
+                                }
                                 #[cfg(test)]
                                 counters::note_depth(
                                     &counters::DEEPEST_TRAVERSAL,
@@ -1683,6 +1737,10 @@ impl Generator {
                 replaying = true;
             }
             spent_pops += popped;
+            // ZZ_TRACE (scratch/c4e8d7-measure only): did the traversal ever
+            // open a wider per-slot stage than LEXICAL_BRANCH_STAGE_0?
+            #[cfg(not(target_arch = "wasm32"))]
+            let zz_stage_marker = ();
 
             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
             //
@@ -1747,6 +1805,27 @@ impl Generator {
                     // `LEXICAL_GLOBAL_EMISSION_BUDGET` instead, which is where
                     // its spend belongs.
                 }
+            }
+            // ZZ_TRACE (scratch/c4e8d7-measure only)
+            #[cfg(not(target_arch = "wasm32"))]
+            if std::env::var("ZZ_STAGE").is_ok() {
+                let mut maxidx: Vec<usize> = vec![0; slots.len()];
+                for t in &pooled {
+                    for (k, &i) in t.iter().enumerate() {
+                        if k < maxidx.len() {
+                            maxidx[k] = maxidx[k].max(i);
+                        }
+                    }
+                }
+                eprintln!(
+                    "ZZ_STAGE structure={:?} seg_rank={schedule_position} \
+                     stage_0={} final_cap={cap} emitted={emitted} \
+                     popped={popped} profile_emitted={profile_emitted} \
+                     adjacency_emitted={adjacency_emitted} widths={widths:?} \
+                     max_slot_index_emitted={maxidx:?}",
+                    segmentation.spans,
+                    LEXICAL_BRANCH_STAGE_0,
+                );
             }
         }
 
@@ -1816,6 +1895,21 @@ impl Generator {
                     cutoff.phrase
                 );
             }
+        }
+
+        // ZZ_POOL_OUT (scratch/c4e8d7-measure only)
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
+            use std::fmt::Write as _;
+            let mut out = String::new();
+            for (i, c) in clues.iter().enumerate() {
+                let _ = writeln!(
+                    out,
+                    "{}\t{:.17}\t{:?}\t{:?}",
+                    i, c.score, c.phrase, c.cuts
+                );
+            }
+            std::fs::write(&path, out).expect("zz pool dump");
         }
 
         select_diverse(clues, self.config.top_n)
