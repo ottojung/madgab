@@ -309,8 +309,9 @@ impl Generator {
         }
 
         const SPAN_AXIS_KEEP: usize = 16;
-        const SEG_STATE_KEEP: usize = 8;
-        const SEGMENTATION_KEEP: usize = 64;
+        const SPAN_BAND_KEEP: usize = 4;
+        const SEG_STATE_KEEP: usize = 32;
+        const SEGMENTATION_KEEP: usize = 128;
         const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
         const LEXICAL_HEAP_POP_LIMIT: usize = 1024;
 
@@ -384,6 +385,44 @@ impl Generator {
                 for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
                     if seen_words.insert(m.word_idx) {
                         selected.push(*m);
+                    }
+                }
+
+                let mut cost_bands:
+                    std::collections::BTreeMap<usize, Vec<approx::FuzzyMatch>> =
+                    std::collections::BTreeMap::new();
+                let budget_scale = per_word_budget.max(1e-9);
+                for &m in &matches {
+                    let band = ((m.cost / budget_scale) * 4.0)
+                        .floor()
+                        .clamp(0.0, 3.0) as usize;
+                    cost_bands.entry(band).or_default().push(m);
+                }
+                for bucket in cost_bands.values() {
+                    let mut by_band_quality = bucket.clone();
+                    by_band_quality
+                        .sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+                    for m in by_band_quality.iter().take(SPAN_BAND_KEEP) {
+                        if seen_words.insert(m.word_idx) {
+                            selected.push(*m);
+                        }
+                    }
+
+                    let mut by_band_familiarity = bucket.clone();
+                    by_band_familiarity.sort_by(|a, b| {
+                        cmp_desc(
+                            word_familiarity(
+                                self.fuzzy_lexicon.word(a.word_idx).rarity,
+                            ),
+                            word_familiarity(
+                                self.fuzzy_lexicon.word(b.word_idx).rarity,
+                            ),
+                        )
+                    });
+                    for m in by_band_familiarity.iter().take(SPAN_BAND_KEEP) {
+                        if seen_words.insert(m.word_idx) {
+                            selected.push(*m);
+                        }
                     }
                 }
 
@@ -564,13 +603,19 @@ impl Generator {
                 .collect();
             let words: Vec<&str> =
                 word_spec.split(',').filter(|s| !s.is_empty()).collect();
-            let seg_rank = segmentations
-                .iter()
-                .position(|(_, path)| path.spans == spans);
+            let in_range =
+                spans.iter().all(|&(start, end)| start < n && end <= n);
+            let seg_rank = if in_range {
+                segmentations
+                    .iter()
+                    .position(|(_, path)| path.spans == spans)
+            } else {
+                None
+            };
             eprintln!(
                 "MADGAB_TRACE segmentation={spans:?} rank={seg_rank:?}"
             );
-            if spans.len() == words.len() {
+            if in_range && spans.len() == words.len() {
                 for (slot, (&(start, end), wanted)) in
                     spans.iter().zip(words.iter()).enumerate()
                 {
