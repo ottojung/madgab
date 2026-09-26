@@ -18,7 +18,12 @@ pub(crate) struct FuzzyWord {
     pub(crate) word: String,
     pub(crate) ipa: String,
     pub(crate) ipa_len: usize,
+    pub(crate) syllables: usize,
     pub(crate) rarity: Option<f64>,
+    /// Cached `lexical::is_closed_class(&word)`.  The span shortlist
+    /// sorts call the lexical test inside their comparators, and the test
+    /// lowercases, so it is not free enough to re-run there.
+    pub(crate) closed: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -200,7 +205,82 @@ impl FuzzyLexicon {
                             .cmp(&self.words[b.word_idx].word)
                     })
             });
-            matches.truncate(MATCHES_PER_SPAN.min(matches.len()));
+
+            if matches.len() > MATCHES_PER_SPAN {
+                const CHEAP_KEEP: usize = 96;
+                const COST_BANDS: usize = 4;
+                const BAND_KEEP: usize =
+                    (MATCHES_PER_SPAN - CHEAP_KEEP) / COST_BANDS;
+
+                let ordered = matches.clone();
+                let mut selected = Vec::with_capacity(MATCHES_PER_SPAN);
+                let mut seen = HashSet::new();
+
+                for m in ordered.iter().take(CHEAP_KEEP) {
+                    if seen.insert(m.word_idx) {
+                        selected.push(*m);
+                    }
+                }
+
+                let mut bands: Vec<Vec<FuzzyMatch>> =
+                    (0..COST_BANDS).map(|_| Vec::new()).collect();
+                let scale = budget.max(1e-9);
+                for &m in &ordered {
+                    let band = (((m.cost / scale) * COST_BANDS as f64)
+                        .floor() as usize)
+                        .min(COST_BANDS - 1);
+                    bands[band].push(m);
+                }
+
+                for band in &mut bands {
+                    band.sort_by(|a, b| {
+                        rarity_key(self.words[a.word_idx].rarity)
+                            .cmp(&rarity_key(self.words[b.word_idx].rarity))
+                            .then_with(|| {
+                                a.cost
+                                    .partial_cmp(&b.cost)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                            .then_with(|| {
+                                self.words[a.word_idx]
+                                    .word
+                                    .cmp(&self.words[b.word_idx].word)
+                            })
+                    });
+                    for m in band.iter().take(BAND_KEEP) {
+                        if seen.insert(m.word_idx) {
+                            selected.push(*m);
+                        }
+                    }
+                }
+
+                if selected.len() < MATCHES_PER_SPAN {
+                    for m in &ordered {
+                        if seen.insert(m.word_idx) {
+                            selected.push(*m);
+                            if selected.len() == MATCHES_PER_SPAN {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                selected.sort_by(|a, b| {
+                    a.consumed
+                        .cmp(&b.consumed)
+                        .then_with(|| {
+                            a.cost
+                                .partial_cmp(&b.cost)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        })
+                        .then_with(|| {
+                            rarity_key(self.words[a.word_idx].rarity)
+                                .cmp(&rarity_key(self.words[b.word_idx].rarity))
+                        })
+                });
+                *matches = selected;
+            }
+
             out.extend(matches.iter().copied());
         }
         out
@@ -237,6 +317,61 @@ pub(crate) fn normalize_ipa(ipa: &str) -> String {
         .collect()
 }
 
+/// Vowel pairs that form a single syllabic diphthong in the corpus
+/// inventory.  Everything else that looks like two adjacent vowels
+/// ("uə" in *accrual*, "iə" in *academia*) really is two syllables.
+const DIPHTHONGS: &[(char, char)] = &[
+    ('a', 'ɪ'),
+    ('a', 'ʊ'),
+    ('e', 'ɪ'),
+    ('o', 'ʊ'),
+    ('ɔ', 'ɪ'),
+    ('ɑ', 'ɪ'),
+    ('ɑ', 'ʊ'),
+    ('ɪ', 'ɚ'),
+    ('ʊ', 'ɚ'),
+];
+
+fn is_vowel_symbol(c: char) -> bool {
+    phonetics::vowels::INVENTORY
+        .iter()
+        .any(|v| v.starts_with(c) && v.chars().count() == 1)
+        || c == 'ɚ'
+}
+
+/// Count syllable nuclei in a stress-mark-free IPA transcription.
+///
+/// A Mad Gab clue only works if it can be *spoken* with the target's
+/// rhythm, so the search needs a cheap syllable estimate for both clue
+/// words and targets.  Syllable count is not derivable from raw IPA
+/// length (which is why the length proxy is only a weak signal), but it
+/// is cheap: count vowel nuclei and collapse diphthongs.
+///
+/// Words that contain no vowel symbol at all ("mm" -> /m/) are still
+/// spoken with one syllable, so they count as one.
+pub(crate) fn ipa_syllables(ipa: &str) -> usize {
+    let chars: Vec<char> = ipa.chars().collect();
+    let mut nuclei = 0usize;
+    let mut i = 0usize;
+    while i < chars.len() {
+        if !is_vowel_symbol(chars[i]) {
+            i += 1;
+            continue;
+        }
+        nuclei += 1;
+        if i + 1 < chars.len()
+            && DIPHTHONGS
+                .iter()
+                .any(|(a, b)| chars[i] == *a && chars[i + 1] == *b)
+        {
+            i += 2;
+            continue;
+        }
+        i += 1;
+    }
+    nuclei.max(usize::from(!ipa.is_empty()))
+}
+
 /// Build the fuzzy trie from the same preferred pronunciations used by
 /// the main corpus. The extra JSON parse gives us an iterable word
 /// list; lookup/source preference remains delegated to Corpus.
@@ -266,11 +401,14 @@ pub(crate) fn build_lexicon(
         }
         let chars: Vec<char> = ipa.chars().collect();
         alphabet.extend(chars.iter().copied());
+        let closed = crate::lexical::is_closed_class(&word);
         words.push(FuzzyWord {
             word,
+            syllables: ipa_syllables(&ipa),
             ipa,
             ipa_len: chars.len(),
             rarity: entry.rarity,
+            closed,
         });
     }
 
@@ -335,7 +473,9 @@ mod tests {
             word: "hits".into(),
             ipa: "hɪts".into(),
             ipa_len: 4,
+            syllables: 1,
             rarity: Some(100.0),
+            closed: false,
         }];
         let mut nodes = vec![TrieNode::default()];
         let mut node = 0;
@@ -380,5 +520,32 @@ mod tests {
         let mut stack = Vec::new();
         push_state(&mut stack, &mut best, 1, 1, 0.6, 0.5);
         assert!(stack.is_empty());
+    }
+
+    #[test]
+    fn syllable_count_collapses_diphthongs() {
+        for (ipa, expected) in [
+            ("hɪts", 1),
+            ("dʒʌstəs", 2),
+            ("keɪm", 1),
+            ("naɪs", 1),
+            ("naɪʒ", 1),
+            ("ɡoʊ", 1),
+            ("baʊt", 1),
+            ("bɔɪ", 1),
+            ("stʊpəd", 2),
+            ("ə", 1),
+            ("m", 1),
+            ("ɹɛkəɡnaɪzspitʃ", 4),
+            ("ɪtsdʒʌstəstʊpədɡeɪm", 6),
+            // Hiatus in CMUdict spelling really is two syllables.
+            ("əkɹuəl", 3),
+        ] {
+            assert_eq!(
+                ipa_syllables(ipa),
+                expected,
+                "syllable count for /{ipa}/"
+            );
+        }
     }
 }
