@@ -550,6 +550,59 @@ impl Generator {
         segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
         segmentations.truncate(SEGMENTATION_KEEP);
 
+        #[cfg(not(target_arch = "wasm32"))]
+        if let (Ok(span_spec), Ok(word_spec)) = (
+            std::env::var("MADGAB_TRACE_SPANS"),
+            std::env::var("MADGAB_TRACE_WORDS"),
+        ) {
+            let spans: Vec<(usize, usize)> = span_spec
+                .split(',')
+                .filter_map(|part| {
+                    let (a, b) = part.split_once('-')?;
+                    Some((a.parse().ok()?, b.parse().ok()?))
+                })
+                .collect();
+            let words: Vec<&str> =
+                word_spec.split(',').filter(|s| !s.is_empty()).collect();
+            let seg_rank = segmentations
+                .iter()
+                .position(|(_, path)| path.spans == spans);
+            eprintln!(
+                "MADGAB_TRACE segmentation={spans:?} rank={seg_rank:?}"
+            );
+            if spans.len() == words.len() {
+                for (slot, (&(start, end), wanted)) in
+                    spans.iter().zip(words.iter()).enumerate()
+                {
+                    let edge = span_lattice[start]
+                        .iter()
+                        .find(|edge| edge.end == end);
+                    let word_rank = edge.and_then(|edge| {
+                        edge.matches.iter().position(|m| {
+                            self.fuzzy_lexicon
+                                .word(m.word_idx)
+                                .word
+                                .eq_ignore_ascii_case(wanted)
+                        })
+                    });
+                    let word_cost = edge.and_then(|edge| {
+                        edge.matches
+                            .iter()
+                            .find(|m| {
+                                self.fuzzy_lexicon
+                                    .word(m.word_idx)
+                                    .word
+                                    .eq_ignore_ascii_case(wanted)
+                            })
+                            .map(|m| m.cost)
+                    });
+                    eprintln!(
+                        "MADGAB_TRACE span_slot={slot} span={start}-{end} word={wanted:?} rank={word_rank:?} cost={word_cost:?}"
+                    );
+                }
+            }
+        }
+
         // For a fixed segmentation, boundary novelty and word count are
         // constant. Rank lexical alternatives by the additive part of
         // the actual final score and enumerate the best Cartesian-product
@@ -798,6 +851,20 @@ fn normalized_word(word: &str) -> String {
 
 fn novelty_stem(word: &str) -> String {
     let mut s = normalized_word(word);
+    for (from, to) in [
+        ("isation", "ization"),
+        ("ising", "izing"),
+        ("ised", "ized"),
+        ("ises", "izes"),
+        ("ise", "ize"),
+        ("yse", "yze"),
+    ] {
+        if s.len() > from.len() + 2 && s.ends_with(from) {
+            s.truncate(s.len() - from.len());
+            s.push_str(to);
+            break;
+        }
+    }
     for suffix in ["ing", "ies", "ed", "es", "s", "d"] {
         if s.len() > suffix.len() + 2 && s.ends_with(suffix) {
             s.truncate(s.len() - suffix.len());
