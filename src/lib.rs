@@ -289,14 +289,8 @@ impl Generator {
             SearchMode::Exact => unreachable!(),
         };
 
+        let mut lattice: Vec<Vec<ApproxMatch>> = Vec::with_capacity(n);
         for p in 0..n {
-            if beam[p].is_empty() {
-                continue;
-            }
-            // The edit-tolerant trie walk depends only on the position
-            // and the per-word budget, not on the partial path, so run
-            // it once per position (not once per beam entry) and filter
-            // per partial by remaining total budget below.
             let mut matches = self.approx_trie.words_approximately_starting_at(
                 &self.approx_entries,
                 &chars,
@@ -308,6 +302,14 @@ impl Generator {
                 m.word_len >= self.config.min_word_ipa_chars
                     && m.consumed >= self.config.min_word_ipa_chars
             });
+            lattice.push(matches);
+        }
+
+        for p in 0..n {
+            if beam[p].is_empty() {
+                continue;
+            }
+            let matches = &lattice[p];
             if matches.is_empty() {
                 continue;
             }
@@ -318,16 +320,13 @@ impl Generator {
             // Candidate cheap = partial.cheap + step: a few flops, no
             // allocation, and the gate usually skips the clone.
             let mut mconst: Vec<(f64, f64, f64, f64)> = Vec::with_capacity(matches.len());
-            // Normalized + stemmed match words, once per position:
-            // the gates need them allocation-free on the hot pair
-            // path (beam clone gate uses norms, terminal pre-gate
-            // uses stems).
+            // Normalized match words, once per position: the beam
+            // clone gate needs them allocation-free on the hot path.
             let mnorm: Vec<String> = matches
                 .iter()
                 .map(|m| Partial::norm_word(&m.word))
                 .collect();
-            let mstem: Vec<String> = mnorm.iter().map(|w| Partial::stem_word(w)).collect();
-            for m in &matches {
+            for m in matches {
                 // Resyllabification lean, DISABLED (0.0): a per-link
                 // bonus for word ends that move away from target
                 // boundaries was meant as incremental novelty, but
@@ -403,21 +402,6 @@ impl Generator {
                         }
                     }
                     if terminal {
-                        // Terminal pre-score: the exact final score
-                        // without building the extended partial. The
-                        // family floor usually refuses it (most
-                        // single-character closings lose), skipping
-                        // the clone, full score, and insert.
-                        let score = partial.terminal_score_exact(
-                            &target_boundaries,
-                            m.ipa.chars().count(),
-                            m.rarity,
-                            reuse_penalty,
-                            m.cost,
-                        );
-                        if !completed.would_admit_ub(partial.words.len() + 1, &mstem[mi], score) {
-                            continue;
-                        }
                         let next = partial.extend_approx(
                             &m.word,
                             &m.ipa,
@@ -427,11 +411,18 @@ impl Generator {
                             boundary_bonus,
                             reuse_penalty,
                         );
-                        // The pre-score is bit-identical to scoring
-                        // the built partial; keep the single source
-                        // of truth by scoring once via the pre-score
-                        // path (verified by
-                        // `terminal_score_matches_final_score`).
+                        let heuristic = partial.terminal_score_exact(
+                            &target_boundaries,
+                            m.ipa.chars().count(),
+                            m.rarity,
+                            reuse_penalty,
+                            m.cost,
+                        );
+                        if heuristic < 0.35 {
+                            continue;
+                        }
+                        let score =
+                            next.final_score(&target_ipa, &target_boundaries, &target_words);
                         completed.insert(next, score);
                     } else {
                         let next = partial.extend_approx(
@@ -444,6 +435,55 @@ impl Generator {
                             reuse_penalty,
                         );
                         beam[end].insert(next);
+                    }
+                }
+            }
+        }
+
+        const RECOVERY_K: usize = 8;
+        const RECOVERY_MAX_WORDS: usize = 5;
+        let mut recovery: Vec<Vec<Vec<Partial>>> = (0..=n)
+            .map(|_| (0..=n + 1).map(|_| Vec::new()).collect())
+            .collect();
+        recovery[0][0].push(Partial::empty());
+        for p in 0..n {
+            let (head, tail) = recovery.split_at_mut(p + 1);
+            for count in 0..=p.min(RECOVERY_MAX_WORDS - 1) {
+                for partial in head[p][count].drain(..) {
+                    for m in &lattice[p] {
+                        let sub_cost = partial.sub_cost_total + m.cost;
+                        if sub_cost > total_budget + 1e-9 {
+                            continue;
+                        }
+                        let end = p + m.consumed;
+                        if end > n {
+                            continue;
+                        }
+                        let reuse = if target_words_stem.iter().any(|t| {
+                            Partial::stems_match(
+                                &Partial::stem_word(&Partial::norm_word(&m.word)),
+                                t,
+                            )
+                        }) {
+                            0.10
+                        } else {
+                            0.0
+                        };
+                        let next = partial.extend_approx(
+                            &m.word, &m.ipa, m.rarity, m.consumed, m.cost, 0.0, reuse,
+                        );
+                        if end == n {
+                            let score =
+                                next.final_score(&target_ipa, &target_boundaries, &target_words);
+                            completed.insert(next, score);
+                        } else {
+                            insert_recovery(
+                                &mut tail[end - p - 1][count + 1],
+                                next,
+                                &chars[..end],
+                                RECOVERY_K,
+                            );
+                        }
                     }
                 }
             }
@@ -1331,7 +1371,12 @@ impl Partial {
     /// once the parse is complete, so the beam cannot prune on it
     /// mid-parse — but terminal retention can and does (see
     /// [`CompletionTop`]).
-    fn final_score(&self, target_boundaries: &[usize], target_words: &FastSet<String>) -> f64 {
+    fn final_score(
+        &self,
+        target_ipa: &str,
+        target_boundaries: &[usize],
+        target_words: &FastSet<String>,
+    ) -> f64 {
         // Reconstruct the clue's boundary set.
         let mut cum = 0_usize;
         let mut clue_boundaries: Vec<usize> = Vec::with_capacity(self.words.len());
@@ -1386,11 +1431,15 @@ impl Partial {
             / self.words.len().max(1) as f64;
         let length_signal = (avg_word_ipa_len / 4.0).min(1.0);
 
-        // Approximate-mode similarity: penalize total substitution
-        // cost. In Exact mode sub_cost_total is 0, so similarity is
-        // exactly 1.0 and this term is constant — the discrimination
-        // remains on the novelty/length axes as before.
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        // Similarity is defined over the complete candidate IPA stream,
+        // allowing boundary shifts and indels to reinforce or offset
+        // each other exactly as a listener would hear them.
+        let candidate_ipa = self
+            .words
+            .iter()
+            .map(|w| w.ipa.as_str())
+            .collect::<String>();
+        let similarity = phonetics::similarity(&candidate_ipa, target_ipa);
 
         // Lexical plausibility: average word familiarity. Real Mad
         // Gab clues use familiar words; fragment salads ("p ch",
@@ -1420,7 +1469,7 @@ impl Partial {
         target_boundaries: &[usize],
         target_words: &FastSet<String>,
     ) -> Clue {
-        let score = self.final_score(target_boundaries, target_words);
+        let score = self.final_score(target_ipa, target_boundaries, target_words);
         Clue {
             phrase: self
                 .words
@@ -1563,6 +1612,50 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
         out.push(slots[i].take().expect("each index picked once"));
     }
     out
+}
+
+fn insert_recovery(states: &mut Vec<Partial>, candidate: Partial, target: &[char], k: usize) {
+    let id = (&candidate.key, &candidate.lex);
+    if states.iter().any(|p| (&p.key, &p.lex) == id) {
+        return;
+    }
+    let target_ipa: String = target.iter().collect();
+    let rank = |p: &Partial| {
+        let candidate_ipa = p.key.replace(' ', "");
+        0.60 * phonetics::similarity(&candidate_ipa, &target_ipa)
+            + 0.20 * p.cheap_score
+            + 0.10 * (1.0 - p.reuse_count as f64 / p.words.len().max(1) as f64)
+            + 0.10 * (p.lex_sum / p.words.len().max(1) as f64)
+    };
+    if states.len() == k
+        && candidate.cheap_score + 0.25
+            <= states
+                .iter()
+                .map(|p| p.cheap_score)
+                .fold(f64::NEG_INFINITY, f64::max)
+    {
+        return;
+    }
+    if states.len() == k
+        && rank(&candidate) <= states.iter().map(rank).fold(f64::NEG_INFINITY, f64::max)
+    {
+        return;
+    }
+    states.push(candidate);
+    if states.len() > k {
+        if let Some(worst) = states
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                rank(a)
+                    .partial_cmp(&rank(b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .map(|(i, _)| i)
+        {
+            states.swap_remove(worst);
+        }
+    }
 }
 
 /// Insert `candidate` into a top-K beam, keeping the K highest-cheap-
@@ -2458,7 +2551,8 @@ mod pareto_tests {
         let target: FastSet<String> = ["recognize"].iter().map(|s| s.to_string()).collect();
         let plain = partial(vec![("peach", "pitʃ", Some(4_000.0), 0.3)], 0.3);
         assert!(
-            plain.final_score(&bounds, &target) > parrot.final_score(&bounds, &target),
+            plain.final_score("pitʃ", &bounds, &target)
+                > parrot.final_score("ɹɛkəgnaɪzəz", &bounds, &target),
             "inflected parrot was not demoted"
         );
         // (b) familiar words beat same-sounding unattested
@@ -2477,7 +2571,8 @@ mod pareto_tests {
         );
         let target2: FastSet<String> = ["zz", "yy"].iter().map(|s| s.to_string()).collect();
         assert!(
-            familiar.final_score(&bounds, &target2) > fragments.final_score(&bounds, &target2),
+            familiar.final_score("bitʃpitʃ", &bounds, &target2)
+                > fragments.final_score("bitʃpitʃ", &bounds, &target2),
             "fragment salad was not demoted below real words"
         );
     }
@@ -2486,72 +2581,27 @@ mod pareto_tests {
     type WordSpec<'a> = (&'a str, &'a str, Option<f64>, f64);
 
     #[test]
-    fn terminal_score_matches_final_score() {
-        // Bit-identity between the allocation-free terminal
-        // pre-score and extend-then-final_score: the retention gate
-        // relies on exactness (a mismatch would wrongly refuse
-        // completions). Exercises multiword prefixes, recycled
-        // words, fragments, and boundary-sharing spans.
-        let bounds = vec![3, 7, 10];
-        let target: FastSet<String> = ["aa", "bb", "cc"].iter().map(|s| s.to_string()).collect();
-        let stems: FastSet<String> = target
-            .iter()
-            .map(|w| Partial::stem_word(&Partial::norm_word(w)))
-            .collect();
-        let cases: Vec<Vec<WordSpec>> = vec![
-            vec![
-                ("wreck", "ɹɛk", Some(10_201.0), 0.0),
-                ("a", "ə", Some(4.0), 0.0),
-            ],
-            vec![("recognizes", "ɹɛkəgnaɪzəz", Some(13_520.0), 0.3)],
-            vec![("x", "ks", None, 0.6), ("eh", "ɛ", None, 0.15)],
-            vec![("aa", "ɑ", Some(100.0), 0.0)],
-        ];
-        let closings: Vec<(&str, &str, Option<f64>, f64)> = vec![
-            ("nice", "naɪs", Some(2_000.0), 0.75),
-            ("beach", "bitʃ", Some(3_000.0), 0.60),
-            ("p", "p", None, 0.60),
-        ];
-        for words in &cases {
-            let mut partial = Partial::empty();
-            for (w, ipa, rarity, sub) in words {
-                let reuse = if stems
-                    .iter()
-                    .any(|t| Partial::stems_match(&Partial::stem_word(&Partial::norm_word(w)), t))
-                {
-                    0.10
-                } else {
-                    0.0
-                };
-                partial =
-                    partial.extend_approx(w, ipa, *rarity, ipa.chars().count(), *sub, 0.0, reuse);
-            }
-            for (cw, cipa, crarity, csub) in &closings {
-                let reuse = if stems
-                    .iter()
-                    .any(|t| Partial::stems_match(&Partial::stem_word(&Partial::norm_word(cw)), t))
-                {
-                    0.10
-                } else {
-                    0.0
-                };
-                let pre = partial.terminal_score_exact(
-                    &bounds,
-                    cipa.chars().count(),
-                    *crarity,
-                    reuse,
-                    *csub,
-                );
-                let built = partial
-                    .extend_approx(cw, cipa, *crarity, cipa.chars().count(), *csub, 0.0, reuse)
-                    .final_score(&bounds, &target);
-                assert!(
-                    pre.to_bits() == built.to_bits(),
-                    "pre-score {pre} != final {built} for {:?} + {cw}",
-                    words.iter().map(|w| w.0).collect::<Vec<_>>(),
-                );
-            }
-        }
+    fn final_similarity_uses_whole_candidate_ipa() {
+        let bounds = vec![2, 5];
+        let target: FastSet<String> = ["no", "recycle"].iter().map(|s| s.to_string()).collect();
+        let candidate = Partial::empty()
+            .extend_approx("wreck", "ɹɛk", Some(1_000.0), 3, 0.0, 0.0, 0.0)
+            .extend_approx("a", "ə", Some(2_000.0), 1, 0.0, 0.0, 0.0);
+        let expected = {
+            let novelty = 0.0;
+            let word_novelty = 1.0;
+            let length_signal = 1.0;
+            let lexical = 1.0;
+            0.40 * phonetics::similarity("ɹɛkə", "ɹɛkə")
+                + 0.30 * novelty
+                + 0.15 * word_novelty
+                + 0.05 * length_signal
+                + 0.10 * lexical
+        };
+        assert_eq!(
+            candidate.final_score("ɹɛkə", &bounds, &target).to_bits(),
+            expected.to_bits()
+        );
     }
 
     #[test]
