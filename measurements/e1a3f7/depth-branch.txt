@@ -1,0 +1,78 @@
+It's_just_a_stupid_game
+   d1  off   1153  acc   1126  ref     27    2.34%   refAdj    27 refUnrel     0
+   d2  off   1884  acc   1691  ref    193   10.24%   refAdj    43 refUnrel   150
+   d3  off    367  acc    237  ref    130   35.42%   refAdj    37 refUnrel    93
+   TOTAL off 3404 acc 3054 ref 350 10.28%  refusedAdjacent 107 refusedUnrelated 243
+
+a_whole_lot_of_trouble
+   d1  off   1200  acc   1134  ref     66    5.50%   refAdj    66 refUnrel     0
+   d2  off   1976  acc   1505  ref    471   23.84%   refAdj    41 refUnrel   430
+   d3  off    267  acc     90  ref    177   66.29%   refAdj    10 refUnrel   167
+   TOTAL off 3443 acc 2729 ref 714 20.74%  refusedAdjacent 117 refusedUnrelated 597
+
+an_old_man_in_a_big_hat
+   d1  off   1546  acc   1119  ref    427   27.62%   refAdj   427 refUnrel     0
+   d2  off   2348  acc   1076  ref   1272   54.17%   refAdj   154 refUnrel  1118
+   d3  off    136  acc     19  ref    117   86.03%   refAdj    15 refUnrel   102
+   TOTAL off 4030 acc 2214 ref 1816 45.06%  refusedAdjacent 596 refusedUnrelated 1220
+
+he_was_a_big_fat_man
+   d1  off   1281  acc   1021  ref    260   20.30%   refAdj   260 refUnrel     0
+   d2  off   2185  acc   1274  ref    911   41.69%   refAdj   153 refUnrel   758
+   d3  off    255  acc    101  ref    154   60.39%   refAdj    23 refUnrel   131
+   TOTAL off 3721 acc 2396 ref 1325 35.61%  refusedAdjacent 436 refusedUnrelated 889
+
+my_brother_has_a_red_car
+   d1  off   1553  acc   1480  ref     73    4.70%   refAdj    73 refUnrel     0
+   d2  off   2384  acc   1884  ref    500   20.97%   refAdj   127 refUnrel   373
+   d3  off    116  acc     27  ref     89   76.72%   refAdj    19 refUnrel    70
+   TOTAL off 4053 acc 3391 ref 662 16.33%  refusedAdjacent 219 refusedUnrelated 443
+
+put_it_back_on_the_shelf
+   d1  off   1320  acc   1200  ref    120    9.09%   refAdj   120 refUnrel     0
+   d2  off   2278  acc   1600  ref    678   29.76%   refAdj    89 refUnrel   589
+   d3  off    236  acc    113  ref    123   52.12%   refAdj    12 refUnrel   111
+   TOTAL off 3834 acc 2913 ref 921 24.02%  refusedAdjacent 221 refusedUnrelated 700
+
+recognize_speech
+   d1  off   1203  acc   1203  ref      0    0.00%   refAdj     0 refUnrel     0
+   d2  off   1790  acc   1740  ref     50    2.79%   refAdj     4 refUnrel    46
+   d3  off    307  acc    271  ref     36   11.73%   refAdj     1 refUnrel    35
+   TOTAL off 3300 acc 3214 ref 86 2.61%  refusedAdjacent 5 refusedUnrelated 81
+
+she_had_a_lot_of_money
+   d1  off   1505  acc   1411  ref     94    6.25%   refAdj    94 refUnrel     0
+   d2  off   2307  acc   1678  ref    629   27.26%   refAdj    45 refUnrel   584
+   d3  off    167  acc     81  ref     86   51.50%   refAdj     7 refUnrel    79
+   TOTAL off 3979 acc 3170 ref 809 20.33%  refusedAdjacent 146 refusedUnrelated 663
+
+the_cat_sat_on_the_mat
+   d1  off   1326  acc   1291  ref     35    2.64%   refAdj    35 refUnrel     0
+   d2  off   2312  acc   1975  ref    337   14.58%   refAdj    35 refUnrel   302
+   d3  off    254  acc    183  ref     71   27.95%   refAdj     7 refUnrel    64
+   TOTAL off 3892 acc 3449 ref 443 11.38%  refusedAdjacent 77 refusedUnrelated 366
+
+there_is_no_way_to_know
+   d1  off   1322  acc   1263  ref     59    4.46%   refAdj    59 refUnrel     0
+   d2  off   2301  acc   1931  ref    370   16.08%   refAdj    52 refUnrel   318
+   d3  off    236  acc    149  ref     87   36.86%   refAdj    17 refUnrel    70
+   TOTAL off 3859 acc 3343 ref 516 13.37%  refusedAdjacent 128 refusedUnrelated 388
+
+what_are_you_going_to_do
+   d1  off   1444  acc   1334  ref    110    7.62%   refAdj   110 refUnrel     0
+   d2  off   2231  acc   1628  ref    603   27.03%   refAdj    67 refUnrel   536
+   d3  off    245  acc     96  ref    149   60.82%   refAdj    16 refUnrel   133
+   TOTAL off 3920 acc 3058 ref 862 21.99%  refusedAdjacent 193 refusedUnrelated 669
+
+when_the_rain_finally_stopped
+   d1  off   1504  acc   1499  ref      5    0.33%   refAdj     5 refUnrel     0
+   d2  off   2270  acc   2132  ref    138    6.08%   refAdj     6 refUnrel   132
+   d3  off    178  acc     91  ref     87   48.88%   refAdj     0 refUnrel    87
+   TOTAL off 3952 acc 3722 ref 230 5.82%  refusedAdjacent 11 refusedUnrelated 219
+
+ALL TARGETS  offered 45387  accepted 36653  refused 8734 (19.24%)
+refused with deep ranks adjacent (<= 4 apart): 2256 (4.97% of all offered, 25.8% of refusals)
+refused with deep ranks unrelated:               6478 (14.27% of all offered, 74.2% of refusals)
+refusal spread histogram: {"0":1348,"1-4":908,"41-150":2747,"11-40":2792,"5-10":939}
+accepted spread histogram: {"0":15611,"1-4":3396,"5-10":2868,"11-40":7640,"41-150":7138}
+most common refusal costs: [["1.514",84],["1.520",75],["1.510",73],["1.505",69],["1.585",69],["1.550",64],["1.525",64],["1.555",59]]

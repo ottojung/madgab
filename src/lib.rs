@@ -1469,9 +1469,56 @@ impl Generator {
                 {
                     break;
                 }
+                let probe_cost: f64 = tuple
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &i)| slots[slot][i].cost)
+                    .sum();
                 let Some(partial) = build(&tuple) else {
+                    cost_probe::record(
+                        target,
+                        coverage_phase,
+                        &tuple,
+                        &widths,
+                        probe_cost,
+                        false,
+                        &slots
+                            .iter()
+                            .enumerate()
+                            .map(|(slot, alts)| {
+                                (
+                                    slot,
+                                    self.fuzzy_lexicon
+                                        .word(alts[tuple[slot]].match_ref.word_idx)
+                                        .word
+                                        .clone(),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    );
                     continue;
                 };
+                cost_probe::record(
+                    target,
+                    coverage_phase,
+                    &tuple,
+                    &widths,
+                    probe_cost,
+                    true,
+                    &slots
+                        .iter()
+                        .enumerate()
+                        .map(|(slot, alts)| {
+                            (
+                                slot,
+                                self.fuzzy_lexicon
+                                    .word(alts[tuple[slot]].match_ref.word_idx)
+                                    .word
+                                    .clone(),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                );
                 #[cfg(test)]
                 counters::note_depth(
                     &counters::DEEPEST_PROFILE,
@@ -4921,5 +4968,94 @@ mod tests {
             "It's just a stupid game",
             &["hits", "justice", "dupe", "hid", "came"],
         );
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+mod cost_probe {
+    //! Read-only, environment-gated record of every tuple the coverage
+    //! reserve offers to `build`, with its depth, its total substitution
+    //! cost and whether `build` accepted it.
+    //!
+    //! Non-intrusive by construction: with `MADGAB_COST_PROBE` unset this
+    //! module compiles to a no-op and nothing on the default path changes.
+    //! It writes a CSV to the path the variable names and never touches
+    //! stdout, so visible output is byte-identical with and without it.
+
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::sync::Mutex;
+    use std::sync::OnceLock;
+
+    static OUT: OnceLock<Option<Mutex<std::fs::File>>> = OnceLock::new();
+
+    pub fn record(
+        target: &str,
+        phase: usize,
+        tuple: &[usize],
+        widths: &[usize],
+        cost: f64,
+        accepted: bool,
+        words: &[(usize, String)],
+    ) {
+        let gate = OUT.get_or_init(|| {
+            let Ok(path) = std::env::var("MADGAB_COST_PROBE") else {
+                return None;
+            };
+            std::fs::create_dir_all(
+                std::path::Path::new(&path).parent().unwrap_or(std::path::Path::new(".")),
+            )
+            .ok()?;
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+                .ok()
+                .map(Mutex::new)
+        });
+        let Some(file) = gate.as_ref() else { return };
+        let deep: Vec<(usize, usize)> = tuple
+            .iter()
+            .enumerate()
+            .filter(|(_, &i)| i != 0)
+            .map(|(slot, &i)| (slot, i))
+            .collect();
+        let spread = deep
+            .iter()
+            .map(|&(_, i)| i)
+            .max()
+            .zip(deep.iter().map(|&(_, i)| i).min())
+            .map(|(a, b)| a - b)
+            .unwrap_or(0);
+        let narrowest = widths.iter().copied().min().unwrap_or(0);
+        let ranks = deep
+            .iter()
+            .map(|&(slot, i)| format!("{slot}:{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let words = words
+            .iter()
+            .filter(|(slot, _)| deep.iter().any(|&(s, _)| s == *slot))
+            .map(|(_, w)| w.replace(|c: char| c.is_whitespace(), "_"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let mut line = format!(
+            "{}\t{}\t{}\t{}\t{}\t{:.6}\t{}\t{}\t{}\t{}\n",
+            target.replace(|c: char| c.is_whitespace(), "_"),
+            phase,
+            tuple.len(),
+            deep.len(),
+            narrowest,
+            cost,
+            u8::from(accepted),
+            ranks,
+            spread,
+            words,
+        );
+        if let Ok(mut f) = file.lock() {
+            let _ = f.write_all(line.as_bytes());
+            let _ = f.flush();
+        }
+        line.clear();
     }
 }
