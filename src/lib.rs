@@ -1469,7 +1469,8 @@ const CLOSED_CLASS_WEIGHT: f64 = 0.15;
 ///
 /// `CLOSED_CLASS` is signed and *subtracted*: a clue whose words are all
 /// content words pays nothing.
-mod axes {    /// Phonetic similarity of the clue's word sequence to the target.
+mod axes {
+    /// Phonetic similarity of the clue's word sequence to the target.
     pub const SIMILARITY: f64 = 0.25;
     /// Boundary novelty against the target's own word boundaries.
     pub const NOVELTY: f64 = 0.15;
@@ -1751,11 +1752,6 @@ fn prune_partials(
     rhythm.sort_by(|&a, &b| cmp_desc(metrics[a].rhythm, metrics[b].rhythm));
     orders.push(rhythm);
 
-    // Content words first.  This order is the only one that runs against
-    // the familiarity order, which is why it is listed separately rather
-    // than folded into it: without a dedicated order, beam retention has
-    // no way to reach a resegmentation that needs a content word where
-    // the common core would supply a function word.
     // Content words first.  This is the only order in the list that runs
     // *against* the familiarity order, which is why it is listed
     // separately rather than folded into it: beam retention keeps a
