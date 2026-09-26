@@ -14,6 +14,21 @@ per-depth cost/refusal accounting of the reserve; nothing below measures that.
 
 ---
 
+## 0. HEADLINE, stated before anything else
+
+**`79309a1` is NOT the gate for the canonical resegmentation.**
+`approximate_finds_classic_madgab_resegmentation` is **red on `79309a1` and red on
+the `git archive aa662a4` base arm** — I re-ran it on both, same failure, same test.
+`Hits Justice Dupe Hid Came` is **absent** from the visible top 50 for
+`It's just a stupid game` on both arms. So on the evidence in this report, `79309a1`
+is **at most a general breadth/quality improvement to the reserve's enumeration
+mechanism**; it is **not** a step toward the milestone and it does not move any
+visible outcome number I measured (0 of 7 targets changed).
+
+That is the finding, not a caveat on it. Everything below is the supporting
+evidence, and the verdict in section 5 is about *integrability and safety*, not
+about having reached the milestone.
+
 ## 1. Fence scan — **EMPTY**
 
 Added lines of `git diff aa662a4..79309a1 -- src/lib.rs`, scanned mechanically with
@@ -239,7 +254,53 @@ what the acceptance guards read. I did not reproduce the pool measurement myself
 I am not refuting it, I am scoping it: it is a pool-metric claim, not a
 visible-output claim, and section 4 here measures visible output only.
 
-## 5. Verdict
+## 5. Runtime medians (base vs tip, release binaries)
+
+Interleaved base/branch, arm order alternated each repetition, one discarded
+warm-up, medians of 7. Timed with `Date.now()` around `spawnSync` from `node` (no
+`/usr/bin/time` on this host). Command shape:
+
+```
+node -e 'const {spawnSync}=require("child_process");
+ const B="/workspace/madgab-base-7d1c04/target/release/madgab";
+ const R="/workspace/madgab-verify-7d1c04/target/release/madgab";
+ const med=a=>{a=[...a].sort((x,y)=>x-y);return a[Math.floor(a.length/2)]};
+ /* 7 reps, alternating order, per target */'
+```
+
+```
+target                     base median   branch median   delta
+It's just a stupid game       2378 ms        2454 ms        +3.2 %
+the cat sat on the mat        2618 ms        2728 ms        +4.2 %
+I love you                    1301 ms        1318 ms        +1.3 %
+put it back on the shelf      3010 ms        3242 ms        +7.7 %
+
+per-run spread (ms)
+  stupid game   base   2131 2154 2198 2518 2387 2378 2546
+                branch 2066 2096 2914 2825 2453 2521 2454
+  the mat       base   2376 2818 2578 2628 2570 2821 2618
+                branch 2638 2728 2868 3059 2808 2715 2577
+  i love you    base   1301 1237 1145 1410 1382 1396 1250
+                branch 1711 1162 1110 1339 1318 1485 1157
+  the shelf     base   2310 3010 3438 3571 3630 2691 2569
+                branch 2300 3242 5453 4716 3287 2976 2527
+```
+
+Read this honestly: **all four medians are positive** (+1.3 % to +7.7 %), so the
+sign is consistently on the side of the tip, but **every one of those deltas is
+inside the run-to-run spread**, which is +/-25-40 % per target here, and the
+branch's minimum is at or below the base's median on 3 of 4 targets. The shelf
+target also shows a heavy branch tail (5453 ms, 4716 ms outliers against a base max
+of 3630 ms) that I cannot explain and am **not** attributing to the change with
+confidence.
+
+So: **no demonstrated runtime regression, and no demonstration that the change is
+free either.** The added work per call is one extra `usize` argument, one `%`, and a
+coprime walk bounded by `EMIT_PROFILE_MAX_DEEP` = 3 iterations, so a cost of this
+magnitude is consistent with the code; whether it is real needs a tighter
+measurement (more reps, targets interleaved in a single process) than I ran here.
+
+## 6. Verdict
 
 # INTEGRABLE-NOW
 
@@ -259,6 +320,9 @@ Numbers behind it:
   widths, phase); no target text, no word identity, no env read reaches
   `sweep_index`; `rate` is a pure integer function asserted coprime to the span for
   all spans 1..=150 and all members 0..=3.
+* runtime: medians +1.3 % / +3.2 % / +4.2 % / +7.7 % (tip over base) on four
+  targets, all four inside a +/-25-40 % run-to-run spread; no demonstrated
+  regression, no demonstrated freeness either (section 5).
 
 Two things the coordinator must carry forward, stated as claims with numbers and
 **not** as objections to integrability:
@@ -300,6 +364,7 @@ git archive aa662a4 | tar -x -C /workspace/madgab-base-7d1c04   # never a merge
 /workspace/madgab-verify-7d1c04/target/release/madgab --approximate --top 50 "<target>"
 ```
 
-There is no `rg`, `grep`, `sed`, `python3` or `which` on this host; the scans in
-section 1 are `node -e` one-liners over `git diff` output, and file reading was done
-with line-numbered reads and `node`.
+There is no `rg`, `grep`, `sed`, `python3`, `which` or `/usr/bin/time` on this host;
+the scans in section 1 are `node -e` one-liners over `git diff` output, file
+reading was done with line-numbered reads and `node`, and the timing in section 6 is
+`Date.now()` around `spawnSync` from `node`.
