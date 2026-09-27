@@ -149,6 +149,50 @@ rather than assuming the launch worked, and if a coordinator is about to
 launch several agents, export the profile first — four failed launches is
 most of a coordinator pass.
 
+### A 127 from the launcher is *never* a host blocker — 2026-09-27T06:05Z
+
+On 2026-09-27T06:10Z a coordinator pass recorded, with three pieces of
+evidence, that `antonina agent prompt` was broken **host-wide** (exit code
+`127` in a long-established worktree as well as a new one, an empty log, and
+the recommendation that later passes "retry the spawn and, if it is still 127,
+record it as a host blocker and move on"). That conclusion was wrong, and it
+had already cost the case-2 objective front ([w-7e1a04](work/items/w-7e1a04.md))
+an hour of claimed-but-unlaunched time.
+
+The whole of that pass had run without the profile export in the section
+above. One retry with
+
+```sh
+export PATH="$GUIX_PROFILE/bin:$HOME/.local/bin:$PATH"
+```
+
+made the very next agent succeed (`succeeded`, `exit code: 0`, 3.3 s) in the
+same worktree that had just been declared unusable.
+
+Two rules for later passes:
+
+1. **Export the profile as the first shell action of the pass**, before
+   `git`, before `cargo`, and before `antonina agent new`. Then none of this
+   section applies.
+2. **If a launcher fails with `127`, diagnose `PATH` and never write it up as a
+   host blocker.** `127` means "command not found", which on this host means
+   "`PATH` is truncated", and `command -v <tool>` is *not* evidence that a
+   tool is absent. To check specifically:
+
+   ```sh
+   export PATH="$GUIX_PROFILE/bin:$HOME/.local/bin:$PATH"
+   command -v opencode && opencode --version
+   ```
+
+   `opencode` is the only binary `antonina` spawns, so this one check covers
+   every launch.
+
+As belt and braces, `/home/lubko/.local/bin/opencode` is now a symlink to
+`$GUIX_PROFILE/bin/opencode`'s target (opencode `1.18.32`), so a launch
+survives even if the export is forgotten. That symlink is a repair of this
+host's state, not a repository fact; if the profile generation changes, the
+symlink may dangle, and the export remains the real fix.
+
 ## Shell portability note
 
 Nothing above is a repository defect; it is only the shape of this host. If
