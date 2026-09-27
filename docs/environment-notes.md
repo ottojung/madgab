@@ -44,7 +44,33 @@ cannot be added without `rustup`.
 - **Consequence of the narrowed fetch refspec: an absent remote-tracking ref
   does not mean a branch is unpushed.** Most local branches therefore *look*
   unpushed, and `git push --all` will report almost nothing. The honest
-  durability check is to reconcile the two full lists:
+  durability check reconciles the two full lists, and it must compare **shas,
+  not branch names**. A name-only check produces a false negative: on
+  2026-09-27 the local `madgab-integrate-queue` had been rebased onto a moved
+  accumulation head and had re-created five commit hashes, while the remote
+  branch of the same name was still at the pre-rebase tip. A name-only check
+  called it pushed, and those five commits — a whole integration queue —
+  existed on exactly one worktree. Use this instead:
+
+  ```sh
+  git ls-remote --heads origin > /tmp/lsr.txt
+  node -e 'const fs=require("fs"),cp=require("child_process");
+  const r=new Map(fs.readFileSync("/tmp/lsr.txt","utf8").split("\n").filter(Boolean)
+    .map(l=>l.split("\t")).map(([s,n])=>[n.replace("refs/heads/",""),s]));
+  for(const l of cp.execSync("git for-each-ref --format=\"%(refname:short) %(objectname)\" refs/heads/").toString().split("\n").filter(Boolean)){
+    const i=l.lastIndexOf(" "),b=l.slice(0,i),s=l.slice(i+1);
+    if(!r.has(b)) console.log("ABSENT: "+b);
+    else if(r.get(b)!==s) console.log("BEHIND: "+b+" local="+s.slice(0,7)+" remote="+r.get(b).slice(0,7));
+  }'
+  ```
+
+  `BEHIND` is the real hazard: push it, or preserve it under a distinct
+  `wip/` ref (`git push origin <branch>:refs/heads/wip/<branch>-<sha>`) rather
+  than force-pushing over someone else's tip. A rebased local branch is
+  normally ahead of *and* divergent from its remote, so it cannot be pushed
+  with a plain fast-forward.
+
+  The name-only form, which several passes did use, was:
 
   ```sh
   git ls-remote --heads origin > /tmp/lsr.txt
