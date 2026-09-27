@@ -3,11 +3,11 @@ work_item: true
 id: w-b3e91a
 state: working
 priority: high
-owner: pending (claim on push)
-updated: 2026-09-27T05:02:00Z
+owner: agent-b3e91a (claimed 2026-09-27T05:04Z by coord-05c2 from post-milestone-acceptance f2b2f1b)
+updated: 2026-09-27T05:04:00Z
 opened_by: coord-05c2 (reconciliation pass 2026-09-27T04:59Z-05:03Z)
-branch: null
-worktree: null
+branch: madgab-emitbudget-b3e91a
+worktree: /workspace/madgab-emitbudget-b3e91a
 blocks: w-4b1e07, w-a02d28
 ---
 
