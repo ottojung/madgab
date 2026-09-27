@@ -686,6 +686,46 @@ impl Generator {
     /// [w-6b91d3](../docs/work/items/w-6b91d3.md) and
     /// `tests/approx_determinism.rs`).
     pub fn generate_with_pool(&self, target: &str) -> (Vec<Clue>, usize) {
+        let (selected, pool_size, _) = self.search(target);
+        (selected, pool_size)
+    }
+
+    /// The **whole deduplicated candidate pool** for `target`: the
+    /// phrase-deduplicated, score-ordered clues the search actually built,
+    /// before [`Self::generate`]'s display policy narrows them to `top_n`.
+    ///
+    /// # Why the pool and not just its size
+    ///
+    /// "The search never proposed this clue" and "the search proposed it and
+    /// the printed list did not show it" are different facts with different
+    /// causes, and the second has nothing to do with whether the first is
+    /// true.  Every explanation of a missing clue is either an *emission*
+    /// question — was the alignment ever built — or an *objective* question —
+    /// was it built and then outranked — and the two call for opposite
+    /// changes.  Answering the first from the second is not an
+    /// approximation: a pool can be orders of magnitude wider than the
+    /// printed list, so a clue can be out of the printed 50 and present in
+    /// the pool many hundreds of ranks deep, and the two facts are
+    /// independent.
+    ///
+    /// Until this method existed the pool's *contents* were unreachable from
+    /// outside the crate: [`Self::generate_with_pool`] reported the pool's
+    /// size and the selected proposals, and nothing else, so a pool-membership
+    /// claim could only be measured from inside `src/`.  That is why such
+    /// claims kept resting on out-of-tree harnesses, which are the thing this
+    /// project has most often got wrong.  This makes the question a
+    /// first-class, re-runnable property of the public API.
+    ///
+    /// The returned order is the search's own: descending score, ties broken
+    /// by phrase.  It is the same vector `generate` selects from, so
+    /// membership in it is membership in the production pool by
+    /// construction rather than by re-derivation.
+    pub fn generate_pool(&self, target: &str) -> Vec<Clue> {
+        self.search(target).2
+    }
+
+    /// The selected proposals, the pool's size, and the pool itself.
+    fn search(&self, target: &str) -> (Vec<Clue>, usize, Vec<Clue>) {
         match self.config.mode {
             SearchMode::Exact => self.generate_exact(target),
             SearchMode::Approximate {
@@ -695,17 +735,17 @@ impl Generator {
         }
     }
 
-    fn generate_exact(&self, target: &str) -> (Vec<Clue>, usize) {
+    fn generate_exact(&self, target: &str) -> (Vec<Clue>, usize, Vec<Clue>) {
         let Some((target_ipa, target_boundaries, target_syllables)) =
             transcribe_with_boundaries(&self.corpus, target, false)
         else {
-            return (Vec::new(), 0);
+            return (Vec::new(), 0, Vec::new());
         };
         let target_phrase = TargetPhrase::new(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 {
-            return (Vec::new(), 0);
+            return (Vec::new(), 0, Vec::new());
         }
 
         let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
@@ -772,17 +812,17 @@ impl Generator {
         target: &str,
         per_word_budget: f64,
         total_budget: f64,
-    ) -> (Vec<Clue>, usize) {
+    ) -> (Vec<Clue>, usize, Vec<Clue>) {
         let Some((target_ipa, target_boundaries, target_syllables)) =
             transcribe_with_boundaries(&self.corpus, target, true)
         else {
-            return (Vec::new(), 0);
+            return (Vec::new(), 0, Vec::new());
         };
         let target_phrase = TargetPhrase::new(target);
         let chars: Vec<char> = target_ipa.chars().collect();
         let n = chars.len();
         if n == 0 || self.fuzzy_lexicon.is_empty() {
-            return (Vec::new(), 0);
+            return (Vec::new(), 0, Vec::new());
         }
 
         // Candidate word/span alignments depend only on the target and
@@ -2071,7 +2111,7 @@ impl Generator {
         target_ipa: &str,
         target_boundaries: &[usize],
         target_syllables: usize,
-    ) -> (Vec<Clue>, usize) {
+    ) -> (Vec<Clue>, usize, Vec<Clue>) {
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| {
@@ -2098,7 +2138,11 @@ impl Generator {
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
 
-        (select_diverse(clues, self.config.top_n), pool_size)
+        (
+            select_diverse(clues.clone(), self.config.top_n),
+            pool_size,
+            clues,
+        )
     }
 }
 
