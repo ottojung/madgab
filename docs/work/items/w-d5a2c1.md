@@ -1,14 +1,14 @@
 ---
 work_item: true
 id: w-d5a2c1
-state: working
+state: open
 priority: normal
-owner: agent-d5a2c2 (claimed by coord-0a11 on 2026-09-27T04:12Z)
-updated: 2026-09-27T04:12:00Z
+owner: null (claim WITHDRAWN by coord-0a11 at 2026-09-27T04:18Z — see Handoff)
+updated: 2026-09-27T04:18:00Z
 opened_by: coord-0a11 (reconciliation pass 2026-09-27T04:12Z, on post-milestone-acceptance at c28b29f)
 branch: madgab-audit-d5a2c1
 worktree: /workspace/madgab-audit-d5a2c1
-agents: d5a2c2 — see Handoff
+agents: d5a2c2, d5a2c3, d5a2c4 — all exit 127 at spawn, see Handoff
 ---
 
 # Fence and test-truth audit of the current `post-milestone-acceptance` tree
@@ -114,3 +114,88 @@ result down where the next coordinator will read it.
   `coord-5c11` at `f1943fd`: lib 58/0, corpus_integration 12/1, exact_determinism
   1/0, approx_determinism 4/0, emit_coverage 3/0, no_phrase_hard_coding 7/0.
   Treat those as a hypothesis to check, not as truth.
+
+## LAUNCH FAILED 2026-09-27T04:12–04:18Z (coord-0a11): back to `open`, unowned
+
+The worktree and branch exist and are clean. The agent never ran a turn. Three
+attempts, all dead at spawn:
+
+| agent | cwd | result |
+|---|---|---|
+| `d5a2c2` | `/workspace/madgab-audit-d5a2c1` | exit **127** in 0.08s, `"OpenCode process had no pid"`, empty `output.log` |
+| `d5a2c3` | `/workspace/madgab-audit-d5a2c1` | exit **127** in 0.08s (bare `RUNTIME_OK` probe) |
+| `d5a2c4` | `/workspace/madgab` | exit **127** in 0.22s (bare `RUNTIME_OK` probe) |
+
+`antonina agent new` succeeded every time; `agent prompt` is what dies, before
+the prompt text is even read. This is byte-for-byte the same failure shape as
+the retired `5c11a2` / `5c11a3` pair, and it is **not** worktree-specific
+(`d5a2c4` used the main worktree and failed identically).
+
+### IMPORTANT for the next pass: the throwaway probe is UNRELIABLE while another agent is running
+
+At the same moment, `c0ff01` (holding [w-5c11a2](w-5c11a2.md)) was
+`state: running`, `alive: yes`, and `ps` showed `openclaw-gateway` pid 78 up
+since 03:58Z. The gateway was healthy and *one* agent was running fine, while
+three *new* spawns in two different worktrees all died at 127.
+
+The cheapest explanation consistent with every observation of this pass is a
+**single-concurrent-agent limit on this host's runtime**: an existing
+`running` agent holds the runtime, and a fresh `agent prompt` cannot get a pid.
+That is a **hypothesis, not a proven fact** — this pass could not test it,
+because testing it requires an idle runtime.
+
+This matters because [w-5c11a2](w-5c11a2.md) tells the next pass that the cheap,
+correct liveness check is "`ps` the gateway, then run a throwaway
+`antonina agent prompt`". **Half of that advice is unsafe as written.** A
+throwaway probe returning exit 127 while a front is live is *not* evidence that
+the runtime is down, and *not* evidence that a `working` item is abandoned.
+Taking it at face value here would have abandoned a perfectly healthy front and
+re-queued work that was running fine.
+
+**Corrected liveness check, for the next pass:**
+
+1. `antonina agent list`, then the named agent's own `state` / `alive`.
+   `running` + `alive: yes` is decisive on its own. Trust that alone.
+2. Run a throwaway probe **only** if the named agent is `failed` or gone — and
+   even then only after confirming no other agent is `running`.
+3. `ps` for `openclaw-gateway` remains a useful necessary condition, but it is
+   not sufficient, and it is not what failed here.
+
+**Next action, concrete:** this item is `open`, owned by nobody, branch and
+worktree ready. Do not open a new work item for it and do not redo its work.
+When `antonina agent list` shows **no** `running` madgab agent, fetch
+`post-milestone-acceptance`, re-verify the branch base, then
+`antonina agent new --id <fresh-hex> --cwd /workspace/madgab-audit-d5a2c1`
+followed by the full prompt from this item. The five measurements have **not**
+been done.
+
+Board protection for this worktree could **not** be registered:
+`lubko-board create` answers `A Borys write capability is required`, and
+`antonina board resource add` wants `ISSUE HOST PATH` with an existing issue
+id. So unlike `/workspace/madgab-gap-recheck` (protected by open board issue
+59), this worktree is **unprotected** against the host garbage collector. If it
+has been removed, recreate with `git worktree add -b madgab-audit-d5a2c1
+/workspace/madgab-audit-d5a2c1 post-milestone-acceptance`.
+
+## Fence baseline measured directly by coord-0a11 (git-only, no cargo)
+
+Cheap deterministic sweeps run in `/workspace/madgab` at `c250899`, so the
+agent does not repeat them. All clean:
+
+- `git ls-files | grep -E '(^|/)zz'` — **no committed `zz*` file anywhere**.
+- `git grep -n '#\[ignore' -- src tests` — **no hits**.
+- `git grep -E 'eprintln!|dbg!' -- src` — hits only at `src/main.rs:117-173`,
+  which are the CLI's own user-facing error and progress output. Not probes.
+- `git grep -E 'env::var' -- src` — **no hits**; no env-var knob.
+- phrase sweep over `web/` and `examples/` — hits only in `examples/measure.rs`
+  lines 31-32 (the benchmark harness, which is what a measurement harness is
+  for) and `web/index.html` lines 20-21 (the UI's default target input value
+  and placeholder). Neither is in the search path.
+- phrase sweep over `src/` — hits confined to `src/lexical.rs` exemplar lists
+  and `src/lib.rs` `#[cfg(test)]` modules, plus incidental non-example uses of
+  the ordinary English words `came` and `beach` in code and comments. Classified
+  by hand; the audit agent should re-confirm rather than re-derive.
+
+**Not measured, and that is the whole point of this item:** the six test-suite
+counts, canonical case 1's printed rank, and canonical case 2's printed head.
+All need a release cargo run and none was attempted this pass.
