@@ -1,16 +1,18 @@
 ---
 work_item: true
 id: w-e086cc
-state: working
+state: done
 priority: high
-owner: coord-5f31 (reconciliation pass 2026-09-27T21:46Z-21:50Z: claimed and launched immediately as the successor that agent-3f8c62's terminal HOLD names verbatim. Front agent-e086cc created 21:50Z in /workspace/madgab-e086cc [madgab-e086cc] off post-milestone-acceptance at 106afc5, with docs/work/REPORT-3f8c62.md reachable read-only from /workspace/madgab-parsim-3f8c62 and the landed C1d variant re-measurable from the agent-local branch scratch-3f8c62-landed (514ed91), which the remote pre-receive hook declines to accept so it stays local. Left RUNNING. The concurrent front agent-3f8c62 is still live but in terminal report assembly at 0 commits past base, so the two do not contend on a file)
-updated: 2026-09-27T21:50:00Z
+owner: front-e086cc (classification pass 2026-09-27T21:50Z-23:12Z)
+updated: 2026-09-27T23:12:00Z
 branch: madgab-e086cc
 worktree: /workspace/madgab-e086cc
 opened_by: coord-5f31 (reconciliation pass 2026-09-27T21:46Z-21:50Z)
 source_items: docs/work/REPORT-3f8c62.md section 4 (the isolation table) and section 7 handoff bullet 4
 predecessors: w-3f8c62 (HOLD, priced, integrated), w-9b4a15 (done, priced the axis), w-1c7d40 (done, owns the reserve-depth fence this item must re-derive)
 base: post-milestone-acceptance at 106afc5 (pushed)
+verdict: HOLD
+scratch_branch: scratch/e086cc-probe (local, deliberately unpushed)
 ---
 
 # Re-derive the search-coupled fences, because every objective weight reaches the search's keys
@@ -74,5 +76,47 @@ stays red here.
 ## Handoff
 
 Opened and launched 21:50Z by coord-5f31 off integrated HEAD `106afc5`. Single prompt, no
-steering. The concurrent front agent-3f8c62 is in terminal report assembly at 0 commits past
-base and will be integrated by a later pass as a docs-only priced HOLD.
+steering. The concurrent front agent-3f8c62 was in terminal report assembly at 0 commits past
+base.
+
+## Close-out (front-e086cc, 2026-09-27T23:12Z)
+
+**Terminal: HOLD.** Report at `docs/work/REPORT-e086cc.md`. Delivered:
+
+* **All eight fences classified**, each with the measurement that decided it, over eleven weight
+  vectors (six admissible axis-carrying, four one-weight isolation rows, one control that
+  reproduces base to the digit). **Two are weight-independent** — the alignment's absence from
+  the pool, and the green case's pool half; both are set-theoretic and green at 11 of 11
+  vectors. **Six are weight-coupled** and must be re-derived with the vector that lands.
+* **The item's load-bearing fact is confirmed and strengthened.** No objective weight is
+  search-neutral — and, measured, **no objective weight is search-neutral in the final scorer
+  either**: the search's discard threshold is a final-scorer value
+  (`src/lib.rs:1190-1205`), so **0 of 5** scorer-only perturbations left the pool invariant.
+  `REPORT-3f8c62.md` §4 rows 1-2 and §5's first clause are refuted; there is no
+  search-neutral *placement* of an axis at all.
+* **The alarming row is incidental.** `hid` leaving the pool is green at 9 of 11 vectors,
+  including **A5**, an admissible vector that is 10/10 on the head — so that half of
+  `a_lattice_alignment_can_be_absent_from_the_production_pool` needs no re-derivation, and only
+  the alignment's own absence (weight-independent) does.
+* **A correction, kept as a disagreement:** `REPORT-3f8c62.md` §4 rows 6-8 are transposed.
+  Measured, `NOVELTY 0.15→0.05` is the one that reddens the reserve-depth fence on its own and
+  `RHYTHM`/`SHAPE` are green. Cross-checked by running the fence itself at five vectors. Both
+  readings are recorded; no verdict changes, but a re-derivation front must not attack
+  `RHYTHM`/`SHAPE`.
+* **Weight-free property, expressed and landed:** *the display is a pure function of the pool
+  and its scores* — `tests/objective_is_a_search_input.rs`, green on HEAD, 12 combinations, no
+  expected output named. Weight-free forms that do not exist, and why, are in §4.2/§6.
+* **Unblocking condition** (§5): the next front owns the search surface and its first job is the
+  **discard threshold**, not the axis — derive it from the structural keys so the objective
+  returns to being a ranker over a fixed candidate set. No admissible vector keeps the head
+  criterion and the green case's display at once (A1/A3/A5 are 10/10 and red on f7; A6 is green
+  on f7 and 2/10).
+* **Untouched as required:** `cargo test --release --lib` is **75 / 0 / 12**, unchanged; no
+  fence weakened, deleted or `#[ignore]`d; `coverage_tuples`, `sweep_index` and
+  `EMIT_PROFILE_*` untouched; no `OBSTRUCTION-MAP.md` row re-opened; no phrase, clue, word or
+  substring special case anywhere (`no_phrase_hard_coding` 9/9).
+* **Canonical case 2 is untouched:** absent from the pool at 11 of 11 vectors;
+  `approximate_finds_classic_madgab_resegmentation` red at base and red here. This item is not
+  progress on it.
+* Probes on the local, unpushed `scratch/e086cc-probe`. No self-merge; `main` and
+  `post-milestone-acceptance` untouched.
