@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-d1c8f
-state: working
+state: done
 priority: high
-owner: agent-d1c8f1 (claimed 2026-09-27T04:53Z by coord-4e21 from post-milestone-acceptance 4b51dce)
-updated: 2026-09-27T04:53:00Z
+owner: agent-d1c8f1 (claimed 2026-09-27T04:53Z by coord-4e21 from post-milestone-acceptance 4b51dce; delivered verdict pass-with-follow-up and report f015b32; integrated by coord-4f7a as 33a46f1)
+updated: 2026-09-27T05:20:00Z
 opened_by: coord-4e21 (reconciliation pass 2026-09-27T04:52Z-04:55Z)
 branch: madgab-review-d6c-d1c8f
 worktree: /workspace/madgab-review-d6c
@@ -156,3 +156,85 @@ case 1 measured present at printed rank 27 (was 28), score 0.920 (was 0.918).
   integrate `4f3442c` into `post-milestone-acceptance` with a merge or a
   cherry-pick of `4f3442c` alone, since `4679cf9` is a coordinator durability
   snapshot and not part of the reviewed change.
+
+## Outcome: PASS-WITH-FOLLOW-UP, delivered by `d1c8f1`, integrated as `33a46f1`
+
+`d1c8f1` reported on 2026-09-27T05:12Z. Report committed and pushed on
+`madgab-review-d6c-d1c8f` at **`f015b32`**, working tree clean, `HEAD` attached
+to the branch, `main` untouched. All eight questions answered; the answer index
+is in the report.
+
+Verdict: **pass-with-follow-up**.
+
+- **Q1, the deleted test — legitimate replacement, not a re-baseline.** The
+  deleted `similarity_is_scored_per_word_not_per_candidate` was restored into the
+  new tree and is **red** with its original message; its claim (flat in word
+  count at equal *per-word* cost) is the literal negation of the D6c
+  specification. The replacement `similarity_is_charged_per_phone_not_per_word`
+  is **red on the pre-change base `36589f8`**. Discriminating in both
+  directions, which a re-baseline cannot be.
+- **Q2, canonical case 1 — not regressed, measured independently** through the
+  shipped release executable: `wreck a nice beach` at printed **rank 27**,
+  score **0.920**, word-count classes `{4: 50}`. A from-scratch build of the base
+  `36589f8` gave rank 28 / 0.918 / `{4: 50}`. Exact score via `generate_pool`
+  0.918313383 -> 0.919950288, matching the w-5c11a2 prediction 0.919950 exactly.
+- **Q3, the fence sweep — byte-identical, confirmed** by SHA-256 of the
+  normalised hit set at `42ced98` and `4f3442c`: `f0f21e86`. 49 hits, none in a
+  decision; only real-code hits are two English `came`s in `expect()` panics and
+  the DOM `hidden` property. The implementer's reported counts were wrong
+  (30/9/3 = 42; actually 37/9/3 = 49) — bookkeeping only.
+- **Q8, the unmeasured predictions — a legitimate deferral, not a blocker.** The
+  reviewer measured them anyway: both cutoffs confirm exactly (case 2
+  `-0.002007`, case 1 `+0.001771`). The pool size does not confirm, which is F1.
+- Case 2 classes moved from `{6: 50}` to `{5: 6, 6: 44}`: the monopoly breaks.
+  All seven targets' before/after distributions reproduced exactly.
+
+### The last paragraph of the handoff above is WRONG, and integrating by it would
+### have been a re-baseline
+
+It says a cherry-pick of `4f3442c` alone suffices because `4679cf9` is "a
+coordinator durability snapshot and not part of the reviewed change". That is
+false. `4f3442c` is **deletions-only** in `src/lib.rs`; the
+`SIMILARITY_COST_PER_PHONE` formula and both new tests live in `4679cf9`. Proven
+by cherry-picking `4f3442c` alone onto `36589f8` and finding
+`SIMILARITY_COST_PER_PHONE` present **0 times** with `emit_coverage` still at 3
+tests — and a red re-lock waiting to be "fixed" by re-baselining, which is
+exactly what the w-9d4e10 fences forbid. **Merge the branch tip, or take both
+commits.**
+
+### What was actually integrated, and how it was validated
+
+`coord-4f7a` merged the **branch tip** `4f3442c` (not the lone commit) into
+`post-milestone-acceptance` as **`33a46f1`**. Only
+`docs/work/items/w-9d4e10.md` conflicted; `src/lib.rs`,
+`tests/corpus_integration.rs` and `tests/emit_coverage.rs` merged cleanly, as
+the reviewer's test-merge had predicted.
+
+On the integrated tree: `--lib` **58/0**; `corpus_integration` **12 passed /
+1 failed** — the expected-red `approximate_finds_classic_madgab_resegmentation`,
+assertion unmodified; `exact_determinism` **1/0**; `approx_determinism` **4/0**;
+`emit_coverage` **4/0**; `no_phrase_hard_coding` **9/0**. All six suites were
+run to completion after the merge and every count matches `d1c8f1`'s independent
+measurement of the same commits exactly.
+
+Unavailable on this host, confirmed rather than assumed: `cargo fmt`,
+`cargo clippy`, `cargo test --doc`, wasm32 build. Stated as unavailable, not
+passing.
+
+### Follow-ups raised, not dropped
+
+Filed as **[w-474813](w-474813.md)**: F1, the pool did not stay put
+(18,242 -> 18,270; 18,917 -> 18,936) against the w-5c11a2 prediction, which
+means the case-2 objective gap has a stale denominator; and F2, the axis's `0.0`
+floor is no longer pinned by any test after the deletion Q1 accepted.
+
+### Corrections the reviewer recorded against itself
+
+- The item *did* exist, at `2d19836` on `post-milestone-acceptance`. The review
+  branch is based at `4f3442c` and cannot see it; the reviewer initially
+  mis-recorded this as a missing item and corrected it in `f015b32`.
+- One pool measurement was first taken against a stale `CARGO_TARGET_DIR` and
+  was re-measured per-tree.
+- F6: the `approximate_output_is_locked` lock lives in `corpus_integration`, not
+  `approx_determinism`; the attribution in w-5c11a2 and w-9d4e10 is wrong.
+
