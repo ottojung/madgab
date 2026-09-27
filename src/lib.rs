@@ -1733,8 +1733,44 @@ impl Generator {
                     syl += a.syllables;
                 }
                 let k = prefix.len();
+                // The similarity term has to be the *scorer's own* axis,
+                // relaxed over the suffix's cheapest completion, or the
+                // bound is not a bound.  It used to be
+                // `(1.0 - cost / 4.0).clamp(0.0, 1.0)`, a per-word
+                // normaliser that the scorer stopped reading when
+                // `SIMILARITY` became a per-*phone* axis
+                // (`SIMILARITY_COST_PER_PHONE`), and the two disagree in
+                // sign about which way to charge: the bound's penalty is
+                // `cost / 4`, the scorer's is `cost / (phones * 0.30)`, so
+                // for any target longer than `4 / 0.30` = 13.3 phones the
+                // bound's penalty is the *larger* of the two and the bound
+                // sits **below** the score of a completion it is supposed to
+                // dominate.  Measured on 14 real targets at
+                // `docs/work/items/w-5b1e93.md`: the old form is below the
+                // real score on 12 of 14, on up to 76% of one segmentation's
+                // whole product, by up to 0.0346; this form is above it on
+                // 14 of 14, on every one of 11.2 million wordings checked.
+                //
+                // The consequence is not a tuning difference.  The heap is
+                // keyed by this value and the coverage reserve spends its
+                // share on "the candidate with the highest admissible
+                // bound", so an inadmissible key does not merely order the
+                // walk slightly differently: it invalidates the argument
+                // that the reserve's choice is the best of the positions it
+                // looked at, and it demotes wordings the scorer will later
+                // rate above their neighbours.
+                //
+                // Reading the axis through the scorer's own normaliser also
+                // makes the bound *invariant to the cost model*: a change to
+                // what a word costs, or to how cost is normalised, now moves
+                // the bound and the score together instead of silently
+                // desynchronising them, which is what made this drift
+                // possible in the first place.
                 axes::SIMILARITY
-                    * (1.0 - (cost + suf_min_cost[k]) / 4.0).clamp(0.0, 1.0)
+                    * (1.0
+                        - (cost + suf_min_cost[k])
+                            / (n.max(1) as f64 * axes::SIMILARITY_COST_PER_PHONE))
+                        .clamp(0.0, 1.0)
                     + axes::NOVELTY * novelty
                     + axes::WORD_NOVELTY
                         * (1.0
