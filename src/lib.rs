@@ -645,6 +645,51 @@ fn gcd(mut a: usize, mut b: usize) -> usize {
     a
 }
 
+/// w-4d7c12: the per-segmentation reserve slice, scaled by a test-only factor
+/// so the price of a *sized* joint reserve is measured rather than argued.
+#[cfg(test)]
+fn emit_profile_reserve() -> usize {
+    EMIT_PROFILE_RESERVE * stage_probe::reserve_scale()
+}
+#[cfg(not(test))]
+fn emit_profile_reserve() -> usize {
+    EMIT_PROFILE_RESERVE
+}
+
+/// w-4d7c12: whether the coverage reserve draws each subset member at its own
+/// slot's span rather than at the subset's narrowest. Test-armed; a shipped
+/// build reads `false`, so the reserve keeps the narrowest-slot form.
+#[cfg(test)]
+fn coverage_rule_per_slot_span() -> bool {
+    stage_probe::armed(stage_probe::RULE_PER_SLOT_SPAN)
+}
+#[cfg(not(test))]
+fn coverage_rule_per_slot_span() -> bool {
+    false
+}
+
+/// w-4d7c12: whether the coverage reserve funds the all-slots subset, so it
+/// spends at least one draw on a joint configuration and not only on the
+/// product's marginal axes. Test-armed; a shipped build reads `false`.
+#[cfg(test)]
+fn coverage_rule_full_vector() -> bool {
+    stage_probe::armed(stage_probe::RULE_FULL_VECTOR)
+}
+#[cfg(not(test))]
+fn coverage_rule_full_vector() -> bool {
+    false
+}
+
+/// w-4d7c12: whether the coverage reserve spends everything on joint draws.
+#[cfg(test)]
+fn coverage_rule_joint_only() -> bool {
+    stage_probe::armed(stage_probe::RULE_JOINT_ONLY)
+}
+#[cfg(not(test))]
+fn coverage_rule_joint_only() -> bool {
+    false
+}
+
 /// The index tuples the coverage reserve emits for one segmentation.
 ///
 /// The reserve exists because the best-first walk orders by an *admissible
@@ -735,62 +780,96 @@ fn coverage_tuples(
     if reserve == 0 || depth == 0 {
         return out;
     }
+    let per_slot_span = coverage_rule_per_slot_span();
+    let full_vector = coverage_rule_full_vector();
+    let joint_only = coverage_rule_joint_only();
+
+    // One subset's draw: the best-bound member of the sample it generates, or
+    // `None` when the sweep has no legal index in one of its slots.  Shared by
+    // the joint family and the marginal families, so the two differ only in
+    // *which subset they name*.
+    let draw = |combo: &[usize], nth: usize| -> Option<Vec<usize>> {
+        // One *rate* serves the whole subset, but each member draws its
+        // own index from it, so the subset's coordinates are at
+        // unrelated ranks rather than one shared rank.  The index has to
+        // be legal in every member, so each is taken modulo the span of
+        // the subset's *narrowest* slot.
+        let narrowest =
+            combo.iter().map(|&slot| slot_widths[slot]).min().unwrap_or(0);
+        // The candidate this subset contributes, and the best-bound
+        // candidate seen so far.  `t = 0` is the strided draw the sweep
+        // made on its own, so the sample is a superset of the old
+        // emission and the only thing the bound changes is *which*
+        // member of the sample is spent.
+        let mut best: Option<(f64, Vec<usize>)> = None;
+        for t in 0..EMIT_PROFILE_SAMPLE {
+            let rotation = phase.wrapping_add(t);
+            let span_of = |&slot: &usize| -> usize {
+                if per_slot_span {
+                    slot_widths[slot]
+                } else {
+                    narrowest
+                }
+            };
+            let Some(_) =
+                sweep_index(span_of(&combo[0]), reserve, nth, 0, rotation)
+            else {
+                break;
+            };
+            let mut tuple = vec![0usize; depth];
+            let mut legal = true;
+            for (member, &slot) in combo.iter().enumerate() {
+                let Some(at) =
+                    sweep_index(span_of(&slot), reserve, nth, member, rotation)
+                else {
+                    legal = false;
+                    break;
+                };
+                tuple[slot] = at;
+            }
+            if !legal
+                || combo
+                    .iter()
+                    .any(|&slot| tuple[slot] >= slot_widths[slot])
+            {
+                break;
+            }
+            let bound = bound_of(&tuple);
+            if best.as_ref().is_none_or(|&(b, _)| bound > b) {
+                best = Some((bound, tuple));
+            }
+        }
+        best.map(|(_, tuple)| tuple)
+    };
+
+    // The joint family: the all-slots subset, so the reserve spends at least
+    // one draw on a configuration that is deep in *every* slot rather than
+    // only on the product's marginal axes.  `sweep_index` takes the draw's
+    // position in the output as its `nth`, so repeating the subset walks the
+    // joint sweep forward instead of repeating one point.
+    if full_vector {
+        let repeats = if joint_only { reserve } else { 1 };
+        for r in 0..repeats {
+            if out.len() >= reserve {
+                return out;
+            }
+            let combo: Vec<usize> = (0..depth).collect();
+            if let Some(tuple) = draw(&combo, out.len().wrapping_add(r)) {
+                out.push(tuple);
+            }
+        }
+    }
+    if joint_only {
+        return out;
+    }
+    // The marginal families, breadth before depth, generated lazily so a
+    // reserve that is already full never materialises a level.
     for deep in 1..=max_deep {
         for combo in slot_combinations(depth, deep) {
             if out.len() >= reserve {
                 return out;
             }
-            // One *rate* serves the whole subset, but each member draws its
-            // own index from it, so the subset's coordinates are at
-            // unrelated ranks rather than one shared rank.  The index has to
-            // be legal in every member, so each is taken modulo the span of
-            // the subset's *narrowest* slot.
-            let narrowest = combo
-                .iter()
-                .map(|&slot| slot_widths[slot])
-                .min()
-                .unwrap_or(0);
-            // The candidate this subset contributes, and the best-bound
-            // candidate seen so far.  `t = 0` is the strided draw the sweep
-            // made on its own, so the sample is a superset of the old
-            // emission and the only thing the bound changes is *which*
-            // member of the sample is spent.
-            let mut best: Option<(f64, Vec<usize>)> = None;
-            for t in 0..EMIT_PROFILE_SAMPLE {
-                let rotation = phase.wrapping_add(t);
-                let Some(_) =
-                    sweep_index(narrowest, reserve, out.len(), 0, rotation)
-                else {
-                    break;
-                };
-                let mut tuple = vec![0usize; depth];
-                let mut legal = true;
-                for (member, &slot) in combo.iter().enumerate() {
-                    let Some(at) = sweep_index(
-                        narrowest,
-                        reserve,
-                        out.len(),
-                        member,
-                        rotation,
-                    ) else {
-                        legal = false;
-                        break;
-                    };
-                    tuple[slot] = at;
-                }
-                if !legal
-                    || combo
-                        .iter()
-                        .any(|&slot| tuple[slot] >= slot_widths[slot])
-                {
-                    break;
-                }
-                let bound = bound_of(&tuple);
-                if best.as_ref().is_none_or(|&(b, _)| bound > b) {
-                    best = Some((bound, tuple));
-                }
-            }
-            if let Some((_, tuple)) = best {
+            if let Some(tuple) = draw(&combo, out.len()) {
                 out.push(tuple);
             }
         }
@@ -1976,7 +2055,7 @@ impl Generator {
                 Some(partial)
             };
             let profile_allowance =
-                EMIT_PROFILE_RESERVE.min(emit_allowance);
+                emit_profile_reserve().min(emit_allowance);
             let mut profile_emitted = 0usize;
             // The index tuples this segmentation has actually put in the
             // pool, in emission order.  The adjacency operator below is
@@ -1997,6 +2076,8 @@ impl Generator {
                 {
                     break;
                 }
+                #[cfg(test)]
+                stage_probe::note_profile_generated();
                 let Some(partial) = build(&tuple) else {
                     continue;
                 };
@@ -2599,7 +2680,48 @@ mod counters {
 /// [`arm`] has been called on the current thread.
 #[cfg(test)]
 mod stage_probe {
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
+
+    /// The coverage rules this front prices, as a bit set armed per thread.
+    ///
+    /// Test-only, and inert unless `set_rules` is called, so no production
+    /// path reaches it.  The constant names the rule; the measurement that
+    /// prices it is the front's report.
+    pub const RULE_PER_SLOT_SPAN: u8 = 1;
+    pub const RULE_FULL_VECTOR: u8 = 2;
+    /// Spend the whole reserve on joint draws rather than on the product's
+    /// marginal axes.
+    pub const RULE_JOINT_ONLY: u8 = 4;
+
+    thread_local! {
+        static RULES: Cell<u8> = const { Cell::new(0) };
+        /// A test-only multiplier on the per-segmentation reserve slice, so
+        /// the price of a *sized* joint reserve is measured rather than
+        /// argued.
+        static RESERVE_SCALE: Cell<usize> = const { Cell::new(1) };
+    }
+
+    pub fn set_rules(bits: u8) {
+        RULES.with(|r| r.set(bits));
+    }
+
+    pub fn set_reserve_scale(scale: usize) {
+        RESERVE_SCALE.with(|r| r.set(scale.max(1)));
+    }
+
+    pub fn reserve_scale() -> usize {
+        RESERVE_SCALE.with(|r| r.get())
+    }
+
+    /// Is this coverage rule armed on this thread?
+    pub fn armed(bit: u8) -> bool {
+        rules() & bit != 0
+    }
+
+    pub fn rules() -> u8 {
+        RULES.with(|r| r.get())
+    }
+
 
     /// One target span, as the two stages that bound it saw it.
     #[derive(Clone)]
@@ -2662,6 +2784,9 @@ mod stage_probe {
         /// Every reserve draw, with the schedule rank it was drawn at, so a
         /// test can ask what the reserve did at one particular segmentation.
         pub all_profile: Vec<(usize, Vec<usize>)>,
+        /// Tuples `coverage_tuples` produced, before the cost admission
+        /// `build` applies to them.
+        pub profile_generated: u64,
         pub profile_hits: Vec<HitRec>,
         pub traversal_hits: Vec<HitRec>,
         pub adjacency_hits: Vec<HitRec>,
@@ -2693,6 +2818,7 @@ mod stage_probe {
                 traversal_emits: 0,
                 adjacency_emits: 0,
                 all_profile: Vec::new(),
+                profile_generated: 0,
                 profile_hits: Vec::new(),
                 traversal_hits: Vec::new(),
                 adjacency_hits: Vec::new(),
@@ -2786,6 +2912,12 @@ mod stage_probe {
             },
             (),
         );
+    }
+
+    /// Stage: how many tuples the reserve generated, before the cost
+    /// admission `build` applies.
+    pub fn note_profile_generated() {
+        with(|rec| rec.profile_generated += 1, ());
     }
 
     /// Stage: `Partial` assembly — how many wordings the lexical phase
@@ -7580,6 +7712,86 @@ mod front_4d7c12 {
             ipa.chars().count() as usize
         };
         report("case 2", CASE2_TARGET, CASE2_WORDS, rec_n);
+    }
+
+    /// One row of the pricing table: what a rule set does to the two
+    /// canonical cases and to the wall clock.
+    fn price(label: &str, bits: u8, reserve_scale: usize) {
+        stage_probe::set_rules(bits);
+        stage_probe::set_reserve_scale(reserve_scale);
+        let g = generator();
+
+        stage_probe::arm(CASE2_WORDS);
+        let t0 = std::time::Instant::now();
+        let pool2 = g.generate_pool(CASE2_TARGET);
+        let wall2 = t0.elapsed().as_secs_f64();
+        let rec2 = stage_probe::take().unwrap();
+
+        stage_probe::arm(CASE1_WORDS);
+        let t1 = std::time::Instant::now();
+        let pool1 = g.generate_pool(CASE1_TARGET);
+        let wall1 = t1.elapsed().as_secs_f64();
+        let _rec1 = stage_probe::take().unwrap();
+
+        let bag = |c: &str| -> Vec<String> {
+            let mut v: Vec<String> =
+                c.split_whitespace().map(|w| w.to_lowercase()).collect();
+            v.sort();
+            v
+        };
+        let mut want2: Vec<String> =
+            CASE2_WORDS.iter().map(|w| w.to_lowercase()).collect();
+        want2.sort();
+        let mut want1: Vec<String> =
+            CASE1_WORDS.iter().map(|w| w.to_lowercase()).collect();
+        want1.sort();
+        let reach2 = pool2.iter().filter(|c| bag(&c.phrase) == want2).count();
+        let reach1 = pool1.iter().filter(|c| bag(&c.phrase) == want1).count();
+        let rank1 = pool1.iter().position(|c| bag(&c.phrase) == want1).map(|i| i + 1);
+        let reserve2 = rec2.profile_draws;
+        let generated2 = rec2.profile_generated;
+        let emissions2 =
+            rec2.profile_draws + rec2.traversal_emits + rec2.adjacency_emits;
+
+        println!(
+            "{label:<28} case2 reach {reach2} | pool2 {:>6} | wall2 {wall2:.3}s |              reserve {reserve2:>5}/{generated2:>6} | emit {emissions2:>6} |              case1 reach {reach1} rank {rank1:?} | pool1 {:>6} | wall1 {wall1:.3}s",
+            pool2.len(),
+            pool1.len(),
+        );
+        stage_probe::set_rules(0);
+        stage_probe::set_reserve_scale(1);
+    }
+
+    #[test]
+    #[ignore = "measurement probe; run with --ignored --nocapture"]
+    fn localise_case2_under_the_joint_rules() {
+        use stage_probe::{RULE_FULL_VECTOR, RULE_JOINT_ONLY, RULE_PER_SLOT_SPAN};
+        stage_probe::set_rules(
+            RULE_PER_SLOT_SPAN | RULE_FULL_VECTOR | RULE_JOINT_ONLY,
+        );
+        let rec_n = {
+            let g = generator();
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), CASE2_TARGET, true).unwrap();
+            ipa.chars().count() as usize
+        };
+        report("case 2 under the joint rules", CASE2_TARGET, CASE2_WORDS, rec_n);
+        stage_probe::set_rules(0);
+    }
+
+    #[test]
+    #[ignore = "measurement probe; run with --ignored --nocapture"]
+    fn price_the_coverage_rules() {
+        use stage_probe::{RULE_FULL_VECTOR, RULE_JOINT_ONLY, RULE_PER_SLOT_SPAN};
+        let joint = RULE_PER_SLOT_SPAN | RULE_FULL_VECTOR | RULE_JOINT_ONLY;
+        println!();
+        price("base (no rule)", 0, 1);
+        price("RULE_PER_SLOT_SPAN", RULE_PER_SLOT_SPAN, 1);
+        price("RULE_FULL_VECTOR", RULE_FULL_VECTOR, 1);
+        price("both", RULE_PER_SLOT_SPAN | RULE_FULL_VECTOR, 1);
+        for scale in [2usize, 4, 8, 16] {
+            price(&format!("joint-only reserve x{scale}"), joint, scale);
+        }
     }
 
     #[test]
