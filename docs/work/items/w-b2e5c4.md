@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-b2e5c4
-state: working
+state: done
 priority: high
-owner: agent-b2e5c4
-updated: 2026-09-26T22:52:00Z
+owner: agent-b2e5c4 / agent-5b1a02 (integration)
+updated: 2026-09-27T02:30:00Z
 branch: madgab-representation-b2e5c4
 worktree: /workspace/madgab-representation-b2e5c4
 ---
@@ -94,7 +94,7 @@ merges; the second `src/lib.rs` branch is rebased onto the first.
   `--test exact_determinism`, `--test approx_determinism`,
   `--test no_phrase_hard_coding` all pass.
 - A new regression test is shown **red** on the base it claims to fix.
-- Report **ENUMERATED** and **RANKED**/`SURFACED` separately, with pool
+- Report **ENUMERATED** and **RANKED**/`SURFACED** separately, with pool
   size, emitted-slot count, wall clock and score distribution before/after,
   for **both** canonical targets and at least two non-canonical inputs
   (so a general improvement is distinguishable from a lucky constant).
@@ -114,3 +114,318 @@ Worktree: `/workspace/madgab-representation-b2e5c4` (branch
 prompted with the full brief, `alive: yes` at handoff. Left running and
 unsteered (this repository has previously lost an agent to a mid-turn
 steer). Nothing is landable from it yet.
+
+## Front report: agent `b2e5c4`, `madgab-representation-b2e5c4` at `b43db21`
+
+One commit, **`b43db21`**, on top of the base `f08f29b`. Nothing is
+integrated by this front; `post-milestone-acceptance` and `main` are
+untouched, and neither `madgab-retain-6f2b18` nor
+`madgab-enum-depth4` was read-modified or visited.
+
+### Objective state: milestone NOT met, and closed with a refutation
+
+`approximate_finds_classic_madgab_resegmentation` is **still red** on
+`b43db21`. Its assertion is byte-for-byte unmodified, and it is red for the
+same reason it is red on the base. Reported separately, as the item asked:
+
+* **ENUMERATED — no, before and after.** `hits justice dupe hid came` is
+  absent from the entire pool of 17 827 candidates on the default release
+  path, re-measured on this branch's base with the tree's existing
+  `MADGAB_TRACE_PHRASES` hook: `raw phrase="hits justice dupe hid came"
+  missing candidates=17827`. Nothing in `select_diverse` can represent a
+  candidate that the enumeration never produced.
+* **RANKED / SURFACED — no.** A candidate that is not in the pool has no
+  rank and cannot occupy a slot, so the representation reserve below is
+  measured against the *general* visibility defect, not against this
+  wording. The arithmetic that makes the milestone unreachable by any
+  selection rule of this shape is in "The refutation" below.
+
+### What the log established before the change (do not re-measure)
+
+Reproduced on the real executable, release, default approximate path,
+`top_n = 50`, on this branch's base `f08f29b`:
+
+* `select_diverse` step 1 drew its one-representative-per-structure walk
+  from `order[..top_n]` — the *visible cutoff* — so the "represent the
+  structures" rule could only ever represent structures the head of the
+  score order had already put on the list. Step 2's share cap then hands the
+  slots a strong structure gives up to the best candidate of a structure
+  that is *already represented*. Nothing in the rule ever spent a slot on an
+  enumerated resegmentation whose best candidate was outside the cutoff.
+* The gap that leaves is large and is the general defect this item exists
+  to fix. Measured with scratch instrumentation on a scratch branch
+  (removed; not landed, no `eprintln!` remains):
+
+  | target | pool | distinct structures in pool | visible `--top 50` |
+  | --- | --- | --- | --- |
+  | `It's just a stupid game` | 17 827 | 336 | **9** |
+  | `recognize speech` | 15 926 | 329 | **4** |
+  | `she sells sea shells` | 15 411 | 286 | **7** |
+  | `the cat sat on the mat` | 16 639 | 331 | **11** |
+  | `a whole lot of trouble` | 16 173 | 335 | **9** |
+  | `I love you` | 9 346 | 63 | **5** |
+
+  A pool that enumerates 63-336 distinct resegmentations and a 50-slot
+  display policy that shows 4-11 of them: 96-99% of what the search found
+  was invisible, on every input, for one reason.
+* The structure-best score ladder on the same pools (best per structure, in
+  descending order): 1st `0.905187`, 10th `0.897421`, 25th `0.889393`,
+  50th `0.878492`, 100th `0.858163`, last of 336 `0.324977` on
+  `It's just a stupid game`. This ladder is the budget any per-structure
+  reserve spends, and the "The refutation" section spends it.
+* Also re-measured on this base, and *not* the gate here (unlike
+  `w-1c3e77`'s tree): 256 retained segmentations, 256 distinct structures,
+  `LEXICAL_GLOBAL_EMISSION_BUDGET = 16 384`, `15 206` emissions spent, and
+  `breadth = structure_wording_allowance(50) = 17`. The emission schedule
+  is breadth-first over structures, so the funding side of the contract is
+  already doing the representation the display side was not.
+
+### What landed on `b43db21`, and why it is general
+
+One change, in `select_diverse` only. No word, phrase, clue, target or
+sub-appearing in `src/`, in any doc comment or string literal.
+
+1. **A bounded per-structure representation reserve** (`src/lib.rs`).
+   Step 1 now walks the **whole** pool in descending score order, not the
+   visible cutoff, and admits the best candidate of each not-yet-represented
+   boundary structure until it has spent `structure_reserve_slots(top_n)`
+   slots. Steps 2 and 3 are unchanged, so the remaining
+   `1 - 1/STRUCTURE_RESERVE_DIVISOR` of the list is still filled on score
+   alone under the unchanged share cap, and the list is still never short.
+2. **`structure_reserve_slots` / `STRUCTURE_RESERVE_DIVISOR`**
+   (`src/lib.rs`). The reserve is one slot in four, bounded above by
+   `top_n` and below by one, and is a function of the slot count only: no
+   pool size, no target, no score, no vocabulary. It is a *policy* number
+   of slots in the same sense as the existing `STRUCTURE_FLOOR`, and it is
+   the only knob the rule has.
+
+The criterion a slot is now earned on is: *this resegmentation is one the
+search enumerated, and nothing better of its own kind is listed yet* — not
+*this candidate's own score is inside the visible cutoff*.
+
+**Stated cost, measured.** The reserve's members are the pool's best per
+structure, which sit below the head of the score order by however far that
+structure's own best lies; that difference is the whole cost, and it is
+below.
+
+### Before / after, both canonical targets and four non-canonical inputs
+
+`--top 50`, release, default approximate path, `beam_width = 64`,
+interleaved in one session (change, base, change) with a scratch probe that
+is not landed. `best` / `worst` / `median` are the score distribution of
+the 50 emitted proposals; `ms` is the whole `generate` call.
+
+| target | | pool | emitted | distinct structures shown | best | worst | median | ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `It's just a stupid game` | before | 17 827 | 50 | 9 | 0.905187 | 0.897753 | 0.899347 | 1 506 |
+| | **after** | 17 827 | 50 | **12** | 0.905187 | 0.895692 | 0.899347 | 1 545 |
+| `recognize speech` | before | 15 926 | 50 | 4 | 0.921599 | 0.916872 | 0.918325 | 1 458 |
+| | **after** | 15 926 | 50 | **12** | 0.921599 | 0.910648 | 0.918325 | 1 415 |
+| `she sells sea shells` | before | 15 411 | 50 | 7 | 0.933240 | 0.917368 | 0.926145 | 1 225 |
+| | **after** | 15 411 | 50 | **12** | 0.933240 | 0.910118 | 0.926145 | 1 173 |
+| `the cat sat on the mat` | before | 16 639 | 50 | 11 | 0.897647 | 0.889990 | 0.891339 | 1 818 |
+| | **after** | 16 639 | 50 | **12** | 0.897647 | 0.889561 | 0.891339 | 1 753 |
+| `a whole lot of trouble` | before | 16 173 | 50 | 9 | 0.895326 | 0.881655 | 0.885035 | 1 549 |
+| | **after** | 16 173 | 50 | **12** | 0.895326 | 0.880716 | 0.885035 | 1 578 |
+| `I love you` | before | 9 346 | 50 | 5 | 0.938335 | 0.926387 | 0.929492 | 473 |
+| | **after** | 9 346 | 50 | **12** | 0.938335 | 0.879814 | 0.929492 | 480 |
+
+Reading of the table, stated rather than hidden:
+
+* **Pool size and emitted-slot count are unchanged on every input.** The
+  change is selection-only by construction — it moves no constant in the
+  search — and the numbers confirm it. So the "representation" is bought
+  entirely out of the 50 slots, not out of new enumeration.
+* **Wall clock is unchanged.** The search path is untouched; the selection
+  change is one pass over the same `order` the function already sorted. The
+  run-to-run spread on this host (one repeat showed 1 545 -> 4 334 ms for
+  the first target, while concurrent worktrees compiled) is host noise, not
+  a regression; the interleaved change/base/change triple above is the
+  measurement.
+* **The best visible score is unchanged everywhere**, and the median is
+  byte-identical everywhere, because the reserve only adds members below the
+  head of the order and never displaces one.
+* **The worst visible score is the whole cost.** It falls by 0.0021, 0.0062,
+  0.0073, 0.0004 and 0.0009 on five inputs, and by 0.0466 on `I love you`,
+  whose pool holds only 63 structures, so its 12th-best structure is a much
+  weaker clue (0.8798) than the 12th-best of a 300-structure pool (~0.889).
+  That is the honest shape of the trade: the reserve costs more where there
+  is less to represent, and a caller who wants the old trade can read it
+  from one constant.
+* **Sensitivity of the one constant, measured.** `STRUCTURE_RESERVE_DIVISOR
+  = 2` (25 reserve slots at `top_n = 50`) was measured on the same six
+  targets: distinct structures shown 25 everywhere, worst visible
+  0.889393 / 0.895431 / 0.900247 / 0.886478 / 0.872525 / **0.769973**. The
+  12th structure is where the visible tail stops being a Mad Gab clue and
+  starts being noise (`I love you` loses 0.11 of worst-visible score for
+  13 more resegmentations), so the quarter is the shipped value and the
+  half is the measured reason it is not.
+* **`approximate_output_is_locked` is byte-identical.** It locks the
+  `top_n = 10` list for `I love you`; at `top_n = 10` the reserve is two
+  slots and both land inside the existing head, so the locked list does not
+  move. **No test was re-baselined.**
+* **A general improvement, not a lucky constant.** The direction of the
+  effect is the same and is near-uniform on all six inputs including four
+  that name neither acceptance example: the visible list now represents
+  12 of 63-336 enumerated resegmentations instead of 4-11, i.e. the
+  representation share of the list went from 8-22% to a fixed 24% by
+  construction, and the *least* represented input before the change
+  (`recognize speech`, 4 structures) gains the most.
+
+### Red/green evidence for the regression tests
+
+Two new tests, both naming neither acceptance phrase:
+
+* `enumerated_resegments_outside_the_cutoff_get_a_reserved_slot` and
+  `structure_reserve_is_bounded_by_the_slot_count` in
+  `src/lib.rs`'s `tests` module — the reserve's arithmetic and its bound on
+  a pool built so the cutoff is a monoculture.
+* `approximate_list_represents_enumerated_resegmentations` in
+  `tests/corpus_integration.rs` — the same property on a real search, for
+  `the cat sat on the mat` and `she sells sea shells`, asserting the
+  policy's own bound (one slot in four) as a number of slots so the test
+  states the property rather than the constant.
+
+* **RED on the base `f08f29b`**, with only the test present and `src/lib.rs`
+  stashed:
+  `the cat sat on the mat: the visible list represents only 11 of the
+  resegmentations the search enumerated; the representation reserve owes at
+  least 12` — 1 failed.
+* **GREEN on `b43db21`**: 1 passed.
+
+### Validation run on this branch
+
+* `cargo test --release --lib` — 55 passed, 0 failed.
+* `cargo test --release --test corpus_integration` — 11 passed, **1
+  failed**: `approximate_finds_classic_madgab_resegmentation` only, with
+  its assertion unmodified. `approximate_finds_recognize_speech_resegmentation`,
+  `approximate_output_is_locked`, `approximate_list_is_not_one_resegmentation`,
+  `approximate_proposals_are_predominantly_content_words`,
+  `approximate_pool_reaches_matches_deep_in_a_span`,
+  `approximate_pool_reaches_alternatives_past_the_opening_slot_width`,
+  `known_madgab_pair_is_searchable` and
+  `approximate_list_represents_enumerated_resegmentations` all pass.
+* `cargo test --release --test exact_determinism` — 1 passed.
+* `cargo test --release --test approx_determinism` — 4 passed.
+* `cargo test --release --test no_phrase_hard_coding` — 6 passed.
+* `cargo fmt`, `cargo clippy`, doctests and the wasm32 build do not exist
+  on this host and are **not** claimed.
+
+### Hygiene and fences
+
+* The diff is `src/lib.rs` (+163/-16, of which 79 are the two unit tests
+  and 33 the doc comments) and `tests/corpus_integration.rs` (+48/-1). No
+  phrase literal, no per-input case, no identifier named after a phrase, in
+  code or in comments; read by eye as well as by the fence test.
+* No `env::var` knob and no `eprintln!` were added. The `MADGAB_TRACE_*`
+  blocks already on the base (`src/lib.rs` lines 1259, 1260, 1907) are
+  **pre-existing, not this front's**, and were used read-only to re-confirm
+  the missing pool membership above; they are a fence matter for whichever
+  item owns them, not a change made here. (Note for the coordinator: they
+  are on the accumulation head and arguably should be removed on their own
+  item.)
+* All census instrumentation lived on a local `scratch/b2e5c4-probe`
+  branch and in an untracked `tests/zzscratch_probe.rs`; both are gone, the
+  scratch branch is deleted, and `git status` on this branch is clean. No
+  `ZZ_*` / `zz_*` / `MADGAB_*` scaffolding is on the branch.
+* Contention respected: nothing in the `slot_is_affordable` /
+  `affordable_opening_width` hunks of `784deaa` was read-modified, and
+  neither other front's worktree was entered.
+
+### The refutation
+
+**Claim.** No emission or selection rule of this shape — a bounded
+per-structure / per-resegmentation reserve, or any rule that admits at
+most one candidate per distinct boundary structure — can surface
+`hits justice dupe hid came` for `It's just a stupid game` at `--top 50`.
+
+**Arithmetic.** Two independent bounds, either of which is sufficient.
+
+1. *Membership.* The wording is not in the pool at all (17 827 candidates,
+   measured). A selection rule chooses among what the enumeration produced;
+   there is nothing to choose. This is the `w-1c3e77` ENUMERATED = no,
+   re-measured independently here, not re-derived from its report.
+2. *Rank, if it were in the pool.* `w-1c3e77` measured the real final score
+   at **`0.799901`** (rank 9 997 of 17 826, structure-best at rank 3 376).
+   On this base the per-structure best ladder for the same target is
+   10th `0.897421`, 25th `0.889393`, 50th `0.878492`, **100th `0.858163`**,
+   last-of-336 `0.324977`. So `0.799901` lies *below the 100th best
+   structure's best*: the wanted resegmentation is somewhere around the
+   150th-250th best structure in the pool. A 50-slot list spends at most 50
+   slots, so even a rule that gave **every** slot to a distinct structure
+   would reach the 50th best structure (`0.878492`) and stop. The wanted
+   candidate needs >100 reserve slots in a 50-slot list. The bound is not
+   a tuning question: it is 2x over the entire slot budget.
+
+This is consistent with, and independent of, `w-1c3e77`'s third derivation
+and `w-9c4d21`'s 33.6M-by-cost / 50-100-by-score bracket. **Three fronts,
+three methods, one answer: the canonical milestone is gated on the
+enumeration placing the wording in the pool, and every representation or
+ranking rule downstream of that is powerless.**
+
+So the item closes on its second completion criterion — a measured
+refutation with the arithmetic on record — while still landing the general
+improvement the gate analysis identified, because that improvement is real
+and independent: **the base discarded 89-96% of the resegmentations its own
+enumeration had found, on every input, for a reason that had nothing to do
+with any phrase.**
+
+### Unresolved blockers and the single next action
+
+**Blocker.** The canonical milestone example. It needs the *enumeration* to
+place a four-deep coordinate set in the pool, under a global emission budget
+of 16 384 that 256 structures already draw down breadth-first; no selection
+rule can substitute for that, and this front has measured that twice over
+with independent arithmetic.
+
+**Single next action for the coordinator:** merge `b43db21` (it is
+selection-only, touches no constant the search reads, and re-baselines
+nothing), then route the canonical example to a front that can change *what
+is enumerated* — the emission-budget schedule and the coverage reserve's
+ordering (`w-9c4d21`'s admissible-score-bound ordering is the concrete
+unmeasured lever) — and treat any future proposal to fix it by scoring,
+weighting or `select_diverse` admission as refuted by the arithmetic above
+unless it comes with a new measurement that overturns it.
+
+## Integration verdict (agent-5b1a02, 2026-09-27T02:30Z): LANDED
+
+Merged onto the accumulation head as the third and last of the queued
+fronts, after `w-3fa1c7` (the five-parameter `coverage_tuples`) and
+`w-1c3e77`. The call-site fix that front flagged as its known follow-up was
+required: the incoming `coverage_tuples` call had to be checked against the
+five-parameter form, and the merged tree now passes `&bound` at every call
+site (one production site, four test sites), so the merge auto-resolved
+that region and no manual edit was needed there.
+
+Fences checked by hand on the incoming diff, not from the agent's own
+verdict: no phrase-specific literal in `src/` or in production doc comments;
+no `println!` / `eprintln!` / `dbg!`; no new env knob; no new public API
+(`structure_reserve_slots` and `STRUCTURE_RESERVE_DIVISOR` are private, and
+the latter is a documented policy parameter of `select_diverse` in the same
+sense as `STRUCTURE_FLOOR`); no untracked `tests/zz*` probe on the front's
+worktree. `no_phrase_hard_coding` 7/7 green on the merged tree.
+
+**Canonical numbers, measured on the merged tree with the release binary,
+`--approximate --top 50`, before and after this merge:**
+
+| case | before | after |
+| --- | --- | --- |
+| `wreck a nice beach` in `recognize speech` | rank 28 | **rank 28** (unchanged) |
+| any candidate containing `dupe` in `Its just a stupid game` | none | **none** (unchanged) |
+
+**Expected and not a regression:** the report above *refutes* the milestone
+hypothesis with its own arithmetic. The canonical wording is absent from all
+~17.8k pool candidates, and force-present it scores `0.799901` against a
+visible cutoff of `0.898` and against the 100th-best structure's `0.858163`.
+A selection-only change cannot surface a candidate that is not in the pool,
+so this merge was landed on the structural-representation merit it
+demonstrated — distinct visible structures 9 -> 12 and 4 -> 12 on real
+targets, `approximate_output_is_locked` byte-identical, no clock or pool-size
+change — and explicitly **not** as milestone progress. `STRUCTURE_RESERVE_DIVISOR = 2`
+was measured and rejected by the front; 4 is what landed.
+
+Suites on the merged tree: `cargo test --lib` 54/54, `--test corpus_integration`
+12 tests with the pre-existing `approximate_finds_classic_madgab_resegmentation`
+failure and every other test green, `--test no_phrase_hard_coding` 7/7,
+`--test exact_determinism` 1/1, `--test approx_determinism` 4/4. `cargo fmt`
+and `cargo clippy` do not exist on this host and are not claimed.
