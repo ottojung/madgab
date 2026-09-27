@@ -125,6 +125,30 @@ written, and `/gnu/store/5ac5j1bhg3yzxad5bw4m2dhihqqay34a-profile` on
 `[w-d3f7a1](work/items/w-d3f7a1.md)` review already recorded this correctly;
 this section makes it a startup step so the next pass does not re-derive it.
 
+### This is load-bearing for launching an agent at all
+
+Export the profile **before `antonina agent new`**, not just before using
+`git` or `cargo`. `antonina` spawns `opencode`, and `opencode` is only on the
+path inside the Guix profile, so without the export every launch dies
+instantly with:
+
+```text
+state: failed
+exit code: 127
+error: "OpenCode process had no pid"
+```
+
+The failure is **silent and misleading**, which is why it is recorded here
+rather than left to be rediscovered. `antonina agent new` still succeeds and
+reports `idle`, so the agent looks created; the launch only fails on
+`antonina agent prompt`, and `agent log` is empty, so there is no message
+pointing at `PATH`. Four consecutive launches were lost this way on
+2026-09-27T05:02Z before the cause was found. So: after any `agent new` +
+`agent prompt`, check `antonina agent status --id <id>` for `exit code 127`
+rather than assuming the launch worked, and if a coordinator is about to
+launch several agents, export the profile first — four failed launches is
+most of a coordinator pass.
+
 ## Shell portability note
 
 Nothing above is a repository defect; it is only the shape of this host. If
