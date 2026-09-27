@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-d4e8b1
-state: working
+state: done
 priority: high
-owner: coord-5f2b (claimed 2026-09-27T20:26Z on post-milestone-acceptance at 44b427f; front agent-d4e8b1 launched 20:26Z)
-updated: 2026-09-27T20:26:00Z
+owner: coord-5f2b (claimed 2026-09-27T20:26Z; front agent-d4e8b1 launched 20:26Z, terminal succeeded, verdict HOLD) / integration by coord-c1d4a (reconciliation pass 2026-09-27T20:58Z-21:20Z, report integrated as 31e3073)
+updated: 2026-09-27T21:20:00Z
 branch: madgab-phon-d4e8b1
 worktree: /workspace/madgab-phon-d4e8b1
 opened_by: coord-5f2b (reconciliation pass 2026-09-27T20:21Z-20:26Z)
@@ -129,3 +129,46 @@ case-1 control remains inside the top 50 at pool rank 27. Blocker remains ONE
 **Next action for a later pass:** inspect `agent-d4e8b1`'s status and log. On a terminal `INTEGRATE`,
 launch an independent read-only review front before integrating anything; on `HOLD`, integrate the
 report as a priced negative and let the map's conclusion stand.
+
+### Front result (agent-d4e8b1, terminal `succeeded`, exit 0, 1 prompt, 35m)
+
+**Verdict: HOLD** — a priced negative, which criterion 3(b) accepts as a full deliverable. Report
+[../REPORT-d4e8b1.md](../REPORT-d4e8b1.md) pushed as `ecbf346` on `madgab-phon-d4e8b1`; probe
+instrumentation is confined to the **unpushed** scratch branch `phon-probe-d4e8b1` (`fc3a930`),
+all behind `#[cfg(test)]`. Nothing was self-merged.
+
+* Baseline reproduced exactly: pool 18,949 / 18,289, canonical 0.8207695329, cutoff
+  0.9151215745, gap 0.0943520415, green case 0.9199502875 at pool rank 27, canonical absent.
+  One recorded disagreement with this item's fence: `cargo test --release --lib` is **75/0**
+  (9 ignored) on `44b427f`, not the 74/0 quoted here; zero failures either way.
+* The **phonetic-cost term is 3.54% of the deficit** (`SIMILARITY` +0.0033385585 of
+  0.0943520415). Its entire achievable range is +0.0491017462, and a *perfect* pronunciation of
+  the same wording at the same cuts still scores 0.8698712792 — **0.0452502953 short**. That
+  residual is `NOVELTY` +0.05, `FAMILIARITY` +0.0252, `PUNCH` +0.02, `CLOSED_CLASS` −0.0042: the
+  already-priced objective axes, i.e. another front's surface, so the front stopped there — a
+  valid HOLD under the non-contending clause.
+* Five phrase-free cost models × two normalisers were priced over both canonical cases plus ten
+  ordinary targets. The only model that reaches the cutoff does so by making the term vacuous
+  (the segment-substitution component is **0.000000 across all 18,949 pool clues**) and it drops
+  the green case from rank 27 to **1006**. The term also does not punish the canonical's shape:
+  mean raw similarity *rises* with word count and the canonical sits at the 25.65th percentile of
+  five-word pool clues.
+
+### Coordinator integration (coord-c1d4a, pass 2026-09-27T20:58Z-21:20Z)
+
+* `ecbf346` merged `--no-ff` into `post-milestone-acceptance` as `31e3073` and pushed (head
+  `515f8bd` then `see log`). The branch is docs-only by construction: `git diff --stat
+  8fab932..ecbf346` is `docs/work/REPORT-d4e8b1.md` alone, +326 lines, zero `src/` lines, so no
+  review front was needed for a docs-only priced negative.
+* Re-validated the integrated head independently: `cargo test --release --lib` **75 passed /
+  0 failed / 12 ignored**; the other fences re-run this pass are recorded on
+  [w-4b1e07](w-4b1e07.md)'s latest pass note.
+* The item closes `done`: all four of its shapes of criterion 3 are satisfied by the priced
+  negative, criterion 1 (baseline reproduced) and criterion 4 (report pushed, un-integrated when
+  the front stopped) are verified in the report and above. The scratch branch
+  `phon-probe-d4e8b1` stays unpushed by design.
+* **Successor, already opened by this pass:** the objective-axis residue the front declined to
+  touch (the `NOVELTY`/`FAMILIARITY`/`PUNCH` 0.0952 of the deficit) is exactly what
+  [w-3f8c62](w-3f8c62.md) lands — the word-count parsimony axis priced by REPORT-9b4a15 §6 —
+  and the reserve-side residue REPORT-2f1c03 identified (the per-member modulus in
+  `coverage_tuples`) is recorded there as a later, non-blocking front.
