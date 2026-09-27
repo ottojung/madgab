@@ -369,8 +369,13 @@ The apostrophe form exits **0**, and its 50 printed lines are `diff`-identical
 to the `Its` form. The `It is` form is a genuinely different target (one extra
 word) and a different head, as expected. So the reproducible fact is the
 narrower one: **`It's` and `Its` are interchangeable here and print the same
-set.** Filed for correction in [w-3a7f0d](w-3a7f0d.md). This is a stale
-documentation claim, not a code defect, and it did not affect any number above.
+top-50 set; only the target's word count changes the result.** This paragraph
+is the correction; the stale claim in [w-9e0a17](w-9e0a17.md) (its Handoff,
+the `"It's ..."` bullet) is the one that needs the fix, and this is the measured
+form to replace it with. Corrected in place on `madgab-fence-3a7f0d` by
+[w-3a7f0d](w-3a7f0d.md), from the measurement above — it is a stale
+documentation claim, not a code defect, and it did not affect any number in
+this item.
 
 Note also that the CLI prints scores at **3 decimals** while
 `approximate_output_is_locked` in `tests/corpus_integration.rs` locks them at
@@ -494,6 +499,10 @@ later sweep does not re-open it as new.
   would be invisible to it. Today those hits are all benign (table in axis 4),
   so the *tree* is clean; it is the *fence* that has a narrower view than its
   test name suggests. Filed as [w-3a7f0d](w-3a7f0d.md); not fixed here.
+  **Now fixed** on `madgab-fence-3a7f0d` by [w-3a7f0d](w-3a7f0d.md): the fence
+  reads `web/` and `examples/` as well, and the four benign hits there are
+  three justified allowlist entries. This branch keeps the measurement as
+  taken.
 
 ### What a later integration pass must still cover
 
