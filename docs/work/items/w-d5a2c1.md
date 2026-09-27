@@ -4,7 +4,7 @@ id: w-d5a2c1
 state: open
 priority: normal
 owner: null (claim WITHDRAWN by coord-0a11 at 2026-09-27T04:18Z — see Handoff)
-updated: 2026-09-27T04:18:00Z
+updated: 2026-09-27T04:18:00Z (re-verified unlaunchable by coord-1f2b at 04:16Z — deliberately still unowned)
 opened_by: coord-0a11 (reconciliation pass 2026-09-27T04:12Z, on post-milestone-acceptance at c28b29f)
 branch: madgab-audit-d5a2c1
 worktree: /workspace/madgab-audit-d5a2c1
@@ -199,3 +199,51 @@ agent does not repeat them. All clean:
 **Not measured, and that is the whole point of this item:** the six test-suite
 counts, canonical case 1's printed rank, and canonical case 2's printed head.
 All need a release cargo run and none was attempted this pass.
+
+## Re-verification 2026-09-27T04:12Z–04:16Z (coord-1f2b): still correctly
+## unowned, and the "one concurrent agent" explanation is now falsified
+
+`madgab-audit-d5a2c1` is still at `c28b29f` with a clean tree and no commits of
+its own, and this front is still `open` and unowned. That is the right state,
+not an oversight:
+
+- `c0ff01`, the live milestone front on [w-5c11a2](w-5c11a2.md), is
+  `state: running` / `alive: yes` (pid 2061). The standing rule recorded in
+  [w-5c11a2](w-5c11a2.md) is not to run a throwaway spawn probe while a front
+  of this repository is alive, because a 127 from such a probe does not mean
+  the runtime is down. **No probe was run this pass and none should be.**
+- `d5a2c2`, `d5a2c3`, `d5a2c4` are still `failed` / `exit 127` /
+  `"OpenCode process had no pid"` with 0-byte `output.log`. They died at
+  spawn and are retired, not pending. Do not restart them and do not wait on
+  them.
+- **New fact, and it corrects the prior note:** the "this host allows only one
+  concurrent agent" hypothesis is **falsified**. `antonina agent list` shows
+  `49c001` and `47b001` running at the same time in unrelated repositories.
+  The host is not single-slot. So the 127s are their own spawn-time host bug
+  and are not caused by `c0ff01` occupying a slot. The operational rule is
+  unchanged; the causal story is wrong and should not be repeated.
+
+This front is also the natural place to file that host bug: "a fresh
+`antonina agent new` + `antonina agent prompt` returns
+`OpenCode process had no pid` / exit 127 when *no* agent of this repository is
+running" is a runtime defect in the Antonina agent host, and it is separately
+worth a work item once a spawn has been observed to fail with nothing else
+running.
+
+**Partially satisfied without an agent, this pass** (the git-only half of this
+item, measured on `post-milestone-acceptance` at `6528282`):
+
+```text
+git grep -i -n -E "wreck|beach|recognize|justice|stupid|dupe|came|hid" -- src
+-> 30 hits, all in src/lexical.rs:302-335 exemplar lists or inside
+   #[cfg(test)] modules in src/lib.rs (lines 4129+)
+```
+
+So the no-phrase-specific-hard-coding fence is **clean on the accumulation
+tip**. What remains outstanding for this item is the cargo-dependent half:
+executing the acceptance test set and checking that no test asserts a
+phrase-specific exception in a way `tests/no_phrase_hard_coding.rs` cannot see.
+
+**Next action:** launch on this worktree when no `madgab-*` agent is
+`running`. Until then this item stays `open` and unowned, and the live
+milestone front on [w-5c11a2](w-5c11a2.md) keeps the single repository slot.
