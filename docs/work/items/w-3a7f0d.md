@@ -247,7 +247,7 @@ On `madgab-fence-3a7f0d`, `CARGO_TARGET_DIR=/workspace/cargo-target`,
 | target | result |
 |---|---|
 | `--test no_phrase_hard_coding` | **9 passed / 0 failed** (was 7/0; +2 new controls) |
-| `--test corpus_integration` | **10 passed / 1 failed** — `approximate_finds_classic_madgab_resegmentation` only, red at the base, untouched |
+| `--test corpus_integration` | **12 passed / 1 failed** — `approximate_finds_classic_madgab_resegmentation` only, red at the base, untouched |
 | `--test approx_determinism` | **4 passed / 0 failed** (env knob unset) |
 
 `cargo fmt` and `cargo clippy` **do not exist on this host** (no `rustfmt` /
