@@ -107,6 +107,163 @@ fourth front on the same code.
 - Commit **and push** before spending further turns measuring, finish on `madgab-reserve-c3f81a`,
   and check `git branch --contains <head>` before treating the branch as safe.
 
+## Measurement (front agent-c3f81a) — committed before any rule change
+
+`CARGO_TARGET_DIR=/workspace/target-c3f81a` for **every** number below. Release,
+default `--top 50` settings, public `Generator::generate_pool` / `generate_with_pool`.
+The probe binary `src/bin/zz_probe_c3f81a.rs` and a `zz_probe` module live on branch
+`scratch/c3f81a-probe` in worktree `/workspace/madgab-probe-c3f81a`. **Nothing from that
+branch is on `madgab-reserve-c3f81a` except this document.**
+
+### Reference reproduced first, exactly
+
+| target | pool | rank-50 cutoff | expected ([w-474813](w-474813.md)) |
+|---|---|---|---|
+| `recognize speech` (case 1) | **18,270** | **0.918796440893** | 18,270 / 0.918796440893 |
+| `It's just a stupid game` (case 2) | **18,936** | **0.915121574454** | 18,936 / 0.915121574454 |
+
+Both reproduce to the candidate and to twelve decimals on this host, so the probe
+instrumentation is inert on the shipped path and the numbers below are believed.
+
+### F1 — `EMIT_PROFILE_MAX_DEEP` is an INDEPENDENT CONSTANT, and its prose justification is wrong
+
+`src/lib.rs:212` — `const EMIT_PROFILE_MAX_DEEP: usize = 3;`, justified at
+`src/lib.rs:208-211` by:
+
+> A `k`-deep profile class has `C(depth, k)` members per sweep step, so beyond two the
+> classes outnumber the reserve and the sweep is not widened to compensate.
+
+Three problems, in increasing order of how much they matter:
+
+1. **It is not derived.** The prose describes a comparison against "the reserve" and
+   never performs one. `EMIT_PROFILE_RESERVE` (`src/lib.rs:150`) appears nowhere in the
+   rule; the `3` is a literal, and changing the reserve does not move it. Every other
+   budget-shaped bound in this file is a function (`slot_is_affordable`,
+   `affordable_opening_width`, `next_branch_stage`); this one is not. **Completion
+   criterion 1 is not met by the constant as it stands.**
+2. **The prose does not agree with the literal.** "Beyond two" would put the cap at 2.
+   The literal is 3. Neither is computed, so the disagreement is invisible.
+3. **The stated mechanism is not the real one, and the real one is much weaker.** The
+   claim is that a tier is truncated once its subsets outnumber the reserve. But
+   `coverage_tuples` only charges a subset to the reserve if it *yields* a tuple: a
+   subset whose **narrowest** slot is at or below `LEXICAL_BRANCH_STAGE_0` has
+   `sweep_index` return `None` (`src/lib.rs:433-435`), so `best` stays `None` and `out`
+   does not grow (`src/lib.rs:622-624`). Such subsets are **free**. The effective price
+   of a tier is the number of its subsets whose narrowest slot is wider than the floor
+   — far below `C(depth, k)`.
+
+### F2 — the price of a four-deep placement: ZERO of the 16,384 emissions
+
+Sixteen real targets. **Every budget unchanged**; the only difference between the two
+columns is the depth cap, 3 -> 4. `emit` is the whole-search emission total, `placed`
+the number of coverage-reserve tuples emitted, `d4+` how many of those had four
+non-zero coordinates.
+
+| target | pool @3 | pool @4 | Δpool | emit @3 | emit @4 | placed @3 | placed @4 | d4+ @3 | d4+ @4 |
+|---|---|---|---|---|---|---|---|---|---|
+| I love you | 9,622 | 9,625 | +3 | 4,529 | 4,529 | 739 | 753 | 0 | 14 |
+| recognize speech | 18,270 | 18,289 | +19 | 16,384 | 16,384 | 3,005 | 3,051 | 0 | 46 |
+| a whole lot of trouble | 21,250 | 21,250 | 0 | 16,384 | 16,384 | 2,735 | 2,736 | 0 | 1 |
+| he was a big fat man | 20,986 | 20,988 | +2 | 16,384 | 16,384 | 2,429 | 2,437 | 0 | 8 |
+| what are you going to do | 18,244 | 18,245 | +1 | 16,384 | 16,384 | 3,019 | 3,023 | 0 | 4 |
+| there is no way to know | 20,309 | 20,310 | +1 | 16,384 | 16,384 | 3,258 | 3,278 | 0 | 20 |
+| the cat sat on the mat | 19,869 | 19,872 | +3 | 16,384 | 16,384 | 3,362 | 3,384 | 0 | 22 |
+| when the rain finally stopped | 20,195 | 20,197 | +2 | 16,384 | 16,384 | 3,538 | 3,547 | 0 | 9 |
+| you can do it yourself | 19,838 | 19,842 | +4 | 16,384 | 16,384 | 2,973 | 2,990 | 0 | 17 |
+| an old man in a big hat | 20,424 | 20,424 | 0 | 16,384 | 16,384 | 2,251 | 2,253 | 0 | 2 |
+| we should have told her | 20,896 | 20,900 | +4 | 16,384 | 16,384 | 2,003 | 2,015 | 0 | 12 |
+| in the middle of the night | 17,158 | 17,158 | 0 | 16,384 | 16,384 | 3,646 | 3,649 | 0 | 3 |
+| put it back on the shelf | 18,430 | 18,433 | +3 | 16,384 | 16,384 | 2,872 | 2,881 | 0 | 9 |
+| can you hear me now | 19,306 | 19,319 | +13 | 16,384 | 16,384 | 2,780 | 2,819 | 0 | 39 |
+| they are going to be late | 18,206 | 18,207 | +1 | 16,384 | 16,384 | 3,413 | 3,417 | 0 | 4 |
+| It's just a stupid game | 18,936 | 18,949 | +13 | 16,384 | 16,384 | 2,895 | 2,929 | 0 | 34 |
+
+**Answers to the pricing questions.**
+
+* **What does it cost?** Nothing measurable. Worst per-target pool delta is **+19 on
+  `recognize speech` (+0.10%)**; three targets are byte-identical; the other twelve move
+  by +1 to +13. Pop totals move by less than 0.05% in either direction (case 2:
+  175,957 -> 175,859).
+* **How many of the 16,384 emissions would it take?** **Zero.** The emission total is
+  *identical* on all sixteen targets, including the one target (`I love you`) that does
+  not saturate the ceiling — 4,529 before and after. The ceiling is saturated at
+  16,384/16,384 exactly as [w-b3e91a](w-b3e91a.md) records, and it stays saturated. A
+  fourth-deep tuple is bought by *re-ordering which subset is funded when the reserve
+  runs out*, not by an additional emission. The reserve is a fixed per-segmentation slice
+  (16 of `LEXICAL_COMBINATIONS_PER_SEGMENTATION` = 64) and the global total is capped, so
+  admitting a higher tier moves emissions **within** the fixed envelope. The item's
+  premise — that depth 4 "has to come from a better rule for which tuples consume them" —
+  is confirmed, and that better rule is nearly free.
+* **Worst per-target shortfall?** Not an emission shortfall: **0** on every target. The
+  shortfall is in *reach*. See F3.
+
+**The naive cost model is wrong by an order of magnitude, and that is the load-bearing
+finding.** Breadth-before-depth with a reserve of 16 would price a four-deep tuple for a
+5-slot segmentation at `5 + 10 + 10 + 5 = 30` traversal-index units, and for a 6-slot one
+at `6 + 15 + 20 + 15 = 56` — 88% of the per-segmentation allowance, which would be
+unaffordable and would have justified a priced negative. The **measured** cost is 0
+because of the free-skip in F1(3): tiers are charged far less than `C(depth, k)`. A rule
+derived from the naive model would have been priced wrong and rejected, and the `3` was
+not protecting anything.
+
+### F3 — the canonical case-2 need is a FIVE-slot alignment, and it is still missed
+
+The case-2 alignment this item was opened for is `hits justice dupe hid came`, at
+per-slot indices **7/0/22/99/11** — five slots, four non-zero coordinates. Under
+`max_deep = 4` the reserve places four-deep tuples on **16/16** targets, and on case 2
+specifically `four_by_slots = {5: 34}`: **all 34 of them come from five-slot
+segmentations**, the very slot count the canonical alignment needs. So the depth cap was
+never what stood between this reserve and a four-deep tuple at five slots.
+
+The alignment is nevertheless still absent from the production pool:
+`a_lattice_alignment_can_be_absent_from_the_production_pool` (tests/emit_coverage.rs)
+**passes under both depth caps**. The blocker is upstream of depth:
+
+* the reserve places **one** tuple per subset per phase, at a uniform stride
+  (`sweep_index`), then spends on the best-bound of `EMIT_PROFILE_SAMPLE = 8` candidates
+  drawn around that one strided position;
+* a specific joint coordinate set like {7, 22, 99, 11} is one point in a ~150^4-sized
+  product, and a *systematic* sample that is uniform in each **marginal** slot index has
+  joint coverage of essentially zero.
+
+**The real defect is joint-coordinate coverage, not tuple depth.** The reserve is
+marginal-uniform; the case this item was opened for needs joint coverage. Raising the
+depth cap moves the marginal and does not touch the joint.
+
+### F4 — criterion-5 fence, under the depth-4 variant
+
+On the probe worktree, `ZZ_MAX_DEEP=4`, `CARGO_TARGET_DIR=/workspace/target-c3f81a`,
+`--release`, `--test-threads=1`:
+
+* all three `approximate_pool_reaches_*` guards **pass**
+  (`..._matches_deep_in_a_span`, `..._alternatives_past_the_opening_slot_width`,
+  `..._resegmentations_deeper_than_one_walk`);
+* `approximate_output_is_locked` **passes, not re-pinned**;
+* `tests/emit_coverage` **4/4 pass**, including the case-2 absence assertion and
+  `the_other_canonical_resegmentation_is_still_proposed`;
+* `tests/corpus_integration` **12/13**. The one failure is
+  `approximate_finds_classic_madgab_resegmentation`, and it is **pre-existing**: it fails
+  identically on the unmodified baseline in the same worktree with the same message. It
+  is not caused by this front and is **not** a re-pinned or newly-baselined expectation.
+  Recorded so a later pass does not attribute it to this item.
+
+### F5 — verdict on the two questions the item asked
+
+1. *Is `EMIT_PROFILE_MAX_DEEP = 3` derived or independent?* **Independent**, and its prose
+   budget argument is both uncomputed and contradicted by measurement (F1).
+2. *What does depth 4 cost?* **Zero emissions, at most +19 pool on 16 real targets**
+   (F2). **The negative this item feared does not exist.**
+
+The affordability precondition of completion criterion 1 is therefore **met**: a
+budget-derived depth-4 rule is affordable. What is *not* met is the *purpose* — the
+canonical case-2 alignment is still missing at depth 4, for a reason (F3) the depth cap
+does not cause, and fixing it would mean changing how many positions the reserve's own
+sweep considers, which is the shortlist-fill surface
+([w-7b40d2](w-7b40d2.md)) or the per-slot width surface
+([w-9e2b41](w-9e2b41.md)) and is therefore **outside this front's boundary**.
+
+---
+
 ## Handoff / notes
 
 Opened 2026-09-27T08:41Z by coordinator `coord-08f4` from constraint 7 of
