@@ -4,8 +4,14 @@ use phonetics::transcriptions::Corpus;
 use serde::Deserialize;
 
 /// Cost of inserting or deleting one IPA character while aligning a
+
 /// clue word to a target span.
 const GAP_COST: f64 = 0.20;
+
+/// Measurement accessor for the gap cost, so a probe can price a
+/// counterfactual cost model against the shipped one.  Test builds only.
+#[cfg(test)]
+pub(crate) const GAP_COST_FOR_TEST: f64 = GAP_COST;
 
 /// Bound the number of word alternatives exposed for any one target
 /// span after trie traversal. Search still sees multiple acoustic and
@@ -68,6 +74,28 @@ impl FuzzyLexicon {
 
     pub(crate) fn word(&self, index: usize) -> &FuzzyWord {
         &self.words[index]
+    }
+
+    /// The substitution cost `matches_at` charges for one target
+    /// segment read as one clue segment.  Measurement accessor only,
+    /// behind `#[cfg(test)]`: it lets a probe price *which* component of
+    /// a word's edit cost - insertion, deletion, substitution - carries a
+    /// score, without re-deriving the cost model.
+    #[cfg(test)]
+    pub(crate) fn substitution_cost(&self, target_char: char, clue_char: char) -> f64 {
+        if target_char == clue_char {
+            0.0
+        } else {
+            self.substitution_costs
+                .get(&(target_char, clue_char))
+                .copied()
+                .unwrap_or_else(|| {
+                    phonetics::distance(
+                        &target_char.to_string(),
+                        &clue_char.to_string(),
+                    )
+                })
+        }
     }
 
     /// Find all words whose pronunciation is within the edit budget of
