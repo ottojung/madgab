@@ -724,6 +724,116 @@ impl Generator {
         self.search(target).2
     }
 
+    // -----------------------------------------------------------------
+    // SCRATCH INSTRUMENTATION — w-1f6c40. NOT FOR MERGE.
+    //
+    // Measurement-only: exposes the per-axis decomposition of a clue's
+    // score, and of a *named* word alignment against a target, so the
+    // canonical approximate-search baseline can be recorded axis by
+    // axis.  It adds no scoring behaviour: every term is the same
+    // expression `Partial::metrics` uses, read off the same state the
+    // search builds.  Targets and word lists are arguments; no phrase is
+    // named here.
+    // -----------------------------------------------------------------
+
+    /// The eight axes of `clue`'s score, recomputed from the retained
+    /// clue exactly as `Partial::metrics` computes them, plus the total
+    /// they sum to.  The total is expected to equal `clue.score`.
+    pub fn axis_breakdown(
+        &self,
+        clue: &Clue,
+        target: &str,
+    ) -> Option<Vec<(&'static str, f64)>> {
+        let (target_ipa, target_boundaries, target_syllables) =
+            transcribe_with_boundaries(&self.corpus, target, true)?;
+        let total_len = target_ipa.chars().count();
+        let tp = TargetPhrase::new(target);
+        let words: Vec<AxisWord> = clue
+            .words
+            .iter()
+            .map(|w| AxisWord {
+                word: w.word.clone(),
+                ipa: w.ipa.clone(),
+                rarity: w.rarity,
+                sub_cost: w.sub_cost,
+            })
+            .collect();
+        let cuts = clue.cuts.clone();
+        Some(axis_terms(
+            &words,
+            &cuts,
+            &target_boundaries,
+            target_syllables,
+            total_len,
+            &tp,
+        ))
+    }
+
+    /// The same decomposition for an alignment named by its words,
+    /// whether or not the search emits it.  Each word is placed at the
+    /// leftmost position in the target's phone stream where the fuzzy
+    /// lexicon offers it — the same `matches_at` lattice the search
+    /// enumerates — so the consumed spans, costs and therefore the cut
+    /// vector are the search's own, and `Ok(None)` records that a word
+    /// was not available at that position at all.
+    pub fn alignment_axes(
+        &self,
+        target: &str,
+        word_list: &[&str],
+    ) -> Option<Vec<(&'static str, f64)>> {
+        let SearchMode::Approximate {
+            per_word_budget,
+            total_budget,
+        } = self.config.mode
+        else {
+            return None;
+        };
+        let (target_ipa, target_boundaries, target_syllables) =
+            transcribe_with_boundaries(&self.corpus, target, true)?;
+        let total_len = target_ipa.chars().count();
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        let tp = TargetPhrase::new(target);
+
+        let mut p = 0usize;
+        let mut cuts: Vec<usize> = Vec::new();
+        let mut words: Vec<AxisWord> = Vec::new();
+        let mut cost_total = 0.0f64;
+        for want in word_list {
+            let m = self.fuzzy_lexicon.match_word_at(
+                &chars,
+                p,
+                per_word_budget,
+                self.config.min_word_ipa_chars,
+                want,
+            )?;
+            let fw = self.fuzzy_lexicon.word(m.word_idx);
+            cost_total += m.cost;
+            if cost_total > total_budget + 1e-9 {
+                return None;
+            }
+            words.push(AxisWord {
+                word: fw.word.clone(),
+                ipa: fw.ipa.clone(),
+                rarity: fw.rarity,
+                sub_cost: m.cost,
+            });
+            p += m.consumed;
+            cuts.push(p);
+        }
+        if p != n {
+            return None;
+        }
+        Some(axis_terms(
+            &words,
+            &cuts,
+            &target_boundaries,
+            target_syllables,
+            total_len,
+            &tp,
+        ))
+    }
+
     /// The selected proposals, the pool's size, and the pool itself.
     fn search(&self, target: &str) -> (Vec<Clue>, usize, Vec<Clue>) {
         match self.config.mode {
@@ -2875,6 +2985,76 @@ fn closed_class_penalty(closed: f64, words: f64) -> f64 {
     }
     let share = (closed / words).clamp(0.0, 1.0);
     share * share
+}
+
+// SCRATCH INSTRUMENTATION — w-1f6c40. NOT FOR MERGE.
+//
+// One clue word as the axis terms need it, so the decomposition can be
+// read off a retained `Clue` or off a named alignment with the same code.
+struct AxisWord {
+    word: String,
+    ipa: String,
+    rarity: Option<f64>,
+    sub_cost: f64,
+}
+
+/// The eight weighted axis terms of a clue score, in `axes` order, with
+/// the total last.  Every term is the expression `Partial::metrics`
+/// uses, over the same per-word aggregates; the sums run in clue-word
+/// order so the floating-point result is the production one.
+#[allow(clippy::too_many_arguments)]
+fn axis_terms(
+    words: &[AxisWord],
+    cuts: &[usize],
+    target_boundaries: &[usize],
+    target_syllables: usize,
+    total_len: usize,
+    tp: &TargetPhrase,
+) -> Vec<(&'static str, f64)> {
+    let n = words.len() as f64;
+    let cost_total: f64 = words.iter().map(|w| w.sub_cost).sum();
+    let similarity =
+        (1.0 - cost_total / n.max(1.0) / axes::SIMILARITY_COST_PER_WORD).clamp(0.0, 1.0);
+    let novelty = boundary_novelty(cuts, target_boundaries, total_len, false);
+    let reused = words.iter().filter(|w| tp.reuse.reuses(&w.word)).count() as f64;
+    let word_novelty = 1.0 - reused / n.max(1.0);
+    let familiarity =
+        words.iter().map(|w| word_familiarity(w.rarity)).sum::<f64>() / n.max(1.0);
+    let rhythm = rhythm_match(
+        words.iter().map(|w| approx::ipa_syllables(&w.ipa)).sum(),
+        target_syllables,
+    );
+    let shape = words
+        .iter()
+        .map(|w| lexical_shape_quality(&w.word, word_familiarity(w.rarity)))
+        .sum::<f64>()
+        / n.max(1.0);
+    let closed = words
+        .iter()
+        .filter(|w| lexical::is_closed_class(&w.word))
+        .count() as f64;
+    let closed_penalty = closed_class_penalty(closed, n);
+    let punch = words
+        .iter()
+        .filter(|w| approx::ipa_syllables(&w.ipa) == 1)
+        .count() as f64
+        / n.max(1.0);
+
+    let terms: [(&'static str, f64); 8] = [
+        ("SIMILARITY", axes::SIMILARITY * similarity),
+        ("NOVELTY", axes::NOVELTY * novelty),
+        ("WORD_NOVELTY", axes::WORD_NOVELTY * word_novelty),
+        ("FAMILIARITY", axes::FAMILIARITY * familiarity),
+        ("RHYTHM", axes::RHYTHM * rhythm),
+        ("SHAPE", axes::SHAPE * shape),
+        ("CLOSED_CLASS", axes::CLOSED_CLASS * closed_penalty),
+        ("PUNCH", axes::PUNCH * (punch - 1.0)),
+    ];
+    let total: f64 = terms.iter().map(|(_, v)| *v).sum();
+    let mut out: Vec<(&'static str, f64)> =
+        terms.iter().map(|(k, v)| (*k, *v)).collect();
+    out.push(("TOTAL", total));
+    out
 }
 
 fn word_familiarity(rarity: Option<f64>) -> f64 {

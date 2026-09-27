@@ -78,6 +78,31 @@ impl FuzzyLexicon {
     /// route has exactly the same possible suffixes and can be
     /// discarded. This keeps insertion/deletion support close to the
     /// cost of an ordinary trie walk instead of scanning the lexicon.
+    /// SCRATCH INSTRUMENTATION — w-1f6c40. NOT FOR MERGE.
+    ///
+    /// The cheapest match at `start` whose word is `want`, or `None` if
+    /// the lexicon offers no such word there.  Used to place a named
+    /// alignment on the same lattice the search enumerates.
+    pub(crate) fn match_word_at(
+        &self,
+        target: &[char],
+        start: usize,
+        budget: f64,
+        min_word_ipa_chars: usize,
+        want: &str,
+    ) -> Option<FuzzyMatch> {
+        self.matches_at(target, start, budget, min_word_ipa_chars)
+            .into_iter()
+            .filter(|m| self.words[m.word_idx].word.eq_ignore_ascii_case(want))
+            .min_by(|a, b| {
+                a.cost
+                    .partial_cmp(&b.cost)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.consumed.cmp(&b.consumed))
+                    .then_with(|| self.words[a.word_idx].word.cmp(&self.words[b.word_idx].word))
+            })
+    }
+
     pub(crate) fn matches_at(
         &self,
         target: &[char],
