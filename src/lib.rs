@@ -1013,7 +1013,10 @@ impl Generator {
         // slots are apportioned over the cost bands in proportion to band
         // population (highest average per-slot weight first, ties by
         // band index) and spent within a band by `quality`, so a band
-        // cannot be emptied by losing a global comparison.
+        // cannot be emptied by losing a global comparison.  A pick that
+        // is already in the list spends no slot: the named passes have
+        // taken the head of each band already, and the fill must still
+        // top the list up to `SPAN_SHORTLIST` rather than stop short.
         let fill_slots = SPAN_SHORTLIST.saturating_sub(selected.len());
         if fill_slots > 0 {
             let mut banded: Vec<(
@@ -1049,9 +1052,9 @@ impl Generator {
                 let Some(i) = best else { break };
                 let m = banded[i].1[cursor[i]];
                 cursor[i] += 1;
-                left -= 1;
                 if seen_words.insert(m.word_idx) {
                     selected.push(m);
+                    left -= 1;
                 }
             }
         }
