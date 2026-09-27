@@ -15,6 +15,13 @@ mod adjacency;
 mod approx;
 pub mod lexical;
 
+/// SCRATCH PROBE (w-4d1e93, probe branch only, never landed).  Exposes the
+/// scorer-side override so an integration probe can vary the final scorer
+/// without touching a shipped call site.
+pub mod objective_probe {
+    pub use super::axes::probe::{parsimony, set_parsimony};
+}
+
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
@@ -1497,13 +1504,19 @@ impl Generator {
         // * [`span_score_bound`] is the admissible one, and is the only
         //   key allowed to discard a path outright.
         let span_partial = |words: usize, s: &SegPath| -> f64 {
-            partial_span_score(s.extremes, words, target_syllables)
+            partial_span_score(
+                s.extremes,
+                words,
+                target_boundaries.len(),
+                target_syllables,
+            )
         };
 
         let span_objective = |words: usize, s: &SegPath| -> f64 {
             complete_span_score(
                 s.extremes,
                 words,
+                target_boundaries.len(),
                 s.shared,
                 target_inner_count,
                 target_syllables,
@@ -1518,6 +1531,7 @@ impl Generator {
                 s.extremes,
                 tail,
                 words,
+                target_boundaries.len(),
                 s.shared,
                 n - at,
                 target_inner_count,
@@ -3074,7 +3088,8 @@ impl Partial {
             + axes::RHYTHM * rhythm
             + axes::SHAPE * shape_quality
             + axes::CLOSED_CLASS * closed_penalty
-            + axes::PUNCH * (punch - 1.0);
+            + axes::PUNCH * (punch - 1.0)
+            + axes::probe::axis(words, target_boundaries.len());
 
         Metrics {
             combined,
@@ -3176,6 +3191,35 @@ const CLOSED_CLASS_WEIGHT: f64 = 0.15;
 /// `CLOSED_CLASS` is signed and *subtracted*: a clue whose words are all
 /// content words pays nothing.
 mod axes {
+    /// SCRATCH PROBE (w-4d1e93 probe branch only, never landed): a
+    /// thread-local word-count parsimony axis, shaped exactly as the C1d
+    /// axis of `scratch-3f8c62-landed` is (`1 - |w_c - w_t| / max`), and
+    /// read in the final scorer *and* in all three structural keys, so one
+    /// lambda sweeps the whole axis family.  0.0 at every shipped path.
+    pub mod probe {
+        use std::cell::Cell;
+        thread_local! {
+            static PARSIMONY: Cell<f64> = const { Cell::new(0.0) };
+        }
+        pub fn parsimony() -> f64 {
+            PARSIMONY.with(|c| c.get())
+        }
+        pub fn set_parsimony(v: f64) {
+            PARSIMONY.with(|c| c.set(v));
+        }
+        pub fn axis(clue_words: usize, target_words: usize) -> f64 {
+            let lambda = parsimony();
+            if lambda == 0.0 {
+                return 0.0;
+            }
+            let t = target_words.max(1);
+            lambda
+                * (1.0
+                    - clue_words.abs_diff(t) as f64
+                        / clue_words.max(t) as f64)
+        }
+    }
+
     /// Phonetic similarity of the clue's word sequence to the target.
     pub const SIMILARITY: f64 = 0.25;
     /// Boundary novelty against the target's own word boundaries.
@@ -3759,6 +3803,7 @@ fn novelty_upper_bound(
 fn partial_span_score(
     ext: SpanExtremes,
     words: usize,
+    probe_target_words: usize,
     target_syllables: usize,
 ) -> f64 {
     let denom = words.max(1) as f64;
@@ -3774,6 +3819,7 @@ fn partial_span_score(
         + axes::SHAPE * ext.max_shape / denom
         + axes::CLOSED_CLASS
             * closed_class_penalty(ext.min_closed as f64, denom)
+        + axes::probe::axis(words, probe_target_words)
 }
 
 /// Score of a *finished* span path, where boundary novelty is exact.
@@ -3783,6 +3829,7 @@ fn partial_span_score(
 fn complete_span_score(
     ext: SpanExtremes,
     words: usize,
+    probe_target_words: usize,
     shared: usize,
     target_inner: usize,
     target_syllables: usize,
@@ -3806,6 +3853,7 @@ fn complete_span_score(
             )
         + axes::SHAPE * ext.max_shape / denom
         + axes::CLOSED_CLASS * closed_class_penalty(ext.min_closed as f64, denom)
+        + axes::probe::axis(words, probe_target_words)
 }
 
 /// Admissible upper bound on the final score of *every* alignment
@@ -3837,6 +3885,7 @@ fn span_score_bound(
     head: SpanExtremes,
     tail: SpanExtremes,
     words: usize,
+    probe_target_words: usize,
     shared: usize,
     still_possible: usize,
     target_inner: usize,
@@ -3866,6 +3915,7 @@ fn span_score_bound(
         + axes::SHAPE * ext.max_shape / denom
         + axes::CLOSED_CLASS
             * closed_class_penalty(ext.min_closed as f64, widest)
+        + axes::probe::axis(words, probe_target_words)
 }
 
 // -----------------------------------------------------------------
