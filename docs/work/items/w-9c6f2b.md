@@ -3,10 +3,11 @@ work_item: true
 id: w-9c6f2b
 state: working
 priority: high
-owner: coord-9a4e (opened 2026-09-27T02:18Z; assigned to agent 9c6f2b)
-updated: 2026-09-27T02:18:00Z
-branch: madgab-objective-axes
+owner: coord-5b21 (front delivered by agent 9c6f2b, now under review by agent d3f7a1 via w-d3f7a1)
+updated: 2026-09-27T03:38:00Z
+branch: madgab-objective-axes (local f71b634; durable remote ref is wip/madgab-objective-axes-f71b634)
 worktree: /workspace/madgab-objective-axes
+agents: 9c6f2b (succeeded, delivered; not integrated) / d3f7a1 (read-only review, w-d3f7a1)
 ---
 
 # Objective-axis front: the two general scoring defects that jointly carry case 2
