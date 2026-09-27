@@ -172,3 +172,37 @@ fn the_other_canonical_resegmentation_is_still_proposed() {
         "the other canonical resegmentation left the printed proposal set"
     );
 }
+
+/// For a short multi-syllable target the printed proposal set is not a
+/// single word-count class.
+///
+/// This is the general property the per-phone `SIMILARITY` normalisation
+/// buys, and it is asserted as a distribution rather than as a phrase: the
+/// target is a neutral multi-syllable sentence used only to have somewhere
+/// to measure, and no word, clue or score from it appears in an assertion.
+///
+/// A per-word similarity reading charged a clue for having more words, so
+/// on a target whose `RHYTHM` band admits essentially one length the printed
+/// set was monopolised by that one class.  The assertion is deliberately the
+/// weak one — *more than one class is present at all* — so it states the
+/// property being bought and nothing about which classes or how the set is
+/// split.
+#[test]
+fn a_short_multi_syllable_proposal_set_is_not_one_word_count_class() {
+    let generator =
+        Generator::from_json(CORPUS_JSON, default_approximate()).unwrap();
+    let (printed, _) = generator.generate_with_pool("a sturdy green cardigan");
+    assert_eq!(printed.len(), 50, "--top 50 prints 50 proposals");
+
+    let mut classes: Vec<usize> =
+        printed.iter().map(|c| c.words.len()).collect();
+    classes.sort_unstable();
+    classes.dedup();
+    assert!(
+        classes.len() > 1,
+        "the printed proposal set is the single word-count class {:?} out of \
+         50 proposals, so a short multi-syllable target is monopolised by one \
+         cut length",
+        classes
+    );
+}
