@@ -3,8 +3,8 @@ work_item: true
 id: w-5c1a3e
 state: working
 priority: high
-owner: coord-9c31 (opened and claimed 2026-09-27T23:19Z on post-milestone-acceptance at f21f34e; front agent-5c1a3e launched 23:19Z in /workspace/madgab-retain-5c1a3e [madgab-retain-5c1a3e] and left running)
-updated: 2026-09-27T23:19:00Z
+owner: front agent-5c1a3e (running; STEERED 2026-09-27T23:45Z by pass coord-1f0d) / opened and claimed 23:19Z by coord-9c31; front launched 23:19Z in /workspace/madgab-retain-5c1a3e [madgab-retain-5c1a3e]
+updated: 2026-09-27T23:47:00Z
 branch: madgab-retain-5c1a3e
 worktree: /workspace/madgab-retain-5c1a3e
 ---
@@ -94,3 +94,23 @@ case 2. Retention is the layer the failure actually sits in.
 If criterion 2 shows no retention variant retains `hid`, that is a valid and useful priced
 negative: it converts "the word is pruned" from an observation into a measured closure of the
 retention axis, and the next front must be named elsewhere.
+
+## Reconciliation pass coord-1f0d (2026-09-27T23:41Z-23:48Z)
+
+Pass verdict: the front is healthy, its premise is falsified, and it has been converted into a bounded priced-negative delivery.
+The front's own commit `a2e7898` records the criterion-1 measurement that `hid` is **not** pruned by the span-shortlist
+retention policy - it is rescued at fill #104 and retained - so the first place it is actually lost is the discard
+decision inside `prune_partials` at `src/lib.rs:3454`. That falsification is accepted as this item's result.
+
+Actions taken: the front was steered (steer delivered 23:45Z, agent restarted) to (1) finish the non-vacuity mutation
+check of its new fence test - it must fail when the fill stage is removed and when the band stage is removed - and keep
+it only if genuinely non-vacuous, (2) bring the uncommitted `src/approx.rs` edit to a clean minimal form with no
+probe/debug-module residue and no production-line change, committing it with a bounded `docs/work/REPORT-5c1a3e.md`
+recording the priced negative, the `prune_partials` localisation, the per-stage counts and the falsified premise, and
+(3) push `madgab-retain-5c1a3e` with an explicit INTEGRATE/HOLD. The front was told NOT to start the threshold work and
+not to edit `prune_partials`, because the successor surface is now owned by an independent front - this keeps the two
+fronts on disjoint files (`src/approx.rs` here, `src/lib.rs` there).
+
+Successor opened this pass: `w-3c5b18` (committed and pushed on `post-milestone-acceptance` at `22b2088`), the discard
+threshold inside `prune_partials`. Front `agent-3c5b18` created 23:44Z in `/workspace/madgab-thresh-3c5b18`
+[`madgab-thresh-3c5b18`] off `22b2088`, prompted 23:45Z and left RUNNING. No source change on this branch, main untouched.
