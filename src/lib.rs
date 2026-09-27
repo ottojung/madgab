@@ -2138,7 +2138,7 @@ impl Generator {
                 selected.iter().map(|c| c.score).fold(f64::INFINITY, f64::min)
             );
             let mut v: Vec<(usize, Vec<usize>)> =
-                counts.into_iter().collect();
+                counts.into_iter().map(|(k, n)| (n, k)).collect();
             v.sort();
             for (n, k) in v.iter().rev() {
                 eprintln!("ZZSTRUCT share={n} structure={k:?}");
