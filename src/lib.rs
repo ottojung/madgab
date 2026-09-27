@@ -1877,9 +1877,27 @@ impl Generator {
         target_boundaries: &[usize],
         target_syllables: usize,
     ) -> (Vec<Clue>, usize) {
+        let trace_axes = std::env::var("ZZ_AXES").is_ok();
+        let mut zz_axis_rows: Vec<(String, Metrics, f64, usize)> = vec![];
         let mut clues: Vec<Clue> = completed
             .into_iter()
             .map(|p| {
+                if trace_axes {
+                    let total_len = target_ipa.chars().count();
+                    let m = p.metrics(
+                        target_boundaries,
+                        target_syllables,
+                        total_len,
+                        false,
+                    );
+                    let phrase = p.words().cloned().map(|w| w.word).collect::<Vec<_>>().join(" ");
+                    zz_axis_rows.push((
+                        phrase,
+                        m,
+                        p.sub_cost_total,
+                        p.word_count(),
+                    ));
+                }
                 p.into_clue(
                     target_ipa,
                     target_boundaries,
@@ -1887,6 +1905,16 @@ impl Generator {
                 )
             })
             .collect();
+
+        if trace_axes {
+            zz_axis_rows.sort_by(|a, b| b.1.combined.partial_cmp(&a.1.combined).unwrap());
+            for (i, (phrase, m, cost, words)) in zz_axis_rows.iter().enumerate() {
+                eprintln!(
+                    "ZZAX {i} {:.6} {:6} sub={cost:.4} n={words} nov={:.4} fam={:.4} wn={:.4} rhy={:.4} phrase={phrase:?}",
+                    m.combined, m.content, m.novelty, m.familiarity, m.word_novelty, m.rhythm
+                );
+            }
+        }
 
         clues.sort_by(|a, b| {
             b.score
@@ -2373,12 +2401,27 @@ impl Partial {
     ) -> Metrics {
         #[cfg(test)]
         counters::bump(&counters::METRICS);
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let words = self.word_count();
+
+        // The similarity axis is documented, and used by every one-word
+        // proxy in the search, as a *per-word* measure: a single word's
+        // edit cost is divided by `SIMILARITY_COST_PER_WORD` and pays the
+        // whole axis.  Dividing the *total* cost of the whole candidate
+        // by that same per-word figure instead charged a clue once per
+        // candidate for what is a once-per-word property, so two clues
+        // with the same per-word phonetic quality were ordered by how many
+        // words each of them happened to have, and a long clue could not
+        // reach the top of the list however good every one of its words
+        // was.  Read per word, the axis is the documented one for a
+        // one-word candidate and length-neutral for the rest.
+        let cost_per_word = self.sub_cost_total / words.max(1) as f64;
+        let similarity = (1.0
+            - cost_per_word / axes::SIMILARITY_COST_PER_WORD)
+            .clamp(0.0, 1.0);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
         let reused = self.reused_count as f64;
-        let words = self.word_count();
         let word_novelty = 1.0 - reused / words.max(1) as f64;
 
         let familiarity = if words == 0 {
@@ -2533,12 +2576,22 @@ mod axes {
     /// `FAMILIARITY` and half of `SIMILARITY`.
     pub const PUNCH: f64 = 0.10;
 
+    /// Edit cost of one clue word that scores this axis's full penalty.
+    ///
+    /// This is the per-word normaliser: `SIMILARITY_PER_WORD` below
+    /// divides by it, so a one-word candidate pays the whole axis at this
+    /// much edit cost, and `metrics` divides each word's cost by it in
+    /// turn, so a candidate of any length is scored on the *mean* cost of
+    /// its words rather than on their sum.
+    pub const SIMILARITY_COST_PER_WORD: f64 = 4.0;
+
     /// Per-word share of the similarity axis, used by the single-word
     /// ranking proxies in `generate_approximate` (`quality`,
     /// `SlotAlt::contribution`) and by the structural DP's own keys
     /// (`partial_span_score`): a one-word clue pays the full axis, and
     /// its edit cost is divided by that axis's own normaliser.
-    pub const SIMILARITY_PER_WORD: f64 = SIMILARITY / 4.0;
+    pub const SIMILARITY_PER_WORD: f64 =
+        SIMILARITY / SIMILARITY_COST_PER_WORD;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
