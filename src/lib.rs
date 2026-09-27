@@ -1013,17 +1013,82 @@ impl Generator {
         let mut beam: Vec<Vec<Partial>> = vec![Vec::new(); n + 1];
         beam[0].push(Partial::empty());
 
+        let path_words: Option<Vec<String>> = std::env::var("MADGAB_PATH")
+            .ok()
+            .map(|s| s.split_whitespace().map(|w| w.to_lowercase()).collect());
+
         for p in 0..n {
             if beam[p].is_empty() {
                 continue;
             }
+            let raw = std::mem::take(&mut beam[p]);
+            if let Some(ref want) = path_words {
+                let mut scored: Vec<(usize, usize, f64)> = Vec::new();
+                for (i, c) in raw.iter().enumerate() {
+                    let v: Vec<String> =
+                        c.words().map(|x| x.word.to_lowercase()).collect();
+                    let d = (0..want.len())
+                        .find(|&k| v.get(k) != want.get(k))
+                        .unwrap_or(want.len());
+                    let comb = c
+                        .metrics(
+                            &target_boundaries,
+                            target_syllables,
+                            n,
+                            true,
+                        )
+                        .combined;
+                    scored.push((d, i, comb));
+                }
+                let depth = scored.iter().map(|s| s.0).max().unwrap_or(0);
+                let mut best_for_depth: Vec<&(usize, usize, f64)> =
+                    scored.iter().filter(|s| s.0 == depth).collect();
+                best_for_depth.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+                let all: Vec<f64> = scored.iter().map(|s| s.2).collect();
+                let mut sorted_all = all.clone();
+                sorted_all.sort_by(|a, b| b.partial_cmp(a).unwrap());
+                let rank = best_for_depth
+                    .first()
+                    .and_then(|s| {
+                        sorted_all
+                            .iter()
+                            .position(|v| (*v - s.2).abs() < 1e-12)
+                    })
+                    .unwrap_or(usize::MAX);
+                eprintln!(
+                    "RAWBEAM p={p} n={} depth={depth} at_depth={} best_combined={:.6} rank_of_best={} top_combined={:.6}",
+                    raw.len(),
+                    best_for_depth.len(),
+                    best_for_depth.first().map_or(f64::NAN, |s| s.2),
+                    rank,
+                    sorted_all.first().copied().unwrap_or(f64::NAN)
+                );
+            }
             let here = prune_partials(
-                std::mem::take(&mut beam[p]),
+                raw,
                 self.config.beam_width,
                 &target_boundaries,
                 target_syllables,
                 n,
             );
+            if let Some(ref want) = path_words {
+                let mut depth = 0usize;
+                let mut idx = None;
+                for (i, c) in here.iter().enumerate() {
+                    let v: Vec<String> =
+                        c.words().map(|x| x.word.to_lowercase()).collect();
+                    let d = (0..want.len())
+                        .find(|&k| v.get(k) != want.get(k))
+                        .unwrap_or(want.len());
+                    if d > depth {
+                        depth = d;
+                        idx = Some(i);
+                    }
+                }
+                eprintln!("BEAM p={p} len={} prefix_match={depth} idx={idx:?}", here.len());
+            }
+            beam[p] = here;
+            let here = std::mem::take(&mut beam[p]);
 
             for partial in &here {
                 let remaining = total_budget - partial.sub_cost_total;

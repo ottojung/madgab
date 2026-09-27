@@ -189,8 +189,13 @@ impl FuzzyLexicon {
             });
         }
 
+        let trace = std::env::var("MADGAB_RETENTION_TRACE")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok());
+        let mut consumed_now = 0usize;
         let mut out = Vec::new();
         for matches in by_span.iter_mut().skip(1) {
+            consumed_now += 1;
             matches.sort_by(|a, b| {
                 a.cost
                     .partial_cmp(&b.cost)
@@ -215,9 +220,13 @@ impl FuzzyLexicon {
                 let ordered = matches.clone();
                 let mut selected = Vec::with_capacity(MATCHES_PER_SPAN);
                 let mut seen = HashSet::new();
+                let mut stage: HashMap<usize, String> = HashMap::new();
 
-                for m in ordered.iter().take(CHEAP_KEEP) {
+                for (i, m) in ordered.iter().take(CHEAP_KEEP).enumerate() {
                     if seen.insert(m.word_idx) {
+                        stage
+                            .entry(m.word_idx)
+                            .or_insert_with(|| format!("cheap#{i}"));
                         selected.push(*m);
                     }
                 }
@@ -232,7 +241,15 @@ impl FuzzyLexicon {
                     bands[band].push(m);
                 }
 
-                for band in &mut bands {
+                for (bi, band) in bands.iter_mut().enumerate() {
+                    if let Some(t) = trace {
+                        if t == start {
+                            eprintln!(
+                                "TRACE   band{bi} size={}",
+                                band.len()
+                            );
+                        }
+                    }
                     band.sort_by(|a, b| {
                         rarity_key(self.words[a.word_idx].rarity)
                             .cmp(&rarity_key(self.words[b.word_idx].rarity))
@@ -247,20 +264,63 @@ impl FuzzyLexicon {
                                     .cmp(&self.words[b.word_idx].word)
                             })
                     });
-                    for m in band.iter().take(BAND_KEEP) {
+                    for (i, m) in band.iter().take(BAND_KEEP).enumerate() {
                         if seen.insert(m.word_idx) {
+                            stage.entry(m.word_idx).or_insert_with(|| {
+                                format!("band{bi}#{i}")
+                            });
                             selected.push(*m);
                         }
                     }
                 }
 
                 if selected.len() < MATCHES_PER_SPAN {
-                    for m in &ordered {
+                    for (i, m) in ordered.iter().enumerate() {
                         if seen.insert(m.word_idx) {
+                            stage
+                                .entry(m.word_idx)
+                                .or_insert_with(|| format!("fill#{i}"));
                             selected.push(*m);
                             if selected.len() == MATCHES_PER_SPAN {
                                 break;
                             }
+                        }
+                    }
+                }
+
+                if let Some(t) = trace {
+                    if t == start {
+                        let span: String = target[start..start + consumed_now]
+                            .iter()
+                            .collect();
+                        eprintln!(
+                            "TRACE span start={} consumed={} ipa=/{}/ ordered={} kept={}",
+                            start,
+                            consumed_now,
+                            span,
+                            ordered.len(),
+                            selected.len()
+                        );
+                        for (i, m) in ordered.iter().enumerate() {
+                            let band = (((m.cost / scale) * COST_BANDS as f64)
+                                .floor() as usize)
+                                .min(COST_BANDS - 1);
+                            let in_band_rank = bands[band]
+                                .iter()
+                                .position(|o| o.word_idx == m.word_idx);
+                            eprintln!(
+                                "TRACE   ord={:4} word={:<16} cost={:.4} band={} in_band_rank={:?} rarity={:?} -> {}",
+                                i,
+                                self.words[m.word_idx].word,
+                                m.cost,
+                                band,
+                                in_band_rank,
+                                self.words[m.word_idx].rarity,
+                                stage
+                                    .get(&m.word_idx)
+                                    .cloned()
+                                    .unwrap_or_else(|| "DROP".into())
+                            );
                         }
                     }
                 }
@@ -282,6 +342,23 @@ impl FuzzyLexicon {
             }
 
             out.extend(matches.iter().copied());
+        }
+        if let Ok(w) = std::env::var("MADGAB_RETENTION_WORD") {
+            for m in &out {
+                if self.words[m.word_idx].word == w {
+                    eprintln!(
+                        "WORD start={} consumed={} ipa=/{}/ cost={:.4} ord_in_span={}",
+                        start,
+                        m.consumed,
+                        target[start..start + m.consumed].iter().collect::<String>(),
+                        m.cost,
+                        out.iter()
+                            .filter(|o| o.consumed == m.consumed)
+                            .position(|o| o.word_idx == m.word_idx)
+                            .unwrap_or(usize::MAX)
+                    );
+                }
+            }
         }
         out
     }
