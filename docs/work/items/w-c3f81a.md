@@ -386,7 +386,6 @@ another worktree's *clean* run".
 * **No new constant in place of the old one.** Completion criterion 1 is met by
   derivation, not by a different literal.
 
->>>>>>> 1973f05 (w-c3f81a: derive the reserve's depth bound from the traversal's floor, and place four-deep tuples)
 ## Handoff / notes
 
 Opened 2026-09-27T08:41Z by coordinator `coord-08f4` from constraint 7 of
