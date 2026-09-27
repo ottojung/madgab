@@ -3,8 +3,8 @@ work_item: true
 id: w-b3e91a
 state: working
 priority: high
-owner: agent-b3e91a (claimed 2026-09-27T05:04Z by coord-05c2 from post-milestone-acceptance f2b2f1b)
-updated: 2026-09-27T05:04:00Z
+owner: agent-b3e91a (claimed 2026-09-27T05:04Z by coord-05c2 from post-milestone-acceptance f2b2f1b; agent b3e91f alive and mid-measurement, left running untouched by coord-b20f7 at 05:37Z; BASE NOW e6cfaf3, see the base-moved note below)
+updated: 2026-09-27T05:37:00Z
 opened_by: coord-05c2 (reconciliation pass 2026-09-27T04:59Z-05:03Z)
 branch: madgab-emitbudget-b3e91a
 worktree: /workspace/madgab-emitbudget-b3e91a
@@ -169,3 +169,28 @@ phrase-specific case — run the suites, and integrate onto
 [w-d1c8f](w-d1c8f.md)'s verdict on `4f3442c`; if the review rejects the
 objective change, the two blockers' arithmetic changes and this front's
 remaining gap must be re-measured.
+
+### BASE HAS MOVED UNDER THIS FRONT — added 2026-09-27T05:37Z by coord-b20f7
+
+`d1c8f`'s verdict is in: pass-with-follow-up, integrated as `33a46f1`. The
+two follow-ups it opened were then done by `agent-474813` and integrated as
+`f794ad6` / `e6cfaf3`. This front's branch is based at `f2b2f1b`, which is
+**before** all three. Concretely, that means:
+
+* The pool this front is measuring against is the pre-D6c pool. The current
+  figures are case 2 **pool 18,936, rank-50 cutoff 0.915122** and case 1
+  **pool 18,270, rank-50 cutoff 0.918796** (measured by
+  [w-474813](w-474813.md) on the post-D6c tree). Any emitted-size, depth or
+  adjacency number taken from a pre-D6c run is measured against the wrong
+  denominator and must be re-taken after a rebase onto `e6cfaf3` or later.
+* D6c charges `SIMILARITY` per phone, which changed pool membership in
+  *both* directions for the two canonical cases, so this is not a uniform
+  offset that can be corrected arithmetically. Re-measure; do not adjust.
+* w-5c11a2's "pool size unchanged" invariant is **false** and is struck.
+  The review's "49 raw fence hits" is also **false**; the real count is 3.
+
+`b3e91f` was left running untouched by that pass and has not been told any
+of this — the rebase is a decision for whoever picks this item up, and it
+must not be done by a second agent working the same search concurrently.
+`agent-474813` is terminal and its worktree is integrated; there is no
+other in-flight front contending with this one.
