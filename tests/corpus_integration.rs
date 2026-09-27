@@ -559,13 +559,14 @@ fn approximate_output_is_locked() {
     // dividing a candidate's total cost by a constant.  This target's
     // clues are three words, so their similarity term is now
     // `SIMILARITY * (1 - cost/3)` rather than `SIMILARITY * (1 - cost/4)`:
-    // every score falls by `SIMILARITY * cost / 12`, which is 0.0023 to
-    // 0.0024 across this list.
+    // every score falls by `SIMILARITY * cost / 12`, which over the five
+    // retained phrases is a per-entry spread of 0.0023 to 0.0087.
     //
     // What actually changed, so a reviewer does not have to re-derive it:
-    // **five of the ten phrases are different.**  The two leading phrases
-    // and the scores of the retained ones are unchanged, but the two
-    // middle entries give way: `i.'s a view`, `eye a view`, `how ill
+    // **five of the ten phrases are different, and all ten scores moved.**
+    // The two leading phrases keep their rank, but the retained phrases do
+    // not keep their scores -- every one of them falls by the bound above.
+    // The two middle entries give way: `i.'s a view`, `eye a view`, `how ill
     // view`, `now ill view` and `i.'s of new` are gone, and `isle uhh
     // view`, `i'll uhh view`, `a ill view`, `isle of too` and `eye ill
     // view` are new.  That churn is a consequence of the three-word clue
