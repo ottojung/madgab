@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-c3f81a
-state: working
+state: done
 priority: high
-owner: coord-b7e4 (reconciliation pass 2026-09-27T09:12Z-09:32Z: front agent-c3f81a SUCCEEDED with two pushed commits - b04380d (pricing over sixteen targets, standalone) and 1973f05 (the rule: EMIT_PROFILE_MAX_DEEP=3 deleted, replaced by funded_slot_depth derived from the traversal floor). Both are real deliverables, not integrations. The front recommends INTEGRATE and reports a priced POSITIVE: zero emission cost on all sixteen targets, worst pool delta +19 (+0.10%). Its residual finding is the durable one - the depth cap was never why the canonical case-2 alignment is missing; all 34 four-deep tuples placed on that target come from five-slot segmentations, and the real blocker is that the reserve sweeps each marginal index at a uniform stride with essentially zero JOINT coverage. An independent read-only review agent-c3f81b1 was launched 09:19Z in /workspace/madgab-review-reserve over b04380d..1973f05 and left running; 1973f05 changes production src/lib.rs so nothing from that branch is integrated until its INTEGRATE/HOLD verdict lands. Decided here: joint-coordinate coverage in the sweep is the shortlist-fill surface that w-5e2d41 already owns with two live fronts, so NO new front is opened on it. main untouched)
-updated: 2026-09-27T09:26:00Z  # corrected 09:29Z pass: the prior 09:31:00Z stamp was future-dated against the host clock
-branch: madgab-reserve-c3f81a
-worktree: /workspace/madgab-reserve-c3f81a
+owner: coord-9f52 (CLOSING pass 2026-09-27T09:47Z-09:52Z: all six completion criteria are now objectively verified on the accumulation branch, so this item moves to done. (1) The independent review agent-c3f81b1 went terminal with verdict INTEGRATE and its report is integrated as d628cd4. (2) Its production commit 1973f05 is integrated as c11e90e; the frontmatter conflict the cherry-pick produced was stripped in e5b3697. (3) The coordinator re-run of cargo test --release --lib on the integrated head ac8d1c2 is COMPLETE and GREEN: 74 passed / 0 failed in 28.92s, log /tmp/opencode/lib-d4f9.log, CARGO_TARGET_DIR=/workspace/target-coord-d4f9 - the validation the 09:36Z pass left open is closed, so criterion 3 is verified on the accumulation branch itself and not only on the front branch. (4) The reviewer independently reproduced the rest of the criterion-3 fence: emit_coverage 4/4, all approximate_pool_reaches_* green, approximate_output_is_locked green and not re-pinned, both determinism suites green, no_phrase_hard_coding 9/9, and wreck a nice beach still produced for recognize speech at pool rank 26. (5) Criteria 1, 2, 4, 5 and 6 are the front's own recorded result on madgab-reserve-c3f81a: the bound is derived (funded_slot_depth from the traversal floor) rather than the literal EMIT_PROFILE_MAX_DEEP, the four-deep placement is measured at zero emission cost over sixteen targets with the general red/green test a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple, pricing commit b04380d precedes the rule change, the phrase fence over src/ is clean, and nothing was self-merged. THIS IS NOT MILESTONE CLOSURE, exactly as the front and the review both warned: the canonical case-2 alignment is still absent, approximate_finds_classic_madgab_resegmentation is still red at base too, and the durable finding is that the blocker is JOINT-coordinate coverage in the reserve sweep, not depth. That surface stays with w-5e2d41 and the live front agent-a1f3d2; no sweep-coverage front is opened here. Nothing further is owed to this item) / prior owner coord-b7e4 (reconciliation pass 2026-09-27T09:12Z-09:32Z: front agent-c3f81a SUCCEEDED with two pushed commits - b04380d (pricing over sixteen targets, standalone) and 1973f05 (the rule: EMIT_PROFILE_MAX_DEEP=3 deleted, replaced by funded_slot_depth derived from the traversal floor). Both are real deliverables, not integrations. The front recommends INTEGRATE and reports a priced POSITIVE: zero emission cost on all sixteen targets, worst pool delta +19 (+0.10%). Its residual finding is the durable one - the depth cap was never why the canonical case-2 alignment is missing; all 34 four-deep tuples placed on that target come from five-slot segmentations, and the real blocker is that the reserve sweeps each marginal index at a uniform stride with essentially zero JOINT coverage. An independent read-only review agent-c3f81b1 was launched 09:19Z in /workspace/madgab-review-reserve over b04380d..1973f05 and left running; 1973f05 changes production src/lib.rs so nothing from that branch is integrated until its INTEGRATE/HOLD verdict lands. Decided here: joint-coordinate coverage in the sweep is the shortlist-fill surface that w-5e2d41 already owns with two live fronts, so NO new front is opened on it. main untouched)
+updated: 2026-09-27T09:52:00Z
+branch: post-milestone-acceptance (front work integrated: c11e90e, review report d628cd4)
+worktree: /workspace/madgab
 opened_by: coord-08f4 (reconciliation pass 2026-09-27T08:41Z, on post-milestone-acceptance at ad03a9e)
 source_item: w-0f3a17 (constraint 7: the reserve's shape classes place at most three non-zero coordinates while the canonical tuple needs four)
 ---
@@ -491,5 +491,29 @@ independent verdict.
 **INTEGRATE**, merge `madgab-reserve-c3f81a` into `post-milestone-acceptance` (never `main`) and move this
 item to `done` with criterion 1 read as "the bound is derived and the four-deep placement is measured at
 zero emission cost", explicitly **not** as milestone closure. On **HOLD**, apply its named edits. Either
-way, do not re-pin `approximate_finds_classic_madgab_resegeneration` and do not open a sweep-coverage front
+way, do not re-pin `approximate_finds_classic_madgab_resegmentation` and do not open a sweep-coverage front
 while `w-5e2d41` is live.
+
+## Pass 2026-09-27T09:49Z (coordinator, closing) — DONE, and explicitly not milestone closure
+
+Every criterion the item states is now verified on `post-milestone-acceptance` itself:
+
+| criterion | evidence |
+|---|---|
+| 1 bound derived, four-deep placement priced | `c11e90e` replaces `EMIT_PROFILE_MAX_DEEP = 3` with `funded_slot_depth(...)` from the traversal floor; the sixteen-target table in this item measures **zero** emission cost and worst pool `+19` |
+| 2 generality plus a general test | `a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple`, no phrase in the assertion, with the independent re-derivation stated in the test |
+| 3 fence green, not re-pinned | the reviewer's full fence reproduction plus coordinator `cargo test --release --lib` = **74 passed / 0 failed** on integrated head `ac8d1c2` (log `/tmp/opencode/lib-d4f9.log`, `CARGO_TARGET_DIR=/workspace/target-coord-d4f9`); `approximate_output_is_locked` unchanged |
+| 4 no phrase hard-coding | `no_phrase_hard_coding` 9/9 and the `src/` fence clean |
+| 5 measurement first | pricing commit `b04380d` precedes the rule commit `1973f05` on the pushed front branch |
+| 6 no self-merge | the front reported only; the coordinator integrated; `main` untouched |
+
+**The milestone blocker is not cleared by this item.** `approximate_finds_classic_madgab_resegmentation`
+remains red, at base as well as at head. The front's residual finding is the durable result: the canonical
+case-2 tuple (indices 7/0/22/99/11) is missed because the reserve's sweep is uniform in each *marginal*
+index with essentially **zero joint** coverage, so one specific joint coordinate set is a single point in
+a ~150^4 product. That surface is owned by [w-5e2d41](w-5e2d41.md) and by the live front `agent-a1f3d2`
+on the opening-affordability fence; **no successor front is opened on the sweep from this item**, and
+`w-c3f81a` must not be cited as clearing the canonical case-2 target.
+
+**Next action for a fresh pass:** nothing is owed to this item. Carry its residual joint-coverage finding
+as context on [w-5e2d41](w-5e2d41.md) and into any prompt for `agent-a1f3d2`.
