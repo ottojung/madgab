@@ -2541,12 +2541,43 @@ impl Partial {
     ) -> Metrics {
         #[cfg(test)]
         counters::bump(&counters::METRICS);
-        let similarity = (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0);
+        let words = self.word_count();
+
+        // Phonetic similarity is a per-word property, and the axis has
+        // always been documented as one: `SIMILARITY_PER_WORD` is the
+        // weight a single word's edit cost carries, and the proxies that
+        // order one word against another use it as exactly that.  But the
+        // axis itself divided the *whole candidate's* total cost by a
+        // constant, so the same per-word quality was charged once per
+        // candidate for a once-per-word property: two clues whose words
+        // were individually as good as each other were ordered by how
+        // many words each happened to have, and a long clue could not
+        // reach the top of the list however good every one of its words
+        // was.
+        //
+        // Reading the axis per word removes that.  One unit of *mean*
+        // cost per word is the full penalty, which is the same scale the
+        // constant expressed at the four-word clue it was written for, so
+        // a four-word clue scores exactly as before and only the
+        // length-dependent part of the axis moves.
+        //
+        // `SIMILARITY_PER_WORD` is deliberately left at its old value.
+        // It is a *local* ordering weight for a span's alternatives, and
+        // the exact marginal weight of the new axis is
+        // `-SIMILARITY / (words + 1)`, which is a different number again;
+        // re-deriving all three proxy sites on it changes which words the
+        // search keeps, and it was measured to lose
+        // `approximate_pool_reaches_matches_deep_in_a_span`.  That is an
+        // enumeration-side effect, so it is left to the front that owns
+        // enumeration rather than smuggled in here.
+        let cost_per_word = self.sub_cost_total / words.max(1) as f64;
+        let similarity = (1.0
+            - cost_per_word / axes::SIMILARITY_COST_PER_WORD)
+            .clamp(0.0, 1.0);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
         let reused = self.reused_count as f64;
-        let words = self.word_count();
         let word_novelty = 1.0 - reused / words.max(1) as f64;
 
         let familiarity = if words == 0 {
@@ -2700,6 +2731,15 @@ mod axes {
     /// monosyllable at all pays the full weight.  0.10 is comparable to
     /// `FAMILIARITY` and half of `SIMILARITY`.
     pub const PUNCH: f64 = 0.10;
+
+    /// Mean edit cost of one clue word that scores this axis's full
+    /// penalty.
+    ///
+    /// `SIMILARITY_PER_WORD` below is the axis's derivative with respect
+    /// to one word's cost at one word of clue, which is the local weight
+    /// the single-word ranking proxies use, and `metrics` divides a
+    /// candidate's mean per-word cost by this to get the axis itself.
+    pub const SIMILARITY_COST_PER_WORD: f64 = 1.0;
 
     /// Per-word share of the similarity axis, used by the single-word
     /// ranking proxies in `generate_approximate` (`quality`,
@@ -4250,7 +4290,14 @@ mod tests {
             syllables: usize,
             partial: bool,
         ) -> Metrics {
-            let similarity = (1.0 - p.sub_cost_total / 4.0).clamp(0.0, 1.0);
+            // The similarity axis is scored on the *mean* per-word cost
+            // (see `metrics`); what this test pins is that the
+            // incrementally maintained aggregates fold to the same
+            // numbers, not which normaliser the axis uses.
+            let similarity = (1.0
+                - p.sub_cost_total / p.word_count().max(1) as f64
+                    / axes::SIMILARITY_COST_PER_WORD)
+                .clamp(0.0, 1.0);
             let novelty =
                 boundary_novelty(&p.cuts, &[3usize, 6, 9], 12, partial);
             let reused = p
@@ -5470,5 +5517,144 @@ mod tests {
             "It's just a stupid game",
             &["hits", "justice", "dupe", "hid", "came"],
         );
+    }
+
+    /// The similarity axis is a per-word measure: a clue is scored on the
+    /// mean edit cost of its words, so two clues built from equally good
+    /// words score equally however many words each of them has.
+    ///
+    /// This is stated in general terms because the constant divisor it
+    /// replaces was length-*dependent* in the wrong direction.  It
+    /// charged a long clue once for a per-word property, so a clue could
+    /// be ranked below a shorter one whose every word was worse.
+    ///
+    /// Every other axis here is arranged to be length-neutral for these
+    /// chains -- the words are all the same length, rarity, class and
+    /// syllable count, the target has no inner boundaries to share, the
+    /// syllable counts agree, and no word is a target word -- so the
+    /// difference in `combined` below *is* the similarity axis.
+    #[test]
+    fn similarity_is_scored_per_word_not_per_candidate() {
+        let target_phrase = TargetPhrase::new("alpha beta gamma delta");
+        const TARGET_LEN: usize = 64;
+
+        let combined = |n: usize, word_cost: f64| {
+            let mut p = Partial::empty();
+            for i in 0..n {
+                p = p.extend_parts(
+                    &target_phrase,
+                    ["quorl", "vexil", "mirth", "gloam", "onset", "fluke"]
+                        [i % 6],
+                    "ae",
+                    Some(100.0),
+                    false,
+                    2,
+                    word_cost,
+                );
+            }
+            p.metrics(&[], n, TARGET_LEN, false).combined
+        };
+
+        // Same per-word quality, more words: length itself is not a
+        // penalty, so the axis is flat in the word count.
+        for cost in [0.05, 0.20, 0.40] {
+            let reference = combined(2, cost);
+            for n in [3usize, 4, 6, 8] {
+                assert!(
+                    (combined(n, cost) - reference).abs() < 1e-12,
+                    "{n} words at {cost} per word scored {} against {reference} \
+                     for 2 words at the same per-word cost",
+                    combined(n, cost)
+                );
+            }
+        }
+
+        // The axis is still able to rank: at a fixed length, worse words
+        // score strictly lower.
+        assert!(
+            combined(4, 0.05) > combined(4, 0.40),
+            "the axis stopped responding to per-word quality"
+        );
+        assert!(
+            combined(4, 0.40) > combined(4, 4.0),
+            "a clue whose words cost a full unit each should reach the \
+             axis's floor"
+        );
+
+        // And the sign of the length term: the same total cost spelled
+        // over more words is a *better* mean, not a worse one.
+        let total = 2.0 * 0.40;
+        assert!(
+            combined(8, total / 8.0) > combined(2, 0.40),
+            "spreading one total cost over more words was penalised"
+        );
+        assert!(combined(8, 0.0) >= combined(8, 0.40));
+    }
+
+    /// boundary, and the general form of that is an inequality rather
+    /// than a constant: the Jaccard distance between the two boundary
+    /// sets is never below either one-sided reading of the same
+    /// resegmentation, so no re-definition that "rewards addition
+    /// without punishing preservation" can raise the score of a clue
+    /// that shares boundaries with the target.
+    ///
+    /// With `a` added, `r` removed and `s` shared boundaries, the
+    /// symmetric reading is `(a + r) / (a + r + s)` and the one-sided
+    /// readings are `a / (a + s)` and `r / (r + s)`; the first minus the
+    /// others are `r * s / (...)` and `a * s / (...)`, so both are
+    /// non-negative.
+    #[test]
+    fn boundary_novelty_is_never_below_its_one_sided_readings() {
+        for total_len in [4usize, 6, 9] {
+            for cuts in 0..(1u32 << total_len.min(6)) {
+                let cuts: Vec<usize> = (0..total_len.min(6))
+                    .filter(|i| cuts & (1 << i) != 0)
+                    .collect();
+                if cuts.is_empty() {
+                    continue;
+                }
+                for mask in 0..(1u32 << total_len.min(6)) {
+                    let target: Vec<usize> = (0..total_len.min(6))
+                        .filter(|i| mask & (1 << i) != 0)
+                        .collect();
+                    let measured = boundary_novelty(
+                        &cuts,
+                        &target,
+                        total_len,
+                        false,
+                    );
+                    let a = cuts.iter().filter(|c| !target.contains(c)).count();
+                    let r = target.iter().filter(|c| !cuts.contains(c)).count();
+                    let s = cuts.iter().filter(|c| target.contains(c)).count();
+                    let addition = if a + s == 0 {
+                        0.0
+                    } else {
+                        a as f64 / (a + s) as f64
+                    };
+                    let removal =
+                        if r + s == 0 { 0.0 } else { r as f64 / (r + s) as f64 };
+                    assert!(
+                        measured + 1e-12 >= addition,
+                        "{cuts:?} vs {target:?}: {measured} < addition {addition}"
+                    );
+                    assert!(
+                        measured + 1e-12 >= removal,
+                        "{cuts:?} vs {target:?}: {measured} < removal {removal}"
+                    );
+                }
+            }
+        }
+
+        // And the axis is still a novelty measure: a clue that keeps the
+        // target's segmentation is at the bottom, and a clue that
+        // re-cuts every boundary is at the top, whatever the length.
+        let target = [3usize, 6, 9];
+        assert_eq!(boundary_novelty(&[3, 6, 9, 12], &target, 12, false), 0.0);
+        assert_eq!(boundary_novelty(&[2, 5, 8, 11], &target, 12, false), 1.0);
+        // A clue that keeps some of the target's boundaries and adds its
+        // own sits strictly between the two, and the shared boundaries
+        // are the only thing holding it back.
+        let partial = boundary_novelty(&[3, 5, 7, 9, 11], &target, 12, false);
+        assert!(partial > 0.0 && partial < 1.0, "partial resegmentation scored {partial}");
     }
 }
