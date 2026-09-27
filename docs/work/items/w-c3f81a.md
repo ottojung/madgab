@@ -264,6 +264,128 @@ sweep considers, which is the shortlist-fill surface
 
 ---
 
+## Implementation (front agent-c3f81a) — the minimum general change
+
+`src/lib.rs` only. No new constant, no phrase, clue or word list anywhere in
+production `src/`, and no change to the per-slot opening width or to the
+shortlist fill.
+
+### The change
+
+`const EMIT_PROFILE_MAX_DEEP: usize = 3` (was `src/lib.rs:212`) is **deleted** and
+replaced by a derived function:
+
+```rust
+fn funded_slot_depth(slot_widths: &[usize]) -> usize {
+    slot_widths.iter().filter(|&&width| width > LEXICAL_BRANCH_STAGE_0).count()
+}
+```
+
+called at the one production site that used the constant. The derivation is
+`coverage_tuples`' own reachability: `sweep_index` returns `None` for a subset
+whose narrowest slot is at or below the traversal's first stage, so such a subset
+yields no tuple and is not charged to the reserve; a subset is therefore fundable
+only if every slot in it is wider than the floor, and a `k`-deep subset needs `k`
+such slots. So the deepest tier the reserve can place anything at all is the count
+of the segmentation's slots wider than the floor. The old constant's comment said
+the cap existed because a `k`-deep class has `C(depth, k)` members "so beyond two
+the classes outnumber the reserve"; that comparison was never performed, disagreed
+with the literal beside it, and F2 shows the bound it describes is far too tight to
+be the real one.
+
+The reserve is still bounded by its own slice, where it always was:
+`coverage_tuples` returns as soon as it holds `reserve` tuples, so
+breadth-before-depth truncation — not this bound — is what limits a real run. This
+change removes a backstop, not a budget.
+
+### The property, stated generally, with the independent re-derivation
+
+Two tests, both phrase-free, both committed:
+
+* `the_reserve_depth_bound_is_the_slots_the_traversal_leaves_room_in` — over
+  1..=12 slots with 0..=4 of them pinned at the floor, the bound equals the count
+  of slots wider than the floor, **recomputed inline in the test from the widths**.
+  It deliberately does not call `funded_slot_depth`, so a reintroduced literal
+  fails it. A self-comparison would pass whatever the function returned — the
+  self-referential defect this repository has already paid for twice
+  ([w-6d2af3](w-6d2af3.md), [w-3c9d17](w-3c9d17.md)).
+* `a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple` — the
+  executable boundary, and the property this item was opened for: **a target whose
+  best available wording is deep in one slot gets a deep-in-one-slot tuple placed
+  for it.** Twelve real multi-clause targets. The expected depth is derived from
+  **the targets' own word counts and nothing else** — a target of `W` words admits
+  segmentations of up to `W` slots and a representative keeps index 0 in the slots
+  it does not make deep, so the deepest tuple it admits has `W - 1` non-zero
+  coordinates; over the spread that is at least 4. The assertion reads neither
+  `funded_slot_depth`, nor the slot widths, nor `LEXICAL_BRANCH_STAGE_0`, nor any
+  counter the bound feeds, so rule and test share no axis that could move together.
+
+A new test-only counter `DEEPEST_PROFILE_COORDINATES` records the largest non-zero
+coordinate count of any reserve emission, which is the reserve's *depth* as
+distinct from `DEEPEST_PROFILE`'s deepest single slot *index* — a tuple deep in one
+slot and a tuple deep at one deep index are different questions, and only one of
+them is what this rule bounds.
+
+### Mutation red-check, on `scratch/c3f81a-probe`
+
+Reintroducing a hard cap of 3 in `funded_slot_depth` (in the scratch worktree, never
+on `madgab-reserve-c3f81a`) turns **both** tests red:
+
+```text
+the_reserve_depth_bound_...  left: 3  right: 1
+a_target_whose_best_wording_...  "a whole lot of trouble" (5 words): the reserve
+    placed a tuple deep in 3 slots, and a target of 5 words admits a tuple deep
+    in 4.
+```
+
+The second failure is the load-bearing one: it fires on a real target, from a
+number derived from the target's own length, with no shared axis in play.
+
+### Criterion-5 fence on this head
+
+`CARGO_TARGET_DIR=/workspace/target-c3f81a`, release, `--test-threads=1`:
+
+| target | result |
+|---|---|
+| `--lib` | **63 passed, 0 failed** (61 before, +2 new) |
+| `--test emit_coverage` | **4 passed, 0 failed** |
+| `--test corpus_integration` | **12 passed, 1 failed** — see below |
+| `--test approx_determinism` | **4 passed, 0 failed** |
+| `--test exact_determinism` | **1 passed, 0 failed** |
+| `--test no_phrase_hard_coding` | **9 passed, 0 failed** |
+| `approximate_pool_reaches_matches_deep_in_a_span` | pass |
+| `approximate_pool_reaches_alternatives_past_the_opening_slot_width` | pass |
+| `approximate_pool_reaches_resegmentations_deeper_than_one_walk` | pass |
+| `approximate_output_is_locked` | pass, **not re-pinned** |
+
+The single `corpus_integration` failure is
+`approximate_finds_classic_madgab_resegmentation`, and it is **pre-existing**: it
+fails identically, with the identical message and the identical 12-clue `got:` list,
+on the unmodified baseline in the probe worktree (F4). No expectation in any test
+file was changed by this front.
+
+### One trap this front hit, for the next pass
+
+Running the red-check build and the real branch's tests out of **one shared**
+`CARGO_TARGET_DIR` made four real tests fail on a correct tree — the mutated
+`--lib` binary was picked up. `touch src/lib.rs` plus a rebuild cleared it and the
+tree then passed 63/63. This is the shared-target-dir trap the item already lists,
+and it is worth restating in the operational form: **give the probe worktree its own
+target directory** (`/workspace/target-c3f81a-probe`), not just "not the same as
+another worktree's *clean* run".
+
+### What this front did NOT do, deliberately
+
+* **No width change.** `affordable_opening_width` and `LEXICAL_BRANCH_STAGE_0`'s
+  ladder are untouched ([w-9e2b41](w-9e2b41.md)).
+* **No shortlist-fill change.** `SPAN_SHORTLIST` and the retention rule are
+  untouched ([w-7b40d2](w-7b40d2.md)). In particular `EMIT_PROFILE_SAMPLE` — the
+  per-subset sample width — is **not** raised, even though F3 says that is where the
+  canonical alignment actually lives. That is a shortlist-fill surface and it is
+  w-7b40d2's, not this front's.
+* **No new constant in place of the old one.** Completion criterion 1 is met by
+  derivation, not by a different literal.
+
 ## Handoff / notes
 
 Opened 2026-09-27T08:41Z by coordinator `coord-08f4` from constraint 7 of
@@ -275,12 +397,57 @@ launch). First action: read the reserve's rule in `src/lib.rs`, state whether
 `EMIT_PROFILE_MAX_DEEP` is derived or independent, and price a four-deep placement against the real
 emission allowance over at least ten targets - measurement committed and pushed before any change.
 
+### Outcome (front agent-c3f81a, 2026-09-27)
+
+**Completion criteria 1, 2, 3, 4 and 6 are met on `madgab-reserve-c3f81a`. Criterion 5 is
+met by construction** — the pricing commit `b04380d` is on the pushed branch, ahead of
+the rule change, and can be reviewed on its own if this front is discarded entirely.
+
+The headline is the opposite of what the item expected. `EMIT_PROFILE_MAX_DEEP = 3` was
+an **independent constant** whose prose budget argument was never computed, disagreed
+with the literal beside it, and described a bound **far tighter than the real one** — so
+a four-deep placement costs **zero** of the 16,384 emissions and at most **+19** pool
+candidates on any of sixteen real targets, not the 30-56 traversal-index units the
+naive `sum_{j<=k} C(depth, j)` model predicts. **The feared priced negative does not
+exist, and deriving the cap from the naive model would have manufactured it.**
+
+What the change does **not** deliver is the canonical case-2 alignment
+(`hits justice dupe hid came`, indices 7/0/22/99/11): it is still absent from the
+production pool, and `a_lattice_alignment_can_be_absent_from_the_production_pool` still
+passes, which is the honest outcome. F3 localises why. The reserve places **one** tuple
+per subset per phase at a uniform stride, so it is uniform in each **marginal** slot
+index with essentially **zero joint** coverage, and a specific joint coordinate set is
+one point in a ~150^4 product. The blocker is joint-coordinate coverage, not depth, and
+the depth cap was never standing in its way — on the canonical target all 34
+four-deep tuples placed come from five-slot segmentations, the very slot count that
+alignment needs.
+
+**This item is therefore complete and should be integrated. The milestone blocker it
+was opened against is NOT cleared, and the next pass should not read this item as
+clearing it.** What is left for the canonical alignment is a question about how many
+positions the reserve's own sweep considers — `EMIT_PROFILE_SAMPLE`, the per-subset
+sample width — which is the shortlist-fill surface
+([w-7b40d2](w-7b40d2.md)) and possibly the per-slot width surface
+([w-9e2b41](w-9e2b41.md)). This front deliberately did not touch either, and a
+coordination decision is needed before any front opens on it, so that a fourth front
+does not open on the same code.
+
 ### Next action for a later fresh pass
 
-1. `antonina agent status/log --id c3f81a` and
-   `git -C /workspace/madgab-reserve-c3f81a log --oneline -3` plus `status --short`. The pricing
-   commit on a pushed branch is the precondition for review.
-2. On a landed rule, review it as a diff for generality and for the non-duplication boundary above,
+1. `git -C /workspace/madgab-reserve-c3f81a log --oneline -3` plus `status --short`,
+   and `git branch --contains <head>` to confirm the head is on
+   `madgab-reserve-c3f81a` only. Review `b04380d` (pricing, no `src/` change) and the
+   rule commit after it independently — the pricing stands on its own and is the
+   precondition for trusting the rest.
+2. Review the rule as a diff for generality and for the non-duplication boundary above,
    then run the criterion-5 fence on the front head before anything is integrated.
-3. A priced negative is an acceptable outcome, recorded here with its arithmetic plus a pushed
-   commit, never as a log line.
+   Note that `approximate_finds_classic_madgab_resegmentation` in
+   `tests/corpus_integration.rs` **fails on the unmodified base too**, with the same
+   message; do not attribute it to this front and do not re-pin it without
+   investigating it as its own item.
+3. A priced negative is an acceptable outcome, recorded here with its arithmetic plus a
+   pushed commit, never as a log line. **This front returned a priced positive with a
+   residual finding instead**, and the residual finding is the more useful output: it
+   moves the canonical-alignment blocker from "the reserve may not place four-deep
+   tuples" (false, F2) to "the reserve is marginal-uniform and the target needs joint
+   coverage" (F3), which is a different and better-posed question.

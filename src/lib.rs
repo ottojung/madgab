@@ -154,12 +154,12 @@ const EMIT_PROFILE_RESERVE: usize = 16;
 ///
 /// The profile reserve above samples the index-tuple space *from the corner*:
 /// a profile representative keeps index 0 in every slot outside the profile,
-/// so it can be deep in at most [`EMIT_PROFILE_MAX_DEEP`] slots and it cannot
-/// reach a wording that is deep in several slots *and* off the corner in the
-/// rest.  The adjacency operator spends its share differently: it starts from
-/// wordings the pool already holds and substitutes **one slot at a time**, so
-/// the cost of being deep in one slot is additive rather than
-/// multiplicative.
+/// so it can be deep in every slot the traversal's first stage leaves room in
+/// ([`funded_slot_depth`]) and it cannot reach a wording that is deep in
+/// several slots *and* off the corner in the rest.  The adjacency operator
+/// spends its share differently: it starts from wordings the pool already holds
+/// and substitutes **one slot at a time**, so the cost of being deep in one slot
+/// is additive rather than multiplicative.
 ///
 /// This is the one per-segmentation spend that is *not* carved out of the
 /// traversal's allowance.  Carving it out there is what the profile reserve
@@ -205,11 +205,48 @@ const ADJACENCY_GLOBAL_RESERVE: usize = 1_024;
 /// segmentation and the caller's cap and the walk's reach are the same
 /// number by construction.  See `docs/work/items/w-6f3a91.md`.
 const ADJACENCY_PER_SLOT: usize = 2;
-/// How many slots of a profile may be deep at once.  A `k`-deep profile
-/// class has `C(depth, k)` members per sweep step, so beyond two the
-/// classes outnumber the reserve and the sweep is not widened to
-/// compensate.
-const EMIT_PROFILE_MAX_DEEP: usize = 3;
+
+/// How many of a segmentation's slots the coverage reserve may make deep at
+/// once, derived from the reserve's own reachability rather than chosen.
+///
+/// The reserve draws a deep slot's index by [`sweep_index`], which returns
+/// `None` — and so yields no tuple and is **not charged to the reserve** — for
+/// any subset whose *narrowest* slot is at or below
+/// [`LEXICAL_BRANCH_STAGE_0`], because there is no index above the floor for
+/// it to take.  A subset is therefore fundable only if *every* slot in it is
+/// wider than the floor, and a `k`-deep subset needs `k` such slots.  So the
+/// deepest tier the reserve can place anything at all is the number of the
+/// segmentation's slots that are wider than the floor, and that is the bound.
+///
+/// This is what the constant `3` was standing in for, and the two are not the
+/// same claim.  The constant's own comment said the cap existed because a
+/// `k`-deep class "has `C(depth, k)` members per sweep step, so beyond two the
+/// classes outnumber the reserve" — a comparison against the reserve that was
+/// never performed, that disagreed with the literal beside it, and that is
+/// **false as a bound**: the subsets skipped for a narrow slot are free, so a
+/// tier costs far less than `C(depth, k)` and the reserve runs out much later
+/// than that argument predicts.  Measured over sixteen real targets at the
+/// shipped budgets, a four-deep placement costs **zero** of the
+/// `LEXICAL_GLOBAL_EMISSION_BUDGET` and at most **+19** candidates of pool
+/// (+0.10%), with the whole-search emission total *identical* on every one of
+/// them, because the reserve is a fixed per-segmentation slice of a globally
+/// capped allowance and a higher tier is bought by re-ordering which subset is
+/// funded when the slice runs out, not by another emission.  The naive
+/// `sum_{j<=k} C(depth, j)` model instead prices a four-deep placement at 30
+/// units for five slots and 56 for six, i.e. unaffordable — so deriving the cap
+/// from the naive model would have produced a false negative, and the `3` was
+/// not protecting anything.  Numbers in `docs/work/items/w-c3f81a.md`.
+///
+/// The reserve still cannot spend more than its slice, and that is enforced
+/// where it is enforced: `coverage_tuples` returns as soon as it holds
+/// `reserve` tuples, so breadth-before-depth truncation — not this bound — is
+/// what limits a real run.
+fn funded_slot_depth(slot_widths: &[usize]) -> usize {
+    slot_widths
+        .iter()
+        .filter(|&&width| width > LEXICAL_BRANCH_STAGE_0)
+        .count()
+}
 
 /// The per-slot affordability model the traversal reads, derived from the
 /// same additive bound `build` applies to a complete tuple.
@@ -1796,7 +1833,7 @@ impl Generator {
             for tuple in coverage_tuples(
                 &widths,
                 profile_allowance,
-                EMIT_PROFILE_MAX_DEEP,
+                funded_slot_depth(&widths),
                 coverage_phase,
                 &bound,
             ) {
@@ -1809,10 +1846,16 @@ impl Generator {
                     continue;
                 };
                 #[cfg(test)]
-                counters::note_depth(
-                    &counters::DEEPEST_PROFILE,
-                    tuple.iter().copied().max().unwrap_or(0),
-                );
+                {
+                    counters::note_depth(
+                        &counters::DEEPEST_PROFILE,
+                        tuple.iter().copied().max().unwrap_or(0),
+                    );
+                    counters::note_total(
+                        &counters::DEEPEST_PROFILE_COORDINATES,
+                        tuple.iter().filter(|&&i| i != 0).count() as u64,
+                    );
+                }
                 pooled.push(tuple);
                 recovered.push(partial);
                 profile_emitted += 1;
@@ -2241,6 +2284,15 @@ mod counters {
         /// The deepest slot index the adjacency operator's admissions
         /// reach: the third of the three emission-spread counters.
         pub static DEEPEST_ADJACENCY: Cell<usize> = const { Cell::new(0) };
+        /// The most non-zero coordinates any one reserved depth-profile
+        /// emission has carried — the reserve's *depth*, as distinct from
+        /// `DEEPEST_PROFILE`, which is the deepest single slot index it
+        /// reached.  A tuple deep in one slot and a tuple deep at one deep
+        /// index are different things and only one of them is a coverage
+        /// question; this is the one the reserve's slot cap answers.
+        pub static DEEPEST_PROFILE_COORDINATES: Cell<u64> = const {
+            Cell::new(0)
+        };
         /// How many wordings the lexical phase actually put in the pool, so a
         /// test can assert that the *global* emission ceiling is reached rather
         /// than merely respected.  See
@@ -2257,6 +2309,15 @@ mod counters {
     }
 
     pub fn take(counter: &'static std::thread::LocalKey<Cell<u64>>) -> u64 {
+        counter.with(|c| c.replace(0))
+    }
+
+    /// Read and reset a *high-water* counter, so a test can measure the
+    /// largest value a single run reached without the previous run's maximum
+    /// leaking into this one.
+    pub fn take_total(
+        counter: &'static std::thread::LocalKey<Cell<u64>>,
+    ) -> u64 {
         counter.with(|c| c.replace(0))
     }
 
@@ -4720,7 +4781,26 @@ mod tests {
                     / 2,
             "the reserve is a part of the allowance, not all of it"
         );
-        assert!(EMIT_PROFILE_MAX_DEEP >= 1 && EMIT_PROFILE_MAX_DEEP <= 4);
+        // The depth bound is a *count of slots*, so the only property worth
+        // pinning here is that it is a count of a real slot list and never
+        // exceeds it.  The interesting content of the bound — that a
+        // segmentation four slots wide with all four wider than the
+        // traversal's first stage is deep enough to place a four-deep tuple —
+        // is asserted in `the_reserve_places_a_tuple_deep_in_every_slot_the
+        // traversal_leaves_room_in`, which re-derives it from the widths.
+        for widths in [
+            vec![SPAN_SHORTLIST; 1],
+            vec![SPAN_SHORTLIST; 4],
+            vec![SPAN_SHORTLIST; 9],
+            vec![LEXICAL_BRANCH_STAGE_0; 6],
+            vec![3, LEXICAL_BRANCH_STAGE_0 * 2],
+        ] {
+            assert!(
+                funded_slot_depth(&widths) <= widths.len(),
+                "the reserve's depth bound counts a segmentation's own slots \
+                 and cannot exceed them: {widths:?}"
+            );
+        }
 
         // The reserve is carved out of `emit_allowance` and the traversal
         // is handed the remainder, so the per-segmentation total is
@@ -4736,7 +4816,7 @@ mod tests {
         // never exceeds the reserve or that bound.
         for depth in 1..=24usize {
             let widths = vec![SPAN_SHORTLIST; depth];
-            let classes: usize = (1..=EMIT_PROFILE_MAX_DEEP.min(depth))
+            let classes: usize = (1..=funded_slot_depth(&widths).min(depth))
                 .map(|k| {
                     let mut c = 1usize;
                     for j in 0..k {
@@ -4749,7 +4829,7 @@ mod tests {
                 let tuples = coverage_tuples(
                     &widths,
                     EMIT_PROFILE_RESERVE,
-                    EMIT_PROFILE_MAX_DEEP,
+                    funded_slot_depth(&widths),
                     phase,
                     &flat_bound,
                 );
@@ -4812,7 +4892,7 @@ mod tests {
             for tuple in coverage_tuples(
                 &widths,
                 EMIT_PROFILE_RESERVE,
-                EMIT_PROFILE_MAX_DEEP,
+                funded_slot_depth(&widths),
                 phase,
                 &flat_bound,
             ) {
@@ -4873,7 +4953,7 @@ mod tests {
                 for tuple in coverage_tuples(
                     &widths,
                     per,
-                    EMIT_PROFILE_MAX_DEEP,
+                    funded_slot_depth(&widths),
                     phase,
                     &flat_bound,
                 ) {
@@ -4918,16 +4998,22 @@ mod tests {
     #[test]
     fn one_phase_of_the_coverage_sweep_is_spread_over_the_list() {
         let per = EMIT_PROFILE_RESERVE;
+        // A subset has at most one member per slot, and no segmentation in
+        // the corpus is wider than this many slots, so this is the widest
+        // member index the rate ladder is ever asked for.  It is written as
+        // the same derived count the reserve itself uses, so the two cannot
+        // drift apart.
+        let max_members = funded_slot_depth(&[SPAN_SHORTLIST; 8]);
         for width in (LEXICAL_BRANCH_STAGE_0 * 2)..=SPAN_SHORTLIST {
             let mut seen: HashSet<usize> = HashSet::new();
             for nth in 0..per {
-                for member in 0..=EMIT_PROFILE_MAX_DEEP {
+                for member in 0..max_members {
                     if let Some(at) = sweep_index(width, per, nth, member, 0) {
                         seen.insert(at);
                     }
                 }
             }
-            // One phase draws at most `per * (EMIT_PROFILE_MAX_DEEP + 1)`
+            // One phase draws at most `per * max_members`
             // indices, so the honest claim is that the draw is *spread* and
             // not a window: a third of the list's indices are in play from a
             // single phase.  A schedule that advanced every draw by one
@@ -4983,14 +5069,14 @@ mod tests {
             let index_order = coverage_tuples(
                 &widths,
                 per,
-                EMIT_PROFILE_MAX_DEEP,
+                funded_slot_depth(&widths),
                 phase,
                 &flat_bound,
             );
             let drawn = coverage_tuples(
                 &widths,
                 per,
-                EMIT_PROFILE_MAX_DEEP,
+                funded_slot_depth(&widths),
                 phase,
                 &bound,
             );
@@ -5001,7 +5087,7 @@ mod tests {
                     coverage_tuples(
                         &widths,
                         per,
-                        EMIT_PROFILE_MAX_DEEP,
+                        funded_slot_depth(&widths),
                         phase.wrapping_add(t),
                         &flat_bound,
                     )
@@ -5071,7 +5157,10 @@ mod tests {
     #[test]
     fn every_sweep_rate_is_coprime_to_the_span_it_is_used_on() {
         for span in 1..=SPAN_SHORTLIST - LEXICAL_BRANCH_STAGE_0 {
-            for member in 0..=EMIT_PROFILE_MAX_DEEP {
+            // The ladder is indexed by a subset member, so it is asked for
+            // one rate per slot of the widest segmentation, which is the same
+            // derived count the reserve's own depth bound uses.
+            for member in 0..funded_slot_depth(&[SPAN_SHORTLIST; 8]) {
                 assert_eq!(
                     gcd(sweep_rate(member, span), span),
                     1,
@@ -5121,6 +5210,116 @@ mod tests {
             assert!(
                 profile >= 4 * LEXICAL_BRANCH_STAGE_0,
                 "{target:?}: the reserve only reached slot depth {profile}"
+            );
+        }
+    }
+
+    /// The reserve's depth bound is **derived from the traversal's floor**,
+    /// not chosen, and this re-derives it independently of the code under
+    /// test.
+    ///
+    /// The expected count is recomputed here, inline, from the slot widths
+    /// against `LEXICAL_BRANCH_STAGE_0` — deliberately *not* by calling
+    /// [`funded_slot_depth`].  A test that asserted the function equalled
+    /// itself would pass whatever the function returned, including a
+    /// reintroduced literal, which is the self-referential defect this
+    /// repository has already paid for once ([w-6d2af3](w-6d2af3.md),
+    /// [w-3c9d17](w-3c9d17.md)).  Recomputing the count from the widths makes
+    /// the assertion a claim about the *floor* — so restoring a constant
+    /// depth cap fails this test, which a self-comparison would not.
+    #[test]
+    fn the_reserve_depth_bound_is_the_slots_the_traversal_leaves_room_in() {
+        for slots in 1..=12usize {
+            for narrow in 0..=4usize {
+                let mut widths = vec![LEXICAL_BRANCH_STAGE_0; slots];
+                for w in widths.iter_mut().skip(narrow) {
+                    *w = SPAN_SHORTLIST;
+                }
+                // Independent re-derivation: a slot the reserve can make deep
+                // is a slot with an index above the traversal's first stage,
+                // because `sweep_index` has nowhere above the floor to draw
+                // from for a slot at or below it.
+                let expected = widths
+                    .iter()
+                    .filter(|w| **w > LEXICAL_BRANCH_STAGE_0)
+                    .count();
+                assert_eq!(
+                    funded_slot_depth(&widths),
+                    expected,
+                    "{slots} slots, the first {narrow} at the floor: the \
+                     bound is the count of slots the traversal leaves room in, \
+                     so it cannot be a constant"
+                );
+            }
+        }
+    }
+
+    /// The property this front exists for, stated generally: **a target whose
+    /// best available wording is deep in one slot gets a deep-in-one-slot tuple
+    /// placed for it** — and, specifically, a tuple deep in more slots than the
+    /// constant this rule replaced allowed.
+    ///
+    /// No phrase, clue or word list appears in the assertion; the expected
+    /// number is derived from the **targets' own word counts** and nothing
+    /// else.  That is the independent re-derivation, and it is the reason this
+    /// test is not self-referential: it reads neither `funded_slot_depth`,
+    /// nor the slot widths, nor `LEXICAL_BRANCH_STAGE_0`, nor any counter the
+    /// bound feeds.  A change to the production bound that lowered the deepest
+    /// funded tier would move the measured number and fail here, without the
+    /// test and the rule sharing anything to change together.
+    ///
+    /// The derivation, so the number is not magic: a target of `W` words
+    /// admits segmentations of up to `W` slots, and a representative of the
+    /// reserve keeps index 0 in the slots it does not make deep, so the
+    /// deepest tuple the reserve can place for such a target has `W - 1`
+    /// non-zero coordinates.  Over targets of at least
+    /// `SHORTEST` words that is at least `SHORTEST - 1`.  The assertion is
+    /// that the reserve reaches it, for every target, not for a named one.
+    #[test]
+    fn a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple() {
+        /// Real multi-clause targets, none of which any assertion below names.
+        const TARGETS: &[&str] = &[
+            "a whole lot of trouble",
+            "he was a big fat man",
+            "what are you going to do",
+            "there is no way to know",
+            "the cat sat on the mat",
+            "when the rain finally stopped",
+            "you can do it yourself",
+            "an old man in a big hat",
+            "we should have told her",
+            "in the middle of the night",
+            "put it back on the shelf",
+            "they are going to be late",
+        ];
+
+        // The expected depth, from the targets' own lengths alone.
+        let shortest = TARGETS
+            .iter()
+            .map(|t| t.split_whitespace().count())
+            .min()
+            .expect("the corpus is not empty");
+        let expected = (shortest - 1) as u64;
+        assert!(
+            expected >= 4,
+            "the spread must include targets long enough for a four-deep \
+             tuple to be derivable at all, and the shortest is {shortest} words"
+        );
+
+        for target in TARGETS {
+            counters::take_total(&counters::DEEPEST_PROFILE_COORDINATES);
+            let _ = approximate_generator(50).generate(target);
+            let deepest = counters::take_total(
+                &counters::DEEPEST_PROFILE_COORDINATES,
+            );
+            assert!(
+                deepest >= expected,
+                "{target:?} ({} words): the reserve placed a tuple deep in \
+                 {deepest} slots, and a target of {} words admits a tuple \
+                 deep in {expected}. The reserve's placement depth is bounded \
+                 by something other than the traversal's own floor.",
+                target.split_whitespace().count(),
+                target.split_whitespace().count(),
             );
         }
     }
