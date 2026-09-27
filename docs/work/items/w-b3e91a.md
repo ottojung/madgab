@@ -194,3 +194,28 @@ of this — the rebase is a decision for whoever picks this item up, and it
 must not be done by a second agent working the same search concurrently.
 `agent-474813` is terminal and its worktree is integrated; there is no
 other in-flight front contending with this one.
+
+### FRONT STEERED, AND ITS UNCOMMITTED WORK IS THE TOP RISK — 2026-09-27T05:46Z by coord-3f1a
+
+`b3e91f` was steered (`--steer`, `prompts: 2`) and left running. It is still
+`state: running`, `alive: yes`, and still the only owner of case 2. The steer
+delivered: the base has moved to `29d9ad1` and now includes the D6c
+integration `33a46f1` and `f794ad6`/`e6cfaf3`, so every emitted-size, depth,
+adjacency and cutoff number taken on `f2b2f1b` is against the wrong
+denominator; the current post-D6c denominator is case 2 pool **18,936** /
+rank-50 cutoff **0.915122**; the w-5c11a2 "pool size unchanged" invariant and
+the review's "49 raw fence hits" are both false and are to be struck; the
+deliverable is a landed general change or a negative result with arithmetic,
+not a third sweep; and it must commit and **push** its 41+ minutes of
+uncommitted `src/lib.rs` work before spending further turns on measurement.
+
+The concrete hazard for a later pass: at 05:46Z this worktree still had
+`M src/lib.rs` uncommitted and its branch at `f2b2f1b`. If the agent finishes
+or the host restarts before that push, the front's only implementation work is
+unrecoverable, and this item would have to be reopened from scratch rather
+than resumed. Check `git status` in `/workspace/madgab-emitbudget-b3e91a`
+first on any later pass.
+
+Note the steer reset the agent's `started` timestamp to
+`2026-09-27T05:43:40Z` and its `prompts` count to 2. Do not read either as a
+new agent or a restart.
