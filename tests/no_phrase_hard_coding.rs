@@ -1,5 +1,8 @@
 //! The no-hard-coding fence for the two canonical Mad Gab examples.
 //!
+//! Scans `src/`, `web/` and `examples/`. See "What is scanned" below for the
+//! exact regions and extensions, and the allowlist for the narrow exceptions.
+//!
 //! `tests/corpus_integration.rs` asserts that approximate search finds
 //!
 //! - `"It's just a stupid game"` -> `"hits justice dupe hid came"`, and
@@ -67,27 +70,53 @@
 //!   The documented usage of the CLI names the two canonical examples, and
 //!   prose about a phrase is not behaviour. Comment text is stripped before
 //!   anything is inspected.
-//! * **The other files in `tests/`.** Only `src/` is read. The acceptance
-//!   tests in `tests/corpus_integration.rs` must name the phrases; that is
-//!   their job.
-//! * **`Cargo.toml`, `examples/`, `web/`.** Not the production region.
+//! * **The other files in `tests/`.** Only the scanned regions below are
+//!   read. The acceptance tests in `tests/corpus_integration.rs` must name
+//!   the phrases; that is their job.
+//! * **`Cargo.toml`** and any file extension not listed in `REGIONS`.
+//!
+//! # What is scanned
+//!
+//! Three regions, named in `REGIONS` so the scope is greppable rather than
+//! implied by which function happens to be called:
+//!
+//! | region | extensions | why it is in scope |
+//! |---|---|---|
+//! | `src/` | `rs` | the production region |
+//! | `web/` | `js`, `html`, `css` | `web/app.js` is a real user-facing search entry point, so a hard-code committed there is as reachable as one in `src/` |
+//! | `examples/` | `rs` | `examples/measure.rs` is compiled and run to measure quality, so a hard-code there would distort the numbers an integration pass reads |
+//!
+//! The directories are walked recursively and dotfiles are skipped, so a
+//! vendored or generated subtree cannot quietly join the scan without being
+//! visible in `REGIONS` first. `no_canonical_example_in_a_production_doc_comment`
+//! remains `src/`-only, because the rule it enforces is about production
+//! documentation rather than about coupling.
 //!
 //! # The allowlist
 //!
-//! A legitimate phrase-specific literal in production code goes in
-//! `ALLOWLIST` below as an entry naming the file, the line, and *why* it is
-//! legitimate. There is no wildcard form: an entry either names one file and
-//! one line or it does not apply, and adding one is a visible, greppable
-//! edit (`git grep -n RECOGNIZED tests/no_phrase_hard_coding.rs`) that a
-//! reviewer sees in the diff.
+//! A legitimate phrase-specific literal goes in `ALLOWLIST` below as an entry
+//! naming the directory, the file, the line, *why* it is legitimate, and a
+//! greppable `marker` string that must still be present on that line. There
+//! is no wildcard form: an entry either names one directory, one file and one
+//! line or it does not apply, and adding one is a visible, greppable edit
+//! (`git grep -n RECOGNIZED tests/no_phrase_hard_coding.rs`) that a reviewer
+//! sees in the diff.
 //!
-//! The allowlist is expected to stay short, ideally empty. It is empty today
-//! and should stay empty: every legitimate use of the phrases is already
-//! covered by the region exclusions above, so a new entry means either a new
-//! kind of legitimate coupling (argue for it in review, and keep it to one
-//! line) or, more likely, a hard-code that is trying to buy a pass. If two
-//! or more entries ever appear, the region boundary above is probably in the
-//! wrong place and should be widened instead.
+//! The size bound is **per region**, in `ALLOWLIST_CAPS`: `src/` is held to
+//! zero, `web/` to two, `examples/` to one. `src/` is held to zero because
+//! every legitimate use of the phrases there is already a region exclusion
+//! (a `#[cfg(test)]` module, or `src/main.rs`'s documented CLI usage), so an
+//! entry there would be a hard-code buying a pass. The other two regions hold
+//! the phrases in user-facing copy and in a benchmark input, and a small named
+//! cap is what keeps that from becoming a back door. A cap is raised only by
+//! an explicit edit to `ALLOWLIST_CAPS`, never by accident.
+//!
+//! Two further controls keep the list honest:
+//! `the_allowlist_is_small_and_every_entry_justifies_itself` checks each
+//! entry's directory, file, line, reason and marker, and
+//! `every_allowlist_entry_suppresses_a_finding_that_is_still_there` fails if
+//! an entry names a line the detector no longer fires on — so an entry dies
+//! with the line that justified it.
 //!
 //! # Running it
 //!
@@ -773,81 +802,163 @@ fn detect(unit: &Unit) -> Option<Finding> {
     None
 }
 
-/// A legitimate phrase-specific literal, one file and one line.
+/// A legitimate phrase-specific literal: one directory, one file, one line.
 struct AllowEntry {
+    /// Scanned directory the file is in, e.g. `"src"`.
+    dir: &'static str,
     file: &'static str,
     line: usize,
     reason: &'static str,
     marker: &'static str,
 }
 
-/// The allowlist. Empty on purpose; see the module docs for why.
+/// The allowlist. `src/` has no entry at all; the others name one line each,
+/// and every reason says why the phrase is user-visible text rather than
+/// coupling. See the module docs for why it must stay this small.
 const ALLOWLIST: &[AllowEntry] = &[
     // RECOGNIZED:
     //
-    // AllowEntry { file: "lexical.rs", line: 0, reason: "<why>", marker: "..." },
+    // AllowEntry { dir: "src", file: "lexical.rs", line: 0, reason: "<why>",
+    //              marker: "..." },
+    AllowEntry {
+        dir: "web",
+        file: "index.html",
+        line: 20,
+        reason: "the pre-filled default value of the search box: UI copy the \
+                 user can clear or overwrite, not search behaviour",
+        marker: "value=",
+    },
+    AllowEntry {
+        dir: "web",
+        file: "index.html",
+        line: 21,
+        reason: "the same search box's placeholder hint, on the next line of \
+                 that one element: it names a canonical example to show the \
+                 expected input shape",
+        marker: "placeholder=",
+    },
+    AllowEntry {
+        dir: "examples",
+        file: "measure.rs",
+        line: 30,
+        reason: "the head of the benchmark harness's 24-target list: it \
+                 reports aggregate quality and never special-cases one target",
+        marker: "const TARGETS",
+    },
 ];
 
-fn allowed(file: &str, line: usize) -> Option<&'static str> {
+/// The directories the fence reads, each with the largest number of
+/// allowlist entries it may hold.
+///
+/// `src/` is the production region and is held to **zero**: every legitimate
+/// use of the phrases there is already a region exclusion (a `#[cfg(test)]`
+/// module, or `src/main.rs`'s documented CLI usage), so an entry there would
+/// be a hard-code buying a pass. `web/` and `examples/` are the regions the
+/// fence extension added, where the phrases legitimately appear as user-facing
+/// copy and as a benchmark input, and they are held to a small named cap
+/// rather than to nothing. The caps are the size bound: they grow only by an
+/// explicit, visible edit here, never by accident.
+const ALLOWLIST_CAPS: &[(&str, usize)] = &[("src", 0), ("web", 2), ("examples", 1)];
+
+fn allowed(dir: &str, file: &str, line: usize) -> Option<&'static str> {
     let file = Path::new(file)
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or(file);
     ALLOWLIST
         .iter()
-        .find(|e| e.file == file && e.line == line)
+        .find(|e| e.dir == dir && e.file == file && e.line == line)
         .map(|e| e.reason)
 }
 
-fn src_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("src")
+fn manifest_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-fn src_files() -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = fs::read_dir(src_dir())
-        .unwrap_or_else(|e| panic!("reading src/: {e}"))
-        .filter_map(|e| e.ok())
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("rs"))
-        .collect();
-    files.sort();
-    assert!(!files.is_empty(), "no .rs files found in src/");
-    files
-}
-
-/// Every finding in the production region of `src/`.
-fn scan_tree() -> Vec<Finding> {
-    let mut findings = Vec::new();
-    let mut scanned_lines = 0usize;
-    for path in src_files() {
-        let name = path.to_string_lossy().to_string();
-        let src = fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("reading {}: {e}", name));
-        for unit in units_of(&name, &src) {
-            scanned_lines += 1;
-            if let Some(f) = detect(&unit) {
-                if allowed(&name, f.line).is_some() {
-                    continue;
-                }
-                findings.push(f);
+/// Every file of a scanned directory with the given extension, recursively.
+/// `src/` and `examples/` hold Rust source; `web/` holds the browser assets
+/// that can carry coupling into a user's search.
+fn files_in(dir: &'static str, ext: &'static str) -> Vec<PathBuf> {
+    fn walk(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) {
+        let entries = fs::read_dir(dir).unwrap_or_else(|e| panic!("reading {dir:?}: {e}"));
+        for entry in entries.filter_map(|e| e.ok()) {
+            let name = entry.file_name();
+            let Some(name) = name.to_str() else { continue };
+            if name.starts_with('.') {
+                continue;
+            }
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, ext, out);
+                continue;
+            }
+            if path.extension().and_then(|s| s.to_str()) == Some(ext) {
+                out.push(path);
             }
         }
     }
-    assert!(scanned_lines > 0, "the scan read no lines of src/");
+    let mut out = Vec::new();
+    walk(&manifest_dir().join(dir), ext, &mut out);
+    out.sort();
+    assert!(!out.is_empty(), "no {ext} files found in {dir}/");
+    out
+}
+
+fn src_files() -> Vec<PathBuf> {
+    files_in("src", "rs")
+}
+
+/// The regions the fence reads, as `(directory, file extension)`.
+///
+/// `web/` is scanned because `web/app.js` is a real user-facing search entry
+/// point: a hard-code committed there is as reachable as one in `src/`.
+/// `examples/` is scanned because `examples/measure.rs` is compiled and run to
+/// measure quality, so a hard-code there would distort the numbers an
+/// integration pass reads.
+const REGIONS: &[(&str, &str)] = &[
+    ("src", "rs"),
+    ("web", "js"),
+    ("web", "html"),
+    ("web", "css"),
+    ("examples", "rs"),
+];
+
+/// Every finding in the scanned regions, with allowlisted lines excluded.
+fn scan_tree() -> Vec<Finding> {
+    let mut findings = Vec::new();
+    let mut scanned_lines = 0usize;
+    for (dir, ext) in REGIONS {
+        for path in files_in(dir, ext) {
+            let name = path.to_string_lossy().to_string();
+            let src = fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("reading {}: {e}", name));
+            for unit in units_of(&name, &src) {
+                scanned_lines += 1;
+                if let Some(f) = detect(&unit) {
+                    if allowed(dir, &name, f.line).is_some() {
+                        continue;
+                    }
+                    findings.push(f);
+                }
+            }
+        }
+    }
+    assert!(scanned_lines > 0, "the scan read no lines at all");
     findings
 }
 
 #[test]
-fn no_phrase_specific_hard_coding_in_src() {
+fn no_phrase_specific_hard_coding_in_src_web_or_examples() {
     let findings = scan_tree();
     if findings.is_empty() {
         return;
     }
     let mut report = String::from(
-        "\nphrase-specific hard-coding detected in the production region of src/.\n\
-         Each finding names the file, the line and the shape. Remove the special \
-         case;\nif an entry is genuinely legitimate, add it to ALLOWLIST in \
-         tests/no_phrase_hard_coding.rs\nwith the file, the line and the reason.\n",
+        "\nphrase-specific hard-coding detected in a scanned region \
+         (src/, web/, examples/).\nEach finding names the file, the line and the \
+         shape. Remove the special case;\nif an entry is genuinely legitimate, add \
+         it to ALLOWLIST in tests/no_phrase_hard_coding.rs\nwith the directory, \
+         the file, the line and the reason.\n",
     );
     for f in &findings {
         report.push_str(&format!("\n  {}:{}", f.file, f.line));
@@ -859,18 +970,33 @@ fn no_phrase_specific_hard_coding_in_src() {
 
 #[test]
 fn the_allowlist_is_small_and_every_entry_justifies_itself() {
-    // Two entries is the signal that the region boundary is wrong, not that
-    // two hard-codes are legitimate.
-    assert!(
-        ALLOWLIST.len() <= 1,
-        "the allowlist has {} entries; it should stay empty or hold exactly one \
-         justified case",
-        ALLOWLIST.len()
-    );
+    // The size bound is per scanned directory, and `src/` is held to zero.
+    // Two or more entries in the *same* directory is the signal that the
+    // region boundary is wrong, not that that many hard-codes are
+    // legitimate: the cap is what stops the user-facing and measurement
+    // regions from becoming a back door, and it was raised from zero only
+    // by the fence extension recorded in docs/work/items/w-3a7f0d.md.
+    for (dir, cap) in ALLOWLIST_CAPS {
+        let in_dir = ALLOWLIST.iter().filter(|e| e.dir == *dir).count();
+        assert!(
+            in_dir <= *cap,
+            "{in_dir} allowlist entries for {dir}/; the cap is {cap}. More than \
+             that in one region means the region boundary is in the wrong \
+             place, not that another hard-code is legitimate"
+        );
+    }
+    // An entry naming a directory the fence does not scan buys nothing and
+    // would hide a real finding from the scan.
     for entry in ALLOWLIST {
         assert!(
+            ALLOWLIST_CAPS.iter().any(|(dir, _)| *dir == entry.dir),
+            "allowlist entry names directory {}, which is not a scanned region",
+            entry.dir
+        );
+        assert!(
             !entry.reason.trim().is_empty(),
-            "allowlist entry for {}:{} has no reason",
+            "allowlist entry for {}/{}:{} has no reason",
+            entry.dir,
             entry.file,
             entry.line
         );
@@ -878,26 +1004,105 @@ fn the_allowlist_is_small_and_every_entry_justifies_itself() {
             !entry.marker.is_empty(),
             "allowlist entries need a greppable marker string from the line"
         );
-        let path = src_dir().join(entry.file);
+        let path = manifest_dir().join(entry.dir).join(entry.file);
         assert!(
             path.exists(),
-            "allowlist entry names {}, which is not a file in src/",
+            "allowlist entry names {}/{}, which is not a file in a scanned region",
+            entry.dir,
             entry.file
         );
-        let src = fs::read_to_string(&path).expect("allowlisted src file is readable");
+        let src = fs::read_to_string(&path).expect("allowlisted file is readable");
         let line = src
             .lines()
             .nth(entry.line.saturating_sub(1))
             .unwrap_or_default();
         assert!(
             line.contains(entry.marker),
-            "allowlist entry for {}:{} expected marker {:?} on that line, found {:?}",
+            "allowlist entry for {}/{}:{} expected marker {:?} on that line, found {:?}",
+            entry.dir,
             entry.file,
             entry.line,
             entry.marker,
             line
         );
     }
+    // Two entries for the same site would mean one is redundant.
+    for (i, a) in ALLOWLIST.iter().enumerate() {
+        for b in &ALLOWLIST[i + 1..] {
+            assert!(
+                (a.dir, a.file, a.line) != (b.dir, b.file, b.line),
+                "allowlist has two entries for {}:{}:{}",
+                a.dir,
+                a.file,
+                a.line
+            );
+        }
+    }
+}
+
+/// Every allowlisted line is still a live phrase hit, so an entry cannot
+/// quietly stop justifying itself once the file it names is edited. A unit is
+/// a bracket-balanced run of lines, so the file is scanned whole and the
+/// entry's line is matched against the units that report one.
+#[test]
+fn every_allowlist_entry_suppresses_a_finding_that_is_still_there() {
+    assert!(
+        !ALLOWLIST.is_empty(),
+        "the allowlist is empty; nothing for this control to check"
+    );
+    for entry in ALLOWLIST {
+        let path = manifest_dir().join(entry.dir).join(entry.file);
+        let src = fs::read_to_string(&path).expect("allowlisted file is readable");
+        let fires_at_entry = units_of(entry.file, &src)
+            .iter()
+            .any(|u| u.line == entry.line && detect(u).is_some());
+        assert!(
+            fires_at_entry,
+            "allowlist entry {}/{}:{} does not name a line the detector still \
+             fires on, so the entry is stale and should be deleted",
+            entry.dir,
+            entry.file,
+            entry.line
+        );
+    }
+}
+
+/// The `hid` inside the DOM property `hidden` is a substring of a canonical
+/// clue word, and the audit that filed this item listed those lines as
+/// possible hits. They are not: `hidden` is one ordinary word, the fence needs
+/// two words as a bare literal, and it is not a literal in either file. Pin it
+/// on the real `web/` sources rather than a synthetic snippet, so a future
+/// change to the unit splitter or the word thresholds that *does* start
+/// firing on `hidden` is caught here.
+#[test]
+fn the_dom_property_hidden_is_not_a_phrase_hit() {
+    let mut checked = 0usize;
+    for ext in ["js", "html"] {
+        for path in files_in("web", ext) {
+            let name = path.to_string_lossy().to_string();
+            let src = fs::read_to_string(&path).expect("web source is readable");
+            for (i, line) in src.lines().enumerate() {
+                if !line.contains("hidden") {
+                    continue;
+                }
+                checked += 1;
+                for unit in units_of(&name, &format!("{line}\n")) {
+                    assert!(
+                        detect(&unit).is_none(),
+                        "the DOM property `hidden` at {}:{} was read as a canonical \
+                         phrase hit; one ordinary English word is not a coupling",
+                        name,
+                        i + 1
+                    );
+                }
+            }
+        }
+    }
+    assert!(
+        checked >= 6,
+        "expected the `hidden` occurrences in web/app.js and web/index.html to \
+         still be present, found {checked}"
+    );
 }
 
 #[test]
