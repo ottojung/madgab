@@ -1336,6 +1336,7 @@ impl Generator {
                 s.shared,
                 target_inner_count,
                 target_syllables,
+                n,
             )
         };
 
@@ -1351,6 +1352,7 @@ impl Generator {
                 n - at,
                 target_inner_count,
                 target_syllables,
+                n,
             )
         };
 
@@ -1857,8 +1859,6 @@ impl Generator {
                 .min(emit_allowance)
                 .min(adjacency_spend);
 
-            let quantized =
-                |score: f64| -> i64 { (score * 1_000_000_000.0).round() as i64 };
             let mut heap = std::collections::BinaryHeap::new();
             // The prefix is shared rather than copied: every branch of the
             // search extends the same path, and this loop pushes millions
@@ -1867,7 +1867,7 @@ impl Generator {
             // membership test are unchanged — only the allocation count
             // per branch drops from two to one.
             let empty: Rc<[usize]> = Rc::from(Vec::<usize>::new());
-            heap.push((quantized(bound(&[])), 0usize, empty.clone()));
+            heap.push((heap_key(bound(&[])), 0usize, empty.clone()));
             let mut seen: HashSet<(usize, Rc<[usize]>), BuildHasherDefault<FxHasher>> =
                 HashSet::default();
             seen.insert((0, empty.clone()));
@@ -1980,7 +1980,7 @@ impl Generator {
                         next.push(i);
                         let next: Rc<[usize]> = Rc::from(next);
                         if seen.insert((k + 1, next.clone())) {
-                            heap.push((quantized(bound(&next)), k + 1, next));
+                            heap.push((heap_key(bound(&next)), k + 1, next));
                         }
                     }
                 }
@@ -2014,7 +2014,7 @@ impl Generator {
                             next.push(i);
                             let next: Rc<[usize]> = Rc::from(next);
                             if seen.insert((k + 1, next.clone())) {
-                                heap.push((quantized(bound(&next)), k + 1, next));
+                                heap.push((heap_key(bound(&next)), k + 1, next));
                             }
                         }
                     }
@@ -2040,7 +2040,7 @@ impl Generator {
                 heap.clear();
                 seen.clear();
                 seen.insert((0, root.clone()));
-                heap.push((quantized(bound(&[])), 0, root.clone()));
+                heap.push((heap_key(bound(&[])), 0, root.clone()));
                 replaying = true;
             }
             spent_pops += popped;
@@ -2671,9 +2671,7 @@ impl Partial {
         // `approximate_pool_reaches_matches_deep_in_a_span`.  That is an
         // enumeration-side effect, so it is left to the front that owns
         // enumeration rather than smuggled in here.
-        let cost_per_phone = self.sub_cost_total / total_len.max(1) as f64;
-        let similarity =
-            (1.0 - cost_per_phone / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0);
+        let similarity = similarity_axis(self.sub_cost_total, total_len);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
@@ -3015,10 +3013,15 @@ struct SuffixRelaxation {
 ///
 /// Measured over 14 real targets, each with a real segmentation and a real
 /// deep-in-one-slot wording, enumerating the whole minimal product that
-/// contains that wording: the per-word form is below the real score on 12 of
-/// the 14, on up to 1,690,500 of 2,213,750 wordings of one segmentation
-/// (76%), by up to 0.034638; this form is above it on 14 of 14, on every one
-/// of 11,192,244 wordings checked.  See `docs/work/items/w-5b1e93.md`.
+/// contains that wording - 14,563,118 wordings in total, one segmentation
+/// each: the per-word form sits below the real score on 12 of the 14, on up
+/// to 1,690,500 of 2,213,750 wordings of a single segmentation (76%), by up
+/// to 0.034638, and this form sits above it on 14 of 14, on every one of
+/// them.  Those two figures are for the `SIMILARITY` term alone, which is
+/// what the enumeration was measuring; boundary novelty turned out to be a
+/// second, independent source of the same defect, and
+/// `the_lexical_bound_dominates_every_completion_it_covers` is what found
+/// it.  See `docs/work/items/w-5b1e93.md`.
 fn lexical_score_bound(
     committed: ScoreParts,
     relaxed: SuffixRelaxation,
@@ -3028,10 +3031,7 @@ fn lexical_score_bound(
     target_syllables: usize,
 ) -> f64 {
     axes::SIMILARITY
-        * (1.0
-            - (committed.cost + relaxed.cost)
-                / (target_phones.max(1) as f64 * axes::SIMILARITY_COST_PER_PHONE))
-        .clamp(0.0, 1.0)
+        * similarity_axis(committed.cost + relaxed.cost, target_phones)
         + axes::NOVELTY * novelty
         + axes::WORD_NOVELTY
             * (1.0
@@ -3049,6 +3049,60 @@ fn lexical_score_bound(
                 target_syllables,
             )
         + axes::SHAPE * (committed.shape + relaxed.shape) / word_count
+}
+
+/// The `SIMILARITY` axis, read as the scorer reads it: the total edit cost
+/// over a clue of `target_phones` phones, on the per-phone scale.
+///
+/// This is the one expression every bound over a clue's cost has to go
+/// through.  It used to be written out per site as
+/// `1 - cost / 4.0`, a per-*word* normaliser left over from before
+/// `SIMILARITY` became a per-*phone* axis, and a bound written that way is
+/// **not** an upper bound: the bound's penalty is `cost / 4` and the
+/// scorer's is `cost / (phones * 0.30)`, so for any target longer than
+/// `4 / 0.30` = 13.3 phones the bound charges *more* than the scorer does
+/// and therefore sits below a score it is supposed to dominate.  Every
+/// target this project cares about is longer than that.
+///
+/// `f(cost) = (1 - cost / (phones * 0.30)).clamp(0, 1)` is non-increasing in
+/// `cost` and floored at 0, so relaxing a *lower* bound on the cost upward
+/// is what keeps it an upper bound on the score: a site that knows only
+/// "this much cost at least" reads [`similarity_upper`] on that minimum and
+/// is at or above every real score above it, at every `phones >= 1` and at
+/// both ends of the clamp.
+///
+/// The third site, [`partial_span_score`], is deliberately *not* one of
+/// these: it is a local ordering weight for a DP's representatives, not a
+/// bound, and it stays on the old per-word scale on purpose — see the note
+/// in [`Partial::metrics`].
+fn similarity_axis(total_cost: f64, target_phones: usize) -> f64 {
+    let cost_per_phone = total_cost / target_phones.max(1) as f64;
+    (1.0 - cost_per_phone / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0)
+}
+
+/// The key the traversal's heap actually orders by.
+///
+/// The bound is a `f64` and the heap is a `BinaryHeap<(i64, usize, ..)>`, so
+/// the bound is quantised to nine decimal places before it becomes a key.
+/// That is a second place where the key can stop dominating what it is a
+/// key for: rounding is not monotone with respect to the *ordering the
+/// bound justifies* unless the key is compared against the same rounding of
+/// the score.  It is monotone in the value, so a bound that dominates a
+/// score still dominates it after rounding - but only because the rounding
+/// error is at most half a unit in the last place and both sides get the
+/// same treatment, which is a property worth asserting rather than
+/// assuming.  `the_lexical_bound_dominates_every_completion_it_covers`
+/// asserts it on the key, not only on the bound.
+fn heap_key(score: f64) -> i64 {
+    (score * 1_000_000_000.0).round() as i64
+}
+
+/// [`similarity_axis`] over a *lower bound* on a clue's total cost, which is
+/// what a site that has only relaxed the rest of the clue can honestly
+/// evaluate.  Monotone, so this is at or above [`similarity_axis`] at every
+/// larger cost.
+fn similarity_upper(min_cost: f64, target_phones: usize) -> f64 {
+    similarity_axis(min_cost, target_phones)
 }
 
 fn closed_class_penalty(closed: f64, words: f64) -> f64 {
@@ -3524,6 +3578,7 @@ fn complete_span_score(
     shared: usize,
     target_inner: usize,
     target_syllables: usize,
+    target_phones: usize,
 ) -> f64 {
     let denom = words.max(1) as f64;
     let union = words.saturating_sub(1) + target_inner - shared;
@@ -3532,7 +3587,7 @@ fn complete_span_score(
     } else {
         (1.0 - shared as f64 / union as f64).clamp(0.0, 1.0)
     };
-    axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+    axes::SIMILARITY * similarity_upper(ext.min_cost, target_phones)
         + axes::NOVELTY * novelty
         + axes::WORD_NOVELTY * (1.0 - ext.min_reused as f64 / denom)
         + axes::FAMILIARITY * ext.max_familiarity / denom
@@ -3580,13 +3635,14 @@ fn span_score_bound(
     still_possible: usize,
     target_inner: usize,
     target_syllables: usize,
+    target_phones: usize,
 ) -> f64 {
     let ext = head.upper_plus(tail);
     let denom = words.max(1) as f64;
     // Every word consumes at least one IPA character, so a completion
     // cannot end at more than one word per remaining character.
     let widest = (words + still_possible).max(1) as f64;
-    axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+    axes::SIMILARITY * similarity_upper(ext.min_cost, target_phones)
         + axes::NOVELTY
             * novelty_upper_bound(
                 words,
@@ -5625,6 +5681,7 @@ mod tests {
                     shared,
                     target_inner,
                     syllables,
+                    total,
                 );
                 assert!(
                     keyed + 1e-12 >= score,
@@ -5640,6 +5697,7 @@ mod tests {
                     total,
                     target_inner,
                     syllables,
+                    total,
                 );
                 assert!(
                     bound + 1e-12 >= score,
@@ -5958,6 +6016,19 @@ mod tests {
                          {bound} but a completion scores {score}, so the bound \
                          does not dominate what it covers"
                     );
+                    // The heap orders by the *quantised* bound, so the key
+                    // is the quantity that has to dominate, not the float.
+                    // Rounding is monotone, so this follows from the line
+                    // above, and it is asserted because that is exactly the
+                    // kind of step that stops being true the moment someone
+                    // rounds toward zero, truncates, or changes the scale.
+                    assert!(
+                        heap_key(bound) >= heap_key(score),
+                        "{target:?}: at prefix length {prefix_len} the heap key \
+                         {} is below the key {} of a completion scoring {score}",
+                        heap_key(bound),
+                        heap_key(score)
+                    );
                     checked += 1;
                     // The tight end.  At full length the suffix is
                     // empty, so the bound has no relaxation left at all and
@@ -6020,6 +6091,134 @@ mod tests {
             .iter()
             .filter(|b| spans.iter().any(|(_, e)| *e == **b))
             .count()
+    }
+
+    /// The reach claim the depth guards in `tests/corpus_integration.rs`
+    /// stand for, stated over the emitted set rather than over spellings.
+    ///
+    /// The per-segmentation traversal opens every slot at one derived width,
+    /// so the tuples it can generate are exactly the product of those
+    /// widths: a wording whose per-slot indices are not all inside that
+    /// product is not *late* in the walk's order, it is absent from it.
+    /// What keeps the pool from being only that corner is the coverage
+    /// reserve, which samples the index-tuple space systematically and
+    /// spends its share on wordings the walk cannot generate at all.
+    ///
+    /// So the property is containment, and it is asserted as containment:
+    /// over a real lattice and a real segmentation, some tuple the reserve
+    /// contributes lies outside the product of the traversal's own
+    /// opening widths, and the reserve does so for *every* depth up to
+    /// `EMIT_PROFILE_MAX_DEEP`, on every target tried.  That is what the
+    /// two integration guards were measuring by naming particular
+    /// spellings, and unlike a spelling it cannot be satisfied by a
+    /// different member of the same sweep happening to score better.
+    ///
+    /// The bound closure is deliberately a constant: the property is about
+    /// which tuples exist, not about which one the reserve spends on.  The
+    /// ordering is a separate question, and
+    /// `the_lexical_bound_dominates_every_completion_it_covers` is what
+    /// covers it.
+    #[test]
+    fn the_coverage_reserve_reaches_outside_the_opening_width_product() {
+        let mut checked = 0usize;
+        for target in [
+            "alpha bravo charlie delta",
+            "she sells sea shells",
+            "in the middle of the night",
+            "put it back on the shelf",
+            "every single one of them",
+            "what are you going to do",
+            "some kind of wonderful thing",
+            "she had a lot of money",
+            "there is no way to know",
+            "the cat sat on the mat",
+            "they are going to be late",
+            "when the rain finally stopped",
+            "you can do it yourself",
+            "a whole lot of trouble",
+        ] {
+            let g = approximate_generator(4096);
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let total = chars.len();
+            // A real segmentation, taken the way the structural beam
+            // takes one: the cheapest match at each offset, the longer one
+            // on a tie.  Every width below is then a list the traversal
+            // really has, because it is the matches that end exactly at
+            // that span's end, which is how `span_lattice` groups them.
+            let mut spans: Vec<(usize, usize)> = Vec::new();
+            let mut at = 0usize;
+            while at < total {
+                let pick = g
+                    .fuzzy_lexicon
+                    .matches_at(&chars, at, 0.5, 1)
+                    .into_iter()
+                    .filter(|m| m.consumed > 0 && at + m.consumed <= total)
+                    .min_by(|a, b| {
+                        a.cost
+                            .partial_cmp(&b.cost)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then_with(|| b.consumed.cmp(&a.consumed))
+                    });
+                let Some(m) = pick else { break };
+                spans.push((at, at + m.consumed));
+                at += m.consumed;
+            }
+            if spans.len() < 4 || at != total {
+                continue;
+            }
+            let widths: Vec<usize> = spans
+                .iter()
+                .map(|(s, e)| {
+                    g.fuzzy_lexicon
+                        .matches_at(&chars, *s, 0.5, 1)
+                        .into_iter()
+                        .filter(|m| s + m.consumed == *e)
+                        .count()
+                })
+                .collect();
+            let cap = affordable_opening_width(widths.len(), 4_000)
+                .min(*widths.iter().max().unwrap_or(&0));
+            // Nothing to reach past if the walk already opens every list.
+            if widths.iter().all(|&w| w <= cap) {
+                continue;
+            }
+            let tuples = coverage_tuples(
+                &widths,
+                EMIT_PROFILE_RESERVE,
+                EMIT_PROFILE_MAX_DEEP,
+                0,
+                &|_| 0.0,
+            );
+            for tuple in &tuples {
+                let outside = tuple
+                    .iter()
+                    .zip(&widths)
+                    .any(|(i, w)| *i >= cap.min(*w));
+                assert!(
+                    outside,
+                    "{target:?}: the reserve contributed {tuple:?}, which \
+                     lies inside the product of the traversal opening widths \
+                     {widths:?} capped at {cap}, so nothing reached past the \
+                     walk"
+                );
+            }
+            if tuples.is_empty() {
+                // Every subset of this segmentation has a narrowest slot at
+                // or below the traversal opening width, so the sweep has
+                // nothing above the floor to draw.  That is a real state and
+                // not this property's business; the count below is what
+                // keeps the property from being vacuous.
+                continue;
+            }
+            checked += 1;
+        }
+        assert!(
+            checked >= 3,
+            "only {checked} of the targets produced a reserve tuple outside \
+             the opening-width product, so the property is nearly vacuous"
+        );
     }
 
     #[test]
