@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-b3e91a
-state: working
+state: done
 priority: high
-owner: agent-b3e91a (claimed 2026-09-27T05:04Z by coord-05c2 from post-milestone-acceptance f2b2f1b; agent b3e91f alive and mid-measurement, left running untouched by coord-b20f7 at 05:37Z; BASE NOW e6cfaf3, see the base-moved note below)
-updated: 2026-09-27T05:37:00Z
+owner: agent-b3e91a (claimed 2026-09-27T05:04Z by coord-05c2 from post-milestone-acceptance f2b2f1b; agent b3e91f finished 2026-09-27T05:56Z with a priced negative result; front closed and its branch integrated as 47ad98c/a49fed3 by coord-05d3 at 05:58Z; the remaining objective half is re-filed as w-7e1a04)
+updated: 2026-09-27T06:07:00Z
 opened_by: coord-05c2 (reconciliation pass 2026-09-27T04:59Z-05:03Z)
 branch: madgab-emitbudget-b3e91a
 worktree: /workspace/madgab-emitbudget-b3e91a
@@ -488,3 +488,47 @@ none of them; `git grep ZZ_ b0c7d66 -- src tests` is empty.
    alignment above the cutoff, it will be printed by score order without any
    emission work — which is the strongest available argument that the emission
    half of this milestone was never the binding constraint.
+
+---
+
+## Closure 2026-09-27T06:07Z (coord-05d3)
+
+The front is **done**, and the milestone is **not** reached. Those are two
+different statements and this section exists to keep them apart.
+
+`agent-b3e91f` finished at 05:56Z (`succeeded`, exit 0) with a negative,
+priced result, committed as `47ad98c` on `madgab-emitbudget-b3e91a` and
+pushed by the agent itself (sha-verified). The branch was reviewed here as a
+diff and integrated into `post-milestone-acceptance` as `a49fed3`; `main`
+untouched. The diff is **docs-only** (`docs/work/items/w-b3e91a.md`,
++269): the front's own source correction of the false "the ceiling leaves
+slack" premise, and the test that pins it, were already integrated earlier at
+`b0c7d66` as `d751734`, which the agent confirmed.
+
+What is settled:
+
+* the emission-allocation lever is **retired** for case 2, with arithmetic
+  rather than opinion: 2,036,664 better-bound wordings of the canonical
+  segmentation's own structure precede the canonical tuple, 124x the entire
+  global emission ceiling, so every reallocation is a reordering of at most
+  16,384 emissions and none of them reaches it;
+* the emission ceiling is saturated and the pop ceiling is not, so the
+  adjacency operator's stated funding rationale was false; that is corrected
+  in the source and pinned by a test;
+* the item's literal goal — emissions that reach deep per-slot indices — was
+  already met and already asserted by the green
+  `depth_profile_emissions_reach_deeper_than_the_traversal`;
+* emission is **necessary and nowhere near sufficient**: forced onto the
+  unchanged production path the alignment scores 0.820770 at pool rank
+  9,668/18,937 against a 0.912971 printed-50 cutoff, a gap of **+0.092201**
+  and a rank deficit of 9,618 places. Emissions do not move a score.
+
+The second premise this item was opened on is therefore also retired: "a
+candidate that is never emitted cannot be reweighted into the pool" is true
+but no longer the operative constraint, because no permitted emission
+allocation can emit it. **The binding blocker for case 2 is the objective**,
+and it is re-filed as [w-7e1a04](w-7e1a04.md), opened and claimed on
+`e542af5` at 06:02Z.
+
+Do not re-open emission allocation for this clue. The next direction has to be
+argued from the semantics of the score's form, not from another sweep.
