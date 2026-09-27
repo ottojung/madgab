@@ -7552,6 +7552,76 @@ mod front_1c7d40 {
         }
     }
 
+    /// How wide the shipped key is over a *whole* slot list, next to how
+    /// wide it is over the opening width.  This is what sets the width a
+    /// cut would have to reach to contain a given candidate.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_how_wide_the_key_is_over_a_whole_list() {
+        let (_r, probe2, probe1, _a, _b) = run(SlotOrder::Base);
+        for (label, probe, want) in [
+            ("case 2", &probe2, &CASE2_CLUE[..]),
+            ("case 1", &probe1, &CASE1_CLUE[..]),
+        ] {
+            let mut whole = Vec::new();
+            let mut capw = Vec::new();
+            let mut need_frac = Vec::new();
+            for seg in &probe.segs {
+                for slot in &seg.slots {
+                    let cmax = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let cmin = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::INFINITY, f64::min);
+                    if cmax <= cmin {
+                        continue;
+                    }
+                    whole.push(cmax - cmin);
+                    let m = slot.len().min(seg.cap);
+                    if m > 0 {
+                        capw.push(cmax - slot[m - 1].contrib);
+                    }
+                }
+            }
+            for rank in carries(probe, want) {
+                let seg = probe.segs.iter().find(|s| s.rank == rank).unwrap();
+                for (k, w) in want.iter().enumerate() {
+                    let slot = &seg.slots[k];
+                    let p = slot.iter().position(|a| a.word == *w).unwrap();
+                    let cmax = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let cmin = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::INFINITY, f64::min);
+                    if cmax > cmin {
+                        need_frac.push((cmax - slot[p].contrib) / (cmax - cmin));
+                    }
+                }
+            }
+            let mean = |v: &[f64]| {
+                if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
+            };
+            let max = |v: &[f64]| {
+                v.iter().cloned().fold(0.0, f64::max)
+            };
+            println!(
+                "{label}: {} lists. key width over the WHOLE list: mean {:.4}, max {:.4}; \
+                 over the opening width: mean {:.4}, max {:.4}",
+                whole.len(), mean(&whole), max(&whole), mean(&capw), max(&capw)
+            );
+            println!(
+                "  needed word's fraction of the whole-list key width: mean {:.4}, max {:.4}",
+                mean(&need_frac), max(&need_frac)
+            );
+        }
+    }
+
     /// Obligation 5: what each order does to the descending property.  The
     /// heap key is `bound(prefix)` and does not read the slot order, so
     /// what is measured here is the two things the order *does* decide: the
