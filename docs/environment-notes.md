@@ -109,9 +109,16 @@ are all in `$GUIX_PROFILE/bin`:
 export PATH="$GUIX_PROFILE/bin:$HOME/.local/bin:$PATH"
 ```
 
-`$GUIX_PROFILE` is set (`/gnu/store/89f20yrghd9ld6mc6a717rcj4mwshfvw-profile`).
-After that export, `git --version` reports `2.54.0` and the rest of this
-document works as written.
+`$GUIX_PROFILE` is set. After that export, `git --version` reports `2.54.0` and
+the rest of this document works as written.
+
+**Do not copy the store path out of this document — read it from the
+environment.** The Guix store hash changes between host generations. It was
+`/gnu/store/89f20yrghd9ld6mc6a717rcj4mwshfvw-profile` when this note was
+written, and `/gnu/store/5ac5j1bhg3yzxad5bw4m2dhihqqay34a-profile` on
+2026-09-27T04:33Z. A pass that hard-codes either literal and then concludes
+`git` is absent has been misled twice, once already. Use
+`echo "$GUIX_PROFILE"` (or the `export` line above verbatim) and move on.
 
 **Export it before concluding any command does not exist on this host.** A
 `command -v` miss here is evidence about `PATH`, not about the tool. The
