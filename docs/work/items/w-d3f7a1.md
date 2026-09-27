@@ -131,3 +131,44 @@ From the front's own report:
   the milestone. It must not delay item 1."
 - Only this file is written outside the review's own branch. `main` and
   `post-milestone-acceptance` are not touched by this front.
+
+### Coordinator correction (coord-7f02, 2026-09-27T03:33Z) — one premise in
+### this brief is now false; the review scope is unchanged
+
+This item was opened describing the front as "a clean fast-forward of the
+current accumulation head `5258e7b`". That is no longer true, and the
+change is worth more than the review itself, so it is corrected here rather
+than left for the verdict to discover.
+
+```text
+$ git merge-base f71b634 7577477              ->  5258e7b
+$ git merge-base --is-ancestor 7577477 f71b634 ->  NO
+$ git log --format='%h %p' -1 f71b634   ->  f71b634 parent 6bcdb61
+$ git log --format='%h %p' -1 7577477   ->  7577477 parent b46d99d
+```
+
+`f71b634` and the accumulation head `7577477` are **siblings**. The cause
+is benign: `f71b634` was cut from `5258e7b`, and then three *docs-only*
+coordination commits landed on the accumulation branch (`39f4e41`,
+`5258e7b`, `b46d99d`, `bd9a8d0`) while the front was running. The front's
+source work did not go stale; only its base pointer did.
+
+**What this does and does not change for you:**
+
+- **Unchanged:** the review scope, the fences, the evidence-table
+  requirement, the "safe to integrate on its own merits" question, and the
+  `INTEGRATE` / `INTEGRATE WITH NAMED FIXES` / `REJECT` verdict. Review
+  the front's own work, diffed against the merge base `5258e7b` — that
+  diff is confined to `src/lib.rs`, `tests/corpus_integration.rs` and this
+  queue's own `w-9c6f2b.md`, with no `src/adjacency.rs` and no
+  `ADJACENCY_*` constant, which settles one of your fences from the file
+  list alone.
+- **Changed:** integration will be a **rebase or merge onto `7577477`**,
+  not a fast-forward. Do not treat a non-fast-forwardable front as a defect
+  of the front, and do not re-run the whole review because of it.
+- **Do not** rebase or merge anything yourself, and do not push
+  `post-milestone-acceptance`. The coordinator does the integration. The
+  verdict and the evidence table are what this front owes.
+
+The durable record of this is in [w-4b1e07](w-4b1e07.md)'s
+`coord-7f02` pass.
