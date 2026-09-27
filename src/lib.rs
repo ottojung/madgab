@@ -1187,6 +1187,22 @@ impl Generator {
         // A span path is discarded outright only when its admissible
         // bound is under it, which is sound: nothing the bound covers
         // could have entered the output anyway.
+        //
+        // That soundness is a statement about the *pair*, and this is
+        // where the pair stops being objective-free.  The bar is a
+        // **final-scorer** value (`Partial::metrics`, below) and the
+        // bound it is compared against is a structural key, so **every
+        // objective weight reaches the search here as well as at the
+        // walk's own `bound(prefix)` heap key** — and a weight placed in
+        // the final scorer *alone* is **not** search-neutral either.
+        // Re-weighting the scorer moves this bar, which moves which span
+        // paths the bound may discard, which moves what is in the pool at
+        // all.  Measured over five scorer-only perturbations on seven
+        // ordinary targets: none of the five left the pool invariant
+        // (`docs/work/REPORT-e086cc.md` §3).  So the objective is an
+        // *input to the search*, and any change to it has to be
+        // re-derived against the reach fences rather than assumed to be
+        // free — see `tests/objective_is_a_search_input.rs`.
         let mut incumbent: Vec<f64> = completed
             .iter()
             .map(|p| {
