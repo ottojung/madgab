@@ -247,3 +247,46 @@ phrase-specific exception in a way `tests/no_phrase_hard_coding.rs` cannot see.
 **Next action:** launch on this worktree when no `madgab-*` agent is
 `running`. Until then this item stays `open` and unowned, and the live
 milestone front on [w-5c11a2](w-5c11a2.md) keeps the single repository slot.
+
+## LAUNCHED 2026-09-27T04:21Z (coord-3a11): the exit-127 wall is GONE, and the
+## "launch only when nothing is running" rule is retired
+
+Two recorded operational rules are now falsified or superseded. Both matter,
+because following either one would have idled this front indefinitely.
+
+1. **The 127 wall is gone.** A throwaway probe on this worktree succeeded:
+
+   ```text
+   antonina agent new    --id d0f11e --cwd /workspace/madgab-audit-d5a2c1 -> idle
+   antonina agent prompt --id d0f11e 'Reply with exactly: RUNTIME_OK'        -> RUNTIME_OK, exit 0
+   antonina agent status --id d0f11e -> succeeded, 4.8s
+   ```
+
+   So the `d5a2c2` / `d5a2c3` / `d5a2c4` failures at 04:12Z were a transient
+   spawn-time host fault, not a standing condition, and not caused by `c0ff01`
+   holding the runtime — the "one concurrent agent" story is already falsified
+   elsewhere in this file and should not be repeated.
+2. **Parallel fronts work.** `c0ff01` (w-5c11a2) was `running` + `alive: yes`
+   the whole time, and `d0f11f` was created and prompted on *this* worktree
+   in the same minute. Both are now running concurrently on disjoint worktrees,
+   branches and files. `antonina agent prompt` returns promptly once the agent
+   process is spawned, so launching a front does not have to block the
+   coordinator.
+
+Accordingly the "launch only when no `madgab-*` agent is `running`" next action
+recorded above is **superseded**. The correct rule is: probe cheaply, and on
+success launch — do not serialise fronts behind a live one. Note the probe
+discipline is still sound for the *purpose it was recorded for*: a 127 does not
+justify re-claiming or abandoning a `working` item whose named agent is
+`running` + `alive: yes`. That half of the rule is unchanged and remains
+correct.
+
+Agent `d0f11f` was briefed to `git reset --hard origin/post-milestone-acceptance`
+first (the worktree forked at `c28b29f` and would otherwise have measured a
+stale tree), to claim this item and push the claim, to run the six cargo suites
+and record exact counts, to measure both canonical cases through the executable,
+to do the full fence sweep with a classification per hit, and to write a
+five-axis **measured** table into this Handoff. It is told to push
+`madgab-audit-d5a2c1`, to keep `HEAD` on that branch, to propose a separate
+follow-up item rather than fixing anything it finds, and not to wait on
+`c0ff01`. **Left running for a later fresh pass to inspect.**
