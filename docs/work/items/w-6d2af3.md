@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-6d2af3
-state: working
+state: done
 priority: high
-owner: agent-6d2af301 (claimed 2026-09-27T07:45Z by coord-c4e19 from post-milestone-acceptance e0b3a90)
-updated: 2026-09-27T08:00:00Z
+owner: agent-6d2af301 (TERMINAL 2026-09-27T08:11Z: succeeded, exit 0, 1 prompt; verdict REJECT, recorded on madgab-review-bound-6d2af3 at da47326 and integrated verbatim into post-milestone-acceptance as b88051e) / coord-2f9c (integration of the review record only; no source change, nothing from the emission-bound front integrated)
+updated: 2026-09-27T08:12:00Z
 branch: madgab-review-bound-6d2af3
-worktree: /workspace/madgab-review-bound-6d2af3 (agent-6d2af301 running, 1 prompt, started 07:44Z; reviewed range 707fb2a..b49f892 unchanged, 4f76b16 above it is docs-only)
+worktree: /workspace/madgab-review-bound-6d2af3 (agent-6d2af301 terminal at 08:11Z with the report pushed; clean tree at da47326; reviewed range 707fb2a..b49f892 unchanged, 4f76b16 above it is docs-only)
 reviews: madgab-emitbound-5b1e93 @ b49f892 (28d5e4a beneath it)
 ---
 
@@ -71,6 +71,51 @@ last one; ~434/97 in `28d5e4a`). Work in this item's own worktree and
 report them as satisfied. See [../../environment-notes.md](../../environment-notes.md).
 
 ## Handoff / notes
+
+### Pass 2026-09-27T08:12Z (coordinator coord-2f9c): closed - the review is delivered and integrated
+
+Agent 6d2af301 is terminal (`succeeded`, exit 0, 1 prompt) and its verdict is
+**REJECT** on the emission-order front at `b49f892`, recorded on
+`madgab-review-bound-6d2af3` at `da47326`. That report is a docs-only commit
+and its content is integrated verbatim into `post-milestone-acceptance` as
+`b88051e`, so the accumulated record of this review is the reviewer's own
+file.
+
+Completion criteria: 1 met (fence reported per test, the two depth-reach
+guards red at the unchanged pinned literals `ask lovey` / pool 11,235 and
+`see if a law thus ish l.'s` / pool 17,230, against 11,236 and 17,236 at
+`958771d`), 2 met (admissibility re-derived, the committed/suffix split shown
+to partition `0..depth` exactly, both coverage gaps measured by mutation),
+3 met (hard-coding fence clean), 4 met (no re-pinning,
+`approximate_output_is_locked` untouched, `tests/` diff empty over
+`707fb2a..b49f892`), 5 met (pool and cutoff tables for both cases, the host's
+non-reproducibility of the reference figures stated, canonical case 2
+explicitly 0 of 18,859), 6 met (REJECT plus named fixes, committed, pushed,
+nothing merged). Item is `done`.
+
+Canonical result still measured, not assumed: `wreck a nice beach` **is**
+produced for `recognize speech` (rank 27 of 18,816 at `--top 50`); `Hits
+Justice Dupe Hid Came` remains 0 of 18,859 for `It's just a stupid game`, so
+criterion 1 of the milestone is still unmet.
+
+Consequence for [w-5b1e93](w-5b1e93.md): the emission-order head is closed as
+un-integrable on evidence, not merely unreviewed. Its named fixes are the
+checklist any successor must carry, and its `blocked` state stands.
+
+### Next action for a later fresh pass
+
+Read this verdict before re-reading the front branch. The b49f892 fixes worth
+carrying forward onto any successor are: make the two depth-reach guards
+green with the pinned literals unchanged, or replace them with a property
+about the *pool* (wordings outside the opening-width product that survive
+into `generate_pool` above the rank-50 cutoff) rather than about
+`coverage_tuples`' return value, which the current replacement test only
+re-derives; give the sibling sites the tight-end identity so reverting the
+normaliser turns the suite red; de-circularise the lexical property test by
+pinning the scorer's similarity term independently as
+`1 - (cost / phones) / axes::SIMILARITY_COST_PER_PHONE`; delete or substantiate
+the "0.167 of the axis" novelty claim that mutation contradicts; delete the
+dead `target_boundaries_of` and `parts` scaffolding.
 
 ### Review of `707fb2a..b49f892`, 2026-09-27 — **REJECT** (fix list below; a retry must carry fixes 1-5)
 
