@@ -8192,6 +8192,11 @@ mod front_9b4a15 {
             + cand.reseg
     }
 
+    fn bump_sim(mut w: [f64; 8], sim: f64) -> [f64; 8] {
+        w[0] = sim;
+        w
+    }
+
     fn candidates() -> Vec<Weights> {
         vec![
             Weights {
@@ -8245,6 +8250,39 @@ mod front_9b4a15 {
                 label: "C1h PARSIMONY 0.15  SHAPE->0, NOVELTY->0, RHY->0.20",
                 w: with(0.0, 0.20, 0.0),
                 parsimony: 0.15,
+                reseg: 0.0,
+            },
+            // Round two, added by the recovering front.  Round one showed
+            // that the two failing spread targets are repaired by weight
+            // taken off `NOVELTY`, not off `RHYTHM` (`RHYTHM 0.30->0.20`
+            // left both lifts bit-identical), and that neither
+            // `PARSIMONY` 0.10 nor 0.15 alone is enough at a fixed
+            // budget.  These four buy the rest of the missing 0.05 out of
+            // `SIMILARITY`, the one axis that reads the acoustics
+            // directly, and all four stay at or under the objective's
+            // 1.0 maximum.
+            Weights {
+                label: "C1i PARS 0.15, SHAPE->0, NOVELTY->0.05, RHY 0.30",
+                w: with(0.05, 0.30, 0.0),
+                parsimony: 0.15,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1j PARS 0.10, SHAPE->0, NOVELTY->0.05, SIM 0.25->0.30",
+                w: bump_sim(with(0.05, 0.30, 0.0), 0.30),
+                parsimony: 0.10,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1k PARS 0.15, SHAPE->0, NOVELTY->0.05, SIM 0.25->0.30, RHY->0.25",
+                w: bump_sim(with(0.05, 0.25, 0.0), 0.30),
+                parsimony: 0.15,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1l PARS 0.10, SHAPE->0, NOVELTY->0, SIM 0.25->0.30",
+                w: bump_sim(with(0.0, 0.30, 0.0), 0.30),
+                parsimony: 0.10,
                 reseg: 0.0,
             },
             // The alternative uses of the same budget, priced on the same
@@ -8364,11 +8402,22 @@ mod front_9b4a15 {
         (probe_rank, probe_score, lifts(&all, &head_rows))
     }
 
-    /// The captured rows collapsed the way `Generator::finish` collapses
-    /// them: one row per clue *phrase*, keeping the first, so the
-    /// re-ranked pool is the production pool and not a
-    /// pre-deduplication superset.
+    /// The captured rows collapsed the way `Generator::generate_approximate`
+    /// collapses them: sorted by descending score with ties broken by
+    /// phrase, then one row per clue *signature*, keeping the first — so
+    /// the re-ranked pool is the production pool and not a
+    /// pre-deduplication superset, and not a prefix of the search's
+    /// emission order either.  This is the same order
+    /// `generate_pool` documents itself to return, which the fence in
+    /// `head_not_worse_than_pool` asserts against the returned phrases.
     fn dedup(rows: Vec<counters::Scored>) -> Vec<counters::Scored> {
+        let mut rows = rows;
+        rows.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap()
+                .then_with(|| a.phrase.cmp(&b.phrase))
+        });
         let mut seen = HashSet::new();
         rows.into_iter()
             .filter(|r| seen.insert(phrase_signature(&r.phrase)))
@@ -8431,6 +8480,20 @@ mod front_9b4a15 {
                     .find(|r| r.phrase == probe)
                     .map_or(f64::NAN, |r| r.score),
             );
+            // Whether the canonical case-2 clue is in the pool at all, as
+            // opposed to merely ranked low in it.  The item asks for that
+            // tuple's rank and score before and after, and the honest
+            // answer has to be able to be "absent": the approximate
+            // search does not emit it, which is the pre-existing red
+            // `approximate_finds_classic_madgab_resegmentation` and is
+            // `w-1c7d40`'s to own.
+            let near: Vec<&str> = rows
+                .iter()
+                .filter(|r| r.phrase.split(' ').any(|w| "justice" == w || "hid" == w))
+                .map(|r| r.phrase.as_str())
+                .take(8)
+                .collect();
+            println!("pool rows naming one canonical word: {near:?}");
             for cand in candidates() {
                 let (rank, score, lift) = price(&rows, &cand, 50, probe);
                 println!(
@@ -9035,17 +9098,74 @@ mod front_5d9c04 {
 /// then the ranking is not doing the one job it exists to do.  Nothing in
 /// it names a sentence, a clue, an expected phrase or a rank.
 ///
-/// # Why it is not vacuous, and why it is the property that was missing
+/// # Why it is not vacuous, and why the property was missing
 ///
-/// The shipped objective had no term that read the clue's *word count*
-/// at all, so it was indifferent to a clue being one word longer than its
-/// target — and every other axis is at its best on short, common,
-/// single-syllable words, so the head drifted towards over-segmentation
-/// into a longer phrase than the target.  Measured on the spread below,
-/// the head's `SIMILARITY` sat **below** the pool mean for two of the ten
-/// targets, by −0.0526 and −0.0825, while the other eight sat above it by
-/// up to +0.1498.  The axis that fixes it is
-/// [`axes::PARSIMONY`](crate::axes::PARSIMONY).
+/// The shipped objective has no term that reads the clue's *word count*
+/// at all, so it is indifferent to a clue being one word longer than its
+/// target — and every axis that does read the words is at its best on
+/// short, common, single-syllable words, so the head drifts towards
+/// over-segmentation into a longer phrase than the target.  Measured over
+/// the spread below, in release mode on this branch, the shipped head
+/// sits **below** the pool mean for two of the ten targets:
+///
+/// ```text
+/// "they ate the whole pie"      head 50 mean 0.7390 against pool 18116 mean 0.7470, lift -0.0080
+/// "my brother lost his wallet"  head 50 mean 0.8036 against pool 19663 mean 0.8220, lift -0.0184
+/// ```
+///
+/// The axis that would fix it is word-count parsimony, `1 - |w_clue -
+/// w_target| / max(w_clue, w_target)`, priced in the `front_9b4a15` block
+/// above as `parsimony` and nowhere shipped.
+///
+/// # Why this test is red and stays red on this branch
+///
+/// It is `#[ignore]`d deliberately, and the front's verdict is `HOLD`,
+/// so there is no production change here to turn it green.  It is left in
+/// the tree rather than deleted because deleting a red test is how a red
+/// test stops being anyone's problem, and because it is the fence a
+/// later front has to make green.
+///
+/// Measured red, release mode, on this branch:
+///
+/// ```sh
+/// cargo test --release --lib head_not_worse_than_pool -- --ignored
+/// ```
+///
+/// It is not fixable by any weight vector this front could ship, and the
+/// obstruction is three-sided rather than a matter of picking better
+/// numbers.  Every candidate that turns the spread 10/10 falls into
+/// exactly one of these.  (Every axis weight is read by the search's
+/// proxies as well as by the scorer, so "leaves the search alone"
+/// below means "was measured not to move the reserve-depth fence",
+/// which is the only search-side fence that moved.)
+///
+/// * **It moves the search.**  Both failures are repaired only by weight
+///   taken off `NOVELTY` (`RHYTHM 0.30->0.20` left both lifts
+///   bit-identical), and the last 0.05 only by raising `SIMILARITY`.
+///   `SIMILARITY` and `NOVELTY` are read by the search's own internal
+///   proxies, so those vectors change which candidates the search keeps,
+///   and each one was measured to break
+///   `a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple`
+///   — `w-1c7d40`'s reserve-depth fence, on a surface this item forbids
+///   this front to touch.
+/// * **It drops the green canonical case.**  The 10/10 vectors that do
+///   not break that fence push the green case's clue from pool rank 27
+///   to 149 (`PARSIMONY 0.10`, `NOVELTY` and `SHAPE` to zero, `SIMILARITY`
+///   to 0.30) or to 166 (`PARSIMONY 0.15`, `NOVELTY` to zero), and the
+///   boundary-fidelity alternative to 2,604–3,247.  The item's own red
+///   line is that this case stays inside the top 50.
+/// * **It breaks a soundness fence.**  Adding the axis to the final
+///   scorer alone leaves `span_score_bound` understating the score it
+///   bounds, and `structural_bounds_dominate_the_real_scorer` goes red
+///   for *every* candidate, including the ones that keep the search
+///   still.  Repairing that means teaching the structural DP the axis,
+///   which is the same search surface as above.
+///
+/// The prices, the pool sizes, the per-target lifts and the green case's
+/// rank under each candidate are in
+/// [REPORT-9b4a15](../docs/work/REPORT-9b4a15.md) §4.  This front's
+/// contribution is the decomposition and the pricing; the change is
+/// `w-1c7d40`'s to make, on its own ticket and with its own evidence.
 ///
 /// # Boundary
 ///
@@ -9092,27 +9212,14 @@ mod head_not_worse_than_pool {
 
     /// **This test is RED on this branch and is `#[ignore]`d, deliberately.**
     ///
-    /// It is a real, reproducible defect in the shipped objective, and
-    /// w-9b4a15's verdict is HOLD, so there is no production change here
-    /// to turn it green.  It is left in the tree, ignored rather than
-    /// deleted, because it is the fence the verdict is written against
-    /// and because deleting a red test is how a red test stops being
-    /// anyone's problem.  Run it with:
+    /// Run it with:
     ///
     /// ```text
     /// cargo test --release --lib head_not_worse_than_pool -- --ignored
     /// ```
     ///
-    /// Measured red, release mode, on this branch:
-    ///
-    /// ```text
-    /// "he runs to the station":     head 50 mean 0.7465 against pool 17647 mean 0.7991, lift -0.0526
-    /// "we should leave earlier":    head 50 mean 0.6530 against pool 20835 mean 0.7355, lift -0.0825
-    /// ```
-    ///
-    /// and green under the best candidate this front priced
-    /// (`PARSIMONY 0.10`, `SHAPE 0`, `NOVELTY 0.05`), which cannot ship:
-    /// see [REPORT-9b4a15](../docs/work/REPORT-9b4a15.md) §4.
+    /// See the module comment above for the measured red and for why no
+    /// weight vector this front was permitted to try turns it green.
     #[test]
     #[ignore = "red on purpose: the shipped objective has no word-count axis"]
     fn the_top_of_the_list_is_not_a_worse_phonetic_match_than_the_whole_pool() {
@@ -9132,20 +9239,68 @@ mod head_not_worse_than_pool {
         for target in TARGETS {
             let pool = generator().generate_pool(target);
             let mut rows = counters::drain_scored();
-            let mut seen = HashSet::new();
-            rows.retain(|r| seen.insert(phrase_signature(&r.phrase)));
-            assert_eq!(
-                pool.len(),
+            assert!(
+                rows.len() >= pool.len(),
+                "fewer candidates were captured ({}) than the pool returned \
+                 ({}) for {target:?}",
                 rows.len(),
-                "the captured candidates and the returned pool are different \
-                 lengths for {target:?}, so the lift below is not the \
-                 production pool's"
+                pool.len()
             );
             assert!(rows.len() > HEAD, "pool for {target:?} is too small to rank");
-            let all: Vec<f64> = rows.iter().map(|r| r.similarity).collect();
-            let head: Vec<f64> = rows[..HEAD].iter().map(|r| r.similarity).collect();
+            // The capture arrives in emission order, which is *not* the
+            // order the pool is returned in, and the pool's own
+            // deduplication keeps the *highest-scoring* member of each
+            // spelling-variant group rather than the first one seen.  The
+            // head therefore has to be re-derived the way
+            // `generate_approximate` builds it — sort by score then
+            // phrase, then drop later spelling variants — and the result
+            // is checked against the returned phrase sequence, so
+            // `ranked[..HEAD]` below is provably the *returned* top-N and
+            // not a re-derivation that has quietly drifted from it.
+            //
+            // Taking the first `HEAD` captured rows instead measures a
+            // prefix of the search's output in emission order, which on
+            // this spread names two entirely different targets as the
+            // ones that fail.
+            let mut order: Vec<usize> = (0..rows.len()).collect();
+            order.sort_by(|&a, &b| {
+                rows[b]
+                    .score
+                    .partial_cmp(&rows[a].score)
+                    .unwrap()
+                    .then_with(|| rows[a].phrase.cmp(&rows[b].phrase))
+            });
+            let mut seen = HashSet::new();
+            let ranked: Vec<counters::Scored> = order
+                .iter()
+                .filter(|&&i| seen.insert(phrase_signature(&rows[i].phrase)))
+                .map(|&i| rows[i].clone())
+                .collect();
+            assert_eq!(
+                ranked.len(),
+                pool.len(),
+                "the deduplicated, score-ordered capture and the returned \
+                 pool are different lengths for {target:?}"
+            );
+            assert!(
+                ranked
+                    .iter()
+                    .map(|r| r.phrase.as_str())
+                    .eq(pool.iter().map(|c| c.phrase.as_str())),
+                "the score-ordered capture and the returned pool are not the \
+                 same sequence for {target:?}"
+            );
+            let all: Vec<f64> = ranked.iter().map(|r| r.similarity).collect();
+            let head: Vec<f64> = ranked[..HEAD].iter().map(|r| r.similarity).collect();
             let lift = mean(&head) - mean(&all);
             checked += 1;
+            println!(
+                "  {target:<30} head {HEAD} mean {:.4} against pool {} mean \
+                 {:.4}, lift {lift:+.4}",
+                mean(&head),
+                all.len(),
+                mean(&all),
+            );
             if lift < 0.0 {
                 regressions.push_str(&format!(
                     "\n  {target:?}: head {} mean {:.4} against pool {} mean \
