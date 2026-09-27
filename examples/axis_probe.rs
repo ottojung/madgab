@@ -43,10 +43,8 @@ fn main() {
     let printed = g.generate(&target);
     let printed_s = t0.elapsed().as_secs_f64();
 
-    let t1 = Instant::now();
     let (printed2, pool_size) = g.generate_with_pool(&target);
     assert_eq!(printed.len(), printed2.len());
-    let pool_s = t1.elapsed().as_secs_f64();
 
     let t2 = Instant::now();
     let pool = g.generate_pool(&target);
