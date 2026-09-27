@@ -1033,6 +1033,65 @@ fn the_detector_stays_quiet_on_ordinary_english_and_real_production_code() {
     }
 }
 
+/// The written fence is stronger than the detector above: it forbids a
+/// canonical example's words in production `src/` *or* `tests/`, comments
+/// included, and the detector strips comments by design. The one place that
+/// has to keep them is `src/main.rs`, whose doc examples are the CLI's
+/// documented usage; every other production comment must be clean, so a
+/// measurement recorded in a production doc comment cannot name the input it
+/// was measured on.
+///
+/// A comment holding *three* consecutive words of a watched phrase is a
+/// hard-code's fingerprint whether or not it is code, and one or two words is
+/// ordinary prose (`the bad hid, we came, it was a nice beach day`), so the
+/// threshold is three here for the same reason it is three above.
+#[test]
+fn no_canonical_example_in_a_production_doc_comment() {
+    let mut report = String::new();
+    for path in src_files() {
+        let name = path.to_string_lossy().to_string();
+        if Path::new(&name).file_name().and_then(|s| s.to_str()) == Some("main.rs") {
+            continue;
+        }
+        let src = fs::read_to_string(&path).expect("production source is readable");
+        let test = test_lines(&src.split('\n').collect::<Vec<_>>());
+        for (i, line) in src.lines().enumerate() {
+            if test.contains(&(i + 1)) {
+                continue;
+            }
+            let Some(body) = line.trim_start().strip_prefix("//") else {
+                continue;
+            };
+            let words: Vec<String> = literal_words(body);
+            let refs: Vec<&str> = words.iter().map(|s| s.as_str()).collect();
+            for c in couplings(&refs) {
+                if c.matched < 3 {
+                    continue;
+                }
+                let shown: Vec<String> = c
+                    .words
+                    .iter()
+                    .take(c.matched)
+                    .map(|w: &&str| w.to_string())
+                    .collect();
+                report.push_str(&format!(
+                    "\n  {}:{}  [{}]\n      a production comment holds {} words of the canonical {} phrase ({})",
+                    name,
+                    i + 1,
+                    "phrase-in-production-comment",
+                    c.matched,
+                    if c.is_target { "target" } else { "clue" },
+                    shown.join(" "),
+                ));
+            }
+        }
+    }
+    assert!(
+        report.is_empty(),
+        "a production doc comment names a canonical example:\n{report}"
+    );
+}
+
 /// The regions the module docs claim are excluded really are excluded.
 #[test]
 fn test_modules_and_comments_are_not_scanned() {
