@@ -299,16 +299,59 @@ searches at one objective return one pool) is `tests/approx_determinism.rs` and 
 * **The classification is the deliverable** (§4). Six of the eight fences are incidental and
   two are sound; the split is a set-theoretic one (statements about a set containing a
   combination survive; statements about a wording being produced do not).
-* **Two corrections to carry forward.** `REPORT-3f8c62.md` §4 rows 1-2 and §5's first clause
-  are refuted by measurement: the final scorer is the search's discard threshold, so a
-  scorer-only axis is not search-neutral either, and there is no search-neutral placement at all.
-  And §4 rows 6-8 are transposed - see §9.
-* **The next front owns the search surface, and its first job is the threshold**, not the axis.
+* **The strengthened general fact, stated once so it can be cited without re-deriving.**
+  *Every objective weight in this search is read by the search, and there is no placement of a
+  term that is not.* Two sites, both measured: the walk's `bound(prefix)` heap key
+  (`src/lib.rs:1920-1939`), and the **discard threshold, which is a final-scorer value**
+  (`src/lib.rs:1190-1205`). A `span_score_bound` that cannot beat that bar returns
+  `NEG_INFINITY` and drops the span path, so re-weighting the scorer alone moves the pool:
+  **0 of 5** scorer-only perturbations left it invariant over seven ordinary targets, by up to
+  **426** candidates. Consequence for planning: an objective change is a **reach** change
+  first and a ranking change second, and `REPORT-3f8c62.md` §5's rule that a term "is not free
+  unless it is in the scorer alone" is false.
+* **The two corrected rows of `REPORT-3f8c62.md` §4**, carried forward as corrections, not as
+  reconciliations (§9 holds both readings):
+  * **rows 1-2** — "a term in the final scorer alone is a pure scoring change and the search
+    does not move" is refuted; row 1's own variant (the axis in the scorer only) moved the pool
+    on **7 of 7** targets.
+  * **rows 6-8** — transposed. The one weight that reddens the reserve-depth fence on its own
+    is **`NOVELTY` 0.15 → 0.05**; `RHYTHM 0.30 → 0.25` and `SHAPE 0.05 → 0.00` are both
+    **green**. Verified by running the fence at all five vectors.
+* **Why no vector is landable, in one line of arithmetic** (detail in §5). The criterion is
+  `head_not_worse_than_pool` 10/10; the fence is the green case in the **printed** 50. Over the
+  six admissible axis-carrying vectors:
+
+  | | head 10/10 | green case printed |
+  |---|---|---|
+  | A1 = C1d, A3, A5 | **yes** | **no** (pool rank 48 / 200 / 40) |
+  | A6 (axis 0.05) | no — 2/10 | **yes** (pool rank 27) |
+  | A2, A4 | no — 2/10 | no |
+
+  **The set is empty.** The only vector green on the display is the one that does not fix the
+  head, and all three that fix the head lose the display. No weight was raised on account of the
+  green case, per the item's own instruction.
+* **Successor rule** (the shape of the next front, so this one is not re-run):
+  **an objective change may only be landed together with a re-derivation of the six
+  weight-coupled fences as that vector's properties, never as properties of the search** — and
+  §3 shows why that is not a formality: a vector changes the search's own threshold, so
+  re-deriving them is admitting the search moved. Consequently the live direction is the
+  **threshold**, not the objective: derive it from the structural keys so the objective returns
+  to being a ranker over a fixed candidate set, and buy the weaker prune against the emission
+  ceiling rather than asserting it. **Do not open a front that re-runs a weight vector** (the
+  weight lever is closed by §5 item 3 and the placement lever by §3), and **do not attack
+  `RHYTHM` or `SHAPE`** — §9 shows they were never the problem.
+* The next front owns the search surface, and its first job is the **threshold**, not the axis.
   See §5 item 1. `scratch/e086cc-probe` is local and unpushed and carries the eleven-vector
-  harness to re-measure from.
+  harness to re-measure from; `scratch-3f8c62-landed` (`514ed91`) is still the unlanded C1d
+  variant. Neither may be integrated as it stands.
 * The canonical case-2 tuple remains unreachable by any monotone objective
   (`REPORT-3a8c05.md` §3, rank ≥ 1,127; re-measured absent from the pool at 11 of 11 vectors).
   Do not let a later pass read this front as progress on it.
+* **Not claimed:** `cargo fmt`, `cargo fmt --check`, `cargo clippy` and doctests — no `rustup`
+  and no `rustfmt`/`clippy`/`rustdoc` on this host. `src/lib.rs` carries **comment-only**
+  changes, 16 added lines and **zero** production-logic lines, plus one new test file; no fence
+  weakened, deleted or `#[ignore]`d, and the ignored head fence's own red is unchanged
+  (−0.0080 and −0.0184, `REPORT-3f8c62.md` §1.1).
 
 ## 9. A correction to `REPORT-3f8c62.md` §4 rows 6-8, kept separate because it is a disagreement
 
