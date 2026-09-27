@@ -2145,6 +2145,46 @@ impl Generator {
             }
         }
         // ---- end zz9c6f2b
+        if let Ok(wanted) = std::env::var("ZZ_SUBSTR") {
+            for needle in wanted.split('|').filter(|s| !s.is_empty()) {
+                match clues
+                    .iter()
+                    .position(|c| c.phrase.split(' ').any(|w| w == needle))
+                {
+                    Some(rank) => eprintln!(
+                        "ZZBEST word={needle:?} rank={rank} score={:.9} phrase={:?}",
+                        clues[rank].score, clues[rank].phrase
+                    ),
+                    None => eprintln!("ZZBEST word={needle:?} ABSENT pool={pool_size}"),
+                }
+            }
+        }
+        if std::env::var("ZZ_OFFSTRUCT").is_ok() {
+            let printed: HashSet<Vec<usize>> = select_diverse(
+                clues.clone(),
+                self.config.top_n,
+            )
+            .iter()
+            .map(clue_structure)
+            .collect();
+            let mut best: Option<(f64, usize, String, Vec<usize>)> = None;
+            for (rank, c) in clues.iter().enumerate() {
+                let s = clue_structure(c);
+                if printed.contains(&s) {
+                    continue;
+                }
+                if best.as_ref().is_none_or(|(b, _, _, _)| c.score > *b) {
+                    best = Some((c.score, rank, c.phrase.clone(), s));
+                }
+            }
+            match best {
+                Some((score, rank, phrase, s)) => eprintln!(
+                    "ZZOFFSTRUCT best_unrepresented_structure rank={rank} \
+                     score={score:.9} structure={s:?} phrase={phrase:?}"
+                ),
+                None => eprintln!("ZZOFFSTRUCT none"),
+            }
+        }
 
         (select_diverse(clues, self.config.top_n), pool_size)
     }
