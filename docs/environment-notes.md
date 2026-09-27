@@ -91,8 +91,32 @@ cannot be added without `rustup`.
 
 ## Shell
 
-`grep`, `sed`, `awk` and `python3` are not on `PATH`. `node` is, and
-`git grep` works. Use those for search and text processing.
+`grep`, `sed`, `awk` and `python3` are not on the default `PATH`. `node` is,
+and `git grep` works. Use those for search and text processing.
+
+### The `PATH` is truncated, not the tools
+
+A coordinator pass on 2026-09-27T03:45Z burned several minutes concluding
+that `git` was **absent from the host**, on the evidence of `git --version`
+returning `not found`. That conclusion was wrong and it nearly produced a
+durability report saying the whole accumulation branch was unverifiable.
+
+The tools are present in the Guix profile, which is simply not on the default
+`PATH`. `git`, `ls`, `grep`, `sed`, `awk`, `date` and the rest of coreutils
+are all in `$GUIX_PROFILE/bin`:
+
+```sh
+export PATH="$GUIX_PROFILE/bin:$HOME/.local/bin:$PATH"
+```
+
+`$GUIX_PROFILE` is set (`/gnu/store/89f20yrghd9ld6mc6a717rcj4mwshfvw-profile`).
+After that export, `git --version` reports `2.54.0` and the rest of this
+document works as written.
+
+**Export it before concluding any command does not exist on this host.** A
+`command -v` miss here is evidence about `PATH`, not about the tool. The
+`[w-d3f7a1](work/items/w-d3f7a1.md)` review already recorded this correctly;
+this section makes it a startup step so the next pass does not re-derive it.
 
 ## Shell portability note
 
