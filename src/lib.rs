@@ -5984,4 +5984,111 @@ mod tests {
             previous = similarity;
         }
     }
+
+    /// The two axes that read the clue's *own segmentation* — `NOVELTY`,
+    /// which is a Jaccard distance over boundary cuts, and `WORD_NOVELTY`,
+    /// which is `1 - reused / word_count` — are **rewards for a clue
+    /// that differs from the target's own wording**, and both are entered
+    /// with a positive weight.  Neither may charge a clue for being cut
+    /// into more pieces, and this pins that at both ends of the reuse
+    /// range and along a boundary ladder.
+    ///
+    /// This is not a restatement of the axis definitions; it is the
+    /// opposite property, and it is the one a *length charge* would
+    /// break.  A form that divided the reuse count by the target's word
+    /// count, or that subtracted the clue's own cut count, would leave
+    /// every existing test in this module green — they all read the
+    /// axes at one length — while making a faithful multiword
+    /// resegmentation strictly worse the more of it there was.  The
+    /// assertions below are all *across* lengths, at a fixed target, so
+    /// they fail on exactly that change and on no other.
+    #[test]
+    fn segmentation_axes_reward_a_resegmentation_rather_than_charging_its_length() {
+        let phrase = "alpha bravo charlie delta";
+        let target = TargetPhrase::new(phrase);
+        let boundaries = [5usize, 11, 19];
+        let total_len = 24usize;
+        let syllables = 8usize;
+        let target_words: Vec<&str> = phrase.split_whitespace().collect();
+
+        // A ladder of clue lengths, each one a fresh clue over the same
+        // target: one word, two words, up to nine.  `disjoint` shares no
+        // word with the target and so is a resegmentation throughout;
+        // `reusing` spells the target back and is the axis's 0.0 end.
+        // The two differ only in reuse, so any movement in either axis
+        // along the ladder is movement caused by length alone.
+        let build = |n: usize, disjoint: bool| -> Partial {
+            let mut p = Partial::empty();
+            for i in 0..n {
+                let name = if disjoint {
+                    format!("q{i}")
+                } else {
+                    target_words[i % target_words.len()].to_string()
+                };
+                p = p.extend_fuzzy(
+                    &target,
+                    &approx::FuzzyWord {
+                        word: name,
+                        ipa: "aeiouy".chars().take(3).collect(),
+                        ipa_len: 3,
+                        syllables: 1,
+                        rarity: Some(500.0),
+                        closed: false,
+                    },
+                    3 * i,
+                    0.0,
+                );
+            }
+            p
+        };
+
+        // A resegmentation pays the *whole* `WORD_NOVELTY` weight at every
+        // length, and the target respelt pays none of it at any length.
+        // Flat in both, so the axis reads reuse and not word count.
+        for n in 1..=9 {
+            let resegmented = build(n, true).metrics(&boundaries, syllables, total_len, false);
+            assert_eq!(
+                resegmented.word_novelty, 1.0,
+                "a {n}-word clue sharing no word with the target scored {} on \
+                 WORD_NOVELTY, so the axis is charging it for its length",
+                resegmented.word_novelty
+            );
+            let respelt = build(n, false).metrics(&boundaries, syllables, total_len, false);
+            assert_eq!(
+                respelt.word_novelty, 0.0,
+                "a {n}-word clue spelling the target back scored {} on \
+                 WORD_NOVELTY, so the axis is no longer flat in word count",
+                respelt.word_novelty
+            );
+        }
+
+        // The same property for boundary cuts.  A clue that keeps every
+        // one of the target's boundaries and adds one more of its own is
+        // a finer *faithful* resegmentation, and it must not score lower
+        // for the extra boundary: `NOVELTY` is a distance from the
+        // target's own cuts, so a clue that is further away is further
+        // rewarded.  Ladder from the target's own cuts outwards.
+        let own = boundary_novelty(&boundaries, &boundaries, total_len, false);
+        assert_eq!(own, 0.0, "the target's own cuts are not novelty 0.0");
+        let mut previous = own;
+        for extra in 1..=8usize {
+            let mut cuts = boundaries.to_vec();
+            cuts.push(total_len - 1 - extra);
+            cuts.sort_unstable();
+            let novelty = boundary_novelty(&cuts, &boundaries, total_len, false);
+            assert!(
+                novelty >= previous - 1e-12,
+                "adding a {extra}th boundary of its own to a clue that kept \
+                 every target boundary dropped NOVELTY from {previous} to \
+                 {novelty}: the axis is charging a faithful resegmentation \
+                 for being cut finer"
+            );
+            previous = novelty;
+        }
+        assert!(
+            previous > own,
+            "the whole boundary ladder was flat, so the assertions above \
+             prove nothing about a length charge"
+        );
+    }
 }
