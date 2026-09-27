@@ -3,12 +3,12 @@ work_item: true
 id: w-d1c8f
 state: done
 priority: high
-owner: agent-d1c8f (review front, read-only)
-updated: 2026-09-27T06:40:00Z
-opened_by: coordinator pass (adversarial review front for D6c)
+owner: agent-d1c8f1 (claimed 2026-09-27T04:53Z by coord-4e21 from post-milestone-acceptance 4b51dce)
+updated: 2026-09-27T07:05:00Z
+opened_by: coord-4e21 (reconciliation pass 2026-09-27T04:52Z-04:55Z)
 branch: madgab-review-d6c-d1c8f
 worktree: /workspace/madgab-review-d6c
-reviews: w-9d4e10 (agent 9d4e11, 4f3442c on madgab-d6c-9d4e10)
+reviews: madgab-d6c-9d4e10 (36589f8..4f3442c) — the delivered w-9d4e10 D6c implementation
 diff_under_review: 36589f8..4f3442c
 verdict: pass-with-follow-up
 ---
@@ -26,15 +26,43 @@ every fence I was asked to check is intact. Five follow-ups are recorded below.
 before landing** — F1 is a documentation/number-bookkeeping obligation and
 F2 is a small test-coverage suggestion for whoever next touches `src/lib.rs`.
 
-**A process note first, because it is a real defect in the review chain and
-not in the code:** this work item file **did not exist** when this agent
-started. `docs/work/items/` contained no `w-d1c8f.md` at `4f3442c`, so the
-eight questions to be answered were not written down anywhere and had to be
-taken from the dispatch text. The file is created here. A coordinator should
-check whether the dispatch that opened this front recorded the item before
-starting the agent; if items are being opened by dispatch text alone, the
-"the item fences say…" reasoning this front was asked to perform has no
-durable source.
+**A process note, and a correction to my own first pass on it.** My review
+worktree is based at `4f3442c`, which is an ancestor of nothing on the
+accumulation branch, so **`docs/work/items/w-d1c8f.md` was not present in this
+worktree when the agent started**, and I initially recorded that as a missing
+item. That was wrong, and the reason is worth stating because it will recur:
+the item *was* opened, at `2d19836` on `post-milestone-acceptance`, and this
+review branch (`4f3442c`, off `36589f8`) simply does not contain that commit.
+**The item exists, with all eight questions, at
+`origin/post-milestone-acceptance:docs/work/items/w-d1c8f.md`.** All eight are
+answered below, including Q8, which the dispatch text did not spell out. The
+practical lesson for the coordinator: a review worktree based at the *reviewed
+tip* cannot see the item that dispatched it, so the agent must fetch the
+accumulation branch to find its own instructions. I read them only after the
+substantive work was done, and re-checked my findings against all eight
+questions; nothing in the verdict changed.
+
+## Answer index — the item's eight questions
+
+| # | question (as opened at `2d19836`) | answered in | verdict |
+|---|---|---|---|
+| 1 | Is the deleted test's removal a legitimate replacement or a re-baseline in disguise? | *Q1 — The deleted test* | **legitimate replacement of an obsolete specification**, not a re-baseline. Proven in both directions by experiment. |
+| 2 | Is `SIMILARITY_COST_PER_PHONE = 0.30` used as specified, with no re-sweep or re-tuning smuggled in? | *The remaining verifications → the constant*; *the arithmetic* | **as specified.** One constant change in the whole diff, all eight weights unchanged, character-for-character match to the spec. |
+| 3 | Are the three enumeration-side `SIMILARITY_PER_WORD` proxies really untouched, and is leaving them defensible? | *The remaining verifications → the three proxies* | **untouched at src/lib.rs:954, :1065, :3340; leaving them is defensible** on the measured test that catches it, which I ran by name and which is green. |
+| 4 | Is anything else in the diff? Account for every hunk. | *Accounting for `git diff 36589f8..4f3442c`, hunk by hunk* | **nothing else.** Ten hunks across four files, every one accounted for; 241 lines in `src/lib.rs` is comment rewriting, not logic. |
+| 5 | Was `approximate_output_is_locked` re-locked against measured new behaviour, and is the w-4e2b19 contradiction gone? | *The remaining verifications → the re-lock* | **re-locked against measured behaviour, not re-baselined.** The block is recomputable from the constant and explains its own two unmoved entries. |
+| 6 | Re-run and classify the fence sweep; is the hit set byte-identical to `42ced98`? | *Q3 — The fence sweep* | **byte-identical, confirmed** by SHA-256 of the normalised hit set. 49 hits, none in a decision. One counting error in the implementer's report. |
+| 7 | Canonical case 1 must not regress — measure it yourself. | *Q2 — Canonical case 1* | **not regressed.** Measured through the shipped release executable: rank 27, 0.920, against a self-built rank-28 / 0.918 baseline. |
+| 8 | Are the unmeasured predictions a legitimate deferral or a blocker? | *Q8 — The unmeasured predictions* | **legitimate deferral, not a blocker.** I measured them anyway: both cutoffs confirm exactly, and the pool size does not — which is F1. |
+
+Two findings beyond the eight questions, both integration-critical, are in
+*Two findings the dispatch did not ask for*: **the item's own
+"cherry-pick `4f3442c` alone" advice is wrong and I proved it**, and a
+test-merge of the branch into the current `post-milestone-acceptance` is clean
+and validates at 9/0 on the fence test that w-3a7f0d extended after this
+branch's base.
+
+---
 
 ## Method and toolchain
 
@@ -470,7 +498,155 @@ unavailable and must not be reported as passing by the coordinator on landing.
 
 ---
 
-## Follow-ups (none blocking)
+## Q8 — The unmeasured predictions: legitimate deferral, or an untested claim
+## that should block?
+
+**The deferral was legitimate as stated, and it did not need to block. But I
+measured the deferred quantities anyway, and the measurement found something
+the deferral was hiding — so the deferral was right about the method and
+wrong about the risk.**
+
+### Why the deferral was legitimate
+
+The agent declined to verify three 6-decimal figures (case-2 cutoff
+`-0.002007`, case-1 cutoff `+0.001771`, the alignment's exact residual gap)
+on the grounds that the CLI prints 3 decimals and resolving them exactly would
+require adding a measurement instrument the item forbids. That reasoning is
+sound and it is the reasoning this project has been burned by before: the
+instrument goes in the crate, the number becomes unreproducible, and the next
+pass re-derives it. Recording "not measured" instead of "confirmed" was the
+correct discipline, and Q2's measurement shows it was not covering for an
+error — every one of the two cutoff figures the agent *could* have printed at
+3 decimals is exactly right.
+
+The claim about the alignment is also correctly scoped: the design was never
+expected to reach canonical case 2, so its absence is not a defect, and the
+acceptance test being red is the correct end state.
+
+### What measuring it anyway turned up
+
+I discharged the gap through the public `generate_pool` on a disposable
+worktree (Q2's table). The two cutoff predictions reproduce **exactly**:
+case-1 score-ordered 50th `0.917025536 → 0.918796441` (predicted `+0.001771`,
+actual `+0.001771`) and case-2 `0.917129199 → 0.915121574` (predicted
+`-0.002007`, actual `-0.002008`). Those are not untested claims; they are
+confirmed claims the implementer under-claimed.
+
+**But the pool size, which w-5c11a2 tied to those same predictions, is wrong,
+and the implementer did not measure it.** See F1 below. w-5c11a2's
+specification said in terms that the builder "must … re-measure the pool
+rather than trusting the 'pool size is unchanged' line above it", and the
+builder did not. This is the one place where the deferral left a real gap, and
+it is a gap in *w-5c11a2's* prediction rather than in the change.
+
+**Verdict on Q8: legitimate deferral, correctly disclosed, not a blocker.**
+The change stands on the measured acceptance criteria. The residual risk it
+created is documentary and is F1.
+
+---
+
+## Accounting for `git diff 36589f8..4f3442c`, hunk by hunk
+
+`src/lib.rs` shows 137 insertions and 104 deletions — the 241 the dispatch
+flagged as a lot for one formula. It is a lot, and **all of it is accounted
+for**: six hunks, and the bulk is comment rewriting, not logic.
+
+| # | file | hunk | lines | what it is |
+|---|---|---|---|---|
+| 1 | `src/lib.rs` | `@2587,37 +2587,45` | 30/26 | The `metrics` doc comment rewritten for the per-phone reading, **plus the two-line formula change itself** (`cost_per_word`/`SIMILARITY_COST_PER_WORD` → `cost_per_phone`/`SIMILARITY_COST_PER_PHONE`). The comment rewrite is the reason the hunk looks large; only 4 lines are code. |
+| 2 | `src/lib.rs` | `@2700,6 +2708,7` | 1/0 | `Metrics { combined,` gains `similarity,`. The one structural addition. |
+| 3 | `src/lib.rs` | `@2776,14 +2785,20` | 11/8 | `SIMILARITY_COST_PER_WORD: f64 = 1.0` → `SIMILARITY_COST_PER_PHONE: f64 = 0.30`, with the constant's doc comment updated and the standing note about `SIMILARITY_PER_WORD` kept. |
+| 4 | `src/lib.rs` | `@2796,6 +2811,10` | 4/0 | The `similarity: f64` field declared on `struct Metrics` with a comment saying why it exists (so a test can assert the axis without the seven word-count-dependent terms). |
+| 5 | `src/lib.rs` | `@4332,15 +4351,16` and `@4386,6 +4406,7` and `@4415,7 +4436,7` | 9/6 | `incremental_aggregates_match_a_full_refold`: its local `refold` helper re-derives `metrics`, so it was moved to the per-phone formula and given the `total_len` parameter. **Necessary, not optional** — leaving it on the per-word formula would have made the test assert a different axis than the one in production. |
+| 6 | `src/lib.rs` | `@5563,78 +5584,6` | 0/72 | The deletion of `similarity_is_scored_per_word_not_per_candidate`. Q1. |
+| 7 | `src/lib.rs` | `@5701,4 +5650,88` | 84/0 | The `synthetic_clue` helper and `similarity_is_charged_per_phone_not_per_word`. Q1. |
+| 8 | `tests/corpus_integration.rs` | `@554,42 +554,47` | 33/28 | The `approximate_output_is_locked` comment block replaced with measured new text and the expected table updated. The **only** test whose expectations changed. |
+| 9 | `tests/emit_coverage.rs` | `@172,3 +172,37` | 34/0 | The new `a_short_multi_syllable_proposal_set_is_not_one_word_count_class`. |
+| 10 | `docs/work/items/w-9d4e10.md` | — | 386/16 | The implementer's own report. Documentation. |
+
+**Hunks 1, 3 and 5 are the change. Hunks 2, 4 and 7 are the test seam for it.
+Hunks 6 and 8 are the test deletion and the re-lock, judged in Q1 and below.
+Hunk 9 is the second required test. Hunk 10 is documentation.** There is
+nothing unaccounted for, and in particular there is no hunk touching `PUNCH`,
+`RHYTHM`, any weight, any budget, or either emission site.
+
+---
+
+## Two findings the dispatch did not ask for, both integration-critical
+
+### The item's own cherry-pick advice is wrong, and following it wastes a pass
+### and creates pressure toward a re-baseline
+
+The item's handoff says the next coordinator can integrate "with a merge or a
+**cherry-pick of `4f3442c` alone**, since `4679cf9` is a coordinator durability
+snapshot and not part of the reviewed change."
+
+**That is not true, and I tested it.** `4f3442c`'s own stat is:
+
+```text
+ docs/work/items/w-9d4e10.md | 402 +++++++++++++++++++++++++++++++++--
+ src/lib.rs                  |  72 --------
+ tests/corpus_integration.rs |  61 ++++---
+```
+
+— `src/lib.rs` is **deletions only**, and `tests/emit_coverage.rs` is **absent**.
+The actual per-phone formula, the `Metrics.similarity` field, the new unit test
+and the new integration test all live in **`4679cf9`**:
+
+```text
+4679cf9  src/lib.rs | 169 +++++++++++++++++++++++++++++-----------
+         tests/emit_coverage.rs | 34 ++++++++
+```
+
+I cherry-picked `4f3442c` alone onto `36589f8` and measured the result:
+`SIMILARITY_COST_PER_PHONE` appears **0 times** — the tree is still
+per-`word` — and `emit_coverage` runs **3** tests, not 4. The build is clean
+and `--lib` passes 57/0, so it is not a loud compile failure; it is a tree that
+looks nearly right and is not. `approximate_output_is_locked` does fail loudly
+(`left` = the old per-word table, `right` = the new table), which is the one
+thing standing between a coordinator and a re-baseline of a test the item
+explicitly forbids re-baselining.
+
+**Recommendation: merge `madgab-d6c-9d4e10` (the branch tip, which contains
+both commits), or cherry-pick `4679cf9` *then* `4f3442c`. Do not cherry-pick
+`4f3442c` alone.** The implementer's own request to "squash `4679cf9` into the
+tip on landing" is the right instinct for a squash-merge and the wrong
+instinct for a selective cherry-pick.
+
+### The merge is clean and I validated the integrated tree end to end
+
+`post-milestone-acceptance` has moved well past this change's base, so I
+test-merged in a disposable detached worktree (no branch, nothing pushed, no
+effect on `post-milestone-acceptance` or `main`):
+
+- the **only** conflict is `docs/work/items/w-9d4e10.md` — a documentation
+  conflict, resolvable by taking either side;
+- `src/lib.rs`, `tests/corpus_integration.rs` and `tests/emit_coverage.rs` all
+  merge **cleanly and automatically**;
+- on the merged tree: `--lib` **58/0**, `corpus_integration` **12 passed / 1
+  failed** (only `approximate_finds_classic_madgab_resegmentation`, the
+  expected red), `exact_determinism` **1/0**, `approx_determinism` **4/0**,
+  `emit_coverage` **4/0**;
+- **`no_phrase_hard_coding` is 9 passed, not 7.** This matters: [w-3a7f0d]
+  extended that fence to `web/` and `examples/` at `2d8449c`, *after* the
+  `36589f8` base this branch forked from, so the merged tree inherits the
+  stronger fence. **It passes.** The extended fence therefore confirms, on the
+  integrated tree, that the D6c code adds no phrase-specific hard-coding in
+  `web/` or `examples/` either — a check that did not exist when the
+  implementer reported 7/7, and that I would not have run had I not test-merged.
+
+### A small reporting error inherited from w-5c11a2, worth correcting
+
+`approximate_output_is_locked` lives in **`tests/corpus_integration.rs`**, not
+in `tests/approx_determinism.rs`. `w-5c11a2`, `w-9d4e10` and this review's
+own dispatch text all say `--test approx_determinism … (incl. the re-locked
+`approximate_output_is_locked`)`. Running that filter on `approx_determinism`
+gives `running 0 tests … 4 filtered out`. The counts are all still right —
+`approx_determinism` really is 4/0 and `corpus_integration` really is 12/1 —
+but the parenthetical attribution is wrong, and it is how a reviewer ends up
+believing the re-lock was checked on a test target that does not contain it.
+The lock is verified, by running it where it actually lives.
+
 
 - **F1 — record the real pool size.** The pool is **not** unchanged: 18,242 →
   **18,270** (case 1) and 18,917 → **18,936** (case 2), measured through
@@ -487,33 +663,52 @@ unavailable and must not be reported as passing by the coordinator on landing.
 - **F3 — the fence-sweep counts in w-9d4e10 are wrong** (30/9/3 = 42; actual
   37/9/3 = 49). The "byte-identical to `42ced98`" claim itself is correct and
   I verified it independently. Correct the table when the item is closed.
-- **F4 — `4679cf9` ("WIP (agent 9d4e11 in flight)") is a coordinator durability
-  snapshot, not a reviewed deliverable.** The implementer recorded this and
-  asked for it to be squashed on landing. Honour that.
+- **F4 — merge the branch tip, or both commits. Do NOT cherry-pick `4f3442c`
+  alone.** Proven above: `4f3442c` alone leaves the tree on the per-**word**
+  formula with the new integration test missing, and puts a red re-lock in
+  front of a coordinator who is under explicit instruction not to re-baseline
+  a test. Merge `madgab-d6c-9d4e10` (tip `4f3442c`, containing `4679cf9` and
+  `4f3442c`), or cherry-pick `4679cf9` then `4f3442c`. This supersedes F4 as
+  previously drafted, which merely asked for `4679cf9` to be squashed — that
+  is right for a squash-merge and wrong for a selective cherry-pick.
 - **F5 — `w-9d4e10` is still `state: working` with its last checkbox unticked.**
   The checkbox is unticked by design because the agent was forbidden to push
-  to `post-milestone-acceptance`. Set the state to `done` on landing.
+  to `post-milestone-acceptance`. Set the state to `done` on landing, and
+  record the real pool size from F1 in it.
+- **F6 — correct the lock's test-file attribution in `w-5c11a2` and
+  `w-9d4e10`.** `approximate_output_is_locked` is in
+  `tests/corpus_integration.rs`, not `tests/approx_determinism.rs`. The counts
+  are right; the attribution is not. Documentation only.
 
 ## Deliberately not opened, per instruction
 
 No new measurement front. No re-derivation of the refutations already recorded
 in [w-d3f7a1](w-d3f7a1.md) — the objective, cost, pronunciation, dictionary,
 `GAP_COST`, retention and emission fronts all stay shut. The constant was not
-re-swept. Nothing in `src/` or `tests/` was modified on the review branch.
-`main` was not touched, and `4f3442c` was **not** merged into
-`post-milestone-acceptance` by this agent; integration is the coordinator's
-job.
+re-swept. **Nothing in `src/` or `tests/` was modified on this review branch**
+(`git diff HEAD -- src tests` is empty; the only file in the final commit is
+this item). All scratch work — a `36589f8` baseline build, three disposable
+worktrees for the red-before/green-after and cherry-pick experiments, and a
+test-merge — was done in worktrees outside the review tree on `scratch/*`
+branches or detached, and every one of them, its branch and its target
+directory has been removed. `main` was not touched, and `4f3442c` was **not**
+merged into `post-milestone-acceptance` by this agent; the test-merge was a
+detached, uncommitted-to-any-branch rehearsal and integration remains the
+coordinator's job. Agent `1f6c41`'s worktree and branch
+(`madgab-baseline-1f6c40`) were not touched and no contention occurred.
 
 ## Next action for the coordinator
 
 1. **Land `madgab-d6c-9d4e10` (tip `4f3442c`) into
    `post-milestone-acceptance`.** The verdict is pass-with-follow-up; nothing
-   in F1–F5 must be done first. Squash `4679cf9` into the tip. The only
-   conflict risk is `tests/corpus_integration.rs`, which another front could
-   have re-locked in the meantime — resolve by re-measuring, not by taking
-   either side on trust.
-2. **On landing, fold F1's pool numbers into `w-5c11a2` and `w-9d4e10`,**
-   and set `w-9d4e10` to `done`.
+   in F1–F6 must be done first, and none of them requires a new front. **Merge
+   the branch, or cherry-pick `4679cf9` and then `4f3442c` — never `4f3442c`
+   alone (F4).** I test-merged it: the only conflict is the
+   `docs/work/items/w-9d4e10.md` documentation conflict; all three code files
+   merge automatically; and the merged tree is 58/0, 12/1 (expected red),
+   1/0, 4/0, 4/0, and 9/0 on the now-extended `no_phrase_hard_coding`.
+2. **On landing, fold F1's pool numbers and F6's attribution fix into
+   `w-5c11a2` and `w-9d4e10`,** and set `w-9d4e10` to `done`.
 3. **Open no front for the D6c design itself.** It is built, measured, and
    correct. `w-5c11a2`'s priced negative stands: the canonical case-2 alignment
    is still out, the binding blocker is still emission at `src/lib.rs:1955`
@@ -524,10 +719,16 @@ job.
    (it claims the axis "asks the clue to be as short-worded as the target is",
    which canonical case 1 — two words in, four words out — falsifies), and a
    read-only `Clue::axes()` accessor. The latter is the durable fix for the
-   mechanism behind every prior reversal: it would let the next front
-   re-derive the eight-axis decomposition without re-implementing the
-   objective, which is precisely the expense this review had to pay.
-5. **Fix the review-chain defect, not just this item:** `w-d1c8f.md` did not
-   exist when this agent was dispatched. Check whether review fronts are being
-   opened by dispatch text alone, and if so open the item *before* the agent
-   starts — a review front asked to judge "the item fences" needs the item.
+   mechanism behind every prior reversal, and this review is fresh evidence for
+   it: discharging Q2 and Q8 cost a full baseline build and a `generate_pool`
+   harness that had to be written from `Clue`'s published fields, when a
+   published eight-axis decomposition would have made both a one-line read.
+5. **Fix the review-worktree base, not the code.** A review worktree based at
+   the *reviewed tip* cannot see the work item that dispatched it, because the
+   item lands on the accumulation branch, which is a descendant. This agent
+   initially recorded its own item as missing. Give review fronts a base that
+   contains the dispatch commit, or tell them in the item's own metadata to
+   `git fetch origin post-milestone-acceptance` and read
+   `docs/work/items/w-d1c8f.md` there before starting. It cost a wrong
+   intermediate conclusion, which is exactly the failure mode this project keeps
+   paying for.
