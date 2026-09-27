@@ -724,6 +724,11 @@ impl Generator {
         self.search(target).2
     }
 
+    /// PROBE7E1A04: expose the transcription for a target.
+    pub fn probe_transcribe(&self, target: &str) -> Option<(String, Vec<usize>, usize)> {
+        transcribe_with_boundaries(&self.corpus, target, false)
+    }
+
     /// The selected proposals, the pool's size, and the pool itself.
     fn search(&self, target: &str) -> (Vec<Clue>, usize, Vec<Clue>) {
         match self.config.mode {
@@ -2215,8 +2220,18 @@ fn clean_input_word(word: &str) -> String {
         .to_string()
 }
 
-fn normalized_word(word: &str) -> String {
-    word.chars()
+pub(crate) fn probe_dump(path: &str, line: &str) {
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+    {
+        let _ = writeln!(f, "{line}");
+    }
+}
+
+fn normalized_word(word: &str) -> String {    word.chars()
         .filter(|c| c.is_alphanumeric())
         .flat_map(|c| c.to_lowercase())
         .collect()
@@ -2779,10 +2794,32 @@ impl Partial {
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
-        let score = self
-            .metrics(target_boundaries, target_syllables, total_len, false)
-            .combined;
+        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
+        let score = m.combined;
         let words: Vec<ClueWord> = self.words().cloned().collect();
+        if let Ok(path) = std::env::var("PROBE7E1A04_AXES") {
+            let words_n = self.word_count();
+            let line = format!(
+                "{}\t{:.12}\t{}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{:.12}\t{}\t{}\t{}\t{:.12}\t{:.12}\t{}",
+                words.iter().map(|w| w.word.as_str()).collect::<Vec<_>>().join(" "),
+                score,
+                words_n,
+                m.similarity,
+                m.novelty,
+                m.word_novelty,
+                m.familiarity,
+                m.rhythm,
+                m.content,
+                self.sub_cost_total,
+                total_len,
+                self.reused_count,
+                self.punch_count,
+                self.shape_sum,
+                self.familiarity_sum,
+                self.cuts.iter().map(|c| c.to_string()).collect::<Vec<_>>().join(","),
+            );
+            probe_dump(&path, &line);
+        }
         Clue {
             phrase: words
                 .iter()
