@@ -4,9 +4,9 @@ id: w-6d2af3
 state: working
 priority: high
 owner: agent-6d2af301 (claimed 2026-09-27T07:45Z by coord-c4e19 from post-milestone-acceptance e0b3a90)
-updated: 2026-09-27T07:53:00Z
+updated: 2026-09-27T08:00:00Z
 branch: madgab-review-bound-6d2af3
-worktree: /workspace/madgab-review-bound-6d2af3 (agent-6d2af301 running)
+worktree: /workspace/madgab-review-bound-6d2af3 (agent-6d2af301 running, 1 prompt, started 07:44Z; reviewed range 707fb2a..b49f892 unchanged, 4f76b16 above it is docs-only)
 reviews: madgab-emitbound-5b1e93 @ b49f892 (28d5e4a beneath it)
 ---
 
@@ -71,6 +71,37 @@ last one; ~434/97 in `28d5e4a`). Work in this item's own worktree and
 report them as satisfied. See [../../environment-notes.md](../../environment-notes.md).
 
 ## Handoff / notes
+
+### Pass 2026-09-27T08:00Z (coordinator coord-3f77): your target is unchanged, but the front is now terminal
+
+Not a steer, and the review was **not** interrupted. One fact for the record,
+because it bears on the verdict you owe:
+
+- The reviewed range is still `707fb2a..b49f892`. The front pushed
+  `4f76b16` on top, and that commit touches **only**
+  `docs/work/items/w-5b1e93.md` (+492/-1) — no `src/`, no `tests/`. Your
+  bytes have not moved, so your fence numbers still describe the head.
+- Agent `5b1e930` is **terminal** (`succeeded`, exit 0, 9 prompts) and its own
+  recommendation is **HOLD**: it agrees the two `approximate_pool_reaches_*`
+  guards are red at its head and that the pool-reach wordings it loses
+  (`ask lovey`, `see if a law thus ish l.'s`, `see ish air law this ish l.'s`,
+  scoring 0.590-0.610 against a ~0.90 cutoff) were surfaced by the old key
+  *because it mis-ranked*. It declined to re-pin them and asserts the property
+  in-crate instead.
+- Its attribution claim, which you should check rather than inherit: the two
+  guards are red because the repair removed a mis-ranking that was incidentally
+  surfacing low-scoring wordings — i.e. the pruning is confined to
+  inadmissible cost forms, not a general narrowing of the lattice. If that is
+  right, the honest outcome is **FIX** with a named, general way to state the
+  guards' property without a literal swap; if the guards are the only thing
+  holding those wordings in the pool, the pruning is general and the verdict is
+  **REJECT**.
+
+[w-5b1e93](w-5b1e93.md) is now `blocked` on exactly this, and the successor
+front [w-0f3a17](w-0f3a17.md) is open for the different mechanism your
+measurement points at: the clue is outside the enumerated lattice
+(`affordable_opening_width` returns 7 at depth 5, so the canonical tuple's
+per-slot indices 13/99/11 are never pushed), not late in its order.
 
 ### Pass 2026-09-27T07:53Z (coordinator coord-2b91): the two red guards are a regression, not a baseline
 
