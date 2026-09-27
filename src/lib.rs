@@ -1820,6 +1820,17 @@ impl Generator {
                             .cmp(&self.fuzzy_lexicon.word(b.match_ref.word_idx).word)
                     })
                 });
+                #[cfg(test)]
+                if slot_probe::armed() {
+                    let n = alts.len();
+                    let perm = slot_probe::permutation(slot_probe::active_order(), n);
+                    let mut taken: Vec<Option<SlotAlt>> =
+                        alts.into_iter().map(Some).collect();
+                    alts = perm
+                        .iter()
+                        .map(|&i| taken[i].take().expect("a permutation"))
+                        .collect();
+                }
                 slots.push(alts);
             }
 
@@ -1990,6 +2001,21 @@ impl Generator {
                         tuple.iter().filter(|&&i| i != 0).count() as u64,
                     );
                 }
+                #[cfg(test)]
+                slot_probe::with(|p| {
+                    let w = widths.iter().copied().max().unwrap_or(0);
+                    p.emits.push(slot_probe::Emit {
+                        rank: index,
+                        which: "reserve",
+                        tuple: tuple.clone(),
+                        cap: affordable_opening_width(
+                            widths.len(),
+                            LEXICAL_HEAP_POP_LIMIT,
+                        )
+                        .min(w),
+                        widths: widths.clone(),
+                    })
+                });
                 pooled.push(tuple);
                 recovered.push(partial);
                 profile_emitted += 1;
@@ -2075,6 +2101,39 @@ impl Generator {
             // [`affordable_opening_width`] for the measured counts.
             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
                 .min(widest);
+            #[cfg(test)]
+            if slot_probe::armed() {
+                let segs = slots
+                    .iter()
+                    .map(|s| {
+                        s.iter()
+                            .map(|a| slot_probe::Alt {
+                                word: self
+                                    .fuzzy_lexicon
+                                    .word(a.match_ref.word_idx)
+                                    .word
+                                    .clone(),
+                                cost: a.cost,
+                                contrib: a.contribution(word_count),
+                                syllables: a.syllables,
+                                familiarity: a.familiarity,
+                                closed: a.closed,
+                                shape: a.shape,
+                                reused: a.reused,
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                slot_probe::with(|p| {
+                    p.segs.push(slot_probe::Seg {
+                        rank: index,
+                        spans: structure.to_vec(),
+                        cap,
+                        widths: widths.clone(),
+                        slots: segs,
+                    })
+                });
+            }
             let mut emitted = 0usize;
             let mut popped = 0usize;
             // The traversal runs in passes over the heap.  A walk is the
@@ -2113,6 +2172,16 @@ impl Generator {
                                 emitted += 1;
                                 spent_emissions += 1;
                                 *funded.entry(structure).or_default() += 1;
+                                #[cfg(test)]
+                                slot_probe::with(|p| {
+                                    p.emits.push(slot_probe::Emit {
+                                        rank: index,
+                                        which: "traversal",
+                                        tuple: prefix.to_vec(),
+                                        cap,
+                                        widths: widths.clone(),
+                                    })
+                                });
                             }
                             // This segmentation's share of its structure's
                             // depth, and the global budget.  The old code
@@ -6928,6 +6997,873 @@ mod tests {
                     series += power;
                 }
                 assert_eq!(first_leaf_frontier(&vec![w; depth]), series);
+            }
+        }
+    }
+}
+
+// ---- w-1c7d40: the per-slot candidate order ----
+//
+// Measurement apparatus only.  The traversal's own key is
+// `bound(prefix)`, a *prefix* property that does not read the order of
+// `slots[k]`; what that order decides is (a) which candidates are legal
+// at the opening width, because the walk only ever offers
+// `slots[k][0..cap]`, and (b) the order of equal-bound leaves.  So a
+// candidate order is a real lever on reach, and it is worth pricing.
+//
+// Nothing here is reachable from a release build.  The enum, the probe
+// and the permutation all sit behind `#[cfg(test)]`, so a shipped binary
+// of this branch contains none of them and takes the base's own sort —
+// `src/lib.rs`'s `alts.sort_by` on `SlotAlt::contribution` is untouched.
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum SlotOrder {
+    /// The shipped order: descending `SlotAlt::contribution`, ties
+    /// broken on the word.
+    Base,
+    /// Round-robin over equal-count strata of the list's own cost
+    /// distribution, the shipped order preserved inside a stratum.
+    Interleave,
+    /// Alternating between the cheap half and the dear half of the list,
+    /// the shipped order preserved inside each half.
+    HalfSplit,
+    /// The pure inversion: dearest contribution first.
+    Invert,
+}
+
+#[cfg(test)]
+impl SlotOrder {
+    fn name(self) -> &'static str {
+        match self {
+            SlotOrder::Base => "A base contribution-desc",
+            SlotOrder::Interleave => "B cost-stratified interleave",
+            SlotOrder::HalfSplit => "C half-split interleave",
+            SlotOrder::Invert => "D contribution-ascending",
+        }
+    }
+}
+
+#[cfg(test)]
+mod slot_probe {
+    use std::cell::RefCell;
+
+    use super::SlotOrder;
+
+    /// One retained alternative inside a slot, with the features the
+    /// order could possibly key on.
+    #[derive(Clone, Debug)]
+    pub struct Alt {
+        pub word: String,
+        pub cost: f64,
+        pub contrib: f64,
+        pub syllables: usize,
+        pub familiarity: f64,
+        pub closed: usize,
+        pub shape: f64,
+        pub reused: usize,
+    }
+
+    /// One segmentation as the traversal saw it.
+    #[derive(Clone, Debug)]
+    pub struct Seg {
+        pub rank: usize,
+        pub spans: Vec<(usize, usize)>,
+        pub cap: usize,
+        pub widths: Vec<usize>,
+        pub slots: Vec<Vec<Alt>>,
+    }
+
+    /// One emission, and which operator made it.
+    #[derive(Clone, Debug)]
+    pub struct Emit {
+        pub rank: usize,
+        pub which: &'static str,
+        pub tuple: Vec<usize>,
+        pub cap: usize,
+        pub widths: Vec<usize>,
+    }
+
+    #[derive(Clone)]
+    pub struct Probe {
+        pub order: SlotOrder,
+        pub segs: Vec<Seg>,
+        pub emits: Vec<Emit>,
+    }
+
+    thread_local! {
+        static STATE: RefCell<Option<Probe>> = const { RefCell::new(None) };
+    }
+
+    pub fn arm(order: SlotOrder) {
+        STATE.with(|s| {
+            *s.borrow_mut() = Some(Probe {
+                order,
+                segs: Vec::new(),
+                emits: Vec::new(),
+            })
+        });
+    }
+
+    pub fn disarm() {
+        STATE.with(|s| *s.borrow_mut() = None);
+    }
+
+    pub fn armed() -> bool {
+        STATE.with(|s| s.borrow().is_some())
+    }
+
+    pub fn active_order() -> SlotOrder {
+        STATE.with(|s| s.borrow().as_ref().map_or(SlotOrder::Base, |p| p.order))
+    }
+
+    pub fn with<R>(f: impl FnOnce(&mut Probe) -> R) -> Option<R> {
+        STATE.with(|s| s.borrow_mut().as_mut().map(f))
+    }
+
+    pub fn take() -> Option<Probe> {
+        STATE.with(|s| s.borrow_mut().take())
+    }
+
+    /// The permutation a candidate order imposes on a slot list that is
+    /// already in the shipped order: element `perm[j]` of the shipped list
+    /// becomes element `j` of the reordered one.  Each rule reads only
+    /// per-candidate measurements already present in the list; none reads a
+    /// word, a span identity, a target or a segmentation.
+    pub fn permutation(order: SlotOrder, n: usize) -> Vec<usize> {
+        let mut perm: Vec<usize> = Vec::with_capacity(n);
+        match order {
+            SlotOrder::Base => perm.extend(0..n),
+            SlotOrder::Interleave => {
+                // Equal-count strata of the list's own cost distribution,
+                // taken round-robin, so the opening width sees one
+                // candidate from each cost band rather than `cap`
+                // candidates out of the cheapest band.
+                let strata = (crate::LEXICAL_BRANCH_STAGE_0.max(1)).min(n);
+                let mut taken = vec![0usize; strata];
+                while perm.len() < n {
+                    let mut placed = false;
+                    for s in 0..strata {
+                        let lo = s * n / strata;
+                        let hi = ((s + 1) * n / strata).max(lo + 1).min(n);
+                        if taken[s] < hi - lo {
+                            perm.push(lo + taken[s]);
+                            taken[s] += 1;
+                            placed = true;
+                            break;
+                        }
+                    }
+                    if !placed {
+                        break;
+                    }
+                }
+                for i in 0..n {
+                    if !perm.contains(&i) {
+                        perm.push(i);
+                    }
+                }
+            }
+            SlotOrder::HalfSplit => {
+                let half = n / 2;
+                let (mut a, mut b) = (0usize, half);
+                while a < half || b < n {
+                    if a < half {
+                        perm.push(a);
+                        a += 1;
+                    }
+                    if b < n {
+                        perm.push(b);
+                        b += 1;
+                    }
+                }
+            }
+            SlotOrder::Invert => perm.extend((0..n).rev()),
+        }
+        perm
+    }
+}
+
+#[cfg(test)]
+mod front_1c7d40 {
+    use super::*;
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+    use std::collections::BTreeMap;
+    use std::time::Instant;
+
+    /// The two canonical examples, named here as *data*.  This module is
+    /// `#[cfg(test)]` and is measurement apparatus; no production path
+    /// reads either string.
+    const CASE2: &str = "It's just a stupid game";
+    const CASE2_CLUE: [&str; 5] = ["hits", "justice", "dupe", "hid", "came"];
+    const CASE1: &str = "recognize speech";
+    const CASE1_CLUE: [&str; 4] = ["wreck", "a", "nice", "beach"];
+
+    /// The pop limit `generate_approximate` uses.  It is a local `const`
+    /// inside that function, so the driver cannot name it; the printed
+    /// opening width in the first test is what confirms the copy.
+    const POP_LIMIT: usize = 4_000;
+
+    /// The orders priced, in the order they are reported.
+    const ORDERS: [SlotOrder; 4] = [
+        SlotOrder::Base,
+        SlotOrder::Interleave,
+        SlotOrder::HalfSplit,
+        SlotOrder::Invert,
+    ];
+
+    fn generator() -> Generator {
+        Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap()
+    }
+
+    fn multiset(s: &str) -> Vec<String> {
+        let mut v: Vec<String> =
+            s.split_whitespace().map(normalized_word).collect();
+        v.sort();
+        v
+    }
+
+    fn clue_multiset(c: &Clue) -> Vec<String> {
+        let mut v: Vec<String> =
+            c.words.iter().map(|w| normalized_word(&w.word)).collect();
+        v.sort();
+        v
+    }
+
+    fn rank_of(pool: &[Clue], want: &[String]) -> Option<(usize, f64)> {
+        let mut best: Option<(usize, f64)> = None;
+        for (i, c) in pool.iter().enumerate() {
+            if &clue_multiset(c) == want {
+                let r = i + 1;
+                if best.map_or(true, |(b, _)| r < b) {
+                    best = Some((r, c.score));
+                }
+            }
+        }
+        best
+    }
+
+    /// One priced row.
+    struct Row {
+        order: SlotOrder,
+        reach2: usize,
+        rank2: Option<(usize, f64)>,
+        pool2: usize,
+        ms2: u128,
+        reach1: usize,
+        rank1: Option<(usize, f64)>,
+        pool1: usize,
+        ms1: u128,
+        reserve: usize,
+        traversal: usize,
+        adjacency: usize,
+    }
+
+    fn run(order: SlotOrder) -> (Row, slot_probe::Probe, slot_probe::Probe, Vec<Clue>, Vec<Clue>) {
+        slot_probe::arm(order);
+        let g = generator();
+        let t = Instant::now();
+        let pool2 = g.generate_pool(CASE2);
+        let ms2 = t.elapsed().as_millis();
+        let probe2 = slot_probe::take().expect("armed");
+        slot_probe::arm(order);
+        let t = Instant::now();
+        let pool1 = g.generate_pool(CASE1);
+        let ms1 = t.elapsed().as_millis();
+        let probe1 = slot_probe::take().expect("armed");
+        let want2 = multiset(&CASE2_CLUE.join(" "));
+        let want1 = multiset(&CASE1_CLUE.join(" "));
+        let r2 = rank_of(&pool2, &want2);
+        let r1 = rank_of(&pool1, &want1);
+        let (reserve, traversal, adjacency) = {
+            let mut n = [0usize; 3];
+            for e in &probe1.emits {
+                match e.which {
+                    "reserve" => n[0] += 1,
+                    "traversal" => n[1] += 1,
+                    _ => {}
+                }
+            }
+
+            (n[0], n[1], 0)
+        };
+        (
+            Row {
+                order,
+                reach2: r2.map_or(0, |_| 1),
+                rank2: r2,
+                pool2: pool2.len(),
+                ms2,
+                reach1: r1.map_or(0, |_| 1),
+                rank1: r1,
+                pool1: pool1.len(),
+                ms1,
+                reserve,
+                traversal,
+                adjacency,
+            },
+            probe2,
+            probe1,
+            pool2,
+            pool1,
+        )
+    }
+
+    fn header() {
+        println!(
+            "{:<30} {:>5} {:>7} {:>9} {:>7} {:>8} {:>7} {:>9} {:>6} {:>7} {:>7} {:>7}",
+            "order", "rch2", "rank2", "score2", "pool2", "ms2",
+            "rch1", "rank1", "score1", "pool1", "ms1", "res/trav"
+        );
+    }
+
+    fn show(r: &Row) {
+        println!(
+            "{:<30} {:>5} {:>7} {:>9} {:>7} {:>8} {:>7} {:>9} {:>6} {:>7} {:>7} {:>7}",
+            r.order.name(),
+            r.reach2,
+            r.rank2.map_or(0, |(a, _)| a),
+            r.rank2.map_or(0.0, |(_, s)| s),
+            r.pool2,
+            r.ms2,
+            r.reach1,
+            r.rank1.map_or(0, |(a, _)| a),
+            r.rank1.map_or(0.0, |(_, s)| s),
+            r.pool1,
+            r.ms1,
+            format!("{}/{}", r.reserve, r.traversal),
+        );
+    }
+
+    /// The words an emitted tuple actually spells, given the segmentation
+    /// the emission came from.
+    fn spelled(probe: &slot_probe::Probe, e: &slot_probe::Emit) -> Option<Vec<String>> {
+        let seg = probe.segs.iter().find(|s| s.rank == e.rank)?;
+        if e.tuple.len() != seg.slots.len() {
+            return None;
+        }
+        let mut out = Vec::with_capacity(e.tuple.len());
+        for (k, &i) in e.tuple.iter().enumerate() {
+            out.push(seg.slots[k].get(i)?.word.clone());
+        }
+        Some(out)
+    }
+
+    fn carries(probe: &slot_probe::Probe, want: &[&str]) -> Vec<usize> {
+        let mut out = Vec::new();
+        for seg in &probe.segs {
+            if seg.slots.len() != want.len() {
+                continue;
+            }
+            if want
+                .iter()
+                .enumerate()
+                .all(|(k, w)| seg.slots[k].iter().any(|a| a.word == *w))
+            {
+                out.push(seg.rank);
+            }
+        }
+        out
+    }
+
+    fn indices(probe: &slot_probe::Probe, rank: usize, want: &[&str]) -> Vec<usize> {
+        let seg = probe.segs.iter().find(|s| s.rank == rank).unwrap();
+        want.iter()
+            .enumerate()
+            .map(|(k, w)| {
+                seg.slots[k]
+                    .iter()
+                    .position(|a| a.word == *w)
+                    .expect("carrying")
+            })
+            .collect()
+    }
+
+    fn widths_of(probe: &slot_probe::Probe, rank: usize) -> Vec<usize> {
+        probe.segs.iter().find(|s| s.rank == rank).unwrap().widths.clone()
+    }
+
+    fn cap_of(probe: &slot_probe::Probe, rank: usize) -> usize {
+        probe.segs.iter().find(|s| s.rank == rank).unwrap().cap
+    }
+
+    fn report_carrying(
+        label: &str,
+        probe: &slot_probe::Probe,
+        want: &[&str],
+    ) {
+        let carrying = carries(probe, want);
+        println!(
+            "{label}: {}/{} funds carry the multiset",
+            carrying.len(),
+            probe.segs.len()
+        );
+        for rank in &carrying {
+            let idx = indices(probe, *rank, want);
+            println!(
+                "  rank {rank} widths {:?} cap {} -> indices {:?}  all inside cap: {}",
+                widths_of(probe, *rank),
+                cap_of(probe, *rank),
+                idx,
+                idx.iter().all(|&i| i < cap_of(probe, *rank))
+            );
+        }
+    }
+
+    /// Obligation 1: reproduce the opening width and the needed indices.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_reproduce_the_opening_width_and_the_needed_indices() {
+        println!(
+            "affordable_opening_width(5, 4000) = {}",
+            affordable_opening_width(5, POP_LIMIT)
+        );
+        let (row, probe2, probe1, pool2, pool1) = run(SlotOrder::Base);
+        println!(
+            "case 2: pool {} reach {:?} reserve {} traversal {}",
+            pool2.len(),
+            rank_of(&pool2, &multiset(&CASE2_CLUE.join(" "))),
+            row.reserve,
+            row.traversal
+        );
+        println!(
+            "case 1: pool {} rank {:?}",
+            pool1.len(),
+            rank_of(&pool1, &multiset(&CASE1_CLUE.join(" ")))
+        );
+        report_carrying("case 2", &probe2, &CASE2_CLUE);
+        report_carrying("case 1", &probe1, &CASE1_CLUE);
+
+        // The green control, spelled out of the traversal's own emissions.
+        let mut hits = 0;
+        for e in probe1.emits.iter().filter(|e| e.which == "traversal") {
+            let Some(words) = spelled(&probe1, e) else { continue };
+            let mut got = words.clone();
+            got.sort();
+            if got == multiset(&CASE1_CLUE.join(" ")) {
+                hits += 1;
+                println!(
+                    "  case-1 traversal sched {} tuple {:?} cap {} all inside {}",
+                    e.rank,
+                    e.tuple,
+                    e.cap,
+                    e.tuple.iter().all(|&i| i < e.cap)
+                );
+            }
+        }
+        println!("case-1 traversal emissions spelling the canonical multiset: {hits}");
+    }
+
+    /// Obligation 2: does anything measurable separate a needed word from
+    /// the candidates ahead of it, over the whole captured candidate set?
+    #[test]
+    #[ignore]
+    fn front_1c7d40_what_separates_the_needed_word() {
+        let mean = |v: &[f64]| {
+            if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
+        };
+        let (_r, probe2, probe1, _a, _b) = run(SlotOrder::Base);
+        for (label, probe, want) in [
+            ("case 2", &probe2, &CASE2_CLUE[..]),
+            ("case 1", &probe1, &CASE1_CLUE[..]),
+        ] {
+            // Pool-wide, over every captured slot list: how clustered is
+            // the shipped key inside the opening width?
+            let mut front_gap = Vec::new();
+            let mut front_cost_pct = Vec::new();
+            let mut whole_cost_pct = Vec::new();
+            for seg in probe.segs.iter() {
+                for slot in &seg.slots {
+                    let m = slot.len().min(seg.cap);
+                    if m == 0 {
+                        continue;
+                    }
+                    let c0 = slot[0].contrib;
+                    let cm = slot[m - 1].contrib;
+                    front_gap.push(c0 - cm);
+                    let lo = slot.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min);
+                    let hi = slot.iter().map(|a| a.cost).fold(f64::NEG_INFINITY, f64::max);
+                    let mid = slot[m - 1].cost;
+                    front_cost_pct.push(if hi > lo { (mid - lo) / (hi - lo) } else { 0.0 });
+                    let am = slot[slot.len() / 2].cost;
+                    whole_cost_pct.push(if hi > lo { (am - lo) / (hi - lo) } else { 0.0 });
+                }
+            }
+            println!("{label}: {} slot lists captured", front_gap.len());
+            println!(
+                "  contribution lost from the best to the {}-th of a slot: mean {:.6}, max {:.6}",
+                "cap", mean(&front_gap),
+                front_gap.iter().cloned().fold(0.0, f64::max)
+            );
+            println!(
+                "  cost percentile of the cap-th candidate: mean {:.4}; of the list's midpoint: mean {:.4}",
+                mean(&front_cost_pct), mean(&whole_cost_pct)
+            );
+
+            // And the decisive part: where do the *needed* words sit?
+            let carrying = carries(probe, want);
+            let mut pos: Vec<f64> = Vec::new();
+            let mut need_pct: Vec<f64> = Vec::new();
+            let mut need_contrib_share: Vec<f64> = Vec::new();
+            for rank in &carrying {
+                let seg = probe.segs.iter().find(|s| s.rank == *rank).unwrap();
+                for (k, w) in want.iter().enumerate() {
+                    let slot = &seg.slots[k];
+                    let p = slot.iter().position(|a| a.word == *w).unwrap();
+                    pos.push(p as f64);
+                    let lo = slot.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min);
+                    let hi = slot.iter().map(|a| a.cost).fold(f64::NEG_INFINITY, f64::max);
+                    need_pct.push(if hi > lo { (slot[p].cost - lo) / (hi - lo) } else { 0.0 });
+                    let cmax = slot.iter().map(|a| a.contrib).fold(f64::NEG_INFINITY, f64::max);
+                    let cmin = slot.iter().map(|a| a.contrib).fold(f64::INFINITY, f64::min);
+                    need_contrib_share.push(if cmax > cmin {
+                        1.0 - (cmax - slot[p].contrib) / (cmax - cmin)
+                    } else {
+                        1.0
+                    });
+                }
+            }
+            println!(
+                "  needed words: {} observations over {} funds; mean position {:.2}; \
+                 mean cost percentile {:.4}; mean normalised contribution {:.4}",
+                pos.len(), carrying.len(), mean(&pos), mean(&need_pct),
+                mean(&need_contrib_share)
+            );
+        }
+    }
+
+    /// Obligation 3: price at least two general candidate orders.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_price_the_candidate_orders() {
+        header();
+        for order in ORDERS {
+            let (r, probe2, probe1, _a, _b) = run(order);
+            show(&r);
+            report_carrying("  case 2", &probe2, &CASE2_CLUE);
+            report_carrying("  case 1", &probe1, &CASE1_CLUE);
+        }
+    }
+
+    /// How wide the shipped key is over a *whole* slot list, next to how
+    /// wide it is over the opening width.  This is what sets the width a
+    /// cut would have to reach to contain a given candidate.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_how_wide_the_key_is_over_a_whole_list() {
+        let (_r, probe2, probe1, _a, _b) = run(SlotOrder::Base);
+        for (label, probe, want) in [
+            ("case 2", &probe2, &CASE2_CLUE[..]),
+            ("case 1", &probe1, &CASE1_CLUE[..]),
+        ] {
+            let mut whole = Vec::new();
+            let mut capw = Vec::new();
+            let mut need_frac = Vec::new();
+            for seg in &probe.segs {
+                for slot in &seg.slots {
+                    let cmax = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let cmin = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::INFINITY, f64::min);
+                    if cmax <= cmin {
+                        continue;
+                    }
+                    whole.push(cmax - cmin);
+                    let m = slot.len().min(seg.cap);
+                    if m > 0 {
+                        capw.push(cmax - slot[m - 1].contrib);
+                    }
+                }
+            }
+            for rank in carries(probe, want) {
+                let seg = probe.segs.iter().find(|s| s.rank == rank).unwrap();
+                for (k, w) in want.iter().enumerate() {
+                    let slot = &seg.slots[k];
+                    let p = slot.iter().position(|a| a.word == *w).unwrap();
+                    let cmax = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    let cmin = slot
+                        .iter()
+                        .map(|a| a.contrib)
+                        .fold(f64::INFINITY, f64::min);
+                    if cmax > cmin {
+                        need_frac.push((cmax - slot[p].contrib) / (cmax - cmin));
+                    }
+                }
+            }
+            let mean = |v: &[f64]| {
+                if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
+            };
+            let max = |v: &[f64]| {
+                v.iter().cloned().fold(0.0, f64::max)
+            };
+            println!(
+                "{label}: {} lists. key width over the WHOLE list: mean {:.4}, max {:.4}; \
+                 over the opening width: mean {:.4}, max {:.4}",
+                whole.len(), mean(&whole), max(&whole), mean(&capw), max(&capw)
+            );
+            println!(
+                "  needed word's fraction of the whole-list key width: mean {:.4}, max {:.4}",
+                mean(&need_frac), max(&need_frac)
+            );
+        }
+    }
+
+    /// Obligation 5: what each order does to the descending property.  The
+    /// heap key is `bound(prefix)` and does not read the slot order, so
+    /// what is measured here is the two things the order *does* decide: the
+    /// bound quality of the candidates the opening width admits, and how
+    /// much of the emitted stream is inside it.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_descending_bound_under_each_order() {
+        for order in ORDERS {
+            let (_r, probe2, _p1, _a, _b) = run(order);
+            let mut front_loss = Vec::new();
+            let mut inside = 0usize;
+            let mut outside = 0usize;
+            let mut distinct0: BTreeMap<usize, usize> = BTreeMap::new();
+            for e in probe2.emits.iter().filter(|e| e.which == "traversal") {
+                if let Some(&i) = e.tuple.first() {
+                    *distinct0.entry(i).or_default() += 1;
+                }
+                if e.tuple.iter().all(|&i| i < e.cap) {
+                    inside += 1;
+                } else {
+                    outside += 1;
+                }
+            }
+            for seg in &probe2.segs {
+                for slot in &seg.slots {
+                    let m = slot.len().min(seg.cap);
+                    if m > 1 {
+                        front_loss.push(slot[0].contrib - slot[m - 1].contrib);
+                    }
+                }
+            }
+            let mean = |v: &[f64]| {
+                if v.is_empty() { 0.0 } else { v.iter().sum::<f64>() / v.len() as f64 }
+            };
+            println!(
+                "{:<30} traversal emits inside cap {inside} / outside {outside}; \
+                 distinct slot-0 indices {}; mean contribution given up across the \
+                 opening width {:.6}",
+                order.name(),
+                distinct0.len(),
+                mean(&front_loss)
+            );
+        }
+    }
+
+    /// The candidate keys an ordering could plausibly use.  Every one is a
+    /// function of a per-candidate measurement already carried on the
+    /// `SlotAlt`; none reads a word, a span identity, a target or a
+    /// segmentation.
+    use slot_probe::Alt;
+
+    type Key = fn(&Alt, &Alt) -> std::cmp::Ordering;
+
+        // A key is a plain comparator over two slot alternatives.  Every
+    fn keys() -> Vec<(&'static str, Key)> {
+        // A key is a plain comparator over two slot alternatives.  Every
+        // entry is a function of per-candidate measurements only.
+        vec![
+            (
+                "A contribution desc (shipped)",
+                (|a: &Alt, b: &Alt| cmp_desc(a.contrib, b.contrib)) as Key,
+            ),
+            (
+                "D contribution asc (inversion)",
+                (|a: &Alt, b: &Alt| cmp_desc(b.contrib, a.contrib)) as Key,
+            ),
+            (
+                "E edit cost asc",
+                (|a: &Alt, b: &Alt| {
+                    a.cost.partial_cmp(&b.cost).unwrap_or(std::cmp::Ordering::Equal)
+                }) as Key,
+            ),
+            (
+                "F edit cost desc",
+                (|a: &Alt, b: &Alt| cmp_desc(a.cost, b.cost)) as Key,
+            ),
+            (
+                "G syllables asc",
+                (|a: &Alt, b: &Alt| a.syllables.cmp(&b.syllables)) as Key,
+            ),
+            (
+                "H syllables desc",
+                (|a: &Alt, b: &Alt| b.syllables.cmp(&a.syllables)) as Key,
+            ),
+            (
+                "I familiarity desc",
+                (|a: &Alt, b: &Alt| cmp_desc(a.familiarity, b.familiarity)) as Key,
+            ),
+            (
+                "J familiarity asc",
+                (|a: &Alt, b: &Alt| {
+                    a.familiarity
+                        .partial_cmp(&b.familiarity)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }) as Key,
+            ),
+            (
+                "K shape desc",
+                (|a: &Alt, b: &Alt| cmp_desc(a.shape, b.shape)) as Key,
+            ),
+            (
+                "L closed-class asc",
+                (|a: &Alt, b: &Alt| a.closed.cmp(&b.closed)) as Key,
+            ),
+            (
+                "M reuse asc",
+                (|a: &Alt, b: &Alt| a.reused.cmp(&b.reused)) as Key,
+            ),
+            (
+                "N contribution, cost term only",
+                (|a: &Alt, b: &Alt| cmp_desc(-a.cost, -b.cost)) as Key,
+            ),
+            (
+                "O contribution, no familiarity",
+                (|a: &Alt, b: &Alt| {
+                    cmp_desc(
+                        a.contrib - axes::FAMILIARITY * a.familiarity,
+                        b.contrib - axes::FAMILIARITY * b.familiarity,
+                    )
+                }) as Key,
+            ),
+            (
+                "P contribution, no cost",
+                (|a: &Alt, b: &Alt| {
+                    cmp_desc(
+                        a.contrib + axes::SIMILARITY_PER_WORD * a.cost,
+                        b.contrib + axes::SIMILARITY_PER_WORD * b.cost,
+                    )
+                }) as Key,
+            ),
+            (
+                "Q cost asc, tie contribution desc",
+                (|a: &Alt, b: &Alt| {
+                    a.cost
+                        .partial_cmp(&b.cost)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| cmp_desc(a.contrib, b.contrib))
+                }) as Key,
+            ),
+            (
+                "R contribution desc, tie cost asc",
+                (|a: &Alt, b: &Alt| {
+                    cmp_desc(a.contrib, b.contrib).then_with(|| {
+                        a.cost
+                            .partial_cmp(&b.cost)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                }) as Key,
+            ),
+        ]
+    }
+
+    /// The decisive instrument: re-rank every carrying fund's slots under
+    /// each general key and report whether the tuple's own words land
+    /// inside the opening width.  A key that lands all of them inside is an
+    /// ordering that reaches the tuple; a key that does not is priced.
+    #[test]
+    #[ignore]
+    fn front_1c7d40_rank_the_needed_word_under_every_general_key() {
+        let (_r, probe2, probe1, _a, _b) = run(SlotOrder::Base);
+        for (label, probe, want) in [
+            ("case 2", &probe2, &CASE2_CLUE[..]),
+            ("case 1", &probe1, &CASE1_CLUE[..]),
+        ] {
+            let carrying = carries(probe, want);
+            println!(
+                "\n{label}: {} carrying funds; the cap is the opening width",
+                carrying.len()
+            );
+            println!(
+                "  {:<34} {:>9} {:>9} {:>10} {:>10}",
+                "key", "funds in", "slots", "mean pos", "need contr"
+            );
+            for (name, key) in keys() {
+                let mut all_inside = 0usize;
+                let mut slots = 0usize;
+                let mut pos_sum = 0.0f64;
+                let mut need_share = Vec::new();
+                let mut front_share = Vec::new();
+                for rank in &carrying {
+                    let seg =
+                        probe.segs.iter().find(|s| s.rank == *rank).unwrap();
+                    let mut inside_here = true;
+                    for (k, w) in want.iter().enumerate() {
+                        let slot = &seg.slots[k];
+                        let p =
+                            slot.iter().position(|a| a.word == *w).unwrap();
+                        let mut ord: Vec<usize> = (0..slot.len()).collect();
+                        ord.sort_by(|&i, &j| {
+                            key(&slot[i], &slot[j]).then_with(|| {
+                                slot[i].word.cmp(&slot[j].word)
+                            })
+                        });
+                        let np = ord.iter().position(|&i| i == p).unwrap();
+                        pos_sum += np as f64;
+                        slots += 1;
+                        if np >= seg.cap {
+                            inside_here = false;
+                        }
+                        let cmax = slot
+                            .iter()
+                            .map(|a| a.contrib)
+                            .fold(f64::NEG_INFINITY, f64::max);
+                        let cmin = slot
+                            .iter()
+                            .map(|a| a.contrib)
+                            .fold(f64::INFINITY, f64::min);
+                        if np < seg.cap {
+                            need_share.push(if cmax > cmin {
+                                1.0 - (cmax - slot[np].contrib) / (cmax - cmin)
+                            } else {
+                                1.0
+                            });
+                            front_share.push(if cmax > cmin {
+                                1.0 - (cmax - slot[0].contrib) / (cmax - cmin)
+                            } else {
+                                1.0
+                            });
+                        }
+                    }
+                    if inside_here {
+                        all_inside += 1;
+                    }
+                }
+                let mean = |v: &[f64]| {
+                    if v.is_empty() {
+                        0.0
+                    } else {
+                        v.iter().sum::<f64>() / v.len() as f64
+                    }
+                };
+                let _ = front_share;
+                println!(
+                    "  {:<34} {:>4}/{:<4} {:>9} {:>9.2} {:>10.4}",
+                    name,
+                    all_inside,
+                    carrying.len(),
+                    slots,
+                    if slots == 0 { 0.0 } else { pos_sum / slots as f64 },
+                    mean(&need_share),
+                );
             }
         }
     }
