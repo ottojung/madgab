@@ -2101,9 +2101,22 @@ impl Generator {
             // [`affordable_opening_width`] for the measured counts.
             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
                 .min(widest);
+            // Which candidates of each slot the opening width may open.
+            // `None` is the shipped rule, `index < cap` on the one flat
+            // per-slot list, and it is what every release build takes;
+            // a test that has armed a set rule replaces it with that
+            // rule's admitted indices.  The two spend the same opening
+            // width, and the walk's own key does not read either.
+            #[cfg(test)]
+            let mut admit_sets: Option<Vec<Vec<usize>>> = None;
+            #[cfg(not(test))]
+            let admit_sets: Option<Vec<Vec<usize>>> = None;
+            // The set the current slot's expansion may offer.  Refilled per
+            // pop so the prefix path allocates nothing after the first.
+            let mut admit: Vec<usize> = Vec::new();
             #[cfg(test)]
             if slot_probe::armed() {
-                let segs = slots
+                let segs: Vec<Vec<slot_probe::Alt>> = slots
                     .iter()
                     .map(|s| {
                         s.iter()
@@ -2124,6 +2137,7 @@ impl Generator {
                             .collect::<Vec<_>>()
                     })
                     .collect::<Vec<_>>();
+                admit_sets = slot_probe::admitted_sets(&segs, cap);
                 slot_probe::with(|p| {
                     p.segs.push(slot_probe::Seg {
                         rank: index,
@@ -2220,7 +2234,12 @@ impl Generator {
                         .enumerate()
                         .map(|(j, &i)| slots[j][i].cost)
                         .sum();
-                    for i in 0..slots[k].len().min(cap) {
+                    admit.clear();
+                    match admit_sets.as_deref() {
+                        Some(sets) => admit.extend_from_slice(&sets[k]),
+                        None => admit.extend(0..slots[k].len().min(cap)),
+                    }
+                    for &i in &admit {
                         if !slot_is_affordable(
                             committed,
                             later_min_cost[k],
@@ -7043,11 +7062,68 @@ impl SlotOrder {
     }
 }
 
+// ---- w-5d9c04: the per-slot candidate *set* ----
+//
+// Measurement apparatus only, and the same discipline as the block above:
+// behind `#[cfg(test)]`, unreachable from a release build.  Where
+// `SlotOrder` re-specified *which `cap` candidates come first*, `SlotCut`
+// re-specifies *which `cap` candidates the opening width admits at all* —
+// a set rather than an order, so it is not a permutation of the list and
+// the heap's own re-sort by `bound` cannot undo it.  Every rule is a
+// function of the candidates' own costs and contributions and of the
+// slot's own distribution; none reads a word, a span identity, a target
+// or a segmentation.
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum SlotCut {
+    /// The shipped cut: `index < cap` on the one flat list.  Not a priced
+    /// variant; it is the row every other row is measured against.
+    Prefix,
+    /// The `cap` candidates whose cost straddles the slot's *median*:
+    /// a contiguous window of the cost ranking, `cap` wide, centred on
+    /// the median cost rank.
+    MedianStraddle,
+    /// The same window centred on the slot's *mean* cost instead — a
+    /// cost-percentile band of the width the opening width can afford,
+    /// placed on the other centre of the distribution.
+    MeanStraddle,
+    /// A per-slot quantile cut: the `cap` candidates at evenly spaced
+    /// cost quantiles, spreading the width over the whole cost range.
+    Quantile,
+    /// The union of the `cap` cheapest-by-cost and the `cap`
+    /// best-by-contribution candidates.  This one admits up to `2*cap`
+    /// and is therefore priced as a spend increase, not at equal spend.
+    UnionTopCostContrib,
+}
+
+#[cfg(test)]
+impl SlotCut {
+    fn name(self) -> &'static str {
+        match self {
+            SlotCut::Prefix => "prefix (shipped)",
+            SlotCut::MedianStraddle => "median-straddle cost window",
+            SlotCut::MeanStraddle => "mean-straddle cost window",
+            SlotCut::Quantile => "even quantile spread",
+            SlotCut::UnionTopCostContrib => "union top-cost + top-contrib",
+        }
+    }
+
+    /// The set rule costs the opening width `cap`; the union is the one
+    /// variant that does not, and is priced at its own width.
+    fn admits(self, cap: usize) -> usize {
+        match self {
+            SlotCut::UnionTopCostContrib => cap * 2,
+            _ => cap,
+        }
+    }
+}
+
 #[cfg(test)]
 mod slot_probe {
     use std::cell::RefCell;
 
-    use super::SlotOrder;
+    use super::{SlotCut, SlotOrder};
+    use crate::cmp_desc;
 
     /// One retained alternative inside a slot, with the features the
     /// order could possibly key on.
@@ -7086,6 +7162,7 @@ mod slot_probe {
     #[derive(Clone)]
     pub struct Probe {
         pub order: SlotOrder,
+        pub cut: SlotCut,
         pub segs: Vec<Seg>,
         pub emits: Vec<Emit>,
     }
@@ -7095,9 +7172,17 @@ mod slot_probe {
     }
 
     pub fn arm(order: SlotOrder) {
+        arm_cut(SlotCut::Prefix, order);
+    }
+
+    /// Arm with a set rule in force.  The order is held at the shipped
+    /// one on purpose: this front prices the *set*, and holding the order
+    /// fixed is what makes the rows comparable to `REPORT-1c7d40`'s.
+    pub fn arm_cut(cut: SlotCut, order: SlotOrder) {
         STATE.with(|s| {
             *s.borrow_mut() = Some(Probe {
                 order,
+                cut,
                 segs: Vec::new(),
                 emits: Vec::new(),
             })
@@ -7114,6 +7199,85 @@ mod slot_probe {
 
     pub fn active_order() -> SlotOrder {
         STATE.with(|s| s.borrow().as_ref().map_or(SlotOrder::Base, |p| p.order))
+    }
+
+    /// The admitted set for every slot of a segmentation, or `None` when
+    /// the shipped prefix cut is in force — which is every release build,
+    /// and every test that did not arm a set rule.  `None` is what keeps
+    /// the release walk on exactly the base's `0..cap`.
+    pub fn admitted_sets(slots: &[Vec<Alt>], cap: usize) -> Option<Vec<Vec<usize>>> {
+        let cut = STATE.with(|s| s.borrow().as_ref().map(|p| p.cut))?;
+        Some(
+            slots
+                .iter()
+                .map(|slot| admitted(cut, slot, cap))
+                .collect(),
+        )
+    }
+
+    /// The set a cut rule admits out of one slot list, in ascending index
+    /// order — the order the shipped prefix cut also visits, so the walk
+    /// is unchanged for the prefix rule.  A pure function of the slot's
+    /// own candidates and the opening width.
+    pub fn admitted(cut: SlotCut, slot: &[Alt], cap: usize) -> Vec<usize> {
+        let n = slot.len();
+        let cap = cap.min(n);
+        if cap == 0 {
+            return Vec::new();
+        }
+        // Cost rank order, ties broken on the shipped position so the
+        // ranking — and therefore the set — is a deterministic function of
+        // the list.
+        let mut by_cost: Vec<usize> = (0..n).collect();
+        by_cost.sort_by(|&i, &j| {
+            slot[i]
+                .cost
+                .partial_cmp(&slot[j].cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| i.cmp(&j))
+        });
+        let mut out: Vec<usize> = match cut {
+            SlotCut::Prefix => (0..cap).collect(),
+            SlotCut::MedianStraddle => window(&by_cost, n / 2, cap),
+            SlotCut::MeanStraddle => {
+                let total: f64 = slot.iter().map(|a| a.cost).sum();
+                let mean = total / n as f64;
+                let centre = by_cost
+                    .iter()
+                    .filter(|&&i| slot[i].cost < mean)
+                    .count();
+                window(&by_cost, centre, cap)
+            }
+            SlotCut::Quantile => (0..cap)
+                .map(|j| {
+                    let q = (2 * j + 1) * n / (2 * cap);
+                    by_cost[q.min(n - 1)]
+                })
+                .collect(),
+            SlotCut::UnionTopCostContrib => {
+                let mut by_contrib: Vec<usize> = (0..n).collect();
+                by_contrib.sort_by(|&i, &j| {
+                    cmp_desc(slot[i].contrib, slot[j].contrib)
+                        .then_with(|| i.cmp(&j))
+                });
+                let mut v: Vec<usize> = by_cost[..cap].to_vec();
+                v.extend_from_slice(&by_contrib[..cap]);
+                v.sort_unstable();
+                v.dedup();
+                v
+            }
+        };
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// `cap` consecutive positions of the cost ranking, centred on
+    /// `centre` and clamped to the ranking.
+    fn window(rank: &[usize], centre: usize, cap: usize) -> Vec<usize> {
+        let n = rank.len();
+        let lo = centre.saturating_sub(cap / 2).min(n - cap);
+        rank[lo..lo + cap].to_vec()
     }
 
     pub fn with<R>(f: impl FnOnce(&mut Probe) -> R) -> Option<R> {
@@ -7865,6 +8029,521 @@ mod front_1c7d40 {
                     mean(&need_share),
                 );
             }
+        }
+    }
+}
+
+// ---- w-5d9c04: the per-slot candidate *set* ----
+//
+// Same discipline as the `w-1c7d40` block above: `#[cfg(test)]` only, the
+// two canonical examples named here as *data*, and every rule a function of
+// a slot's own candidates and of the opening width.  The difference is what
+// is priced.  The order block re-specified which `cap` candidates come
+// first and let the walk's own key re-sort them; the walk then chose `cap`
+// of the survivors.  This block re-specifies *the survivor set itself*,
+// which the walk's key cannot undo, and spends the same `cap`.
+//
+// `admitted` is the one definition of each rule and the traversal calls it,
+// so the sets this module re-derives from the probe's captured slot lists
+// are the sets the walk really used.
+#[cfg(test)]
+mod front_5d9c04 {
+    use super::*;
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+    use std::collections::BTreeMap;
+    use std::time::Instant;
+
+    /// The two canonical examples, named here as *data*.  No production
+    /// path reads either string.
+    const CASE2: &str = "It's just a stupid game";
+    const CASE2_CLUE: [&str; 5] = ["hits", "justice", "dupe", "hid", "came"];
+    const CASE1: &str = "recognize speech";
+    const CASE1_CLUE: [&str; 4] = ["wreck", "a", "nice", "beach"];
+
+    /// The pop limit `generate_approximate` uses.  It is a local `const`
+    /// inside that function, so the driver cannot name it; the printed
+    /// opening width in the first test is what confirms the copy.
+    const POP_LIMIT: usize = 4_000;
+
+    /// The set rules priced, in the order they are reported.  The order is
+    /// held at the shipped one throughout, so every row differs from the
+    /// baseline in the *set* alone.
+    const CUTS: [SlotCut; 5] = [
+        SlotCut::Prefix,
+        SlotCut::MedianStraddle,
+        SlotCut::MeanStraddle,
+        SlotCut::Quantile,
+        SlotCut::UnionTopCostContrib,
+    ];
+
+    fn generator() -> Generator {
+        Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap()
+    }
+
+    fn multiset(s: &str) -> Vec<String> {
+        let mut v: Vec<String> =
+            s.split_whitespace().map(normalized_word).collect();
+        v.sort();
+        v
+    }
+
+    fn clue_multiset(c: &Clue) -> Vec<String> {
+        let mut v: Vec<String> =
+            c.words.iter().map(|w| normalized_word(&w.word)).collect();
+        v.sort();
+        v
+    }
+
+    fn rank_of(pool: &[Clue], want: &[String]) -> Option<(usize, f64)> {
+        let mut best: Option<(usize, f64)> = None;
+        for (i, c) in pool.iter().enumerate() {
+            if &clue_multiset(c) == want {
+                let r = i + 1;
+                if best.map_or(true, |(b, _)| r < b) {
+                    best = Some((r, c.score));
+                }
+            }
+        }
+        best
+    }
+
+    /// One priced row.
+    struct Row {
+        cut: SlotCut,
+        reach2: usize,
+        pool2: usize,
+        ms2: u128,
+        reach1: usize,
+        rank1: Option<(usize, f64)>,
+        pool1: usize,
+        ms1: u128,
+        reserve: usize,
+        traversal: usize,
+        distinct0: usize,
+        inside: usize,
+        outside: usize,
+        band: f64,
+    }
+
+    fn run(cut: SlotCut) -> (Row, slot_probe::Probe, slot_probe::Probe) {
+        slot_probe::arm_cut(cut, SlotOrder::Base);
+        let g = generator();
+        let t = Instant::now();
+        let pool2 = g.generate_pool(CASE2);
+        let ms2 = t.elapsed().as_millis();
+        let probe2 = slot_probe::take().expect("armed");
+        slot_probe::arm_cut(cut, SlotOrder::Base);
+        let t = Instant::now();
+        let pool1 = g.generate_pool(CASE1);
+        let ms1 = t.elapsed().as_millis();
+        let probe1 = slot_probe::take().expect("armed");
+        let r1 = rank_of(&pool1, &multiset(&CASE1_CLUE.join(" ")));
+        let r2 = rank_of(&pool2, &multiset(&CASE2_CLUE.join(" ")));
+        let (reserve, traversal, distinct0, inside, outside) = {
+            let mut n = [0usize; 2];
+            let mut distinct: BTreeMap<usize, usize> = BTreeMap::new();
+            let mut band = [0usize; 2];
+            for e in &probe1.emits {
+                match e.which {
+                    "reserve" => n[0] += 1,
+                    "traversal" => n[1] += 1,
+                    _ => {}
+                }
+            }
+            for e in probe2.emits.iter().filter(|e| e.which == "traversal") {
+                if let Some(&i) = e.tuple.first() {
+                    *distinct.entry(i).or_default() += 1;
+                }
+                if e.tuple.iter().all(|&i| i < e.cap) {
+                    band[0] += 1;
+                } else {
+                    band[1] += 1;
+                }
+            }
+            (n[0], n[1], distinct.len(), band[0], band[1])
+        };
+        // What the admitted set costs the key: the `contribution` spread
+        // across it, mean over every slot list of a full case-2 run.  The
+        // shipped prefix is the tightest descending set available, and
+        // this is the number that says whether a set rule is tighter.
+        let mut band = Vec::new();
+        for seg in &probe2.segs {
+            for slot in &seg.slots {
+                let set = slot_probe::admitted(cut, slot, seg.cap);
+                if set.len() < 2 {
+                    continue;
+                }
+                let hi = set.iter().map(|&i| slot[i].contrib).fold(f64::NEG_INFINITY, f64::max);
+                let lo = set.iter().map(|&i| slot[i].contrib).fold(f64::INFINITY, f64::min);
+                band.push(hi - lo);
+            }
+        }
+        let band = if band.is_empty() {
+            0.0
+        } else {
+            band.iter().sum::<f64>() / band.len() as f64
+        };
+        (
+            Row {
+                cut,
+                reach2: r2.map_or(0, |_| 1),
+                pool2: pool2.len(),
+                ms2,
+                reach1: r1.map_or(0, |_| 1),
+                rank1: r1,
+                pool1: pool1.len(),
+                ms1,
+                reserve,
+                traversal,
+                distinct0,
+                inside,
+                outside,
+                band,
+            },
+            probe2,
+            probe1,
+        )
+    }
+
+    fn header() {
+        println!(
+            "{:<28} {:>5} {:>7} {:>8} {:>7} {:>5} {:>6} {:>9} {:>7} {:>8} {:>7} {:>8} {:>9}",
+            "cut", "rch2", "pool2", "ms2", "rch1", "rank1", "score1", "pool1",
+            "ms1", "res/trav", "slot0 idx", "in/out", "set band"
+        );
+    }
+
+    fn show(r: &Row) {
+        println!(
+            "{:<28} {:>5} {:>7} {:>8} {:>7} {:>5} {:>6} {:>9} {:>7} {:>8} {:>7} {:>8} {:>9}",
+            r.cut.name(),
+            r.reach2,
+            r.pool2,
+            r.ms2,
+            r.reach1,
+            r.rank1.map_or(0, |(a, _)| a),
+            r.rank1.map_or(0.0, |(_, s)| s),
+            r.pool1,
+            r.ms1,
+            format!("{}/{}", r.reserve, r.traversal),
+            r.distinct0,
+            format!("{}/{}", r.inside, r.outside),
+            r.band,
+        );
+    }
+
+    /// The slot lists that hold the tuple's multiset, and where in each of
+    /// those slots the needed word sits.
+    fn carrying(
+        probe: &slot_probe::Probe,
+        want: &[&str],
+    ) -> Vec<(usize, Vec<usize>)> {
+        let mut out = Vec::new();
+        for seg in &probe.segs {
+            if seg.slots.len() != want.len() {
+                continue;
+            }
+            if !want
+                .iter()
+                .enumerate()
+                .all(|(k, w)| seg.slots[k].iter().any(|a| a.word == *w))
+            {
+                continue;
+            }
+            let idx: Vec<usize> = want
+                .iter()
+                .enumerate()
+                .map(|(k, w)| {
+                    seg.slots[k]
+                        .iter()
+                        .position(|a| a.word == *w)
+                        .expect("carrying")
+                })
+                .collect();
+            out.push((seg.rank, idx));
+        }
+        out
+    }
+
+    /// Where the needed indices sit in the *set* each rule admits, and the
+    /// percentile of their cost in their own slot's cost distribution.
+    /// This is the arithmetic that decides reach before the pipeline is
+    /// run: if no slot's needed index is admitted by any rule, no rule can
+    /// reach.
+    fn report_carrying(
+        label: &str,
+        probe: &slot_probe::Probe,
+        cut: SlotCut,
+        want: &[&str],
+    ) {
+        let funds = carrying(probe, want);
+        let mut admitted_funds = 0usize;
+        let mut observations = 0usize;
+        let mut admitted_obs = 0usize;
+        let mut pct = Vec::new();
+        for (rank, idx) in &funds {
+            let seg = probe.segs.iter().find(|s| s.rank == *rank).unwrap();
+            let sets: Vec<Vec<usize>> = seg
+                .slots
+                .iter()
+                .map(|slot| slot_probe::admitted(cut, slot, seg.cap))
+                .collect();
+            let widths: Vec<usize> = sets.iter().map(Vec::len).collect();
+            let mut all_in = true;
+            let mut cells = Vec::new();
+            for (k, &i) in idx.iter().enumerate() {
+                let slot = &seg.slots[k];
+                let lo =
+                    slot.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min);
+                let hi = slot
+                    .iter()
+                    .map(|a| a.cost)
+                    .fold(f64::NEG_INFINITY, f64::max);
+                let p = if hi > lo { (slot[i].cost - lo) / (hi - lo) } else { 0.0 };
+                pct.push(p);
+                observations += 1;
+                let in_set = sets[k].contains(&i);
+                if in_set {
+                    admitted_obs += 1;
+                } else {
+                    all_in = false;
+                }
+                cells.push(format!(
+                    "{i}{}",
+                    if in_set { "" } else { "!" }
+                ));
+            }
+            if all_in {
+                admitted_funds += 1;
+            }
+            println!(
+                "  {label} rank {rank} widths {:?} cap {} -> set widths {:?} (rule budget {}) -> indices [{}] admitted by {:?} {}",
+                seg.widths,
+                seg.cap,
+                widths,
+                cut.admits(seg.cap),
+                cells.join(" "),
+                cut.name(),
+                if all_in { "ALL" } else { "partial" }
+            );
+        }
+        let mean = |v: &[f64]| {
+            if v.is_empty() {
+                0.0
+            } else {
+                v.iter().sum::<f64>() / v.len() as f64
+            }
+        };
+        println!(
+            "  {label} {}: funds fully admitted {admitted_funds}/{}, observations {admitted_obs}/{observations}, mean needed cost percentile {:.4}",
+            cut.name(),
+            funds.len(),
+            mean(&pct)
+        );
+    }
+
+    /// Obligation 1: the stage, the opening width and the needed indices,
+    /// re-derived on this branch under the shipped prefix cut.
+    #[test]
+    #[ignore]
+    fn front_5d9c04_rederive_the_opening_width_and_the_needed_indices() {
+        println!(
+            "affordable_opening_width(5, 4000) = {}",
+            affordable_opening_width(5, POP_LIMIT)
+        );
+        let (row, probe2, probe1) = run(SlotCut::Prefix);
+        println!(
+            "case 2: pool {} reach {} reserve {} traversal {}",
+            row.pool2, row.reach2, row.reserve, row.traversal
+        );
+        println!(
+            "case 1: pool {} rank {:?}",
+            row.pool1, row.rank1
+        );
+        for cut in CUTS {
+            report_carrying("case 2", &probe2, cut, &CASE2_CLUE);
+            report_carrying("case 1", &probe1, cut, &CASE1_CLUE);
+        }
+    }
+
+    /// Obligation 2: price every set rule through the whole pipeline.
+    #[test]
+    #[ignore]
+    fn front_5d9c04_price_the_set_cuts() {
+        header();
+        for cut in CUTS {
+            let (r, probe2, probe1) = run(cut);
+            show(&r);
+            report_carrying("  case 2", &probe2, cut, &CASE2_CLUE);
+            report_carrying("  case 1", &probe1, cut, &CASE1_CLUE);
+        }
+    }
+
+    /// How much of a slot's own cost distribution an opening width of
+    /// `cap` can cover at all, against how far the needed words sit from
+    /// the centres a set rule can be placed on.  This is the arithmetic
+    /// that prices the set-cut family before it is run.
+    #[test]
+    #[ignore]
+    fn front_5d9c04_how_much_of_a_cost_distribution_can_cap_cover() {
+        let (_r, probe2, probe1) = run(SlotCut::Prefix);
+        for (label, probe, want) in [
+            ("case 2", &probe2, &CASE2_CLUE[..]),
+            ("case 1", &probe1, &CASE1_CLUE[..]),
+        ] {
+            let mut cover = Vec::new();
+            for seg in &probe.segs {
+                for slot in &seg.slots {
+                    let n = slot.len();
+                    if n > 1 && seg.cap > 0 {
+                        cover.push(seg.cap as f64 / n as f64);
+                    }
+                }
+            }
+            let mean = |v: &[f64]| {
+                if v.is_empty() {
+                    0.0
+                } else {
+                    v.iter().sum::<f64>() / v.len() as f64
+                }
+            };
+            // The percentile a `cap`-wide window reaches, and where the
+            // needed words sit relative to the median and the mean.  A
+            // `cap`-wide window in a list of `n` spans `cap/n` of the cost
+            // range, so nothing further than `cap/(2n)` from its own centre
+            // can be inside it: the last two columns say how many of the
+            // needed words any cost-window rule of this width could reach
+            // at all, and how far the rest are.
+            let mut d_median = Vec::new();
+            let mut d_mean = Vec::new();
+            let mut reach_median = 0usize;
+            let mut reach_mean = 0usize;
+            let mut wide_obs = 0usize;
+            for (rank, idx) in carrying(probe, want) {
+                let seg = probe.segs.iter().find(|s| s.rank == rank).unwrap();
+                for (k, &i) in idx.iter().enumerate() {
+                    let slot = &seg.slots[k];
+                    if slot.len() < 2 {
+                        continue;
+                    }
+                    let lo =
+                        slot.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min);
+                    let hi = slot
+                        .iter()
+                        .map(|a| a.cost)
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    if hi <= lo {
+                        continue;
+                    }
+                    let p = (slot[i].cost - lo) / (hi - lo);
+                    let total: f64 = slot.iter().map(|a| a.cost).sum();
+                    let mean_cost = total / slot.len() as f64;
+                    let mean_p = (mean_cost - lo) / (hi - lo);
+                    let half = seg.cap as f64 / (2.0 * slot.len() as f64);
+                    d_median.push((p - 0.5).abs());
+                    d_mean.push((p - mean_p).abs());
+                    if slot.len() >= 100 {
+                        wide_obs += 1;
+                        if (p - 0.5).abs() <= half {
+                            reach_median += 1;
+                        }
+                        if (p - mean_p).abs() <= half {
+                            reach_mean += 1;
+                        }
+                    }
+                }
+            }
+            let max = |v: &[f64]| {
+                v.iter().cloned().fold(0.0_f64, f64::max)
+            };
+            println!(
+                "{label}: {} slot lists; cap/n mean {:.4} (lists of width >= 100: {})",
+                cover.len(), mean(&cover),
+                probe
+                    .segs
+                    .iter()
+                    .flat_map(|s| s.slots.iter().filter(|x| x.len() >= 100))
+                    .count()
+            );
+            println!(
+                "  needed cost percentile, distance to the median: mean {:.4} max {:.4}; to the mean: mean {:.4} max {:.4}",
+                mean(&d_median), max(&d_median), mean(&d_mean), max(&d_mean)
+            );
+            println!(
+                "  needed words on a slot of width >= 100 that lie within half a window of some cost percentile: median centre {reach_median}/{wide_obs}, mean centre {reach_mean}/{wide_obs}"
+            );
+        }
+    }
+
+    /// The unit test that does not need the pipeline: a `cap`-wide window
+    /// anywhere in a slot's cost ranking contains exactly the candidates
+    /// the rule says it does, and the rules are sets rather than
+    /// permutations.
+    #[test]
+    fn front_5d9c04_a_set_cut_admits_a_set_not_a_prefix() {
+        use slot_probe::Alt;
+        let alt = |cost: f64, contrib: f64, word: &str| Alt {
+            word: word.to_string(),
+            cost,
+            contrib,
+            syllables: 1,
+            familiarity: 0.5,
+            closed: 0,
+            shape: 0.5,
+            reused: 0,
+        };
+        // Costs ascending, contributions not a monotone function of them, so
+        // the shipped list order, the cost order and the union's two halves
+        // are all different sets.
+        let contribs =
+            [0.9, 0.1, 0.8, 0.2, 0.7, 0.3, 0.6, 0.4, 0.5, 0.15];
+        let slot: Vec<Alt> = (0..10)
+            .map(|i| {
+                alt(i as f64, contribs[i], &format!("w{i}"))
+            })
+            .collect();
+        let cap = 4;
+        let prefix = slot_probe::admitted(SlotCut::Prefix, &slot, cap);
+        assert_eq!(prefix, vec![0, 1, 2, 3]);
+        let med = slot_probe::admitted(SlotCut::MedianStraddle, &slot, cap);
+        // Cost ranking is 0..9, the median rank is 5, so a 4-wide window
+        // centred there is ranks 3..6.
+        assert_eq!(med, vec![3, 4, 5, 6]);
+        let mean = slot_probe::admitted(SlotCut::MeanStraddle, &slot, cap);
+        // Mean cost 4.5, so the centre is the first rank at or above it.
+        assert_eq!(mean, vec![3, 4, 5, 6]);
+        let q = slot_probe::admitted(SlotCut::Quantile, &slot, cap);
+        assert_eq!(q, vec![1, 3, 6, 8]);
+        let union =
+            slot_probe::admitted(SlotCut::UnionTopCostContrib, &slot, cap);
+        assert_eq!(union, vec![0, 1, 2, 3, 4, 6]);
+        // Every rule is a set, and every rule is a function of the costs
+        // and contributions alone: a relabelling of the words changes
+        // nothing.
+        let relabelled: Vec<Alt> =
+            slot.iter().map(|a| Alt { word: "x".to_string(), ..a.clone() }).collect();
+        for cut in CUTS {
+            assert_eq!(
+                slot_probe::admitted(cut, &slot, cap),
+                slot_probe::admitted(cut, &relabelled, cap),
+                "{:?} must not read a word",
+                cut.name()
+            );
+        }
+        // A short list admits the whole list rather than panicking.
+        let short: Vec<Alt> = slot.iter().take(2).cloned().collect();
+        for cut in CUTS {
+            let got = slot_probe::admitted(cut, &short, cap);
+            assert!(got.iter().all(|&i| i < 2), "{:?}", cut.name());
         }
     }
 }
