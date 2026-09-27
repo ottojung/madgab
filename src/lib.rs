@@ -211,6 +211,25 @@ const ADJACENCY_PER_SLOT: usize = 2;
 /// compensate.
 const EMIT_PROFILE_MAX_DEEP: usize = 3;
 
+/// How many candidates one subset of the coverage reserve's index sweep
+/// draws before it spends its share on one of them.
+///
+/// The sweep is a systematic sample, so a subset's single strided draw is
+/// uniform over the part of its slots' lists the traversal cannot
+/// generate, and which of the positions it looks at is decided by the
+/// phase rather than by anything the search scores.  Drawing
+/// `EMIT_PROFILE_SAMPLE` of them and spending on the best-bound keeps the
+/// sweep's *coverage* — the sample still walks the same coprime rotation,
+/// `EMIT_PROFILE_SAMPLE` positions closer together — and changes only the
+/// choice within it, from index order to the search's own admissible score
+/// bound.  See [`coverage_tuples`].
+///
+/// The cost is `EMIT_PROFILE_SAMPLE` bound evaluations per funded subset,
+/// at most `EMIT_PROFILE_SAMPLE * EMIT_PROFILE_RESERVE` = 16 * 16 = 256
+/// per segmentation, each one the arithmetic the traversal's heap key
+/// already performs.  It buys no extra emissions and no extra pops.
+const EMIT_PROFILE_SAMPLE: usize = 8;
+
 /// The `k`-subsets of `0..len`, in lexicographic order.
 fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {
     let mut out = Vec::new();
@@ -381,11 +400,58 @@ fn gcd(mut a: usize, mut b: usize) -> usize {
 /// `phase` is a counter the search advances once per segmentation, so the
 /// sweeps of one run tile the lists between them.  It is a pure function of
 /// the deterministic schedule, so the enumeration stays reproducible.
+///
+/// # The reserve is spent on the best-*bounded* member of its own sample
+///
+/// The sweep above is a *systematic* sample, and a systematic sample of a
+/// list is uniform over the list, so the tuples it produces are ordered by
+/// **index position**, not by anything the search is optimising.  Each
+/// subset's member is drawn at a fixed strided offset of the phase's
+/// rotation, so two runs over the same cell spend the reserve on the same
+/// *shape* of coordinate set — one deep slot at an unrelated rank — and
+/// never on the one that scores best among the positions it looked at.
+///
+/// So each subset draws [`EMIT_PROFILE_SAMPLE`] candidates instead of one,
+/// and spends its share on the candidate with the highest **admissible
+/// bound on the final score** — the same bound that keys the traversal's
+/// own best-first heap (suffix minima of cost, novelty and closed-class
+/// over the slots the tuple has not fixed, maxima of familiarity, shape
+/// and rhythm over the same).  That bound is an upper bound on the score
+/// of *any* completion of a partial, so ordering by it is ordering by an
+/// upper bound on what the reserve's emissions are actually worth.
+///
+/// Three properties make this the same kind of filter as `build`'s cost
+/// bound rather than a new kind of exclusion:
+///
+/// * **Admissible.**  The score bound never says "this tuple is bad"; it
+///   says "no completion of this coordinate set can beat this value".  It
+///   is used to *choose between* candidates the sweep already generated,
+///   so a candidate is only ever dropped in favour of one the bound rates
+///   at least as high — the same one-sided shape as the cost bound, which
+///   is likewise only ever used to drop a tuple that cannot be paid for.
+/// * **A superset of the old draw.**  The strided candidate the sweep used
+///   to emit is the first member of the sample, so every tuple the
+///   previous rule would have emitted is still a candidate here, and it is
+///   emitted unless a candidate the bound rates higher takes its place.
+///   Nothing this rule can emit was unreachable to the old one.
+/// * **Bounded.**  The bound is evaluated
+///   `EMIT_PROFILE_SAMPLE * (number of subsets the reserve funds)` times
+///   per segmentation — at most
+///   `EMIT_PROFILE_SAMPLE * EMIT_PROFILE_RESERVE` = 16 * 16 = **256**
+///   evaluations — and each is the arithmetic the traversal's own heap key
+///   already performs.  No new state is retained between segmentations.
+///
+/// The sample's extra candidates are taken from the *same* coprime
+/// rotation the sweep uses, `EMIT_PROFILE_SAMPLE` consecutive steps apart
+/// per phase, so the union of a run's samples still covers each member's
+/// whole list above the floor exactly as before: sampling more positions
+/// per phase narrows the stride of the rotation, it does not bias it.
 fn coverage_tuples(
     slot_widths: &[usize],
     reserve: usize,
     max_deep: usize,
     phase: usize,
+    bound_of: &dyn Fn(&[usize]) -> f64,
 ) -> Vec<Vec<usize>> {
     let depth = slot_widths.len();
     let max_deep = max_deep.min(depth);
@@ -408,26 +474,49 @@ fn coverage_tuples(
                 .map(|&slot| slot_widths[slot])
                 .min()
                 .unwrap_or(0);
-            let Some(_) = sweep_index(narrowest, reserve, out.len(), 0, phase)
-            else {
-                continue;
-            };
-            let mut tuple = vec![0usize; depth];
-            let mut legal = true;
-            for (member, &slot) in combo.iter().enumerate() {
-                let Some(at) =
-                    sweep_index(narrowest, reserve, out.len(), member, phase)
+            // The candidate this subset contributes, and the best-bound
+            // candidate seen so far.  `t = 0` is the strided draw the sweep
+            // made on its own, so the sample is a superset of the old
+            // emission and the only thing the bound changes is *which*
+            // member of the sample is spent.
+            let mut best: Option<(f64, Vec<usize>)> = None;
+            for t in 0..EMIT_PROFILE_SAMPLE {
+                let rotation = phase.wrapping_add(t);
+                let Some(_) =
+                    sweep_index(narrowest, reserve, out.len(), 0, rotation)
                 else {
-                    legal = false;
                     break;
                 };
-                tuple[slot] = at;
+                let mut tuple = vec![0usize; depth];
+                let mut legal = true;
+                for (member, &slot) in combo.iter().enumerate() {
+                    let Some(at) = sweep_index(
+                        narrowest,
+                        reserve,
+                        out.len(),
+                        member,
+                        rotation,
+                    ) else {
+                        legal = false;
+                        break;
+                    };
+                    tuple[slot] = at;
+                }
+                if !legal
+                    || combo
+                        .iter()
+                        .any(|&slot| tuple[slot] >= slot_widths[slot])
+                {
+                    break;
+                }
+                let bound = bound_of(&tuple);
+                if best.as_ref().is_none_or(|&(b, _)| bound > b) {
+                    best = Some((bound, tuple));
+                }
             }
-            if !legal || combo.iter().any(|&slot| tuple[slot] >= slot_widths[slot])
-            {
-                continue;
+            if let Some((_, tuple)) = best {
+                out.push(tuple);
             }
-            out.push(tuple);
         }
     }
     out
@@ -1481,91 +1570,12 @@ impl Generator {
                 continue;
             }
 
-            // The depth-profile reserve, spent before the traversal so it
-            // is genuinely reserved rather than left over: the traversal
-            // below is handed whatever the profiles did not use.  Both
-            // halves count against the same per-segmentation allowance
-            // and the same global budgets, so the total is unchanged.
-            let build = |tuple: &[usize]| -> Option<Partial> {
-                let total_cost: f64 = tuple
-                    .iter()
-                    .enumerate()
-                    .map(|(slot, &i)| slots[slot][i].cost)
-                    .sum();
-                if total_cost > total_budget + 1e-9 {
-                    return None;
-                }
-                let mut partial = Partial::empty();
-                for (slot, &i) in tuple.iter().enumerate() {
-                    let a = &slots[slot][i];
-                    let word = self.fuzzy_lexicon.word(a.match_ref.word_idx);
-                    partial = partial.extend_fuzzy(
-                        &target_phrase,
-                        word,
-                        a.match_ref.consumed,
-                        a.cost,
-                    );
-                }
-                Some(partial)
-            };
-            let profile_allowance =
-                EMIT_PROFILE_RESERVE.min(emit_allowance);
-            let mut profile_emitted = 0usize;
-            // The index tuples this segmentation has actually put in the
-            // pool, in emission order.  The adjacency operator below is
-            // seeded from exactly this, so it starts from what the pool
-            // holds rather than from the index-tuple origin.
-            let mut pooled: Vec<Vec<usize>> = Vec::new();
-            let widths: Vec<usize> =
-                slots.iter().map(Vec::len).collect();
-            for tuple in coverage_tuples(
-                &widths,
-                profile_allowance,
-                EMIT_PROFILE_MAX_DEEP,
-                coverage_phase,
-            ) {
-                if profile_emitted >= profile_allowance
-                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
-                {
-                    break;
-                }
-                let Some(partial) = build(&tuple) else {
-                    continue;
-                };
-                #[cfg(test)]
-                counters::note_depth(
-                    &counters::DEEPEST_PROFILE,
-                    tuple.iter().copied().max().unwrap_or(0),
-                );
-                pooled.push(tuple);
-                recovered.push(partial);
-                profile_emitted += 1;
-                spent_emissions += 1;
-                *funded.entry(structure).or_default() += 1;
-            }
-            // The next segmentation sweeps a rotated window of the same
-            // lists, so the union of a run's sweeps is the list rather than
-            // one arithmetic progression of it.  Advanced once per
-            // segmentation, on the deterministic schedule, so the
-            // enumeration stays reproducible.
-            coverage_phase = coverage_phase.wrapping_add(1);
-            let emit_allowance =
-                emit_allowance.saturating_sub(profile_emitted);
-            // The adjacency operator's share.  It is *not* carved out of the
-            // traversal's allowance: the traversal's own emissions are the
-            // ones the depth tests are written against, and taking eight of
-            // them measurably costs a deep-in-a-span match
-            // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
-            // operator is instead bounded by the *global* emission budget,
-            // which is the search's real ceiling and which the baseline
-            // leaves slack (14,239 of 16,384 spent), so the operator's spend
-            // is bounded by the same constant that bounds everything else.
-            // `.min(adjacency_spend)` draws on the reserved slice, so the
-            // operator runs out of budget rather than the traversal.
-            let adjacency_allowance = ADJACENCY_RESERVE
-                .min(emit_allowance)
-                .min(adjacency_spend);
-
+            // The traversal's own key, computed before the depth-profile
+            // reserve rather than after it: the reserve now spends its share
+            // on the best-bound member of the sweep's own sample, and the
+            // bound it uses is this one.  It is a pure function of the slots
+            // and the segmentation, so hoisting it changes nothing the
+            // traversal below computes.
             // Suffix bounds make the best-first key an admissible upper
             // bound on the score of any completion of a prefix, so the
             // emission order really is descending in final score.
@@ -1640,6 +1650,93 @@ impl Generator {
                         )
                     + axes::SHAPE * (shape + suf_max_shape[k]) / word_count
             };
+
+
+            // The depth-profile reserve, spent before the traversal so it
+            // is genuinely reserved rather than left over: the traversal
+            // below is handed whatever the profiles did not use.  Both
+            // halves count against the same per-segmentation allowance
+            // and the same global budgets, so the total is unchanged.
+            let build = |tuple: &[usize]| -> Option<Partial> {
+                let total_cost: f64 = tuple
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, &i)| slots[slot][i].cost)
+                    .sum();
+                if total_cost > total_budget + 1e-9 {
+                    return None;
+                }
+                let mut partial = Partial::empty();
+                for (slot, &i) in tuple.iter().enumerate() {
+                    let a = &slots[slot][i];
+                    let word = self.fuzzy_lexicon.word(a.match_ref.word_idx);
+                    partial = partial.extend_fuzzy(
+                        &target_phrase,
+                        word,
+                        a.match_ref.consumed,
+                        a.cost,
+                    );
+                }
+                Some(partial)
+            };
+            let profile_allowance =
+                EMIT_PROFILE_RESERVE.min(emit_allowance);
+            let mut profile_emitted = 0usize;
+            // The index tuples this segmentation has actually put in the
+            // pool, in emission order.  The adjacency operator below is
+            // seeded from exactly this, so it starts from what the pool
+            // holds rather than from the index-tuple origin.
+            let mut pooled: Vec<Vec<usize>> = Vec::new();
+            let widths: Vec<usize> =
+                slots.iter().map(Vec::len).collect();
+            for tuple in coverage_tuples(
+                &widths,
+                profile_allowance,
+                EMIT_PROFILE_MAX_DEEP,
+                coverage_phase,
+                &bound,
+            ) {
+                if profile_emitted >= profile_allowance
+                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                {
+                    break;
+                }
+                let Some(partial) = build(&tuple) else {
+                    continue;
+                };
+                #[cfg(test)]
+                counters::note_depth(
+                    &counters::DEEPEST_PROFILE,
+                    tuple.iter().copied().max().unwrap_or(0),
+                );
+                pooled.push(tuple);
+                recovered.push(partial);
+                profile_emitted += 1;
+                spent_emissions += 1;
+                *funded.entry(structure).or_default() += 1;
+            }
+            // The next segmentation sweeps a rotated window of the same
+            // lists, so the union of a run's sweeps is the list rather than
+            // one arithmetic progression of it.  Advanced once per
+            // segmentation, on the deterministic schedule, so the
+            // enumeration stays reproducible.
+            coverage_phase = coverage_phase.wrapping_add(1);
+            let emit_allowance =
+                emit_allowance.saturating_sub(profile_emitted);
+            // The adjacency operator's share.  It is *not* carved out of the
+            // traversal's allowance: the traversal's own emissions are the
+            // ones the depth tests are written against, and taking eight of
+            // them measurably costs a deep-in-a-span match
+            // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
+            // operator is instead bounded by the *global* emission budget,
+            // which is the search's real ceiling and which the baseline
+            // leaves slack (14,239 of 16,384 spent), so the operator's spend
+            // is bounded by the same constant that bounds everything else.
+            // `.min(adjacency_spend)` draws on the reserved slice, so the
+            // operator runs out of budget rather than the traversal.
+            let adjacency_allowance = ADJACENCY_RESERVE
+                .min(emit_allowance)
+                .min(adjacency_spend);
 
             let quantized =
                 |score: f64| -> i64 { (score * 1_000_000_000.0).round() as i64 };
@@ -3409,6 +3506,19 @@ fn admit(
 mod tests {
     use super::*;
 
+    /// A score bound that rates every candidate the same, so
+    /// [`coverage_tuples`] keeps the first one it draws and the rule
+    /// reduces to the index-ordered strided draw.
+    ///
+    /// The sweep-coverage tests are about *which positions* the rule
+    /// reaches, not about which of them it prefers, and they have no slots
+    /// to compute a real bound from, so they pin the sweep with the
+    /// preference switched off.  [`the_coverage_reserve_spends_on_the_best_bounded_candidate_it_draws`]
+    /// is the test that pins the preference.
+    fn flat_bound(_tuple: &[usize]) -> f64 {
+        0.0
+    }
+
     /// Build the persistent clue-word list a `Partial` would have after
     /// extending an empty one with `words`, in order.
     fn word_chain(words: Vec<ClueWord>) -> Option<Rc<WordNode>> {
@@ -4270,6 +4380,7 @@ mod tests {
                     EMIT_PROFILE_RESERVE,
                     EMIT_PROFILE_MAX_DEEP,
                     phase,
+                    &flat_bound,
                 );
                 assert!(tuples.len() <= EMIT_PROFILE_RESERVE, "depth {depth}");
                 assert!(tuples.len() <= classes, "depth {depth}");
@@ -4332,6 +4443,7 @@ mod tests {
                 EMIT_PROFILE_RESERVE,
                 EMIT_PROFILE_MAX_DEEP,
                 phase,
+                &flat_bound,
             ) {
                 for (slot, &i) in tuple.iter().enumerate() {
                     assert!(i < widths[slot], "slot {slot} of {tuple:?}");
@@ -4392,6 +4504,7 @@ mod tests {
                     per,
                     EMIT_PROFILE_MAX_DEEP,
                     phase,
+                    &flat_bound,
                 ) {
                     let deep: Vec<usize> = tuple
                         .iter()
@@ -4457,6 +4570,128 @@ mod tests {
                 seen.len()
             );
         }
+    }
+
+    /// The reserve spends on the best-**bounded** member of the sample its
+    /// own sweep draws, not on the sample's index order.
+    ///
+    /// The general property, with no phrase and no real target's slot list
+    /// in it: given a bound that discriminates between the candidates the
+    /// sweep draws, every emission is the highest-bound candidate of its
+    /// own subset's rotation, the spend is the same size, the alphabet is
+    /// the same, and at least some emissions are tuples the index-ordered
+    /// draw never produces.
+    ///
+    /// The admissibility claim is asserted here too, because it is the
+    /// claim that makes the bound usable rather than a filter.  The
+    /// strided draw is the *first* member of the rotation, so it is still
+    /// a candidate: the rule can only ever displace it with a candidate the
+    /// bound rates at least as high, never with one it rates lower, and it
+    /// can only ever emit a position the sweep's own rotation produces.
+    /// That is the same one-sided shape as `build`'s cost bound, which is
+    /// also only ever used to drop a candidate in favour of paying for
+    /// another one.
+    #[test]
+    fn the_coverage_reserve_spends_on_the_best_bounded_candidate_it_draws() {
+        // Widths of the kind a real five-slot cell has after the span
+        // shortlist: every one of them above the traversal's opening, so
+        // every subset of them is fundable and the rotation is the whole
+        // list.
+        let widths = [37usize, 53, 29, 41, 19];
+        // A bound of the shape the traversal's own key has — larger for a
+        // deeper coordinate — with no axis, no weight and no input in it.
+        let bound = |tuple: &[usize]| -> f64 {
+            tuple.iter().map(|&i| i as f64).sum()
+        };
+        let per = EMIT_PROFILE_RESERVE;
+        let mut reached = 0usize;
+        let mut drawn_bound = 0.0f64;
+        let mut index_bound = 0.0f64;
+        let mut emitted = 0usize;
+        for phase in 0..64usize {
+            let index_order = coverage_tuples(
+                &widths,
+                per,
+                EMIT_PROFILE_MAX_DEEP,
+                phase,
+                &flat_bound,
+            );
+            let drawn = coverage_tuples(
+                &widths,
+                per,
+                EMIT_PROFILE_MAX_DEEP,
+                phase,
+                &bound,
+            );
+            // The rotation this phase's subset draws from, one entry per
+            // member of the sample.
+            let rotation: Vec<Vec<Vec<usize>>> = (0..EMIT_PROFILE_SAMPLE)
+                .map(|t| {
+                    coverage_tuples(
+                        &widths,
+                        per,
+                        EMIT_PROFILE_MAX_DEEP,
+                        phase.wrapping_add(t),
+                        &flat_bound,
+                    )
+                })
+                .collect();
+            assert_eq!(
+                drawn.len(),
+                index_order.len(),
+                "phase {phase}: the bound reordered the spend, it did not \
+                 resize it"
+            );
+            for r in &rotation {
+                assert_eq!(
+                    r.len(),
+                    index_order.len(),
+                    "phase {phase}: the sample's subsets are the sweep's \
+                     subsets, so the reserve's count is the same for every \
+                     member of it"
+                );
+            }
+            for (subset, tuple) in drawn.iter().enumerate() {
+                for (slot, &i) in tuple.iter().enumerate() {
+                    assert!(i < widths[slot], "phase {phase}: {tuple:?}");
+                    assert!(
+                        i == 0 || i >= LEXICAL_BRANCH_STAGE_0,
+                        "phase {phase}: {tuple:?} spends an index the \
+                         traversal's first stage already generates"
+                    );
+                }
+                assert!(
+                    rotation.iter().any(|r| r.contains(tuple)),
+                    "phase {phase} subset {subset}: {tuple:?} is not a \
+                     position the sweep's own rotation draws"
+                );
+                for r in &rotation {
+                    assert!(
+                        bound(&r[subset]) <= bound(tuple) + 1e-12,
+                        "phase {phase} subset {subset}: the strided draw \
+                         {:?} was displaced by {:?}, which the bound rates \
+                         lower",
+                        r[subset],
+                        tuple
+                    );
+                }
+                drawn_bound += bound(tuple);
+                index_bound += bound(&index_order[subset]);
+                emitted += 1;
+            }
+            if drawn != index_order {
+                reached += 1;
+            }
+        }
+        assert!(
+            reached > 0,
+            "the bound never changed an emission, so it is not being used"
+        );
+        assert!(
+            drawn_bound > index_bound,
+            "the reserve's mean bound {drawn_bound} over {emitted} \
+             emissions is not above the index-ordered draw's {index_bound}"
+        );
     }
 
     /// The rates are coprime to the span, which is what makes the per-slot
