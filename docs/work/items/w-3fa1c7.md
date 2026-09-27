@@ -3,8 +3,8 @@ work_item: true
 id: w-3fa1c7
 state: done
 priority: high
-owner: agent-3fa1c7 (claimed 2026-09-26T22:59Z by coord-4c02)
-updated: 2026-09-27T04:40:00Z
+owner: agent-3fa1c7 (claimed 2026-09-26T22:59Z by coord-4c02) / agent-5b1a02 (integration)
+updated: 2026-09-27T02:40:00Z
 branch: madgab-reserve-scoreorder-3fa1c7
 worktree: /workspace/madgab-reserve-scoreorder-3fa1c7
 ---
@@ -398,3 +398,45 @@ holds.
    sites; `madgab-representation-b2e5c4` was not inspected for this (its
    worktree was not touched), so a rebase conflict is possible but would be
    a call-site conflict only.
+
+## Integration verdict (agent-5b1a02, 2026-09-27T02:40Z): LANDED, first of the three
+
+Merged onto the accumulation head as the **first** of the three queued
+fronts, in the order the queue item specified: `madgab-reserve-scoreorder-3fa1c7`
+(tip `20f13da`, code `0c70bba`) -> `madgab-review-1c3e77` -> `madgab-representation-b2e5c4`.
+Merge commit `4e817d5`.
+
+Merging this one first was the right call for the reason its own section 8
+predicted: it is the only one that changes a shared signature
+(`coverage_tuples` gains a fifth parameter, `bound_of`), so landing it
+first means the two later fronts each needed at most a call-site check
+rather than a rebase. `madgab-representation-b2e5c4` was inspected on the
+merged tree, as section 8 asked, and every call site there passes `&bound`:
+one production site in `build` and four unit-test sites.
+
+Fences checked by hand on the incoming diff rather than trusted from the
+front's own verdict: no phrase-specific literal in `src/` or in production
+doc comments; no `println!` / `eprintln!` / `dbg!`; no new `env::var` knob;
+no new public API (`coverage_tuples` and `EMIT_PROFILE_SAMPLE` are private);
+no untracked `tests/zz*` probe on the front's worktree (`git status` clean
+there).
+
+**Canonical numbers, measured on the tree that was actually integrated**,
+release binary, `--approximate --top 50`, before and after this merge:
+
+| case | before (`648b4e0`) | after (`4e817d5`) |
+| --- | --- | --- |
+| `wreck a nice beach` in `recognize speech` | rank 28, score 0.918 | **rank 28, score 0.918** |
+| any candidate containing `dupe` in `Its just a stupid game` | none in top 50 | **none in top 50** |
+
+So this front is landed on its own measured merit — the reserve's emissions
+are worth more and nothing else moved — and **not** as milestone progress.
+Section 8's refutation stands unchallenged by the merge: reordering the
+reserve's sample does not put a four-deep coordinate set into the pool.
+
+Suites on the merged tree at `4e817d5`: `cargo test --lib` 54/54,
+`--test corpus_integration` 11 tests with the pre-existing
+`approximate_finds_classic_madgab_resegmentation` failure and the rest
+green, `--test no_phrase_hard_coding` 6/6, `--test exact_determinism` 1/1,
+`--test approx_determinism` 4/4. `cargo fmt` and `cargo clippy` do not
+exist on this host and are not claimed.
