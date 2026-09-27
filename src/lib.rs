@@ -1228,6 +1228,7 @@ impl Generator {
             }
 
             for (end, matches) in grouped {
+                let offered = matches.len();
                 let quality = |m: &approx::FuzzyMatch| {
                     let word = self.fuzzy_lexicon.word(m.word_idx);
                     let familiarity = word_familiarity(word.rarity);
@@ -1390,6 +1391,15 @@ impl Generator {
                     }
                 }
                 selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+
+                #[cfg(test)]
+                {
+                    let words: Vec<String> = selected
+                        .iter()
+                        .map(|m| self.fuzzy_lexicon.word(m.word_idx).word.to_lowercase())
+                        .collect();
+                    stage_probe::note_span(p, end, offered, &words);
+                }
 
                 if selected.is_empty() {
                     continue;
@@ -1657,7 +1667,18 @@ impl Generator {
         segmentations.sort_by(|a, b| {
             cmp_desc(a.0, b.0).then_with(|| a.1.spans.cmp(&b.1.spans))
         });
+        #[cfg(test)]
+        let seg_paths_total = segmentations.len();
         segmentations.truncate(SEGMENTATION_KEEP);
+
+        #[cfg(test)]
+        {
+            let chains: Vec<Vec<(usize, usize)>> = segmentations
+                .iter()
+                .map(|(_, p)| p.spans.clone())
+                .collect();
+            stage_probe::note_segmentations(seg_paths_total, &chains);
+        }
 
         // For a fixed segmentation, boundary novelty and word count are
         // fixed, so the only remaining choice is which word fills each
@@ -1754,7 +1775,7 @@ impl Generator {
         // operator's spend is bounded independently of the traversal's.
         let mut adjacency_spend = ADJACENCY_GLOBAL_RESERVE;
         let mut spent_pops = 0usize;
-        for &index in &schedule {
+        for (_schedule_rank, &index) in schedule.iter().enumerate() {
             if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
                 || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
             {
@@ -1989,6 +2010,22 @@ impl Generator {
                         &counters::DEEPEST_PROFILE_COORDINATES,
                         tuple.iter().filter(|&&i| i != 0).count() as u64,
                     );
+                    let words: Vec<String> = tuple
+                        .iter()
+                        .enumerate()
+                        .map(|(slot, &i)| {
+                            self.fuzzy_lexicon
+                                .word(slots[slot][i].match_ref.word_idx)
+                                .word
+                                .to_lowercase()
+                        })
+                        .collect();
+                    stage_probe::note_emit(
+                        stage_probe::Source::CoverageReserve,
+                        _schedule_rank,
+                        &tuple,
+                        &words,
+                    );
                 }
                 pooled.push(tuple);
                 recovered.push(partial);
@@ -2075,6 +2112,29 @@ impl Generator {
             // [`affordable_opening_width`] for the measured counts.
             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
                 .min(widest);
+            #[cfg(test)]
+            {
+                let slot_words: Vec<Vec<String>> = slots
+                    .iter()
+                    .map(|s| {
+                        s.iter()
+                            .map(|a| {
+                                self.fuzzy_lexicon
+                                    .word(a.match_ref.word_idx)
+                                    .word
+                                    .to_lowercase()
+                            })
+                            .collect()
+                    })
+                    .collect();
+                stage_probe::note_fund(stage_probe::FundRec {
+                    schedule_rank: _schedule_rank,
+                    spans: structure.to_vec(),
+                    widths: widths.clone(),
+                    opening_width: cap,
+                    slot_words,
+                });
+            }
             let mut emitted = 0usize;
             let mut popped = 0usize;
             // The traversal runs in passes over the heap.  A walk is the
@@ -2104,10 +2164,32 @@ impl Generator {
                         if let Some(partial) = build(&prefix) {
                             if !replaying {
                                 #[cfg(test)]
-                                counters::note_depth(
-                                    &counters::DEEPEST_TRAVERSAL,
-                                    prefix.iter().copied().max().unwrap_or(0),
-                                );
+                                {
+                                    counters::note_depth(
+                                        &counters::DEEPEST_TRAVERSAL,
+                                        prefix.iter().copied().max().unwrap_or(0),
+                                    );
+                                    let words: Vec<String> = prefix
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(slot, &i)| {
+                                            self.fuzzy_lexicon
+                                                .word(
+                                                    slots[slot][i]
+                                                        .match_ref
+                                                        .word_idx,
+                                                )
+                                                .word
+                                                .to_lowercase()
+                                        })
+                                        .collect();
+                                    stage_probe::note_emit(
+                                        stage_probe::Source::Traversal,
+                                        _schedule_rank,
+                                        &prefix,
+                                        &words,
+                                    );
+                                }
                                 pooled.push(prefix.to_vec());
                                 recovered.push(partial);
                                 emitted += 1;
@@ -2271,10 +2353,28 @@ impl Generator {
                         continue;
                     };
                     #[cfg(test)]
-                    counters::note_depth(
-                        &counters::DEEPEST_ADJACENCY,
-                        tuple.iter().copied().max().unwrap_or(0),
-                    );
+                    {
+                        counters::note_depth(
+                            &counters::DEEPEST_ADJACENCY,
+                            tuple.iter().copied().max().unwrap_or(0),
+                        );
+                        let words: Vec<String> = tuple
+                            .iter()
+                            .enumerate()
+                            .map(|(slot, &i)| {
+                                self.fuzzy_lexicon
+                                    .word(slots[slot][i].match_ref.word_idx)
+                                    .word
+                                    .to_lowercase()
+                            })
+                            .collect();
+                        stage_probe::note_emit(
+                            stage_probe::Source::Adjacency,
+                            _schedule_rank,
+                            &tuple,
+                            &words,
+                        );
+                    }
                     pooled.push(tuple);
                     recovered.push(partial);
                     adjacency_emitted += 1;
@@ -2310,7 +2410,11 @@ impl Generator {
             counters::note_total(&counters::SPENT_POPS, spent_pops as u64);
         }
 
+        #[cfg(test)]
+        let completed_before = completed.len();
         completed.extend(recovered);
+        #[cfg(test)]
+        stage_probe::note_recovered(completed.len() - completed_before);
         self.finish(
             completed,
             &target_ipa,
@@ -2481,6 +2585,213 @@ mod counters {
                 c.set(total);
             }
         });
+    }
+}
+
+/// Test-only instrumentation for the stage-by-stage localisation of a word
+/// multiset through the approximate pipeline. Records, per stage, what the
+/// stage retained, and only for a caller-supplied set of *words* — so the
+/// recorder reads no phrase, no clue and no sentence, and the words it watches
+/// are named only by the test that arms it.
+///
+/// Compiled out of release builds entirely, like [`counters`]. No production
+/// behaviour is reachable through it: every entry point is a no-op unless
+/// [`arm`] has been called on the current thread.
+#[cfg(test)]
+mod stage_probe {
+    use std::cell::RefCell;
+
+    /// One target span, as the two stages that bound it saw it.
+    #[derive(Clone)]
+    pub struct SpanRec {
+        pub start: usize,
+        pub end: usize,
+        /// Candidates the fuzzy matcher offered on this span.
+        pub offered: usize,
+        /// Candidates the span shortlist retained, and their words in the
+        /// shortlist's own order.
+        pub shortlist: Vec<String>,
+    }
+
+    /// One segmentation the lexical phase actually funded, with everything
+    /// needed to decide by hand whether its wordings could have contained the
+    /// watched multiset: the span chain, the slot widths, the opening width
+    /// the traversal was allowed, and the words of every slot.
+    #[derive(Clone)]
+    pub struct FundRec {
+        pub schedule_rank: usize,
+        pub spans: Vec<(usize, usize)>,
+        pub widths: Vec<usize>,
+        pub opening_width: usize,
+        pub slot_words: Vec<Vec<String>>,
+    }
+
+    /// One emission whose word multiset is exactly the watched one.
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    pub enum Source {
+        CoverageReserve,
+        Traversal,
+        Adjacency,
+    }
+
+    #[derive(Clone)]
+    pub struct HitRec {
+        pub source: Source,
+        pub schedule_rank: usize,
+        pub tuple: Vec<usize>,
+    }
+
+    #[derive(Clone)]
+    pub struct Recorder {
+        /// The multiset being watched, normalized and sorted.
+        pub watch: Vec<String>,
+        pub spans: Vec<SpanRec>,
+        /// Complete span paths the structural DP produced, and how many it
+        /// produced before `SEGMENTATION_KEEP` cut them.
+        pub segmentations_total: usize,
+        pub segmentations_kept: usize,
+        /// Kept segmentations whose span chain carries at least one watched
+        /// word on at least one of its spans.
+        pub kept_chains: Vec<Vec<(usize, usize)>>,
+        pub funds: Vec<FundRec>,
+        /// Emissions at each source, and the ones that were the watched
+        /// multiset.
+        pub profile_draws: u64,
+        pub traversal_emits: u64,
+        pub adjacency_emits: u64,
+        /// Every reserve draw, with the schedule rank it was drawn at, so a
+        /// test can ask what the reserve did at one particular segmentation.
+        pub all_profile: Vec<(usize, Vec<usize>)>,
+        pub profile_hits: Vec<HitRec>,
+        pub traversal_hits: Vec<HitRec>,
+        pub adjacency_hits: Vec<HitRec>,
+        /// Wordings the lexical phase appended to the beam's completions.
+        pub recovered: usize,
+    }
+
+    thread_local! {
+        static ARMED: RefCell<Option<Recorder>> = const { RefCell::new(None) };
+    }
+
+    /// Arm the recorder for one word multiset, and return the previous
+    /// recorder so a caller can read one out without re-running the search.
+    pub fn arm(watch: &[&str]) -> Option<Recorder> {
+        let mut sorted: Vec<String> = watch
+            .iter()
+            .map(|w| w.to_lowercase())
+            .collect();
+        sorted.sort();
+        ARMED.with(|a| {
+            a.replace(Some(Recorder {
+                watch: sorted,
+                spans: Vec::new(),
+                segmentations_total: 0,
+                segmentations_kept: 0,
+                kept_chains: Vec::new(),
+                funds: Vec::new(),
+                profile_draws: 0,
+                traversal_emits: 0,
+                adjacency_emits: 0,
+                all_profile: Vec::new(),
+                profile_hits: Vec::new(),
+                traversal_hits: Vec::new(),
+                adjacency_hits: Vec::new(),
+                recovered: 0,
+            }))
+        })
+    }
+
+    /// Read the recorder out, leaving the thread unarmed.
+    pub fn take() -> Option<Recorder> {
+        ARMED.with(|a| a.borrow_mut().take())
+    }
+
+    /// Run `f` with the recorder, if this thread armed one.
+    fn with<R>(f: impl FnOnce(&mut Recorder) -> R, default: R) -> R {
+        ARMED.with(|a| match a.borrow_mut().as_mut() {
+            Some(rec) => f(rec),
+            None => default,
+        })
+    }
+
+    /// `words` as a multiset, in the same normalized form [`arm`] uses.
+    fn bag(words: &[String]) -> Vec<String> {
+        let mut v: Vec<String> = words.iter().map(|w| w.to_lowercase()).collect();
+        v.sort();
+        v
+    }
+
+    /// Stage: the fuzzy per-span candidate generation, and the span shortlist
+    /// that bounds it. `offered` is the raw candidate count; `shortlist` is the
+    /// words the shortlist retained, in its own order.
+    pub fn note_span(start: usize, end: usize, offered: usize, shortlist: &[String]) {
+        with(
+            |rec| {
+                rec.spans.push(SpanRec {
+                    start,
+                    end,
+                    offered,
+                    shortlist: shortlist.to_vec(),
+                });
+            },
+            (),
+        );
+    }
+
+    /// Stage: the structural segmentation DP, before and after its retention
+    /// cut.
+    pub fn note_segmentations(total: usize, kept_chains: &[Vec<(usize, usize)>]) {
+        with(
+            |rec| {
+                rec.segmentations_total = total;
+                rec.segmentations_kept = kept_chains.len();
+                rec.kept_chains = kept_chains.to_vec();
+            },
+            (),
+        );
+    }
+
+    /// Stage: the slot/heap retention boundary, i.e. the opening width the
+    /// traversal was allowed against the widths the shortlists present.
+    pub fn note_fund(fund: FundRec) {
+        with(|rec| rec.funds.push(fund), ());
+    }
+
+    /// Stage: one emission from one of the three producers of wordings.
+    pub fn note_emit(source: Source, schedule_rank: usize, tuple: &[usize], words: &[String]) {
+        with(
+            |rec| {
+                let hit = bag(words) == rec.watch;
+                match source {
+                    Source::CoverageReserve => {
+                        rec.profile_draws += 1;
+                        rec.all_profile.push((schedule_rank, tuple.to_vec()));
+                    }
+                    Source::Traversal => rec.traversal_emits += 1,
+                    Source::Adjacency => rec.adjacency_emits += 1,
+                }
+                if !hit {
+                    return;
+                }
+                let hit_rec = HitRec {
+                    source,
+                    schedule_rank,
+                    tuple: tuple.to_vec(),
+                };
+                match source {
+                    Source::CoverageReserve => rec.profile_hits.push(hit_rec),
+                    Source::Traversal => rec.traversal_hits.push(hit_rec),
+                    Source::Adjacency => rec.adjacency_hits.push(hit_rec),
+                }
+            },
+            (),
+        );
+    }
+
+    /// Stage: `Partial` assembly — how many wordings the lexical phase
+    /// produced.
+    pub fn note_recovered(recovered: usize) {
+        with(|rec| rec.recovered = recovered, ());
     }
 }
 
@@ -6930,5 +7241,356 @@ mod tests {
                 assert_eq!(first_leaf_frontier(&vec![w; depth]), series);
             }
         }
+    }
+}
+
+/// w-4d7c12: stage-by-stage localisation of one word multiset through the
+/// approximate pipeline.
+///
+/// Read-only front: this module only *reads* the [`stage_probe`] recorder and
+/// prints.  It arms the probe with a word multiset, runs the shipped
+/// `generate_pool` once, and reports what each stage retained.  The words it
+/// names live here, in a `#[cfg(test)]` module, and nowhere in production.
+#[cfg(test)]
+mod front_4d7c12 {
+    use super::{stage_probe, transcribe_with_boundaries, Generator, GeneratorConfig, SearchMode};
+
+    /// The five-word multiset this front localises, on the multi-clause
+    /// target the acceptance suite uses.
+    const CASE2_WORDS: &[&str] = &["hits", "justice", "dupe", "hid", "came"];
+    const CASE2_TARGET: &str = "It's just a stupid game";
+
+    /// The green canonical pair, used as the non-regression control.
+    const CASE1_WORDS: &[&str] = &["wreck", "a", "nice", "beach"];
+    const CASE1_TARGET: &str = "recognize speech";
+
+    fn generator() -> Generator {
+        Generator::from_json(
+            open_english_pronouncing_dictionary::CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap()
+    }
+
+    /// Every target span, and which watched word of which order is retained on
+    /// it, as `(start, end, [(order, word, rank)])`.
+    fn watched_placements(
+        rec: &stage_probe::Recorder,
+    ) -> Vec<(usize, usize, Vec<(usize, String, usize)>)> {
+        let mut out = Vec::new();
+        for span in &rec.spans {
+            let mut here = Vec::new();
+            for (order, want) in rec.watch.iter().enumerate() {
+                if let Some(rank) = span
+                    .shortlist
+                    .iter()
+                    .position(|w| w == want)
+                {
+                    here.push((order, want.clone(), rank));
+                }
+            }
+            if !here.is_empty() {
+                out.push((span.start, span.end, here));
+            }
+        }
+        out
+    }
+
+    /// Every complete chain of target spans, over the shortlist contents, that
+    /// could carry the watched multiset: one watched word per span, the spans
+    /// tiling `0..n` in order, and the words the spans carry summing to the
+    /// watched multiset.  The words are chosen in *tiling* order, which is not
+    /// the sorted order the recorder keeps them in, so the chain is grown span
+    /// by span and filtered by multiset at the end.
+    fn chains_that_could_carry(
+        rec: &stage_probe::Recorder,
+        n: usize,
+    ) -> Vec<Vec<(usize, usize, usize)>> {
+        let want = rec.watch.clone();
+        let mut out: Vec<Vec<(usize, usize, usize)>> = Vec::new();
+        fn walk(
+            at: usize,
+            n: usize,
+            acc: &mut Vec<(usize, usize, usize)>,
+            used: &mut Vec<String>,
+            spans: &[stage_probe::SpanRec],
+            want: &[String],
+            out: &mut Vec<Vec<(usize, usize, usize)>>,
+        ) {
+            if at == n {
+                let mut got = used.clone();
+                got.sort();
+                if got == want {
+                    out.push(acc.clone());
+                }
+                return;
+            }
+            for span in spans {
+                if span.start != at || span.end <= at {
+                    continue;
+                }
+                for want_word in want {
+                    if used.contains(want_word) {
+                        continue;
+                    }
+                    let Some(rank) =
+                        span.shortlist.iter().position(|w| w == want_word)
+                    else {
+                        continue;
+                    };
+                    acc.push((span.start, span.end, rank));
+                    used.push(want_word.clone());
+                    walk(span.end, n, acc, used, spans, want, out);
+                    used.pop();
+                    acc.pop();
+                }
+            }
+        }
+        walk(
+            0,
+            n,
+            &mut Vec::new(),
+            &mut Vec::new(),
+            &rec.spans,
+            &want,
+            &mut out,
+        );
+        out.sort();
+        out.dedup();
+        out
+    }
+
+    fn report(label: &str, target: &str, watch: &[&str], n_phones: usize) {
+        stage_probe::arm(watch);
+        let started = std::time::Instant::now();
+        let pool = generator().generate_pool(target);
+        let elapsed = started.elapsed();
+        let rec = stage_probe::take().expect("the probe was armed");
+
+        let bag = |clue: &str| -> Vec<String> {
+            let mut v: Vec<String> = clue
+                .split_whitespace()
+                .map(|w| w.to_lowercase())
+                .collect();
+            v.sort();
+            v
+        };
+        let want: Vec<String> = {
+            let mut v: Vec<String> = watch.iter().map(|w| w.to_lowercase()).collect();
+            v.sort();
+            v
+        };
+
+        println!("\n================ {label} ================");
+        println!("target phones: {n_phones}");
+        println!("wall clock: {:.3}s", elapsed.as_secs_f64());
+        println!("STAGE 1 fuzzy per-span generation: {} spans, {} candidates offered",
+            rec.spans.len(),
+            rec.spans.iter().map(|s| s.offered).sum::<usize>());
+        println!("STAGE 2 per-span shortlist: {} candidates retained",
+            rec.spans.iter().map(|s| s.shortlist.len()).sum::<usize>());
+        println!("STAGE 3 structural DP: {} complete paths, {} after SEGMENTATION_KEEP",
+            rec.segmentations_total, rec.segmentations_kept);
+        let mut opening: Vec<usize> =
+            rec.funds.iter().map(|f| f.opening_width).collect();
+        opening.sort_unstable();
+        opening.dedup();
+        println!(
+            "STAGE 4 slot/heap retention: {} segmentations funded; opening widths {opening:?}",
+            rec.funds.len(),
+        );
+        println!("STAGE 5 emissions: reserve {} draws, traversal {}, adjacency {}; total {}",
+            rec.profile_draws, rec.traversal_emits, rec.adjacency_emits,
+            rec.profile_draws + rec.traversal_emits + rec.adjacency_emits);
+        println!("STAGE 6 Partial assembly: {} wordings", rec.recovered);
+        println!("STAGE 7 dedup/pool: {} clues", pool.len());
+
+        println!("\n-- the watched multiset, stage by stage --");
+        let placements = watched_placements(&rec);
+        println!("retained on {} of {} spans:", placements.len(), rec.spans.len());
+        let mut by_word: std::collections::BTreeMap<String, Vec<(usize, usize, usize)>> =
+            Default::default();
+        for (start, end, here) in &placements {
+            for (_, word, rank) in here {
+                by_word.entry(word.clone()).or_default().push((*start, *end, *rank));
+            }
+        }
+        for (order, word) in rec.watch.iter().enumerate() {
+            let _ = order;
+            match by_word.get(word) {
+                None => println!("  {word:>10}: NOT RETAINED on any span"),
+                Some(here) => {
+                    let need: Vec<String> = here
+                        .iter()
+                        .map(|(s, e, r)| format!("[{s},{e})#{r}"))
+                        .collect();
+                    println!("  {word:>10}: {} spans {}", here.len(), need.join(" "));
+                }
+            }
+        }
+
+        let chains = chains_that_could_carry(&rec, n_phones);
+        println!("\ncomplete span chains over the shortlists that could carry the multiset: {}",
+            chains.len());
+        for chain in chains.iter().take(24) {
+            let spans: Vec<String> = chain
+                .iter()
+                .map(|(s, e, r)| format!("[{s},{e})#{r}"))
+                .collect();
+            println!("  {}", spans.join(" "));
+        }
+        if chains.len() > 24 {
+            println!("  ... and {} more", chains.len() - 24);
+        }
+
+        // Which of those chains survived the structural DP's retention, and
+        // for each, what the traversal's opening width allows.
+        println!("\nchains that survived the structural DP's retention, with the \
+            traversal's opening width:");
+        let mut dp_hits = 0usize;
+        let mut chains_of_kept: Vec<Vec<(usize, usize, usize)>> = Vec::new();
+        for chain in &chains {
+            let spans: Vec<(usize, usize)> =
+                chain.iter().map(|(s, e, _)| (*s, *e)).collect();
+            if !rec.kept_chains.contains(&spans) {
+                continue;
+            }
+            dp_hits += 1;
+            chains_of_kept.push(chain.clone());
+            for fund in rec.funds.iter().filter(|f| f.spans == spans) {
+                // The traversal reads a slot ordered by
+                // `SlotAlt::contribution`, not by the shortlist's own order,
+                // so the shortlist rank the chain names has to be translated
+                // into the index the traversal would push.
+                let ranks: Vec<Option<usize>> = chain
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, (_, end, shortlist_rank))| {
+                        let word = rec
+                            .spans
+                            .iter()
+                            .find(|x| x.start == fund.spans[slot].0 && x.end == *end)
+                            .and_then(|x| x.shortlist.get(*shortlist_rank))
+                            .cloned();
+                        word.and_then(|w| {
+                            fund.slot_words
+                                .get(slot)
+                                .and_then(|l| l.iter().position(|x| *x == w))
+                        })
+                    })
+                    .collect();
+                let needed_max = ranks.iter().filter_map(|r| *r).max();
+                println!(
+                    "  sched {:>3} spans {} widths {:?} opening {} needed-slot-indices {:?} -> \
+                     every index inside the opening width: {}",
+                    fund.schedule_rank,
+                    spans
+                        .iter()
+                        .map(|(s, e)| format!("[{s},{e})"))
+                        .collect::<Vec<_>>()
+                        .join(""),
+                    fund.widths,
+                    fund.opening_width,
+                    ranks,
+                    match needed_max {
+                        Some(m) => m < fund.opening_width,
+                        None => false,
+                    },
+                );
+            }
+        }
+        if dp_hits == 0 {
+            println!("  (none)");
+        }
+
+        // What the coverage reserve actually did at the funds that could carry
+        // the multiset, which is the stage that has to supply a tuple the
+        // traversal's opening width cannot reach.
+        println!("\ncoverage-reserve draws at each fund that could carry the multiset:");
+        for chain in chains_of_kept {
+            let spans: Vec<(usize, usize)> =
+                chain.iter().map(|(s, e, _)| (*s, *e)).collect();
+            for fund in rec.funds.iter().filter(|f| f.spans == spans) {
+                let here: Vec<Vec<usize>> = rec
+                    .all_profile
+                    .iter()
+                    .filter(|(rank, _)| *rank == fund.schedule_rank)
+                    .map(|(_, t)| t.clone())
+                    .collect();
+                let nonzero: Vec<String> = here
+                    .iter()
+                    .map(|t| {
+                        let nz: Vec<String> = t
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, &i)| i != 0)
+                            .map(|(k, i)| format!("{k}:{i}"))
+                            .collect();
+                        format!("[{}]", nz.join(" "))
+                    })
+                    .collect();
+                println!(
+                    "  sched {} widths {:?} opening {} -> {} draw(s): {}",
+                    fund.schedule_rank,
+                    fund.widths,
+                    fund.opening_width,
+                    here.len(),
+                    if nonzero.is_empty() { "-".to_string() } else { nonzero.join(" ") }
+                );
+            }
+        }
+
+        println!("\nemissions whose word multiset is the watched one:");
+        println!("  coverage reserve: {}", rec.profile_hits.len());
+        println!("  traversal:        {}", rec.traversal_hits.len());
+        println!("  adjacency:        {}", rec.adjacency_hits.len());
+        for hit in rec
+            .profile_hits
+            .iter()
+            .chain(&rec.traversal_hits)
+            .chain(&rec.adjacency_hits)
+        {
+            println!(
+                "    {:?} sched {} tuple {:?}",
+                hit.source, hit.schedule_rank, hit.tuple
+            );
+        }
+
+        let in_pool = pool.iter().filter(|c| bag(&c.phrase) == want).count();
+        println!("\npool members with exactly the watched multiset: {in_pool} of {}", pool.len());
+        let per_word: Vec<(String, usize)> = rec
+            .watch
+            .iter()
+            .map(|w| (w.clone(), pool.iter().filter(|c| bag(&c.phrase).contains(w)).count()))
+            .collect();
+        println!("pool members containing each word: {per_word:?}");
+    }
+
+    #[test]
+    #[ignore = "measurement probe; run with --ignored --nocapture"]
+    fn localise_case2_stage_by_stage() {
+        let rec_n = {
+            let g = generator();
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), CASE2_TARGET, true).unwrap();
+            ipa.chars().count() as usize
+        };
+        report("case 2", CASE2_TARGET, CASE2_WORDS, rec_n);
+    }
+
+    #[test]
+    #[ignore = "measurement probe; run with --ignored --nocapture"]
+    fn localise_case1_stage_by_stage() {
+        let rec_n = {
+            let g = generator();
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), CASE1_TARGET, true).unwrap();
+            ipa.chars().count() as usize
+        };
+        report("case 1 (green control)", CASE1_TARGET, CASE1_WORDS, rec_n);
     }
 }
