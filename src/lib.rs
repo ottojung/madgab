@@ -2098,6 +2098,54 @@ impl Generator {
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
 
+        // ---- zz9c6f2b scratch measurement harness (scratch branch only)
+        if let Ok(wanted) = std::env::var("ZZ_PHRASES") {
+            for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
+                match clues.iter().position(|c| c.phrase == phrase) {
+                    Some(rank) => eprintln!(
+                        "ZZRAW phrase={phrase:?} rank={rank} score={:.9} printed={}",
+                        clues[rank].score,
+                        select_diverse(clues.clone(), self.config.top_n)
+                            .iter()
+                            .any(|c| c.phrase == phrase)
+                    ),
+                    None => eprintln!(
+                        "ZZRAW phrase={phrase:?} ABSENT pool={pool_size}"
+                    ),
+                }
+            }
+            if let Some(c) = clues.get(self.config.top_n.saturating_sub(1)) {
+                eprintln!(
+                    "ZZCUTOFF rank={} score={:.9}",
+                    self.config.top_n.saturating_sub(1),
+                    c.score
+                );
+            }
+        }
+        if std::env::var("ZZ_STRUCT").is_ok() {
+            let selected = select_diverse(clues.clone(), self.config.top_n);
+            let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
+            for c in &selected {
+                *counts.entry(clue_structure(c)).or_default() += 1;
+            }
+            let cap = selected.len() / STRUCTURE_FLOOR;
+            eprintln!(
+                "ZZSTRUCT printed={} distinct={} cap={} max_share={:?} min_printed={:.9}",
+                selected.len(),
+                counts.len(),
+                cap,
+                counts.values().max(),
+                selected.iter().map(|c| c.score).fold(f64::INFINITY, f64::min)
+            );
+            let mut v: Vec<(usize, Vec<usize>)> =
+                counts.into_iter().collect();
+            v.sort();
+            for (n, k) in v.iter().rev() {
+                eprintln!("ZZSTRUCT share={n} structure={k:?}");
+            }
+        }
+        // ---- end zz9c6f2b
+
         (select_diverse(clues, self.config.top_n), pool_size)
     }
 }
