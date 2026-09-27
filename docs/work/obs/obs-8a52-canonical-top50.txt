@@ -1,0 +1,116 @@
+# Observable milestone capture - coord-8a52, 2026-09-27T21:45Z
+# binary: /workspace/madgab/target/release/madgab (built 21:01Z; src/ identical to 8222c93)
+# command: madgab --approximate --top 50 <target>
+# verdict: case 1 GREEN (wreck a nice beach at display rank 27, 0.920); case 2 ABSENT (0 of 50 contain hid)
+
+## case 1: recognize speech
+target: recognize speech
+IPA:    /ɹˈɛkəɡnˌaɪzspˈitʃ/
+(corpus loaded in 518ms; search 999ms)
+
+ 1. [0.924] yeah 'cause i.'s pitch
+ 2. [0.923] yeah 'cause i.'s peach
+ 3. [0.923] let a guys pitch
+ 4. [0.923] let a guys peach
+ 5. [0.923] let a nice pitch
+ 6. [0.922] let a nice peach
+ 7. [0.922] yeah 'cause i.'s beach
+ 8. [0.922] wreck a guys pitch
+ 9. [0.922] read 'cause i.'s pitch
+10. [0.922] let egg nice pitch
+11. [0.922] wreck a guys peach
+12. [0.922] read 'cause i.'s peach
+13. [0.922] let egg nice peach
+14. [0.921] let a guys beach
+15. [0.921] wreck a nice pitch
+16. [0.921] wreck a nice peach
+17. [0.921] yeah can i.'s pitch
+18. [0.921] let a nice beach
+19. [0.921] yeah can i.'s peach
+20. [0.921] wreck egg nice pitch
+21. [0.921] wreck egg nice peach
+22. [0.920] wreck a guys beach
+23. [0.920] read 'cause i.'s beach
+24. [0.920] let egg nice beach
+25. [0.920] rec a guys pitch
+26. [0.920] let ugh nice pitch
+27. [0.920] wreck a nice beach
+28. [0.920] rec a guys peach
+29. [0.920] let ugh nice peach
+30. [0.920] yeah 'cause i.'s teach
+31. [0.920] yeah can i.'s beach
+32. [0.920] rec a nice pitch
+33. [0.919] let eggs i.'s pitch
+34. [0.919] rec a nice peach
+35. [0.919] read can i.'s pitch
+36. [0.919] red 'cause i.'s pitch
+37. [0.919] yeah 'cause eyes pitch
+38. [0.919] read a guys pitch
+39. [0.919] let eggs i.'s peach
+40. [0.919] wreck egg nice beach
+41. [0.919] let a guys teach
+42. [0.919] read can i.'s peach
+43. [0.918] let a guy speaks
+44. [0.917] yeah tag nice pitch
+45. [0.917] yeah 'cause i.'s it's
+46. [0.916] let egg nice each
+47. [0.915] yeah 'cause guys pitch
+48. [0.914] yeah 'cause i speaks
+49. [0.914] let eggs i.'s each
+50. [0.913] let gone i.'s pitch
+
+## case 2: It's just a stupid game
+target: It's just a stupid game
+IPA:    /ˈɪtsdʒˈʌstəstˈupədɡˈeɪm/
+(corpus loaded in 491ms; search 1079ms)
+
+ 1. [0.921] it said thus test oop day
+ 2. [0.921] it said thus 'cause too day
+ 3. [0.921] it said thus death too day
+ 4. [0.920] it said thus tough too day
+ 5. [0.919] it said thus test oop gave
+ 6. [0.919] each thus 'cause too bad aim
+ 7. [0.919] it said thus 'cause too gave
+ 8. [0.919] it said thus test oop dame
+ 9. [0.919] it said thus 'cause too dame
+10. [0.918] it said thus tess too day
+11. [0.918] each thus 'cause too bad same
+12. [0.918] it justice too bad same
+13. [0.918] each thus death too bad aim
+14. [0.918] it said thus death too gave
+15. [0.918] it said thus test oop games
+16. [0.918] it said thus tas too day
+17. [0.918] it said thus death too dame
+18. [0.918] it said thus 'cause too games
+19. [0.918] each thus tough too bad aim
+20. [0.918] it said thus tough too gave
+21. [0.917] it said thus tough too dame
+22. [0.917] it justice too bad aim
+23. [0.917] it said thus death too games
+24. [0.917] eat said thus test oop day
+25. [0.917] eat said thus 'cause too day
+26. [0.917] each thus 'cause too pad aim
+27. [0.917] each thus test new bad aim
+28. [0.917] it justice too bad name
+29. [0.917] it said thus test loop day
+30. [0.917] it said thus test new dame
+31. [0.917] it said thus tough too games
+32. [0.916] each thus 'cause too pad same
+33. [0.916] eat said thus death too day
+34. [0.916] each thus test new bad same
+35. [0.916] each thus death too pad aim
+36. [0.916] it said thus test pah day
+37. [0.916] each thus tess too bad aim
+38. [0.916] it said thus tess too gave
+39. [0.916] it justice too bad came
+40. [0.916] each thus test too bad aim
+41. [0.916] each thus tough too pad aim
+42. [0.916] each thus tas too bad aim
+43. [0.915] each thus tess too bad same
+44. [0.915] it justice too bad a.'s
+45. [0.914] each thus test oop add aim
+46. [0.914] each thus 'cause too add aim
+47. [0.914] each thus 'cause too pass day
+48. [0.913] eat said us test oop day
+49. [0.913] it justice too pass day
+50. [0.913] it josh test oop add aim
