@@ -1077,11 +1077,31 @@ impl Generator {
                         )
                 };
 
+                #[cfg(test)]
+                let mut by_q_all = matches.clone();
+                #[cfg(test)]
+                {
+                    by_q_all.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+                }
+                #[cfg(test)]
+                let quality_order: Vec<String> = by_q_all
+                    .iter()
+                    .map(|m| {
+                        self.fuzzy_lexicon
+                            .word(m.word_idx)
+                            .word
+                            .to_lowercase()
+                    })
+                    .collect();
+
                 // A span shortlist is a portfolio, not simply the
                 // cheapest N words.  This preserves near-homophones that
                 // are strong on a different quality axis.
                 let mut selected = Vec::new();
                 let mut seen_words = HashSet::new();
+                #[cfg(test)]
+                let mut admitted_by: HashMap<usize, &'static str> =
+                    HashMap::new();
 
                 let mut by_cost = matches.clone();
                 by_cost.sort_by(|a, b| {
@@ -1092,6 +1112,8 @@ impl Generator {
                 for m in by_cost.iter().take(SPAN_AXIS_KEEP) {
                     if seen_words.insert(m.word_idx) {
                         selected.push(*m);
+                        admitted_by
+                            .insert(m.word_idx, "cost");
                     }
                 }
 
@@ -1109,6 +1131,8 @@ impl Generator {
                 for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
                     if seen_words.insert(m.word_idx) {
                         selected.push(*m);
+                        admitted_by
+                            .insert(m.word_idx, "familiarity");
                     }
                 }
 
@@ -1134,6 +1158,8 @@ impl Generator {
                 for m in by_rarity.iter().take(SPAN_RARITY_KEEP) {
                     if seen_words.insert(m.word_idx) {
                         selected.push(*m);
+                        admitted_by
+                            .insert(m.word_idx, "rarity");
                     }
                 }
 
@@ -1154,6 +1180,8 @@ impl Generator {
                     for m in by_band_quality.iter().take(SPAN_BAND_KEEP) {
                         if seen_words.insert(m.word_idx) {
                             selected.push(*m);
+                            admitted_by
+                                .insert(m.word_idx, "band-quality");
                         }
                     }
 
@@ -1171,6 +1199,8 @@ impl Generator {
                     for m in by_band_familiarity.iter().take(SPAN_BAND_KEEP) {
                         if seen_words.insert(m.word_idx) {
                             selected.push(*m);
+                            admitted_by
+                                .insert(m.word_idx, "band-familiarity");
                         }
                     }
 
@@ -1191,6 +1221,8 @@ impl Generator {
                     for m in by_band_rarity.iter().take(SPAN_BAND_KEEP) {
                         if seen_words.insert(m.word_idx) {
                             selected.push(*m);
+                            admitted_by
+                                .insert(m.word_idx, "band-rarity");
                         }
                     }
                 }
@@ -1200,6 +1232,8 @@ impl Generator {
                 for m in by_quality.iter().take(SPAN_AXIS_KEEP) {
                     if seen_words.insert(m.word_idx) {
                         selected.push(*m);
+                        admitted_by
+                            .insert(m.word_idx, "quality");
                     }
                 }
 
@@ -1216,9 +1250,51 @@ impl Generator {
                     }
                     if seen_words.insert(m.word_idx) {
                         selected.push(m);
+                        admitted_by.insert(m.word_idx, "fill");
                     }
                 }
+                #[cfg(test)]
+                let pre_sort_order: Vec<usize> =
+                    selected.iter().map(|m| m.word_idx).collect();
                 selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+
+                #[cfg(test)]
+                {
+                    let mut in_shortlist: HashMap<String, usize> =
+                        HashMap::new();
+                    let mut passed: HashMap<String, &'static str> =
+                        HashMap::new();
+                    for (i, m) in selected.iter().enumerate() {
+                        let w = self.fuzzy_lexicon
+                            .word(m.word_idx)
+                            .word
+                            .to_lowercase();
+                        in_shortlist.insert(w.clone(), i);
+                        if let Some(&pass) = admitted_by.get(&m.word_idx) {
+                            passed.insert(w, pass);
+                        }
+                    }
+                    let mut insert_index: HashMap<String, usize> =
+                        HashMap::new();
+                    for (i, wi) in pre_sort_order.iter().enumerate() {
+                        insert_index.insert(
+                            self.fuzzy_lexicon
+                                .word(*wi)
+                                .word
+                                .to_lowercase(),
+                            i,
+                        );
+                    }
+                    shortlist_dump::record(
+                        p,
+                        end,
+                        by_q_all.len(),
+                        quality_order,
+                        in_shortlist,
+                        passed,
+                        insert_index,
+                    );
+                }
 
                 if selected.is_empty() {
                     continue;
@@ -2220,6 +2296,88 @@ fn normalized_word(word: &str) -> String {
         .filter(|c| c.is_alphanumeric())
         .flat_map(|c| c.to_lowercase())
         .collect()
+}
+
+/// w-0f3a17 probe: the per-span shortlist as actually built.
+///
+/// Records, for every span edge of one approximate search, the span's
+/// `[p, end)` offsets, how many candidate words it was offered, the full
+/// quality-descending order of those words, the index each selected word
+/// ended up at inside the 160-wide shortlist, and which of the six
+/// selection passes first admitted it.  Probe branch only; compiled out of
+/// every non-test build.
+#[cfg(test)]
+mod shortlist_dump {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    /// One span edge of one target.
+    #[derive(Clone, Debug)]
+    pub struct Edge {
+        pub p: usize,
+        pub end: usize,
+        pub offered: usize,
+        /// Every candidate word for this span, quality-descending: word at
+        /// quality rank `i`, whatever the shortlist does with it.
+        pub quality_order: Vec<String>,
+        /// Word -> its index inside the shortlist, i.e. its own rank there.
+        pub in_shortlist: HashMap<String, usize>,
+        /// Word -> the selection pass that first admitted it.
+        pub admitted_by: HashMap<String, &'static str>,
+        /// Word -> its index in the shortlist in *admission* order, i.e.
+        /// before the final quality sort.
+        pub insert_index: HashMap<String, usize>,
+    }
+
+    thread_local! {
+        static EDGES: RefCell<Vec<Edge>> = const { RefCell::new(Vec::new()) };
+        static ARMED: RefCell<bool> = const { RefCell::new(false) };
+    }
+
+    /// Start collecting for the next search, discarding anything earlier.
+    pub fn arm() {
+        EDGES.with(|e| e.borrow_mut().clear());
+        ARMED.with(|a| *a.borrow_mut() = true);
+    }
+
+    pub fn disarm() {
+        ARMED.with(|a| *a.borrow_mut() = false);
+    }
+
+    /// The edges collected by the searches run since the last `arm`.
+    pub fn take() -> Vec<Edge> {
+        EDGES.with(|e| std::mem::take(&mut *e.borrow_mut()))
+    }
+
+    pub fn armed() -> bool {
+        ARMED.with(|a| *a.borrow())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record(
+        p: usize,
+        end: usize,
+        offered: usize,
+        quality_order: Vec<String>,
+        in_shortlist: HashMap<String, usize>,
+        admitted_by: HashMap<String, &'static str>,
+        insert_index: HashMap<String, usize>,
+    ) {
+        if !armed() {
+            return;
+        }
+        EDGES.with(|e| {
+            e.borrow_mut().push(Edge {
+                p,
+                end,
+                offered,
+                quality_order,
+                in_shortlist,
+                admitted_by,
+                insert_index,
+            })
+        });
+    }
 }
 
 /// Test-only instrumentation. Approximate search is a constant-factor
@@ -5378,6 +5536,425 @@ mod tests {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /// w-0f3a17 probe: is each *needed* per-slot tuple present in the
+    /// 160-wide per-slot shortlist at any width?
+    ///
+    /// The shortlist is a pure function of the span's candidate set and
+    /// the target, so "at any width" reduces to "is it in `selected`":
+    /// no value of the traversal's `cap` can reach a word the shortlist
+    /// did not keep.  This prints, per target and per span, the words a
+    /// real wording needs, their index in the shortlist, and their
+    /// quality rank in the span's full candidate order when they are
+    /// absent.
+    #[test]
+    fn probe_0f3a17_shortlist_contents() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+        const TARGETS: &[&str] = &[
+            "It's just a stupid game",
+            "recognize speech",
+            "I love you",
+            "taco cat",
+            "a whole lot of trouble",
+            "what are you going to do",
+            "some kind of wonderful thing",
+            "the cat sat on the mat",
+            "in the middle of the night",
+            "my brother has a red car",
+            "can you hear me now",
+            "we should have told her",
+        ];
+
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let per_word_budget = match g.config.mode {
+            SearchMode::Approximate { per_word_budget, .. } => {
+                per_word_budget
+            }
+            _ => unreachable!(),
+        };
+
+        for target in TARGETS {
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let n = chars.len();
+
+            shortlist_dump::arm();
+            let _pool = g.generate_pool(target);
+            let edges = shortlist_dump::take();
+
+            println!("\n=== target {target:?}  n={n}  span edges={}",
+                edges.len());
+
+            // Independent rebuild of the same lattice, so costs are known.
+            let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
+                .map(|p| {
+                    g.fuzzy_lexicon.matches_at(
+                        &chars,
+                        p,
+                        per_word_budget,
+                        g.config.min_word_ipa_chars,
+                    )
+                })
+                .collect();
+
+            // Per span: how many candidates are within 1.5x of the
+            // cheapest, and how many of those the shortlist dropped.
+            let mut total_cheap = 0usize;
+            let mut total_cheap_out = 0usize;
+            let mut worst_out_rank = 0usize;
+            for e in &edges {
+                let cands: Vec<&approx::FuzzyMatch> = lattice[e.p]
+                    .iter()
+                    .filter(|m| e.p + m.consumed == e.end)
+                    .collect();
+                if cands.is_empty() {
+                    continue;
+                }
+                let min_cost = cands
+                    .iter()
+                    .map(|m| m.cost)
+                    .fold(f64::INFINITY, f64::min);
+                let mut cheap = 0usize;
+                let mut cheap_out = 0usize;
+                let mut out_ranks: Vec<usize> = Vec::new();
+                for m in &cands {
+                    if m.cost > 1.5 * min_cost + 1e-9 {
+                        continue;
+                    }
+                    cheap += 1;
+                    let w = g.fuzzy_lexicon.word(m.word_idx).word.to_lowercase();
+                    if e.in_shortlist.contains_key(&w) {
+                        continue;
+                    }
+                    cheap_out += 1;
+                    if let Some(i) =
+                        e.quality_order.iter().position(|x| *x == w)
+                    {
+                        out_ranks.push(i);
+                    }
+                }
+                total_cheap += cheap;
+                total_cheap_out += cheap_out;
+                if let Some(&worst) = out_ranks.iter().max() {
+                    worst_out_rank = worst_out_rank.max(worst);
+                }
+                if cheap_out > 0 {
+                    let mut sample: Vec<String> = out_ranks
+                        .iter()
+                        .map(|i| {
+                            format!(
+                                "{}@q{}",
+                                e.quality_order[*i], i
+                            )
+                        })
+                        .collect();
+                    sample.sort();
+                    sample.truncate(6);
+                    println!(
+                        "  span [{},{}) offered={} shortlist={}                          cheap(<=1.5x)={} cheap-OUT={} worst-out-quality-rank={} : {}",
+                        e.p,
+                        e.end,
+                        e.offered,
+                        e.in_shortlist.len(),
+                        cheap,
+                        cheap_out,
+                        out_ranks.iter().copied().max().unwrap_or(0),
+                        sample.join(" ")
+                    );
+                }
+            }
+            println!(
+                "  TOTAL spans={} cheap={} cheap-outside={} worst-outside-quality-rank={}",
+                edges.len(),
+                total_cheap,
+                total_cheap_out,
+                worst_out_rank
+            );
+        }
+    }
+
+    /// w-0f3a17 probe: the canonical alignments of `reachability_corpus`,
+    /// slot by slot, against the shortlist actually built.
+    #[test]
+    fn probe_0f3a17_canonical_alignment_slots() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+
+        for (target, wordings) in reachability_corpus() {
+            let (ipa, _, _) =
+                transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let n = chars.len();
+
+            shortlist_dump::arm();
+            let _pool = g.generate_pool(target);
+            let edges = shortlist_dump::take();
+
+            println!("\n=== canonical {target:?} n={n}");
+            for wording in wordings {
+                // Cheapest slot-by-slot alignment of the wording, over the
+                // same matcher the search uses.
+                let mut states: HashMap<(usize, usize), (f64, Vec<(usize, usize, String)>)> =
+                    HashMap::new();
+                states.insert((0, 0), (0.0, Vec::new()));
+                for (k, wanted) in wording.iter().enumerate() {
+                    let mut next: HashMap<
+                        (usize, usize),
+                        (f64, Vec<(usize, usize, String)>),
+                    > = HashMap::new();
+                    for (&(pos, _), &(total, ref path)) in &states {
+                        if pos >= n {
+                            continue;
+                        }
+                        for m in g.fuzzy_lexicon.matches_at(&chars, pos, 0.5, 1)
+                        {
+                            let word = g.fuzzy_lexicon.word(m.word_idx);
+                            if !word.word.eq_ignore_ascii_case(wanted) {
+                                continue;
+                            }
+                            let acc = total + m.cost;
+                            if acc > 1.5 + 1e-9 {
+                                continue;
+                            }
+                            let q = pos + m.consumed;
+                            let mut p2 = path.clone();
+                            p2.push((pos, q, word.word.to_lowercase()));
+                            match next.get_mut(&(q, k + 1)) {
+                                Some(e) => {
+                                    if acc < e.0 {
+                                        *e = (acc, p2);
+                                    }
+                                }
+                                None => {
+                                    next.insert((q, k + 1), (acc, p2));
+                                }
+                            }
+                        }
+                    }
+                    states = next;
+                }
+                let Some((_, path)) =
+                    states.get(&(n, wording.len())).cloned()
+                else {
+                    println!("  {:?}: not matchable at all", wording.join(" "));
+                    continue;
+                };
+                let mut report = Vec::new();
+                for (k, (p, e, w)) in path.iter().enumerate() {
+                    let edge = edges
+                        .iter()
+                        .find(|x| x.p == *p && x.end == *e);
+                    match edge {
+                        None => report.push(format!("{k}:{w}=NO-SPAN")),
+                        Some(edge) => {
+                            let idx = edge.in_shortlist.get(w);
+                            let qr = edge
+                                .quality_order
+                                .iter()
+                                .position(|x| x == w)
+                                .map(|i| i.to_string())
+                                .unwrap_or_else(|| "?".into());
+                            let by = edge.admitted_by.get(w).copied().unwrap_or("-");
+                            let ins = edge
+                                .insert_index
+                                .get(w)
+                                .map(|i| i.to_string())
+                                .unwrap_or_else(|| "?".into());
+                            report.push(match idx {
+                                Some(i) => format!(
+                                    "{k}:{w}=IN@{i} (admission@{ins}, q{qr}, {by}, offered {})",
+                                    edge.offered
+                                ),
+                                None => format!(
+                                    "{k}:{w}=ABSENT (q{qr} of {}, offered {})",
+                                    qr, edge.offered
+                                ),
+                            });
+                        }
+                    }
+                }
+                println!("  {:?}\n    {}", wording.join(" "), report.join("\n    "));
+            }
+        }
+    }
+
+    /// w-0f3a17 probe: the words a *real* clue for the target actually
+    /// needs, checked against the shortlist that was built for it.
+    ///
+    /// Needed tuples are taken from the exact search's own pool for the
+    /// same target, so no wording is invented here: if the exact search
+    /// can say a word in a span, the approximate path needs that word in
+    /// that span's shortlist to be able to reach the same clue.
+    #[test]
+    fn probe_0f3a17_exact_clue_words_against_the_shortlist() {
+        use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+        const TARGETS: &[&str] = &[
+            "It's just a stupid game",
+            "recognize speech",
+            "I love you",
+            "taco cat",
+            "a whole lot of trouble",
+            "what are you going to do",
+            "some kind of wonderful thing",
+            "the cat sat on the mat",
+            "in the middle of the night",
+            "my brother has a red car",
+            "can you hear me now",
+            "we should have told her",
+        ];
+
+        let approx = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let exact = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::Exact,
+                top_n: 200,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+
+        for target in TARGETS {
+            let (ipa, _, _) = transcribe_with_boundaries(
+                approx.corpus(),
+                target,
+                true,
+            )
+            .unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let n = chars.len();
+
+            shortlist_dump::arm();
+            let _pool = approx.generate_pool(target);
+            let edges = shortlist_dump::take();
+
+            let clues = exact.generate_pool(target);
+            let mut checked = 0usize;
+            let mut inside = 0usize;
+            let mut outside: std::collections::BTreeSet<String> =
+                std::collections::BTreeSet::new();
+            let mut outside_detail: std::collections::BTreeSet<String> =
+                std::collections::BTreeSet::new();
+            for clue in clues.iter().take(60) {
+                let words: Vec<String> = clue
+                    .words
+                    .iter()
+                    .map(|w| w.word.to_lowercase())
+                    .collect();
+                // Cheapest full-cover alignment of this clue over the
+                // target, using the production matcher.
+                let mut states: HashMap<
+                    usize,
+                    (f64, Vec<(usize, usize, String)>),
+                > = HashMap::new();
+                states.insert(0, (0.0, Vec::new()));
+                for w in &words {
+                    let mut next: HashMap<
+                        usize,
+                        (f64, Vec<(usize, usize, String)>),
+                    > = HashMap::new();
+                    for (&pos, &(total, ref path)) in &states {
+                        if pos >= n {
+                            continue;
+                        }
+                        for m in approx.fuzzy_lexicon.matches_at(
+                            &chars, pos, 0.5, 1,
+                        ) {
+                            let word = approx.fuzzy_lexicon.word(m.word_idx);
+                            if !word.word.eq_ignore_ascii_case(w) {
+                                continue;
+                            }
+                            let acc = total + m.cost;
+                            let q = pos + m.consumed;
+                            let mut p2 = path.clone();
+                            p2.push((
+                                pos,
+                                q,
+                                word.word.to_lowercase(),
+                            ));
+                            match next.get_mut(&q) {
+                                Some(e) => {
+                                    if acc < e.0 {
+                                        *e = (acc, p2);
+                                    }
+                                }
+                                None => {
+                                    next.insert(q, (acc, p2));
+                                }
+                            }
+                        }
+                    }
+                    states = next;
+                }
+                let Some((_, path)) = states.get(&n) else { continue };
+                if path.len() != words.len() {
+                    continue;
+                }
+                checked += 1;
+                for (p, e, w) in path {
+                    let Some(edge) = edges
+                        .iter()
+                        .find(|x| x.p == *p && x.end == *e)
+                    else {
+                        continue;
+                    };
+                    match edge.in_shortlist.get(w) {
+                        Some(_) => inside += 1,
+                        None => {
+                            let qr = edge
+                                .quality_order
+                                .iter()
+                                .position(|x| x == w)
+                                .map(|i| i.to_string())
+                                .unwrap_or_else(|| "?".into());
+                            outside.insert(w.clone());
+                            outside_detail.insert(format!(
+                                "{w} span[{p},{e}) q{qr}/{} offered {}",
+                                edge.offered,
+                                edge.offered
+                            ));
+                        }
+                    }
+                }
+            }
+            println!(
+                "{target:?}: clues-aligned={checked} words-inside={inside} distinct-words-outside={} {:?}",
+                outside.len(),
+                outside
+            );
+            for line in outside_detail.iter().take(8) {
+                println!("    OUT {line}");
             }
         }
     }
