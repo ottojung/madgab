@@ -387,8 +387,7 @@ fn next_branch_stage(current: usize, widest: usize) -> Option<usize> {
 /// The `nth` index a uniform sweep of one slot's alternatives visits.
 ///
 /// The sweep covers `floor..width`, where `floor` is the width the traversal
-/// actually *opens* at, i.e. [`affordable_opening_width`] capped by the
-/// widest list present.  The step is uniform — `span` indices taken `per` at a time,
+/// *opens* at.  The step is uniform — `span` indices taken `per` at a time,
 /// rounded **up**, with the whole sweep rotated by `phase` — and `None` when
 /// the slot is no wider than that floor, so the rule can never walk off the
 /// end of a list or invent an index.
@@ -408,44 +407,30 @@ fn next_branch_stage(current: usize, widest: usize) -> Option<usize> {
 ///
 /// # The coupling this floor has, stated honestly
 ///
-/// `floor` is the width the traversal *opens* at, and the traversal pushes
-/// only `0..cap` of a slot's list (`cap = min(affordable_opening_width(depth,
-/// pop_limit), widest)`), so the claim "every index below the floor is one the
-/// traversal generates" is a claim about the width the traversal opens at.
-///
-/// Passing that *derived* width as the floor rather than
-/// [`LEXICAL_BRANCH_STAGE_0`] is what makes the two mechanisms an exact
-/// partition of a slot's list.  The derived width is a function of the slot
-/// count and the pop limit, so at the shipped budgets it is **below**
-/// [`LEXICAL_BRANCH_STAGE_0`] for every segmentation with five or more slots:
-/// `1 + w + ... + w^(d-1) <= 4_000` gives `w = 7` at `d = 5` and `w = 5` at
-/// `d = 6`, against a first stage of 10.  With the floor pinned to the
-/// constant, the indices in `(cap, LEXICAL_BRANCH_STAGE_0)` were reachable by
-/// **neither** mechanism — the traversal's `0..cap` stopped short of them and
-/// the sweep refused to start below the constant — and that band is where a
-/// real alternative of a real span sits whenever the span is wide.  The
-/// assertion in `tests::the_coverage_sweep_starts_where_the_traversal_stops`
-/// is exactly this partition, and it is scoped to the width the traversal
-/// opens at for the same reason as the claim above.
-///
-/// The duplication concern that remains is the other direction: if a traversal
-/// ever *drains* at a narrow width with appetite left, [`next_branch_stage`]
-/// opens a wider one and indices above the floor become reachable by the
-/// traversal too, so the reserve's spend on them is duplicated rather than
-/// additive.  Two things bound that.  The widening is asked for only when the
-/// heap empties, and the per-segmentation emission allowance is exhausted long
-/// before a `10^depth` product does; and `docs/work/items/w-9d4e17.md` measures
-/// the widening firing **zero** times across the six real multi-clause
-/// targets.  So the duplication is bounded by a measurement, not by a
-/// theorem, and this comment does not claim it as one.
+/// `floor` is the traversal's *first* stage, so the claim "every index below
+/// the floor is one the traversal generates" is a claim about the stage the
+/// traversal opens at, not about every width it can open.  [`next_branch_stage`]
+/// can open 40 and 160 too, and if a traversal ever *drains* at a narrow
+/// width with appetite left, indices in `(floor, wider)` are then reachable
+/// by the traversal as well and the reserve's spend on them is duplicated
+/// rather than additive.  Two things bound that.  The widening is asked for
+/// only when the heap empties, and the per-segmentation emission allowance is
+/// exhausted long before a `10^depth` product does; and
+/// `docs/work/items/w-9d4e17.md` measures the widening firing **zero** times
+/// across the six real multi-clause targets.  So on real targets the floor
+/// is the traversal's real ceiling and the reserve's spend is pure coverage —
+/// but that is a measurement, not a theorem, and this comment does not claim
+/// it as one.  The assertion in
+/// `tests::the_coverage_sweep_starts_where_the_traversal_stops` is scoped to
+/// the first stage for the same reason.
 fn sweep_index(
     width: usize,
-    floor: usize,
     per: usize,
     nth: usize,
     member: usize,
     phase: usize,
 ) -> Option<usize> {
+    let floor = LEXICAL_BRANCH_STAGE_0;
     if width <= floor {
         return None;
     }
@@ -568,7 +553,6 @@ fn gcd(mut a: usize, mut b: usize) -> usize {
 /// per phase narrows the stride of the rotation, it does not bias it.
 fn coverage_tuples(
     slot_widths: &[usize],
-    floor: usize,
     reserve: usize,
     max_deep: usize,
     phase: usize,
@@ -604,7 +588,7 @@ fn coverage_tuples(
             for t in 0..EMIT_PROFILE_SAMPLE {
                 let rotation = phase.wrapping_add(t);
                 let Some(_) =
-                    sweep_index(narrowest, floor, reserve, out.len(), 0, rotation)
+                    sweep_index(narrowest, reserve, out.len(), 0, rotation)
                 else {
                     break;
                 };
@@ -613,7 +597,6 @@ fn coverage_tuples(
                 for (member, &slot) in combo.iter().enumerate() {
                     let Some(at) = sweep_index(
                         narrowest,
-                        floor,
                         reserve,
                         out.len(),
                         member,
@@ -1770,22 +1753,8 @@ impl Generator {
             let mut pooled: Vec<Vec<usize>> = Vec::new();
             let widths: Vec<usize> =
                 slots.iter().map(Vec::len).collect();
-            // The width this traversal *opens* at, derived rather than
-            // chosen; see `affordable_opening_width`.  It is read here
-            // rather than at the traversal below because the coverage
-            // reserve's sweep floor has to be this number: the traversal
-            // pushes `0..cap` of every slot and the sweep has to cover
-            // `cap..width`, or the band between them is reachable by
-            // neither mechanism.  It is a pure function of `depth` and
-            // `LEXICAL_HEAP_POP_LIMIT`, so hoisting it changes nothing the
-            // traversal computes.
-            let widest = widths.iter().copied().max().unwrap_or(0);
-            let cap =
-                affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
-                    .min(widest);
             for tuple in coverage_tuples(
                 &widths,
-                cap,
                 profile_allowance,
                 EMIT_PROFILE_MAX_DEEP,
                 coverage_phase,
@@ -1850,14 +1819,23 @@ impl Generator {
 
             // How deep any single slot may be read is *not* a property of
             // the list: it is a property of what this traversal is still
-            // willing to spend.  `cap` opens at the derived width computed
-            // above and is widened — geometrically, up to the widest list
-            // here — only after the current width has been walked to
-            // exhaustion *and* the traversal still wants wordings.  So a
-            // level the traversal never needs to visit costs nothing, and no
-            // candidate can be missing merely because it sat at rank 99 of a
-            // slot that a uniform pre-filter had already truncated.
-            let mut cap = cap;
+            // willing to spend.  `cap` opens at `LEXICAL_BRANCH_STAGE_0`
+            // and is widened — geometrically, up to the widest list here —
+            // only after the current width has been walked to exhaustion
+            // *and* the traversal still wants wordings.  So a level the
+            // traversal never needs to visit costs nothing, and no candidate
+            // can be missing merely because it sat at rank 99 of a slot that
+            // a uniform pre-filter had already truncated.
+            let widest = widths.iter().copied().max().unwrap_or(0);
+            // The opening width is derived, not chosen: at
+            // `LEXICAL_BRANCH_STAGE_0` a `d`-slot product needs
+            // `1 + w + ... + w^(d-1)` pops before the walk reaches its
+            // first wording at all, and a `d` where that exceeds
+            // `LEXICAL_HEAP_POP_LIMIT` is a segmentation whose emission
+            // allowance cannot be paid however the pops are spent.  See
+            // [`affordable_opening_width`] for the measured counts.
+            let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+                .min(widest);
             let mut emitted = 0usize;
             let mut popped = 0usize;
             // The traversal runs in passes over the heap.  A walk is the
@@ -4490,7 +4468,7 @@ mod tests {
         for width in 0..=SPAN_SHORTLIST {
             let mut seen: HashSet<usize> = HashSet::new();
             for phase in 0..SPAN_SHORTLIST {
-                let Some(at) = sweep_index(width, LEXICAL_BRANCH_STAGE_0, 16, 0, 0, phase) else {
+                let Some(at) = sweep_index(width, 16, 0, 0, phase) else {
                     assert!(
                         width <= LEXICAL_BRANCH_STAGE_0,
                         "width {width} has no index the traversal misses"
@@ -4509,124 +4487,6 @@ mod tests {
                 seen.len(),
                 width.saturating_sub(LEXICAL_BRANCH_STAGE_0).min(SPAN_SHORTLIST),
                 "width {width}"
-            );
-        }
-    }
-
-    /// The pool's coverage property, stated in general terms: **every
-    /// alternative of every span is reachable by at least one of the two
-    /// emission mechanisms.**
-    ///
-    /// The traversal pushes exactly `0..cap` of a slot's list, where `cap` is
-    /// the *derived* opening width.  The coverage reserve sweeps exactly
-    /// `cap..width`.  So the two regions partition the list, and the union
-    /// over a run of phases is the whole list.  The property is what makes
-    /// "absent from the pool" mean "not generated at this index" rather than
-    /// "in a band neither mechanism owns", and it is stated over widths and
-    /// depths so that it holds for every target and every segmentation shape
-    /// without naming one.
-    ///
-    /// This is the assertion that was red before the sweep's floor became the
-    /// traversal's derived opening width: with the floor pinned to
-    /// [`LEXICAL_BRANCH_STAGE_0`], every depth whose derived width is below
-    /// that constant — five slots and above, at the shipped budgets — left the
-    /// half-open band `(cap, LEXICAL_BRANCH_STAGE_0)` owned by neither
-    /// mechanism.
-    #[test]
-    fn every_span_alternative_is_reachable_by_the_traversal_or_the_reserve() {
-        // `LEXICAL_HEAP_POP_LIMIT` is scoped inside the search function, so
-        // the shipped value is restated here.  It is the *shipped* value the
-        // property is claimed at: the derived opening width is a function of
-        // this constant, and the point of the test is that the two regions
-        // partition the list at whatever width that constant derives.
-        const SHIPPED_POP_LIMIT: usize = 4_000;
-        // The floor is *not* the first-stage constant, and the two genuinely
-        // differ at the shipped budgets.  If they ever agreed, passing the
-        // constant would be equivalent and this assertion would say so; while
-        // they differ, pinning the floor to the constant leaves a band that
-        // neither mechanism owns.
-        assert_ne!(
-            affordable_opening_width(5, SHIPPED_POP_LIMIT),
-            LEXICAL_BRANCH_STAGE_0,
-            "the derived opening width and the first-stage constant agree, so \
-             the sweep floor is no longer load-bearing"
-        );
-        for depth in 1..=8usize {
-            let cap = affordable_opening_width(depth, SHIPPED_POP_LIMIT);
-            assert!(
-                cap >= 1,
-                "depth {depth} derives an opening width of {cap}"
-            );
-            // A slot no wider than the traversal's opening width is entirely
-            // the traversal's, so the reserve must decline to invent an index
-            // for it.
-            if SPAN_SHORTLIST <= cap {
-                for phase in 0..SPAN_SHORTLIST {
-                    assert!(
-                        sweep_index(SPAN_SHORTLIST, cap, 16, 0, 0, phase)
-                            .is_none(),
-                        "depth {depth}: the reserve claimed an index of a \
-                         list the traversal already covers whole"
-                    );
-                }
-                continue;
-            }
-
-            // The reserve's region starts exactly where the traversal's ends.
-            for phase in 0..SPAN_SHORTLIST {
-                for member in 0..=EMIT_PROFILE_MAX_DEEP {
-                    for nth in 0..EMIT_PROFILE_RESERVE {
-                        if let Some(at) = sweep_index(
-                            SPAN_SHORTLIST,
-                            cap,
-                            EMIT_PROFILE_RESERVE,
-                            nth,
-                            member,
-                            phase,
-                        ) {
-                            assert!(
-                                at >= cap,
-                                "depth {depth}: the reserve spent at {at}, \
-                                 which the traversal already generates \
-                                 (its opening width is {cap})"
-                            );
-                            assert!(
-                                at < SPAN_SHORTLIST,
-                                "depth {depth}: the reserve walked off the end \
-                                 of a {SPAN_SHORTLIST}-wide list at {at}"
-                            );
-                        }
-                    }
-                }
-            }
-
-            // And the two regions together are the whole list: run the
-            // sweep over a full rotation and every index the traversal cannot
-            // push is drawn at least once.
-            let mut seen: HashSet<usize> = HashSet::new();
-            for phase in 0..(SPAN_SHORTLIST + EMIT_PROFILE_RESERVE) {
-                if let Some(at) = sweep_index(
-                    SPAN_SHORTLIST,
-                    cap,
-                    EMIT_PROFILE_RESERVE,
-                    0,
-                    0,
-                    phase,
-                ) {
-                    seen.insert(at);
-                }
-            }
-            assert_eq!(
-                seen.len(),
-                SPAN_SHORTLIST - cap,
-                "depth {depth} (cap {cap}): the reserve left a gap in \
-                 {}..{SPAN_SHORTLIST}",
-                cap
-            );
-            assert!(
-                seen.iter().all(|&i| i >= cap),
-                "depth {depth}: the reserve drew an index below the \
-                 traversal's opening width"
             );
         }
     }
@@ -4721,7 +4581,6 @@ mod tests {
             for phase in 0..64usize {
                 let tuples = coverage_tuples(
                     &widths,
-                    LEXICAL_BRANCH_STAGE_0,
                     EMIT_PROFILE_RESERVE,
                     EMIT_PROFILE_MAX_DEEP,
                     phase,
@@ -4785,7 +4644,6 @@ mod tests {
         for phase in 0..64usize {
             for tuple in coverage_tuples(
                 &widths,
-                LEXICAL_BRANCH_STAGE_0,
                 EMIT_PROFILE_RESERVE,
                 EMIT_PROFILE_MAX_DEEP,
                 phase,
@@ -4809,7 +4667,7 @@ mod tests {
             // Two consecutive rotations are enough to cover any remainder.
             let mut seen: HashSet<usize> = HashSet::new();
             for phase in 0..(span + per) {
-                if let Some(at) = sweep_index(width, LEXICAL_BRANCH_STAGE_0, per, 0, 0, phase) {
+                if let Some(at) = sweep_index(width, per, 0, 0, phase) {
                     seen.insert(at);
                 }
             }
@@ -4847,7 +4705,6 @@ mod tests {
             for phase in 0..span {
                 for tuple in coverage_tuples(
                     &widths,
-                    LEXICAL_BRANCH_STAGE_0,
                     per,
                     EMIT_PROFILE_MAX_DEEP,
                     phase,
@@ -4898,7 +4755,7 @@ mod tests {
             let mut seen: HashSet<usize> = HashSet::new();
             for nth in 0..per {
                 for member in 0..=EMIT_PROFILE_MAX_DEEP {
-                    if let Some(at) = sweep_index(width, LEXICAL_BRANCH_STAGE_0, per, nth, member, 0) {
+                    if let Some(at) = sweep_index(width, per, nth, member, 0) {
                         seen.insert(at);
                     }
                 }
@@ -4958,7 +4815,6 @@ mod tests {
         for phase in 0..64usize {
             let index_order = coverage_tuples(
                 &widths,
-                LEXICAL_BRANCH_STAGE_0,
                 per,
                 EMIT_PROFILE_MAX_DEEP,
                 phase,
@@ -4966,7 +4822,6 @@ mod tests {
             );
             let drawn = coverage_tuples(
                 &widths,
-                LEXICAL_BRANCH_STAGE_0,
                 per,
                 EMIT_PROFILE_MAX_DEEP,
                 phase,
@@ -4978,7 +4833,6 @@ mod tests {
                 .map(|t| {
                     coverage_tuples(
                         &widths,
-                        LEXICAL_BRANCH_STAGE_0,
                         per,
                         EMIT_PROFILE_MAX_DEEP,
                         phase.wrapping_add(t),
