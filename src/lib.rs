@@ -1387,10 +1387,38 @@ impl Generator {
                         // A path whose admissible bound is already under
                         // the incumbent cannot enter the output, so it is
                         // not carried forward at all.
-                        if span_bound(edge.end, next_words, &extended)
-                            < incumbent
-                        {
+                        let zz_chain: Option<Vec<(usize, usize)>> =
+                            if std::env::var("ZZ_PROBE_DPTRACE").is_ok() {
+                                let c: Vec<(usize, usize)> = vec![
+                                    (0, 3),
+                                    (3, 10),
+                                    (10, 13),
+                                    (13, 15),
+                                    (15, 19),
+                                ];
+                                (spans.len() <= c.len() && spans[..] == c[..spans.len()])
+                                    .then(|| c[..spans.len()].to_vec())
+                            } else {
+                                None
+                            };
+                        let zz_bound =
+                            span_bound(edge.end, next_words, &extended);
+                        if zz_bound < incumbent {
+                            if let Some(pre) = &zz_chain {
+                                eprintln!(
+                                    "ZZPROBE_DP REJECTED_BY_INCUMBENT at={} prefix={pre:?} bound={zz_bound:.6} incumbent={incumbent:.6} delta={:.6}",
+                                    edge.end,
+                                    zz_bound - incumbent
+                                );
+                            }
                             continue;
+                        }
+                        if let Some(pre) = &zz_chain {
+                            eprintln!(
+                                "ZZPROBE_DP admitted at={} prefix={pre:?} bound={zz_bound:.6} rank={:.6}",
+                                edge.end,
+                                span_partial(next_words, &extended)
+                            );
                         }
 
                         let bucket = seg_states[edge.end]
@@ -1413,6 +1441,19 @@ impl Generator {
                             cmp_desc(a.rank, b.rank)
                                 .then_with(|| a.spans.cmp(&b.spans))
                         });
+                        if let Some(pre) = &zz_chain {
+                            let pos =
+                                bucket.iter().position(|x| x.spans == *pre);
+                            eprintln!(
+                                "ZZPROBE_DP bucket at={} key=({next_words},{next_shared}) len={} SEG_STATE_KEEP={SEG_STATE_KEEP} own_rank={:.6} kept_position={pos:?} worst_kept_rank={:.6} best_dropped={:.6} DROPPED={}",
+                                edge.end,
+                                bucket.len(),
+                                span_partial(next_words, &extended),
+                                bucket.last().map(|x| x.rank).unwrap_or(f64::NAN),
+                                bucket.get(SEG_STATE_KEEP).map(|x| x.rank).unwrap_or(f64::NEG_INFINITY),
+                                pos.is_none()
+                            );
+                        }
                         bucket.truncate(SEG_STATE_KEEP);
                     }
                 }
@@ -1429,6 +1470,34 @@ impl Generator {
         let mut final_states: Vec<((usize, usize), Vec<SegPath>)> =
             std::mem::take(&mut seg_states[n]).into_iter().collect();
         final_states.sort_by(|(a, _), (b, _)| a.cmp(b));
+        // ---- zzprobe (scratch branch only): final-state survival ----
+        if std::env::var("ZZ_PROBE_DPTRACE").is_ok() {
+            let pre: Vec<(usize, usize)> = vec![
+                (0, 3),
+                (3, 10),
+                (10, 13),
+                (13, 15),
+                (15, 19),
+            ];
+            for ((wc, sh), paths) in &final_states {
+                if let Some(pos) = paths.iter().position(|x| x.spans == pre) {
+                    eprintln!(
+                        "ZZPROBE_FINAL survived=true key=({wc},{sh}) bucket_len={} pos={pos} rank={:.6} bucket_worst_rank={:.6}",
+                        paths.len(),
+                        paths[pos].rank,
+                        paths.last().map(|x| x.rank).unwrap_or(f64::NAN)
+                    );
+                }
+            }
+            eprintln!(
+                "ZZPROBE_FINAL survived={} total_final_paths={}",
+                final_states
+                    .iter()
+                    .any(|(_, ps)| ps.iter().any(|x| x.spans == pre)),
+                final_states.iter().map(|(_, ps)| ps.len()).sum::<usize>()
+            );
+        }
+        // ---- end zzprobe ----
         for ((word_count, _shared), paths) in final_states {
             if word_count == 0 {
                 continue;
@@ -1446,7 +1515,142 @@ impl Generator {
         segmentations.sort_by(|a, b| {
             cmp_desc(a.0, b.0).then_with(|| a.1.spans.cmp(&b.1.spans))
         });
+        // ---- zzprobe (scratch branch only): per-span shortlist membership ----
+        if let Ok(spec) = std::env::var("ZZ_PROBE_EDGES") {
+            let want: Vec<(usize, usize)> = spec
+                .split(',')
+                .filter_map(|s| {
+                    let (a, b) = s.trim().split_once('-')?;
+                    Some((a.trim().parse().ok()?, b.trim().parse().ok()?))
+                })
+                .collect();
+            let words: Vec<String> = std::env::var("ZZ_PROBE_WORDS")
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            eprintln!(
+                "ZZPROBE_EDGES n={n} edges_present={:?}",
+                want.iter()
+                    .map(|(s, e)| (span_lattice[*s]
+                        .iter()
+                        .any(|x| x.end == *e),))
+                    .collect::<Vec<_>>()
+            );
+            for (k, (s, e)) in want.iter().enumerate() {
+                let Some(edge) = span_lattice[*s].iter().find(|x| x.end == *e) else {
+                    eprintln!("ZZPROBE_EDGE span=({s},{e}) ABSENT");
+                    continue;
+                };
+                let idx = words.get(k).and_then(|w| {
+                    edge.matches
+                        .iter()
+                        .position(|m| &self.fuzzy_lexicon.word(m.word_idx).word == w)
+                });
+                let cost = idx.and_then(|i| Some(edge.matches[i].cost));
+                // rank under the final quality order used for `selected`
+                let mut ranked = edge.matches.clone();
+                ranked.sort_by(|a, b| cmp_desc(a.cost, b.cost));
+                let eidx = words.get(k).and_then(|w| {
+                    ranked
+                        .iter()
+                        .position(|m| &self.fuzzy_lexicon.word(m.word_idx).word == w)
+                });
+                eprintln!(
+                    "ZZPROBE_EDGE span=({s},{e}) shortlist_len={} want={:?} shortlist_index={idx:?} cost={cost:?} cost_rank_index={eidx:?} cost_sort_asc_idx={eidx:?}",
+                    edge.matches.len(),
+                    words.get(k)
+                );
+            }
+        }
+        // ---- end zzprobe ----
+
+        // ---- zzprobe (scratch branch only): DP survival trace ----
+        if std::env::var("ZZ_PROBE_DPTRACE").is_ok() {
+            let chain: Vec<(usize, usize)> = vec![
+                (0, 3),
+                (3, 10),
+                (10, 13),
+                (13, 15),
+                (15, 19),
+            ];
+            eprintln!("ZZPROBE_DP final_keep={final_keep} incumbent={incumbent}");
+            for step in 1..=chain.len() {
+                let at = chain[step - 1].1;
+                let pre: Vec<(usize, usize)> = chain[..step].to_vec();
+                let found = seg_states[at]
+                    .values()
+                    .any(|bucket| bucket.iter().any(|p| p.spans == pre));
+                let mut best = f64::NEG_INFINITY;
+                let mut bucket_lens = Vec::new();
+                for (k, bucket) in seg_states[at].iter() {
+                    bucket_lens.push((k, bucket.len()));
+                    for p in bucket {
+                        if p.spans == pre {
+                            best = best.max(p.rank);
+                        }
+                    }
+                }
+                bucket_lens.sort();
+                eprintln!(
+                    "ZZPROBE_DP step={step} at={at} prefix={pre:?} survived={found} best_rank_in_state={best} buckets={bucket_lens:?}"
+                );
+            }
+        }
+        // ---- end zzprobe ----
+
+        // ---- zzprobe (scratch branch only): rank before truncation ----
+        let zz_pre_rank = {
+            let spec = std::env::var("ZZ_PROBE_SPANS").unwrap_or_default();
+            let want: Vec<usize> = spec
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            let mut rank = None;
+            let mut obj = f64::NAN;
+            for (i, (_, seg)) in segmentations.iter().enumerate() {
+                let mut cuts: Vec<usize> = Vec::new();
+                for &(_, e) in &seg.spans {
+                    cuts.push(e);
+                }
+                // n is already the last span end
+                if cuts == want {
+                    rank = Some(i);
+                    obj = segmentations[i].0;
+                    break;
+                }
+            }
+            eprintln!(
+                "ZZPROBE_PRETRUNC total_segmentations={} probe_rank={rank:?} probe_objective={obj} kept={SEGMENTATION_KEEP}",
+                segmentations.len()
+            );
+            rank
+        };
+        // ---- end zzprobe ----
         segmentations.truncate(SEGMENTATION_KEEP);
+
+        // ---- zzprobe (scratch branch only) ----
+        {
+            let spec = std::env::var("ZZ_PROBE_SPANS").unwrap_or_default();
+            let want: Vec<usize> = spec
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            let rank = segmentations.iter().position(|(_, seg)| {
+                let mut cuts: Vec<usize> = Vec::new();
+                for &(_, e) in &seg.spans {
+                    cuts.push(e);
+                }
+                // n is already the last span end
+                cuts == want
+            });
+            eprintln!(
+                "ZZPROBE_SUMMARY target_len={n} segmentations_retained={} probe_spans_rank={rank:?}",
+                segmentations.len()
+            );
+        }
+        // ---- end zzprobe ----
 
         // For a fixed segmentation, boundary novelty and word count are
         // fixed, so the only remaining choice is which word fills each
@@ -1615,6 +1819,68 @@ impl Generator {
             if !possible || slots.iter().any(Vec::is_empty) {
                 continue;
             }
+
+            // ---- zzprobe (scratch branch only) ----
+            let mut zz_force: Option<Vec<usize>> = None;
+            if let Ok(spec) = std::env::var("ZZ_PROBE_SPANS") {
+                let want: Vec<usize> = spec
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                let mut cuts: Vec<usize> = Vec::new();
+                for &(_, e) in &segmentation.spans {
+                    cuts.push(e);
+                    let _ = e;
+                }
+                // n is already the last span end
+                if cuts == want {
+                    let words: Vec<String> = std::env::var("ZZ_PROBE_WORDS")
+                        .unwrap_or_default()
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    eprintln!(
+                        "ZZPROBE segmentation {} cuts={:?} spans={:?} emit_allowance={} breadth={} depth_ceiling={} held={} widths={:?}",
+                        index, cuts, segmentation.spans, emit_allowance, breadth,
+                        depth_ceiling, held,
+                        slots.iter().map(|s| s.len()).collect::<Vec<_>>()
+                    );
+                    let mut tuple = Vec::new();
+                    for (k, w) in words.iter().enumerate() {
+                        let pos = slots[k]
+                            .iter()
+                            .position(|a| &self.fuzzy_lexicon.word(a.match_ref.word_idx).word == w);
+                        let raw = pos.and_then(|p| {
+                            span_lattice[segmentation.spans[k].0]
+                                .iter()
+                                .find(|e| e.end == segmentation.spans[k].1)
+                                .map(|e| {
+                                    e.matches
+                                        .iter()
+                                        .position(|m| {
+                                            &self.fuzzy_lexicon.word(m.word_idx).word == w
+                                        })
+                                })
+                        });
+                        let cost = pos.map(|p| slots[k][p].cost);
+                        eprintln!(
+                            "ZZPROBE   slot{k} want={w:?} slot_index={pos:?} shortlist_index={raw:?} cost={cost:?} slot_len={}",
+                            slots[k].len()
+                        );
+                        tuple.push(pos);
+                    }
+                    eprintln!("ZZPROBE   tuple={tuple:?}");
+                    zz_force = if std::env::var("ZZ_PROBE_FORCE").is_ok()
+                        && tuple.iter().all(Option::is_some)
+                    {
+                        Some(tuple.iter().flatten().copied().collect::<Vec<usize>>())
+                    } else {
+                        None
+                    };
+                }
+            }
+            // ---- end zzprobe ----
 
             // The traversal's own key, computed before the depth-profile
             // reserve rather than after it: the reserve now spends its share
@@ -1785,6 +2051,29 @@ impl Generator {
             // segmentation, on the deterministic schedule, so the
             // enumeration stays reproducible.
             coverage_phase = coverage_phase.wrapping_add(1);
+            // ---- zzprobe (scratch branch only): force the probed alignment
+            // into the pool so the *production* scorer and selector can be
+            // measured on it without widening any budget.
+            if let Some(t) = zz_force.take() {
+                let sum: f64 = t
+                    .iter()
+                    .enumerate()
+                    .map(|(k, &i)| slots[k][i].cost)
+                    .sum();
+                match build(&t) {
+                    Some(partial) => {
+                        eprintln!(
+                            "ZZPROBE_FORCED tuple={t:?} cost_sum={sum:.6} total_budget={total_budget} build=accepted"
+                        );
+                        recovered.push(partial);
+                        spent_emissions += 1;
+                    }
+                    None => eprintln!(
+                        "ZZPROBE_FORCED tuple={t:?} cost_sum={sum:.6} total_budget={total_budget} build=REJECTED"
+                    ),
+                }
+            }
+            // ---- end zzprobe ----
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
             // The adjacency operator's share.  It is *not* carved out of the
@@ -2097,6 +2386,92 @@ impl Generator {
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
+
+        // ---- zzprobe (scratch branch only) ----
+        if let Ok(spec) = std::env::var("ZZ_PROBE_WORDS") {
+            let words: Vec<String> = spec
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            let mut hits = vec![0usize; words.len()];
+            let mut exact: Vec<(f64, String)> = Vec::new();
+            for c in &clues {
+                let got: Vec<String> = c
+                    .words
+                    .iter()
+                    .map(|w| w.word.to_lowercase())
+                    .collect();
+                for (i, w) in words.iter().enumerate() {
+                    if got.iter().any(|g| g == w) {
+                        hits[i] += 1;
+                    }
+                }
+                if got == words {
+                    exact.push((c.score, c.phrase.clone()));
+                }
+            }
+            eprintln!(
+                "ZZPROBE_POOL dedup_pool={pool_size} per_word_counts={hits:?} exact_alignments={}",
+                exact.len()
+            );
+            let selected = select_diverse(clues.clone(), self.config.top_n);
+            eprintln!(
+                "ZZPROBE_SELECT top_n={} selected={} cutoff={:.6} structures_shown={}",
+                self.config.top_n,
+                selected.len(),
+                selected
+                    .last()
+                    .map(|c| c.score)
+                    .unwrap_or(f64::NAN),
+                {
+                    let mut s: Vec<Vec<usize>> =
+                        selected.iter().map(|c| c.cuts.clone()).collect();
+                    s.sort();
+                    s.dedup();
+                    s.len()
+                }
+            );
+            for (i, c) in clues.iter().enumerate() {
+                let got: Vec<String> = c
+                    .words
+                    .iter()
+                    .map(|w| w.word.to_lowercase())
+                    .collect();
+                if got == words {
+                    eprintln!(
+                        "ZZPROBE_RANK pool_rank={} score={:.4} printed_rank={:?} cuts={:?}",
+                        i + 1,
+                        c.score,
+                        selected
+                            .iter()
+                            .position(|s| s.phrase == c.phrase)
+                            .map(|p| p + 1),
+                        c.cuts
+                    );
+                }
+            }
+            for (i, w) in words.iter().enumerate() {
+                let mut shown = 0;
+                for c in &clues {
+                    if c.words.iter().any(|g| g.word.to_lowercase() == *w) {
+                        eprintln!(
+                            "ZZPROBE_WORD {w:?} [{:.4}] {:?} cuts={:?}",
+                            c.score, c.phrase, c.cuts
+                        );
+                        shown += 1;
+                        if shown >= 6 {
+                            break;
+                        }
+                    }
+                }
+                let _ = i;
+            }
+            for (s, p) in exact.iter().take(10) {
+                eprintln!("ZZPROBE_POOL   [{s:.4}] {p}");
+            }
+        }
+        // ---- end zzprobe ----
 
         (select_diverse(clues, self.config.top_n), pool_size)
     }
