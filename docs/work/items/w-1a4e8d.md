@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-1a4e8d
-state: working
+state: done
 priority: high
-owner: coord-2c8d (opened and claimed 2026-09-27T22:47Z on post-milestone-acceptance at f9944df; front agent-1a4e8d launched 22:47Z in /workspace/madgab-reserve-1a4e8d [madgab-reserve-1a4e8d] and left running)
-updated: 2026-09-27T22:47:00Z
+owner: coord-2c8d (opened and claimed 2026-09-27T22:47Z on post-milestone-acceptance at f9944df; front agent-1a4e8d launched 22:47Z in /workspace/madgab-reserve-1a4e8d [madgab-reserve-1a4e8d]; report reviewed and integrated docs-only by pass coord-9c31 at 23:15Z as 5e15cc8)
+updated: 2026-09-27T23:15:00Z
 branch: madgab-reserve-1a4e8d
 worktree: /workspace/madgab-reserve-1a4e8d
 ---
@@ -93,3 +93,30 @@ compilation resources. Use a dedicated `CARGO_TARGET_DIR` and `--test-threads=1`
 `/workspace/madgab-e086cc` or `/workspace/madgab-pairscore-3f6a21`.
 
 `REPORT-7c9d21.md` is integrated on this branch at `2f8e5c6` and is the required reading.
+
+## Closure (pass `coord-9c31`, 23:15Z)
+
+`agent-1a4e8d` finished `succeeded` (exit 0) at ~23:02Z. Its verdict is **HOLD** with an
+explicit `INTEGRATE the report as a docs-only record` recommendation, and the review confirms it:
+
+- `REPORT-1a4e8d.md` (289 lines) integrated docs-only at merge `5e15cc8`
+  (`git diff --stat fea96d4 HEAD -- src/ tests/ Cargo.toml` is empty — no production, test, or
+  manifest line moved; the probe was reverted before the suites ran, as criterion 4 requires).
+- Criteria 1–3 are met with settling numbers: printed structure count equals the reserve size for
+  every `r` in 7..12, so the only green reserve size is the shipped 12 and the largest green
+  reduction is **0 slots at measured cost +0.0000000000**; the nearest red step `r = 11` prints
+  `11 / 11 / 11` against a required 12 and would buy `+0.000878` on nothing. `w-7c9d21`'s HOLD
+  therefore stands as a measurement rather than as an argument, and the reserve axis is **closed
+  as a surface**.
+- Criterion 5 was reported honestly: `fmt` and `clippy` cannot run on this host (no `rustup`) and
+  are not claimed. Fence suites were green at the base with the one known pre-existing red
+  `approximate_finds_classic_madgab_resegmentation` (canonical case 2) left untouched and not
+  re-pinned.
+- Criterion 6 honoured: report pushed to `madgab-reserve-1a4e8d`, merged only into
+  `post-milestone-acceptance`, never into `main`, no phrase-specific special case.
+
+No successor front is opened on the reserve axis, per the report's own §5 point 2 and this item's
+criterion 3. The one durable fact it exports is that F7 is **not** a reserve-blocked candidate: it
+is the 18th member of a structure already saturated at `share_cap(50, 18289) = 17`, so it needs
+the cap to move, and the cap is worth a measured `+0.001605` beyond the reserve's share. That fact
+is input to a later pass; it is deliberately not an opening here.
