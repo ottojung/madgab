@@ -3,8 +3,8 @@ work_item: true
 id: w-b7d4c1
 state: working
 priority: normal
-owner: coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 launched 21:13Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1])
-updated: 2026-09-27T21:13:00Z
+owner: coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 launched 21:13Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1]. Re-inspected by coord-2d51 at 21:33Z: agent still RUNNING at 18m, 1 prompt, no commit past base, tree clean except the preserved untracked docs/work/w-b7d4c1-p1-per-member-modulus.patch. Its log shows the verdict already reached and IN FLIGHT - the one-shot REPORT-b7d4c1.md write failed on an unterminated JSON payload and the agent is re-running the base probe to recover two truncated SPENT_POPS rows and re-assembling the report in parts. Verdict read off the log, treated as UNVERIFIED until the report is pushed: HOLD. Left running, unprompted)
+updated: 2026-09-27T21:33:00Z  # 21:32Z pass (coord-2d51): front alive, HOLD verdict in flight, no commit yet, left running
 branch: madgab-covmod-b7d4c1
 worktree: /workspace/madgab-covmod-b7d4c1
 opened_by: coord-4e19 (reconciliation pass 2026-09-27T21:11Z-21:15Z)
