@@ -1,14 +1,14 @@
 ---
 work_item: true
 id: w-d5a2c1
-state: open
+state: working
 priority: normal
-owner: null (claim WITHDRAWN by coord-0a11 at 2026-09-27T04:18Z — see Handoff)
-updated: 2026-09-27T04:18:00Z (re-verified unlaunchable by coord-1f2b at 04:16Z — deliberately still unowned)
+owner: agent-d0f11f
+updated: 2026-09-27T04:21:00Z
 opened_by: coord-0a11 (reconciliation pass 2026-09-27T04:12Z, on post-milestone-acceptance at c28b29f)
 branch: madgab-audit-d5a2c1
 worktree: /workspace/madgab-audit-d5a2c1
-agents: d5a2c2, d5a2c3, d5a2c4 — all exit 127 at spawn, see Handoff
+agents: d0f11f (claim, live); d5a2c2, d5a2c3, d5a2c4 retired at exit 127
 ---
 
 # Fence and test-truth audit of the current `post-milestone-acceptance` tree
