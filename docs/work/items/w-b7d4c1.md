@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-b7d4c1
-state: working
+state: done
 priority: normal
-owner: coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 launched 21:13Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1]. Re-inspected by coord-2d51 at 21:33Z: agent still RUNNING at 18m, 1 prompt, no commit past base, tree clean except the preserved untracked docs/work/w-b7d4c1-p1-per-member-modulus.patch. Its log shows the verdict already reached and IN FLIGHT - the one-shot REPORT-b7d4c1.md write failed on an unterminated JSON payload and the agent is re-running the base probe to recover two truncated SPENT_POPS rows and re-assembling the report in parts. Verdict read off the log, treated as UNVERIFIED until the report is pushed: HOLD. Left running, unprompted)
-updated: 2026-09-27T21:33:00Z  # 21:32Z pass (coord-2d51): front alive, HOLD verdict in flight, no commit yet, left running
+owner: coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 ran 21:13Z-21:45Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1], verdict HOLD, commit db59764 docs-only, integrated by coord-5e40 at 21:38Z) / reviewed by coord-5e40 (21:38Z reconciliation pass: the HOLD record is integrated and this item is CLOSED as a priced negative - see the handoff section for the review and the successor routing)
+updated: 2026-09-27T21:38:00Z  # front wrote a future-dated 21:45Z stamp; corrected here to the real integration time by coord-5e40
 branch: madgab-covmod-b7d4c1
 worktree: /workspace/madgab-covmod-b7d4c1
 opened_by: coord-4e19 (reconciliation pass 2026-09-27T21:11Z-21:15Z)
@@ -116,3 +116,42 @@ first named in `REPORT-2f1c03` and explicitly deferred. If the front reports `HO
 rule is the report's own closing line, and the next front must be a different surface - §3 of the
 obstruction map has nothing else left, so a `HOLD` here likely means the milestone needs a human
 decision about scope rather than another search-side front.
+
+## Outcome (front agent-b7d4c1, 2026-09-27T21:45Z): **HOLD**
+
+Report: [../REPORT-b7d4c1.md](../REPORT-b7d4c1.md). The change is **not** on this branch; it is
+preserved as [../w-b7d4c1-p1-per-member-modulus.patch](../w-b7d4c1-p1-per-member-modulus.patch)
+(`src/lib.rs` only, P1 plus the two phrase-free property tests, applies clean to `1923bbf`), and
+this branch is `docs/`-only so the tree is green at every commit boundary.
+
+Completion criteria, one by one:
+
+1. **Baseline: done, no disagreement.** Pool 18,949 / 18,289; lifts −0.0180 / +0.0609; rank 27;
+   `no_phrase_hard_coding` 9/9; three pool guards green; `corpus_integration` 12/1;
+   `cargo test --release --lib` 75 passed.
+2. **P1 landed: no — priced, and the price is one fence.** Zero cost exactly as REPORT-2f1c03 §3
+   predicted: 0 pushes (pops within +0.27%), 0 heap entries, 0 emissions (16,384 saturated on all
+   twelve targets, base identical), 0 frontier, 0 bound evaluations, no new state, wall clock
+   unchanged. But P1 makes a subset's coordinates reach index 159 where the shared span capped at
+   92, so `build`'s additive cost bound drops enough four-deep tuples that
+   `a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple` goes red on **3 of 12**
+   targets. The repair is scoring-side, fenced out here and owned by `w-3f8c62`; a budget increase
+   is forbidden. Hence `HOLD`.
+3. **Two property tests: done** (in the patch), phrase-free, expectations recomputed inline from
+   the widths, **red on base with their final text and green on P1**.
+4. **Head-lift before/after: done.** Case 2 −0.0180 → −0.0176, case 1 +0.0609 → +0.0615,
+   `wreck a nice beach` rank 27 → 27 (bit-identical score 0.9199502875), three
+   `approximate_pool_reaches_*` guards green before and after. The reach number is reported as
+   required and is **not** a fix: the canonical 4-deep cell goes unrepresentable → **≈1.2e-7**
+   (one cell in ~8.2 million of a 279,562,500 frame fed by 34 draws), and the canonical clue is
+   still absent from the pool.
+5. **Green tree: on the branch, yes** (`docs/` only). On the P1 rule, `cargo test --release --lib`
+   is 76 passed / 1 failed, and that one failure is the reason for the verdict, named above
+   against base where it is green.
+6. **Pushed and un-integrated: yes.** No self-merge, `main` untouched.
+
+Successor rule for whoever picks this up: **do not re-measure this front.** The numbers do not
+change with the head. If the cost bound has moved by then (i.e. `w-3f8c62` landed a scoring/bound
+change that makes deep-coordinate tuples affordable inside `total_budget`), apply the patch and
+re-run the lib suite; otherwise the answer is still `HOLD` and the milestone needs a human scope
+decision, because §3 of the obstruction map is empty and this is the residue that says so.
