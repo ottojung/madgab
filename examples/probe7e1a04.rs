@@ -64,6 +64,26 @@ fn main() {
             c.phrase.to_lowercase()
                 == std::env::var("PROBE7E1A04_MATCH").unwrap_or_default()
         });
+        let vis = approx.generate(target);
+        let mut dist = std::collections::BTreeMap::new();
+        for c in &vis {
+            *dist.entry(c.words.len()).or_insert(0usize) += 1;
+        }
+        let dist_s: Vec<String> = dist.iter().map(|(k, v)| format!("{k}:{v}")).collect();
+        let mean_n: f64 = vis.iter().map(|c| c.words.len() as f64).sum::<f64>()
+            / vis.len().max(1) as f64;
+        let mean_score: f64 = vis.iter().map(|c| c.score).sum::<f64>()
+            / vis.len().max(1) as f64;
+        let content: f64 = vis
+            .iter()
+            .map(|c| {
+                1.0 - c.words.iter().filter(|w| madgab::lexical::is_closed_class(&w.word)).count()
+                    as f64
+                    / c.words.len().max(1) as f64
+            })
+            .sum::<f64>()
+            / vis.len().max(1) as f64;
+        println!("VIS\t{tag}\t{}\t{}\t{mean_n:.4}\t{mean_score:.6}\t{content:.4}", vis.len(), dist_s.join(" "));
         println!(
             "POOL\t{tag}\t{}\t{:.12}\t{:.3}\t{:?}",
             pool.len(),

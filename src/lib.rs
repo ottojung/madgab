@@ -2962,7 +2962,7 @@ fn boundary_novelty(
     if union == 0 {
         return 0.0;
     }
-    1.0 - shared as f64 / union as f64
+    (1.0 - shared as f64 / union as f64) * (target_boundaries.len() as f64 / cuts.len() as f64)
 }
 
 /// The content-word penalty, given `closed` closed-class words out of
