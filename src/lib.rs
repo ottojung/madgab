@@ -8294,6 +8294,31 @@ mod front_9b4a15 {
         rows.iter().map(|r| r.similarity).sum::<f64>() / rows.len() as f64
     }
 
+    /// The per-axis head lifts this front prices.  `SIMILARITY` is the
+    /// objective-quality number the item asks for; `PUNCH` and `RHYTHM`
+    /// are printed beside it because the item asks what the word-count
+    /// axis does to the two axes that were previously selecting the head
+    /// (a head that is all monosyllables, or all one syllable count, is
+    /// an artefact of a term that reads neither the target's words nor
+    /// the clue's).
+    fn lifts(all: &[&counters::Scored], head: &[&counters::Scored]) -> [f64; 5] {
+        let axes: [fn(&counters::Scored) -> f64; 5] = [
+            |r| r.similarity,
+            |r| r.terms[7],
+            |r| r.terms[4],
+            |r| parsimony(r.words, r.target_words),
+            |r| r.reseg,
+        ];
+        let mut out = [0.0f64; 5];
+        for (k, f) in axes.iter().enumerate() {
+            let mean = |v: &[&counters::Scored]| {
+                v.iter().map(|r| f(r)).sum::<f64>() / v.len() as f64
+            };
+            out[k] = mean(head) - mean(all);
+        }
+        out
+    }
+
     /// Re-rank the captured pool under one weight vector and report the
     /// two things the item asks about: the head's acoustic lift over the
     /// pool, and the rank of one named proposal inside it.
@@ -8302,7 +8327,7 @@ mod front_9b4a15 {
         cand: &Weights,
         head: usize,
         probe: &str,
-    ) -> (usize, f64, f64) {
+    ) -> (usize, f64, [f64; 5]) {
         let mut ranked: Vec<(f64, usize)> = rows
             .iter()
             .enumerate()
@@ -8336,7 +8361,7 @@ mod front_9b4a15 {
             .map(|(_, i)| &rows[*i])
             .collect();
         let all: Vec<&counters::Scored> = rows.iter().collect();
-        (probe_rank, probe_score, mean_similarity(&head_rows) - mean_similarity(&all))
+        (probe_rank, probe_score, lifts(&all, &head_rows))
     }
 
     /// The captured rows collapsed the way `Generator::finish` collapses
@@ -8409,15 +8434,73 @@ mod front_9b4a15 {
             for cand in candidates() {
                 let (rank, score, lift) = price(&rows, &cand, 50, probe);
                 println!(
-                    "  {:<52} ceiling {:.2}  head lift {:+.4}  probe rank {:>10}  score {:.10}  in top 50 {}",
+                    "  {:<52} ceiling {:.2}  SIM {:+.4}  PUNCH {:+.4}  RHY {:+.4}  PARS {:+.4}  RESEG {:+.4}  probe rank {:>10}  score {:.10}  in top 50 {}",
                     cand.label,
                     ceiling(&cand),
-                    lift,
+                    lift[0],
+                    lift[1],
+                    lift[2],
+                    lift[3],
+                    lift[4],
                     if rank == usize::MAX { "absent".to_string() } else { rank.to_string() },
                     score,
                     rank != usize::MAX && rank <= 50
                 );
             }
+        }
+    }
+
+    /// The general property, priced over a *spread* of ordinary targets
+    /// rather than the two canonical cases: for how many of them does each
+    /// candidate's head-50 have a mean acoustic similarity at least the
+    /// pool's?  This is the question the item's success criterion is
+    /// actually about — the canonical pair are two targets, and a change
+    /// that fixes two targets and nothing else is not a general quality
+    /// improvement.
+    #[test]
+    #[ignore]
+    fn price_the_property_over_a_spread() {
+        const SPREAD: &[&str] = &[
+            "walk the dog",
+            "open the window",
+            "turn off the lights",
+            "they ate the whole pie",
+            "call the office tomorrow",
+            "put the milk away",
+            "the train leaves at noon",
+            "my brother lost his wallet",
+            "he runs to the station",
+            "we should leave earlier",
+        ];
+        let mut per_cand: Vec<(&str, usize, Vec<f64>)> = Vec::new();
+        for cand in candidates() {
+            let mut good = 0usize;
+            let mut lifts = Vec::new();
+            for target in SPREAD {
+                let g = generator(50);
+                let _ = counters::drain_scored();
+                let _ = g.generate_pool(target);
+                let rows = dedup(counters::drain_scored());
+                let (rank, _, lift) = price(&rows, &cand, 50, "\u{0}no such phrase");
+                let _ = rank;
+                lifts.push(lift[0]);
+                if lift[0] >= 0.0 {
+                    good += 1;
+                }
+            }
+            println!(
+                "  {:<52} green on {}/{} targets",
+                cand.label, good, SPREAD.len()
+            );
+            for (t, l) in SPREAD.iter().zip(&lifts) {
+                println!("      {t:<30} SIM lift {l:+.4}");
+            }
+            per_cand.push((cand.label, good, lifts));
+        }
+        let n = SPREAD.len();
+        println!("\nsummary (green targets out of {n})");
+        for (label, good, _) in &per_cand {
+            println!("  {good:>2}/{n}  {label}");
         }
     }
 }
