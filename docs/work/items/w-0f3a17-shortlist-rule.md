@@ -5,7 +5,7 @@ the width question owned by the sibling front). Measurement only; no
 `src/lib.rs` change is proposed or made here.
 
 Branch: `scratch/0f3a17-shortlist` (this document).
-Probe branch: `scratch/0f3a17-shortlist-probe`, worktree
+Probe branch: `scratch/0f3a17-shortlist-probe` at `b4a3009`, worktree
 `/workspace/madgab-sl-0f3a17-probe`, `CARGO_TARGET_DIR=/workspace/target-0f3a17-slprobe`.
 The probe branch is **committed locally and deliberately not pushed**: it
 carries `#[cfg(test)]` dump instrumentation, which must not reach any pushed
@@ -253,7 +253,113 @@ were re-pinned against, and the item's own handoff says not to contend on
 `src/lib.rs` until the reviewer on w-6d2af3 has reported. It is filed here as
 the specification the fix should be written against.
 
-## 7. Verification
+## 7. The number a later pass cannot cheaply recompute: which index, and which pass
+
+Added at the request of coordination pass coord-0c1d. Probe
+`scratch/0f3a17-shortlist-probe` at `b4a3009`, same worktree and target dir.
+
+### 7.1 There are four per-slot orders, not one
+
+This is the reason the item's `3 / 2 / 10 / 99 / 11` is unreproducible, and
+it is the first thing a later pass must pin. Four distinct orderings of the
+same span exist, and they disagree by up to 143 positions:
+
+1. **admission order** — the order the six passes appended words, recorded
+   as `insert_index` in §2.3. Never used by anything.
+2. **shortlist order** — `selected.sort_by(cmp_desc(quality))`, the
+   `edge.matches` order. This is the order the *truncation* and the
+   structural DP see (§2.4–2.5).
+3. **traversal order** — `slots[k]`, which is `edge.matches` **re-sorted by
+   `SlotAlt::contribution(word_count)`**: familiarity, shape and closed-class
+   terms divided by the slot count, `WORD_NOVELTY / word_count`, ties broken
+   by the word string. **This is the order the lexical walk indexes into**:
+   `for i in 0..slots[k].len().min(cap)`.
+4. **per-pass orders** — the `by_cost` / `by_familiarity` / `by_rarity` /
+   per-band orders, each of which is only ever read for its first 16, 4 or
+   4 entries.
+
+`cap` bounds order **(3)**, not order (2). A later pass that quotes "the
+per-slot index" without naming the order is quoting an ill-defined number,
+and the item's vector is consistent with neither (2) nor (3) nor admission.
+
+### 7.2 Case 1 — `recognize speech` -> `wreck a nice beach`
+
+Depth 4, so `cap = affordable_opening_width(4, 4000) = 10`
+(`1+10+100+1000 = 1111 <= 4000`; the ladder is untouched above 10).
+
+| slot | span | word | **traversal index (3)** | shortlist index (2) | admission (1) | admitting pass | rank under each of the six passes (cost / fam / rarity / quality) | pushed at cap 10 |
+|---|---|---|---|---|---|---|---|---|
+| 0 (depth 1) | `[0,?)` | wreck | **1** | 32 | 0 | cost | 0 / 96 / 96 / 32 | **yes** |
+| 1 | | a | **0** | 97 | 4 | cost | 4 / 0 / 1 / 97 | yes |
+| 2 | | nice | **0** | 0 | 1 | cost | 1 / 3 / 3 / 0 | yes |
+| 3 | | beach | **2** | 1 | 8 | cost | 8 / 21 / 21 / 1 | yes |
+
+**All four slots are pushed at the opening width, and the depth-1 tuple
+`wreck` is pushed at traversal index 1.** No admission pass has to change;
+the clue is already reachable, and `corpus_integration.rs:147` asserts it is
+in the proposal list and is green. Case 1 needs nothing from this front.
+
+### 7.3 Case 2 — `It's just a stupid game` -> `hits justice dupe hid came`
+
+Depth 5, so `cap = affordable_opening_width(5, 4000) = 7`
+(`1+7+49+343+2401 = 2801 <= 4000`; `w=8` gives `4681 > 4000`).
+
+| slot | word | **traversal index (3)** | shortlist index (2) | admission (1) | admitting pass | rank under each of the six passes (cost / fam / rarity / quality) | **pushed at cap 7** |
+|---|---|---|---|---|---|---|---|
+| 0 (**depth 1**) | hits | **7** | 22 | 8 | cost | **7** / 72 / 72 / 22 | **NO — 7 ≮ 7** |
+| 1 | justice | **0** | 0 | 0 | cost | 0 / 1 / 1 / 0 | yes |
+| 2 | dupe | **13** | 64 | 3 | cost | 3 / 133 / 133 / 64 | no |
+| 3 | hid | **99** | 85 | 109 | **fill** | 103 / 134 / 135 / 85 | no |
+| 4 | came | **11** | 7 | 22 | familiarity | 34 / **7** / 7 / 7 | no |
+
+**The priced negative the coordination pass asked for, with its arithmetic.**
+At depth 1 the needed tuple is `hits`. Its rank under each of the six
+admission passes' own orderings is 7 (cost), 72 (familiarity), 72 (rarity),
+22 (quality) — the cost pass is the best of the six, so the **floor over all
+six is 7**. The depth-1 cap is **7**, and the walk reads `0..min(len, cap)`,
+so the test is `index < cap`, i.e. `7 < 7`, which is false. Therefore:
+
+> **No change to any of the six admission passes can admit `hits` at depth 1
+> within the production opening width. It misses by exactly one index.**
+
+The same holds for the whole canonical clue: the floor over the six passes
+is 7 / 0 / 3 / 85 / 7 against a cap of 7, so **not one of the five canonical
+tuples can be brought inside the opening width by re-specifying the
+admission rule**, and the two that come closest (`hits`, `came`) both have a
+floor of exactly 7 = cap. What *would* admit them is a width, not a pass:
+
+* `cap = 8` admits `hits` (traversal index 7);
+* `cap = 12` also admits `came` (11);
+* `cap = 14` also admits `dupe` (13);
+* `cap = 100` admits `hid` (99) and is the first width at which the
+  canonical wording is *fully* enumerable.
+
+So the canonical clue needs **width 100**, against an opening width of 7
+derived from `1 + 7 + 49 + 343 + 2401 = 2801 <= LEXICAL_HEAP_POP_LIMIT =
+4000`. That is the sibling front's arithmetic, and this front's contribution
+to it is the factor: **the width the clue needs is 100/7 ≈ 14x the width the
+budget derives**, and the shortlist is not what stands in the way.
+
+### 7.4 One general observation the sibling front should have
+
+`hid` is admitted by the `fill` pass at admission index 109 and lands at
+traversal index 99, and it is the only canonical tuple no *named* pass ranks
+in the first 85. Measured across the eight corpus alignments, the
+traversal order and the shortlist order disagree by up to 143 positions
+(`it`: shortlist 143 -> traversal 0; `wreck`: 32 -> 1; `came`: 7 -> 11;
+`hid`: 85 -> 99) and by 0 for others. Two consequences:
+
+* a widening ladder that is justified in terms of "the shortlist index" is
+  justifying itself in the wrong units — the number `cap` truncates is the
+  traversal index, and it is **not** monotone in the shortlist index;
+* because `contribution` divides the familiarity / shape / closed-class terms
+  by the slot count, the traversal order itself depends on the segmentation's
+  depth. A wider slot is not merely "further down the same list" — it is a
+  differently-ordered list. Any width derivation must therefore be stated in
+  traversal-index units, and re-derived per depth, not scaled from a
+  shortlist-index measurement.
+
+## 8. Verification
 
 Pristine base `adf1672` on `scratch/0f3a17-shortlist`, `CARGO_TARGET_DIR=/workspace/target-0f3a17-shortlist`:
 
@@ -266,6 +372,6 @@ Pristine base `adf1672` on `scratch/0f3a17-shortlist`, `CARGO_TARGET_DIR=/worksp
 * `--test exact_determinism`: 1 passed
 * `--test no_phrase_hard_coding`: 9 passed
 
-On the probe branch the same `--lib` suite is 64 passed / 0 failed, so the
+On the probe branch the same `--lib` suite is 65 passed / 0 failed, so the
 dump instrumentation is inert. `cargo fmt`, `cargo clippy` and doctests
 **cannot run on this host** and are not claimed.
