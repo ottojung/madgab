@@ -1023,6 +1023,7 @@ impl Generator {
                 &target_boundaries,
                 target_syllables,
                 n,
+                p,
             );
 
             for partial in &here {
@@ -1067,6 +1068,7 @@ impl Generator {
                             &target_boundaries,
                             target_syllables,
                             n,
+                            q,
                         );
                         beam[q] = reduced;
                     }
@@ -1085,6 +1087,7 @@ impl Generator {
             final_keep,
             &target_boundaries,
             target_syllables,
+            n,
             n,
         );
 
@@ -3446,6 +3449,7 @@ fn prune_partials(
     target_boundaries: &[usize],
     target_syllables: usize,
     total_len: usize,
+    trace_pos: usize,
 ) -> Vec<Partial> {
     if k == 0 || candidates.is_empty() {
         return Vec::new();
@@ -3492,6 +3496,28 @@ fn prune_partials(
     // keeps beam retention (and therefore the whole search) reproducible.
     let mut items: Vec<Partial> = dedup.into_values().collect();
     items.sort_by(|a, b| a.key.cmp(&b.key));
+
+    let trace_needle: Option<String> = std::env::var("ZZ_PRUNE_NEEDLE").ok();
+    let trace_on = trace_needle.is_some()
+        && match std::env::var("ZZ_PRUNE_POS").ok().and_then(|s| s.parse::<usize>().ok()) {
+            Some(want) => want == trace_pos,
+            None => true,
+        };
+    let traced: Option<usize> = trace_needle
+        .as_ref()
+        .and_then(|needle| items.iter().position(|p| p.key.contains(needle.as_str())));
+
+    if trace_on {
+        eprintln!(
+            "[prune] pos={} k={} deduped={} needle_present={:?} needle_idx={:?}",
+            trace_pos,
+            k,
+            items.len(),
+            traced.is_some(),
+            traced
+        );
+    }
+
     if items.len() <= k {
         return items;
     }
@@ -3538,6 +3564,7 @@ fn prune_partials(
     protected.sort_by(|&a, &b| {
         cmp_desc(metrics[a].combined, metrics[b].combined).then(a.cmp(&b))
     });
+    let protected_all = protected.clone();
     for i in protected.into_iter().take(k / 2) {
         selected.insert(i);
     }
@@ -3599,6 +3626,91 @@ fn prune_partials(
             break;
         }
         rank += 1;
+    }
+
+    if trace_on {
+        let names = [
+            "combined",
+            "novelty",
+            "familiarity",
+            "acoustic",
+            "word_novelty",
+            "rhythm",
+            "content",
+        ];
+        eprintln!("[prune] pos={} protected_slots={} k={}", trace_pos, selected.len(), k);
+        for (oi, order) in orders.iter().enumerate() {
+            let rank = traced.and_then(|t| order.iter().position(|&i| i == t));
+            eprintln!(
+                "[prune]   order {:<12} needle_rank={:?} worst_kept_in_order={}",
+                names[oi],
+                rank,
+                order
+                    .iter()
+                    .filter(|i| selected.contains(i))
+                    .count()
+            );
+        }
+        if let Some(t) = traced {
+            let m = &metrics[t];
+            eprintln!(
+                "[prune]   needle key={} combined={:.6} novelty={:.6} familiarity={:.6} cost={:.6} word_novelty={:.6} rhythm={:.6} content={:.6} protected={} selected={}",
+                items[t].key,
+                m.combined,
+                m.novelty,
+                m.familiarity,
+                items[t].sub_cost_total,
+                m.word_novelty,
+                m.rhythm,
+                m.content,
+                protected_all.contains(&t),
+                selected.contains(&t)
+            );
+            let mut kept_combined: Vec<f64> = Vec::new();
+            let mut kept_cost: Vec<f64> = Vec::new();
+            for (i, m) in metrics.iter().enumerate() {
+                if selected.contains(&i) {
+                    kept_combined.push(m.combined);
+                    kept_cost.push(items[i].sub_cost_total);
+                }
+            }
+            kept_combined.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            kept_cost.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            eprintln!(
+                "[prune]   keep combined min={:.6} p50={:.6} max={:.6}",
+                kept_combined.first().copied().unwrap_or(0.0),
+                kept_combined.get(kept_combined.len() / 2).copied().unwrap_or(0.0),
+                kept_combined.last().copied().unwrap_or(0.0)
+            );
+            eprintln!(
+                "[prune]   keep cost min={:.6} p50={:.6} max={:.6}",
+                kept_cost.first().copied().unwrap_or(0.0),
+                kept_cost.get(kept_cost.len() / 2).copied().unwrap_or(0.0),
+                kept_cost.last().copied().unwrap_or(0.0)
+            );
+            // ranks among the whole deduped set
+            let mut by_combined: Vec<usize> = (0..items.len()).collect();
+            by_combined.sort_by(|&a, &b| {
+                cmp_desc(metrics[a].combined, metrics[b].combined)
+            });
+            eprintln!(
+                "[prune]   needle combined rank of {}/{}",
+                by_combined.iter().position(|&i| i == t).map(|r| r + 1).unwrap_or(0),
+                items.len()
+            );
+            let mut by_cost: Vec<usize> = (0..items.len()).collect();
+            by_cost.sort_by(|&a, &b| {
+                items[a]
+                    .sub_cost_total
+                    .partial_cmp(&items[b].sub_cost_total)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+            eprintln!(
+                "[prune]   needle acoustic rank of {}/{}",
+                by_cost.iter().position(|&i| i == t).map(|r| r + 1).unwrap_or(0),
+                items.len()
+            );
+        }
     }
 
     // Order the retained indices against the cached metrics. Recomputing
@@ -4693,7 +4805,7 @@ mod tests {
             let k = n / 4;
             let pool = candidate_pool(&target, n);
             counters::take(&counters::METRICS);
-            let kept = prune_partials(pool, k, &boundaries, 4, 12);
+            let kept = prune_partials(pool, k, &boundaries, 4, 12, 0);
             let calls = counters::take(&counters::METRICS);
             assert_eq!(
                 calls,
@@ -4768,7 +4880,7 @@ mod tests {
             .iter()
             .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
             .fold(f64::NEG_INFINITY, f64::max);
-        let kept = prune_partials(pool, 8, &boundaries, 4, 12);
+            let kept = prune_partials(pool, 8, &boundaries, 4, 12, 0);
         let got: Vec<f64> = kept
             .iter()
             .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
