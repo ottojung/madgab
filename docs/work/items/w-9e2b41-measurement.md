@@ -4,7 +4,7 @@ measurement_for: w-9e2b41
 id: w-9e2b41-measurement
 state: done
 owner: agent-0f3a173 (recovered front; read-only, no src/lib.rs edit in the integration worktree)
-updated: 2026-09-27T09:58:00Z
+updated: 2026-09-27T09:26:00Z  # corrected 09:29Z pass: the prior 09:58:00Z stamp was future-dated against the host clock
 branch: madgab-rederive-0f3a17
 worktree: /workspace/madgab-rederive-0f3a17
 base: de0fb30

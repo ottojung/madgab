@@ -4,7 +4,7 @@ id: w-c3f81a
 state: working
 priority: high
 owner: coord-b7e4 (reconciliation pass 2026-09-27T09:12Z-09:32Z: front agent-c3f81a SUCCEEDED with two pushed commits - b04380d (pricing over sixteen targets, standalone) and 1973f05 (the rule: EMIT_PROFILE_MAX_DEEP=3 deleted, replaced by funded_slot_depth derived from the traversal floor). Both are real deliverables, not integrations. The front recommends INTEGRATE and reports a priced POSITIVE: zero emission cost on all sixteen targets, worst pool delta +19 (+0.10%). Its residual finding is the durable one - the depth cap was never why the canonical case-2 alignment is missing; all 34 four-deep tuples placed on that target come from five-slot segmentations, and the real blocker is that the reserve sweeps each marginal index at a uniform stride with essentially zero JOINT coverage. An independent read-only review agent-c3f81b1 was launched 09:19Z in /workspace/madgab-review-reserve over b04380d..1973f05 and left running; 1973f05 changes production src/lib.rs so nothing from that branch is integrated until its INTEGRATE/HOLD verdict lands. Decided here: joint-coordinate coverage in the sweep is the shortlist-fill surface that w-5e2d41 already owns with two live fronts, so NO new front is opened on it. main untouched)
-updated: 2026-09-27T09:31:00Z
+updated: 2026-09-27T09:26:00Z  # corrected 09:29Z pass: the prior 09:31:00Z stamp was future-dated against the host clock
 branch: madgab-reserve-c3f81a
 worktree: /workspace/madgab-reserve-c3f81a
 opened_by: coord-08f4 (reconciliation pass 2026-09-27T08:41Z, on post-milestone-acceptance at ad03a9e)
