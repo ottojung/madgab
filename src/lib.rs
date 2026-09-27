@@ -2570,6 +2570,37 @@ mod counters {
             }
         });
     }
+
+    /// One captured candidate: the eight axis values the final score is
+    /// a weighted sum of, in the order `Partial::metrics` builds them.
+    #[derive(Clone)]
+    pub struct Scored {
+        pub phrase: String,
+        pub words: usize,
+        pub target_words: usize,
+        pub score: f64,
+        pub reseg: f64,
+        pub terms: [f64; 8],
+        /// The `SIMILARITY` axis on its own, named so a test reads it as
+        /// the axis rather than as an index into `terms`.
+        pub similarity: f64,
+    }
+
+    thread_local! {
+        /// Every candidate the search scored, in scoring order, so a test
+        /// can re-rank one run's pool under a candidate weight vector
+        /// without re-running the search.  Drained by [`drain_scored`].
+        static SCORED: std::cell::RefCell<Vec<Scored>> =
+            const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    pub fn note_scored(entry: Scored) {
+        SCORED.with(|c| c.borrow_mut().push(entry));
+    }
+
+    pub fn drain_scored() -> Vec<Scored> {
+        SCORED.with(|c| std::mem::take(&mut *c.borrow_mut()))
+    }
 }
 
 fn novelty_stem(word: &str) -> String {
@@ -3021,6 +3052,7 @@ impl Partial {
         // it bites hardest exactly where the target has long words.
         let punch = self.punch_count as f64 / words.max(1) as f64;
 
+
         // Written as `w * (v - 1)` rather than `w * v`.  The six existing
         // weights sum to exactly 1.00 and `CLOSED_CLASS` is the only
         // signed one, so the objective's maximum is already exactly 1.0
@@ -3052,6 +3084,14 @@ impl Partial {
             word_novelty,
             rhythm,
             content,
+            #[cfg(test)]
+            shape: shape_quality,
+            #[cfg(test)]
+            closed_penalty,
+            #[cfg(test)]
+            punch,
+            #[cfg(test)]
+            words,
         }
     }
 
@@ -3062,9 +3102,44 @@ impl Partial {
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
-        let score = self
-            .metrics(target_boundaries, target_syllables, total_len, false)
-            .combined;
+        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
+        let score = m.combined;
+        #[cfg(test)]
+        {
+            let words: Vec<&str> = self.words().map(|w| w.word.as_str()).collect();
+            let inner: Vec<usize> = target_boundaries[..target_boundaries.len() - 1]
+                .to_vec();
+            let shared = self
+                .cuts
+                .iter()
+                .take(self.cuts.len().saturating_sub(1))
+                .filter(|c| inner.contains(c))
+                .count();
+            let reseg = if inner.is_empty() {
+                0.0
+            } else {
+                shared as f64 / inner.len() as f64 * m.word_novelty
+            };
+            let similarity = m.similarity;
+            counters::note_scored(counters::Scored {
+                phrase: words.join(" "),
+                words: m.words,
+                target_words: target_boundaries.len(),
+                score,
+                reseg,
+                similarity,
+                terms: [
+                    m.similarity,
+                    m.novelty,
+                    m.word_novelty,
+                    m.familiarity,
+                    m.rhythm,
+                    m.shape,
+                    m.closed_penalty,
+                    m.punch,
+                ],
+            });
+        }
         let words: Vec<ClueWord> = self.words().cloned().collect();
         Clue {
             phrase: words
@@ -3159,6 +3234,18 @@ struct Metrics {
     rhythm: f64,
     /// Share of the clue's words that are content words, in [0, 1].
     content: f64,
+    /// The three axes [`Self`]'s own score does not expose as a separate
+    /// field, captured so a test can re-rank a captured pool under a
+    /// candidate weight vector without re-running the search.  Absent
+    /// from a release build.
+    #[cfg(test)]
+    shape: f64,
+    #[cfg(test)]
+    closed_penalty: f64,
+    #[cfg(test)]
+    punch: f64,
+    #[cfg(test)]
+    words: usize,
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between the
@@ -3718,8 +3805,7 @@ fn complete_span_score(
                 target_syllables,
             )
         + axes::SHAPE * ext.max_shape / denom
-        + axes::CLOSED_CLASS
-            * closed_class_penalty(ext.min_closed as f64, denom)
+        + axes::CLOSED_CLASS * closed_class_penalty(ext.min_closed as f64, denom)
 }
 
 /// Admissible upper bound on the final score of *every* alignment
@@ -4735,13 +4821,16 @@ mod tests {
                 1.0 - closed / count as f64
             };
             let closed_penalty = closed_class_penalty(closed, count as f64);
+            let punch = p.punch_count as f64 / count.max(1) as f64;
             let combined = axes::SIMILARITY * similarity
                 + axes::NOVELTY * novelty
                 + axes::WORD_NOVELTY * word_novelty
                 + axes::FAMILIARITY * familiarity
                 + axes::RHYTHM * rhythm
                 + axes::SHAPE * shape_quality
-                + axes::CLOSED_CLASS * closed_penalty;
+                + axes::CLOSED_CLASS * closed_penalty
+                + axes::PUNCH * (punch - 1.0);
+
             Metrics {
                 combined,
                 similarity,
@@ -4750,6 +4839,14 @@ mod tests {
                 word_novelty,
                 rhythm,
                 content,
+                #[cfg(test)]
+                shape: shape_quality,
+                #[cfg(test)]
+                closed_penalty,
+                #[cfg(test)]
+                punch,
+                #[cfg(test)]
+                words: count,
             }
         }
 
@@ -8033,6 +8130,298 @@ mod front_1c7d40 {
     }
 }
 
+/// w-9b4a15's pricing harness.  It captures one search's whole scored pool
+/// (see `counters::Scored`) and re-ranks it under candidate weight vectors,
+/// so every candidate objective is priced on the *same* candidates and the
+/// choice between them is made from numbers.  Compiled out of release
+/// builds; never to be integrated as production source.
+#[cfg(test)]
+mod front_9b4a15 {
+    use super::*;
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+    /// Weight vectors, in `Metrics::terms` order:
+    /// `SIMILARITY, NOVELTY, WORD_NOVELTY, FAMILIARITY, RHYTHM, SHAPE,
+    /// CLOSED_CLASS, PUNCH`.  `PUNCH` keeps the shipped `w * (v - 1)`
+    /// shift, so it contributes at most nothing and the shipped vector's
+    /// *positive* entries sum to 1.00: the score's maximum is exactly 1.0
+    /// and every axis is in [0, 1].
+    struct Weights {
+        label: &'static str,
+        w: [f64; 8],
+        /// Weight on the new word-count-parsimony axis, which is not one
+        /// of the shipped eight.
+        parsimony: f64,
+        /// Weight on the boundary-fidelity axis, the alternative use of
+        /// the same budget.
+        reseg: f64,
+    }
+
+    const SHIPPED: [f64; 8] = [
+        axes::SIMILARITY,
+        axes::NOVELTY,
+        axes::WORD_NOVELTY,
+        axes::FAMILIARITY,
+        axes::RHYTHM,
+        axes::SHAPE,
+        axes::CLOSED_CLASS,
+        axes::PUNCH,
+    ];
+
+    fn with(novelty: f64, rhythm: f64, shape: f64) -> [f64; 8] {
+        let mut w = SHIPPED;
+        w[1] = novelty;
+        w[4] = rhythm;
+        w[5] = shape;
+        w
+    }
+
+    /// The objective's maximum: the sum of its positive weights, since
+    /// every axis is in [0, 1] and `PUNCH` is shifted to be
+    /// non-positive.  The shipped score is documented to live in
+    /// [0.0, 1.0], so a candidate whose maximum exceeds 1.0 is
+    /// inadmissible however well it ranks.
+    fn ceiling(cand: &Weights) -> f64 {
+        // `PUNCH` is excluded: it is shifted by its own maximum, so it
+        // contributes at most nothing and never raises the ceiling.
+        cand.w[..7]
+            .iter()
+            .filter(|w| **w > 0.0)
+            .sum::<f64>()
+            + cand.parsimony
+            + cand.reseg
+    }
+
+    fn candidates() -> Vec<Weights> {
+        vec![
+            Weights {
+                label: "C0  as shipped",
+                w: SHIPPED,
+                parsimony: 0.0,
+                reseg: 0.0,
+            },
+            // The two the inherited report priced.  C1's positive weights
+            // reach 1.10, so it breaks the documented range; C1b is in
+            // range but pushes the green case out of the top 50.
+            Weights {
+                label: "C1  PARSIMONY 0.10  SHAPE->0, RHY 0.30->0.25",
+                w: with(0.15, 0.25, 0.0),
+                parsimony: 0.10,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1b PARSIMONY 0.15  SHAPE->0, NOVELTY->0",
+                w: with(0.0, 0.30, 0.0),
+                parsimony: 0.15,
+                reseg: 0.0,
+            },
+            // In-budget grid: SHAPE's 0.05 is free, and up to 0.10 more
+            // has to come from an axis already at 0.15 or 0.30.
+            Weights {
+                label: "C1f PARSIMONY 0.05  SHAPE->0",
+                w: with(0.15, 0.30, 0.0),
+                parsimony: 0.05,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1c PARSIMONY 0.10  SHAPE->0, RHY 0.30->0.20",
+                w: with(0.15, 0.20, 0.0),
+                parsimony: 0.10,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1g PARSIMONY 0.10  SHAPE->0, NOVELTY 0.15->0.05",
+                w: with(0.05, 0.30, 0.0),
+                parsimony: 0.10,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1d PARSIMONY 0.15  SHAPE->0, NOVELTY->0.05, RHY->0.25",
+                w: with(0.05, 0.25, 0.0),
+                parsimony: 0.15,
+                reseg: 0.0,
+            },
+            Weights {
+                label: "C1h PARSIMONY 0.15  SHAPE->0, NOVELTY->0, RHY->0.20",
+                w: with(0.0, 0.20, 0.0),
+                parsimony: 0.15,
+                reseg: 0.0,
+            },
+            // The alternative uses of the same budget, priced on the same
+            // captures: the same 0.15+0.05 of freed weight handed to
+            // boundary fidelity instead of word count.
+            Weights {
+                label: "C2b RESEG 0.15  SHAPE->0, NOVELTY->0",
+                w: with(0.0, 0.30, 0.0),
+                parsimony: 0.0,
+                reseg: 0.15,
+            },
+            Weights {
+                label: "C2d RESEG 0.15  SHAPE->0, NOVELTY->0.05, RHY->0.25",
+                w: with(0.05, 0.25, 0.0),
+                parsimony: 0.0,
+                reseg: 0.15,
+            },
+        ]
+    }
+
+    /// `PARSIMONY`, the axis this front priced: a function of two integer
+    /// word counts and nothing else — no sentence, no clue, no word
+    /// list, no target text — in [0, 1], and 1.0 exactly when the clue
+    /// has as many words as the target.  It is written out here rather
+    /// than called from the scorer because the scorer does not have it:
+    /// the front's verdict is HOLD and nothing about the shipped
+    /// objective changed.
+    fn parsimony(words: usize, target_words: usize) -> f64 {
+        let target = target_words.max(1);
+        1.0 - words.abs_diff(target) as f64 / words.max(target) as f64
+    }
+
+    fn generator(top_n: usize) -> Generator {
+        Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n,
+                ..GeneratorConfig::default()
+            },
+        )
+        .expect("corpus loads")
+    }
+
+    /// Mean acoustic similarity, as the shipped scorer computes it.
+    fn mean_similarity(rows: &[&counters::Scored]) -> f64 {
+        rows.iter().map(|r| r.similarity).sum::<f64>() / rows.len() as f64
+    }
+
+    /// Re-rank the captured pool under one weight vector and report the
+    /// two things the item asks about: the head's acoustic lift over the
+    /// pool, and the rank of one named proposal inside it.
+    fn price(
+        rows: &[counters::Scored],
+        cand: &Weights,
+        head: usize,
+        probe: &str,
+    ) -> (usize, f64, f64) {
+        let mut ranked: Vec<(f64, usize)> = rows
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let mut s = cand.w[7] * -1.0;
+                for (k, wk) in cand.w.iter().enumerate() {
+                    s += wk * r.terms[k];
+                }
+                s += cand.parsimony * parsimony(r.words, r.target_words);
+                s += cand.reseg * r.reseg;
+                (s, i)
+            })
+            .collect();
+        ranked.sort_by(|a, b| {
+            b.0.partial_cmp(&a.0).unwrap().then_with(|| {
+                rows[a.1].phrase.cmp(&rows[b.1].phrase)
+            })
+        });
+        let probe_rank = ranked
+            .iter()
+            .position(|(_, i)| rows[*i].phrase == probe)
+            .map(|p| p + 1)
+            .unwrap_or(usize::MAX);
+        let probe_score = ranked
+            .iter()
+            .find(|(_, i)| rows[*i].phrase == probe)
+            .map_or(f64::NAN, |(s, _)| *s);
+        let head_rows: Vec<&counters::Scored> = ranked
+            .iter()
+            .take(head)
+            .map(|(_, i)| &rows[*i])
+            .collect();
+        let all: Vec<&counters::Scored> = rows.iter().collect();
+        (probe_rank, probe_score, mean_similarity(&head_rows) - mean_similarity(&all))
+    }
+
+    /// The captured rows collapsed the way `Generator::finish` collapses
+    /// them: one row per clue *phrase*, keeping the first, so the
+    /// re-ranked pool is the production pool and not a
+    /// pre-deduplication superset.
+    fn dedup(rows: Vec<counters::Scored>) -> Vec<counters::Scored> {
+        let mut seen = HashSet::new();
+        rows.into_iter()
+            .filter(|r| seen.insert(phrase_signature(&r.phrase)))
+            .collect()
+    }
+
+    fn histogram<'a>(
+        rows: impl IntoIterator<Item = &'a counters::Scored>,
+        n: usize,
+    ) -> Vec<(usize, usize)> {
+        let mut counts = vec![0usize; n + 1];
+        for r in rows.into_iter().take(n) {
+            counts[r.words.min(n)] += 1;
+        }
+        counts
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| **c > 0)
+            .map(|(w, c)| (w, *c))
+            .collect()
+    }
+
+    #[test]
+    #[ignore]
+    fn price_the_budget() {
+        for (target, probe) in [
+            ("It's just a stupid game", "hits justice dupe hid came"),
+            ("recognize speech", "wreck a nice beach"),
+        ] {
+            let g = generator(50);
+            let _ = counters::drain_scored();
+            let _ = g.generate_pool(target);
+            let rows = dedup(counters::drain_scored());
+            println!("\n=== {target} ===");
+            println!("pool size {}", rows.len());
+            let mut by_score: Vec<&counters::Scored> = rows.iter().collect();
+            by_score.sort_by(|a, b| {
+                b.score
+                    .partial_cmp(&a.score)
+                    .unwrap()
+                    .then_with(|| a.phrase.cmp(&b.phrase))
+            });
+            println!(
+                "shipped head-200 word-count histogram {:?}",
+                histogram(by_score.iter().copied(), 200)
+            );
+            println!(
+                "shipped head-50 mean similarity {:.4}, pool mean {:.4}",
+                mean_similarity(&by_score[..50]),
+                mean_similarity(&by_score)
+            );
+            println!(
+                "probe under the shipped score: rank {} score {:.10}",
+                by_score
+                    .iter()
+                    .position(|r| r.phrase == probe)
+                    .map_or(usize::MAX, |p| p + 1),
+                by_score
+                    .iter()
+                    .find(|r| r.phrase == probe)
+                    .map_or(f64::NAN, |r| r.score),
+            );
+            for cand in candidates() {
+                let (rank, score, lift) = price(&rows, &cand, 50, probe);
+                println!(
+                    "  {:<52} ceiling {:.2}  head lift {:+.4}  probe rank {:>10}  score {:.10}  in top 50 {}",
+                    cand.label,
+                    ceiling(&cand),
+                    lift,
+                    if rank == usize::MAX { "absent".to_string() } else { rank.to_string() },
+                    score,
+                    rank != usize::MAX && rank <= 50
+                );
+            }
+        }
+    }
+}
+
 // ---- w-5d9c04: the per-slot candidate *set* ----
 //
 // Same discipline as the `w-1c7d40` block above: `#[cfg(test)]` only, the
@@ -8545,5 +8934,154 @@ mod front_5d9c04 {
             let got = slot_probe::admitted(cut, &short, cap);
             assert!(got.iter().all(|&i| i < 2), "{:?}", cut.name());
         }
+    }
+}
+
+/// w-9b4a15's regression fence: **the generator's own top-N is never
+/// acoustically worse than the pool it was drawn from.**
+///
+/// # The property
+///
+/// For one fixed target, let `P` be the deduplicated candidate pool the
+/// search produced and `H` the `top_n` highest-scoring members of `P`.
+/// Then `mean(SIMILARITY, H) >= mean(SIMILARITY, P)`.
+///
+/// It is a statement about the *objective*, not about a target, a clue or
+/// a rank: the head of a list is what the user reads, and if the list is
+/// on average a worse phonetic match than the set it was selected from
+/// then the ranking is not doing the one job it exists to do.  Nothing in
+/// it names a sentence, a clue, an expected phrase or a rank.
+///
+/// # Why it is not vacuous, and why it is the property that was missing
+///
+/// The shipped objective had no term that read the clue's *word count*
+/// at all, so it was indifferent to a clue being one word longer than its
+/// target — and every other axis is at its best on short, common,
+/// single-syllable words, so the head drifted towards over-segmentation
+/// into a longer phrase than the target.  Measured on the spread below,
+/// the head's `SIMILARITY` sat **below** the pool mean for two of the ten
+/// targets, by −0.0526 and −0.0825, while the other eight sat above it by
+/// up to +0.1498.  The axis that fixes it is
+/// [`axes::PARSIMONY`](crate::axes::PARSIMONY).
+///
+/// # Boundary
+///
+/// The pool is the production one: `generate_pool` is the search's own
+/// deduplicated, score-ordered candidates at the default release
+/// settings, the same ones `generate` selects from.  The per-candidate
+/// `SIMILARITY` comes from the scorer itself rather than being
+/// re-derived, and the test asserts the capture and the returned pool are
+/// the same length so the two cannot drift apart unnoticed.
+///
+/// Naming ten ordinary targets is deliberate and bounded.  The property is
+/// universal in the target, but a universal claim can only be *tested*
+/// over a sample, and a sample has to be written down.  None of the ten
+/// is a canonical acceptance phrase and no expected clue, phrase or rank
+/// appears anywhere in the test.
+#[cfg(test)]
+mod head_not_worse_than_pool {
+    use super::*;
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+    /// How many of the pool's best are the "head" the property is about.
+    /// The shipped CLI's default list length.
+    const HEAD: usize = 50;
+
+    /// A spread of ordinary English phrases of two to five words.  No
+    /// canonical acceptance phrase, and nothing here is an expected
+    /// output.
+    const TARGETS: &[&str] = &[
+        "walk the dog",
+        "open the window",
+        "turn off the lights",
+        "they ate the whole pie",
+        "call the office tomorrow",
+        "put the milk away",
+        "the train leaves at noon",
+        "my brother lost his wallet",
+        "he runs to the station",
+        "we should leave earlier",
+    ];
+
+    fn mean(values: &[f64]) -> f64 {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+
+    /// **This test is RED on this branch and is `#[ignore]`d, deliberately.**
+    ///
+    /// It is a real, reproducible defect in the shipped objective, and
+    /// w-9b4a15's verdict is HOLD, so there is no production change here
+    /// to turn it green.  It is left in the tree, ignored rather than
+    /// deleted, because it is the fence the verdict is written against
+    /// and because deleting a red test is how a red test stops being
+    /// anyone's problem.  Run it with:
+    ///
+    /// ```text
+    /// cargo test --release --lib head_not_worse_than_pool -- --ignored
+    /// ```
+    ///
+    /// Measured red, release mode, on this branch:
+    ///
+    /// ```text
+    /// "he runs to the station":     head 50 mean 0.7465 against pool 17647 mean 0.7991, lift -0.0526
+    /// "we should leave earlier":    head 50 mean 0.6530 against pool 20835 mean 0.7355, lift -0.0825
+    /// ```
+    ///
+    /// and green under the best candidate this front priced
+    /// (`PARSIMONY 0.10`, `SHAPE 0`, `NOVELTY 0.05`), which cannot ship:
+    /// see [REPORT-9b4a15](../docs/work/REPORT-9b4a15.md) §4.
+    #[test]
+    #[ignore = "red on purpose: the shipped objective has no word-count axis"]
+    fn the_top_of_the_list_is_not_a_worse_phonetic_match_than_the_whole_pool() {
+        let generator = || {
+            Generator::from_json(
+                CORPUS_JSON,
+                GeneratorConfig {
+                    mode: SearchMode::approximate(),
+                    top_n: HEAD,
+                    ..GeneratorConfig::default()
+                },
+            )
+            .expect("the corpus loads")
+        };
+        let mut regressions = String::new();
+        let mut checked = 0usize;
+        for target in TARGETS {
+            let pool = generator().generate_pool(target);
+            let mut rows = counters::drain_scored();
+            let mut seen = HashSet::new();
+            rows.retain(|r| seen.insert(phrase_signature(&r.phrase)));
+            assert_eq!(
+                pool.len(),
+                rows.len(),
+                "the captured candidates and the returned pool are different \
+                 lengths for {target:?}, so the lift below is not the \
+                 production pool's"
+            );
+            assert!(rows.len() > HEAD, "pool for {target:?} is too small to rank");
+            let all: Vec<f64> = rows.iter().map(|r| r.similarity).collect();
+            let head: Vec<f64> = rows[..HEAD].iter().map(|r| r.similarity).collect();
+            let lift = mean(&head) - mean(&all);
+            checked += 1;
+            if lift < 0.0 {
+                regressions.push_str(&format!(
+                    "\n  {target:?}: head {} mean {:.4} against pool {} mean \
+                     {:.4}, lift {lift:+.4}",
+                    HEAD,
+                    mean(&head),
+                    all.len(),
+                    mean(&all),
+                ));
+            }
+        }
+        assert_eq!(checked, TARGETS.len());
+        assert!(
+            regressions.is_empty(),
+            "the top of the returned list is a worse phonetic match than the \
+             pool it was selected from for {checked} of {} targets. The \
+             objective is ranking on something other than how well the clue \
+             sounds like the target:{regressions}",
+            TARGETS.len()
+        );
     }
 }
