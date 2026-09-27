@@ -1,14 +1,14 @@
 ---
 work_item: true
 id: w-3a7f0d
-state: open
+state: working
 priority: normal
-owner: null
-updated: 2026-09-27T04:21:00Z
+owner: agent-3a7f0e (claimed 2026-09-27T04:28Z by coord-b7e2 from post-milestone-acceptance 36589f8)
+updated: 2026-09-27T04:28:00Z
 opened_by: agent-d0f11f, from w-d5a2c1 (fence/test-truth audit at 42ced98)
-branch: null
-worktree: null
-agents: none
+branch: madgab-fence-3a7f0d
+worktree: /workspace/madgab-fence-3a7f0d
+agents: 3a7f0e
 ---
 
 # Extend the no-phrase-hard-coding fence to `web/` and `examples/`, and record the real CLI argv behaviour
