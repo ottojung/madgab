@@ -252,6 +252,14 @@ fn slot_is_affordable(
     committed + later_minima + candidate <= total_budget + 1e-9
 }
 
+/// How many heap pops one segmentation's lexical traversal may expand.
+///
+/// Module scope so that the opening width [`affordable_opening_width`]
+/// derives from it can be asserted on outside the search that spends it: a
+/// bound nothing can name is a bound nothing can check.  The value is the
+/// one the search has always spent.
+const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
+
 /// The per-slot width the traversal may **open** at, derived from the two
 /// budgets this loop already respects rather than chosen.
 ///
@@ -979,7 +987,10 @@ impl Generator {
         const SPAN_RARITY_KEEP: usize = 4;
         const SEG_STATE_KEEP: usize = 32;
         const SEGMENTATION_KEEP: usize = 256;
-        const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
+        // `LEXICAL_HEAP_POP_LIMIT` is module scope, because
+        // `affordable_opening_width` derives the opening width from it and a
+        // bound that cannot be named outside the function that spends it
+        // cannot be asserted on.  The value is unchanged.
 
         // The lexical phase's budget is *global*.  These are the same two
         // products the old per-segmentation caps implied when multiplied
@@ -4552,6 +4563,138 @@ mod tests {
             structure_depth_ceiling(BUDGET, 100_000, 17),
             17
         );
+    }
+
+    /// The per-segmentation opening width is charged the **all-slots-deep**
+    /// worst case, and that is the whole of the mechanism a slot's own depth
+    /// is governed by — so this states it generally, at the arithmetic
+    /// rather than at any phrase.
+    ///
+    /// [`affordable_opening_width`] returns the largest `w` with
+    /// `1 + w + ... + w^(d-1) <= pop_limit`, which is the count of the
+    /// *internal* nodes a best-first walk must expand to reach its first
+    /// leaf when **every** slot is `w` wide at once.  So the rule charges a
+    /// slot for depth in every other slot simultaneously, and the price of
+    /// one slot's own depth can be read off the same series: hold every
+    /// other slot at the derived baseline and widen slot `p` alone, and the
+    /// node count is `1 + sum_{k=1..d-1} prod_{j<k} w_j`, in which slot `p`
+    /// appears only in the terms with `k > p`.
+    ///
+    /// Two consequences follow, and both are general:
+    ///
+    /// * a slot's depth is charged against the product of the slots
+    ///   **before** it, so the affordable width of a slot is non-decreasing
+    ///   in its position and the widest slot is the *last* one; and
+    /// * the last slot's depth is charged against **nothing**, because the
+    ///   slot is only read when the walk has already reached the last
+    ///   internal level, so the whole of its width is affordable at the same
+    ///   internal-node cost as one alternative.
+    ///
+    /// The second is why this is a measurement rather than a fix: an opening
+    /// width derived per slot from the same pop limit is *wider* than the
+    /// uniform one (at `d = 5`, `pop_limit = 4 000` it is 9 / 7 / 10 / 10 /
+    /// 93 against a uniform 7 on a 160-wide shortlist) and still leaves
+    /// every coordinate above the tenth unpushed, because the width is not
+    /// what the traversal is short of.  The traversal spends
+    /// `LEXICAL_COMBINATIONS_PER_SEGMENTATION` wordings in descending-bound
+    /// order and stops; measured over 2 688 real segmentations it spends
+    /// 5-44 % of `LEXICAL_GLOBAL_POP_BUDGET` while saturating
+    /// `LEXICAL_GLOBAL_EMISSION_BUDGET`, so the binding limit is emissions
+    /// and no width derived from pops can buy a coordinate the walk never
+    /// walks to.  See `docs/work/items/w-0f3a17.md`.
+    #[test]
+    fn the_opening_width_is_charged_the_all_slots_deep_worst_case() {
+        /// `1 + w + ... + w^(d-1)`, the internal-node count the derivation
+        /// is about, accumulated so the comparison is on the quantity the
+        /// bound names rather than on a single power.
+        fn internal_nodes(widths: &[usize]) -> usize {
+            let depth = widths.len();
+            let mut total = 1usize;
+            let mut power = 1usize;
+            for k in 1..depth {
+                power = power.saturating_mul(widths[k - 1]);
+                total = total.saturating_add(power);
+            }
+            total
+        }
+
+        for depth in 1..=9usize {
+            for pop_limit in [1usize, 16, 111, 1_111, 4_000, 40_000] {
+                let w = affordable_opening_width(depth, pop_limit);
+                let uniform: Vec<usize> = vec![w; depth];
+                assert!(
+                    w == 1 || internal_nodes(&uniform) <= pop_limit,
+                    "depth {depth} at pop_limit {pop_limit}: width {w} needs {} \
+                     internal nodes",
+                    internal_nodes(&uniform)
+                );
+                if w > LEXICAL_BRANCH_STAGE_0 {
+                    let wider: Vec<usize> = vec![w + 1; depth];
+                    assert!(
+                        internal_nodes(&wider) > pop_limit,
+                        "depth {depth} at pop_limit {pop_limit}: {w} is not the \
+                         largest affordable width, {} also fits",
+                        internal_nodes(&wider)
+                    );
+                }
+            }
+        }
+
+        // A slot's own depth is charged against the slots *before* it, so
+        // the affordable width of a slot never falls as its position rises,
+        // and the last slot is the one whose depth costs nothing at all.
+        for depth in 3..=8usize {
+            let pop_limit = LEXICAL_HEAP_POP_LIMIT;
+            let baseline = affordable_opening_width(depth, pop_limit);
+            let list = SPAN_SHORTLIST;
+            let mut previous = 0usize;
+            for p in 0..depth {
+                let mut affordable = 0usize;
+                for w in 1..=list {
+                    let mut widths = vec![baseline; depth];
+                    widths[p] = w;
+                    if internal_nodes(&widths) <= pop_limit {
+                        affordable = w;
+                    } else {
+                        break;
+                    }
+                }
+                assert!(
+                    affordable >= previous,
+                    "depth {depth}: slot {p} affords {affordable} but slot {} \
+                     affords only {previous}, so a later slot is charged more \
+                     for the same depth",
+                    p - 1
+                );
+                assert!(
+                    affordable >= baseline,
+                    "depth {depth}: slot {p} affords {affordable}, below the \
+                     uniform width {baseline} the traversal already opens at"
+                );
+                previous = affordable;
+            }
+            assert_eq!(
+                previous, list,
+                "depth {depth}: the last slot's depth is charged against \
+                 nothing, so it must afford its whole list"
+            );
+            // ... and that is the ceiling of the per-slot derivation.  Once
+            // the uniform width has been *reduced* — which is the only regime
+            // the derivation is in tension with, since below the crossover it
+            // returns the first stage unchanged — the slot before the last is
+            // charged against the product of everything ahead of it and
+            // cannot afford its whole list.
+            if baseline < LEXICAL_BRANCH_STAGE_0 {
+                let mut widths = vec![baseline; depth];
+                widths[depth - 2] = list;
+                assert!(
+                    internal_nodes(&widths) > pop_limit,
+                    "depth {depth}: the penultimate slot unexpectedly affords \
+                     its whole list, so the per-slot derivation is wider than \
+                     this test's arithmetic describes"
+                );
+            }
+        }
     }
 
     /// The width a slot is opened at is the *first* stage, not a ceiling:
