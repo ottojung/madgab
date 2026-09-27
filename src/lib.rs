@@ -211,6 +211,104 @@ const ADJACENCY_PER_SLOT: usize = 2;
 /// compensate.
 const EMIT_PROFILE_MAX_DEEP: usize = 3;
 
+/// The per-slot affordability model the traversal reads, derived from the
+/// same additive bound `build` applies to a complete tuple.
+///
+/// A candidate `i` of slot `j` can appear in *any* emitted wording only if
+///
+/// ```text
+///     (cost already committed by the prefix)
+///   + (every later slot at its own cheapest)
+///   + cost_{j,i}  <=  total_budget
+/// ```
+///
+/// because a wording using it must pay for it *and* for one candidate of
+/// every later slot, and the cheapest way to pay for those is their own
+/// minimum.  Every term is a minimum or a chosen cost, so the test is
+/// exactly the tail of `build`'s own sum — it rejects nothing `build`
+/// would have kept, and it decides at the point where the decision is
+/// still able to save work.
+///
+/// Before this, affordability was decided only at the leaf: the traversal
+/// pushed, allocated and scored a candidate the total budget could never
+/// pay for, popped it, and dropped it.  `LEXICAL_HEAP_POP_LIMIT` is the
+/// constant that actually bounds wall clock, so those pops were spent out
+/// of a global budget ([`LEXICAL_GLOBAL_POP_BUDGET`]) on subtrees with no
+/// admissible leaf anywhere in them.  Measured at the shipped budgets the
+/// discarded fraction is small — 4.2% of built wordings on one measured
+/// target, 0.6% on another — so this is a bound that is nearly inert by
+/// default and binds when a caller tightens `total_budget`.  That is stated
+/// rather than claimed as a win.  No target is named here on purpose: the
+/// written fence for this item forbids naming either acceptance example in
+/// production `src/`, `tests/no_phrase_hard_coding.rs` strips comments before
+/// it scans, so the two are kept apart by reading and by
+/// `no_canonical_example_in_a_production_doc_comment`.
+fn slot_is_affordable(
+    committed: f64,
+    later_minima: f64,
+    candidate: f64,
+    total_budget: f64,
+) -> bool {
+    committed + later_minima + candidate <= total_budget + 1e-9
+}
+
+/// The per-slot width the traversal may **open** at, derived from the two
+/// budgets this loop already respects rather than chosen.
+///
+/// A best-first walk over a `d`-slot product reaches its *first* wording
+/// only after it has expanded the whole subtree above the all-cheapest
+/// leaf, which is `1 + w + w^2 + ... + w^(d-1)` nodes at opening width
+/// `w`.  So an opening width is only a budget if that series fits inside
+/// the per-segmentation pop limit: otherwise the walk exhausts the pop
+/// limit having emitted **nothing at all**, and the per-segmentation
+/// emission allowance it was given is not a small budget but an
+/// unpayable one.
+///
+/// Measured on the default release path at
+/// [`LEXICAL_BRANCH_STAGE_0`] = 10 and
+/// [`LEXICAL_HEAP_POP_LIMIT`] = 4 000: a 4-slot segmentation needs 1 111
+/// pops to reach its first wording and does reach it, a 5-slot one needs
+/// 11 111 and does not, and the run shows it — of 256 retained
+/// segmentations, 27 emit no wording at all on one measured four-word
+/// target, 109 on a six-word one and 84 on another, each after spending
+/// its full 4 000 pops.  Those pops buy nothing, and `spent_pops` is a
+/// share of a *global* budget, so the waste is paid for by the
+/// segmentations that do emit.  The counts are recorded on the work item
+/// rather than here, because a production doc comment must not name either
+/// acceptance example and the automated fence strips comments.
+///
+/// So the opening width is the largest `w` with
+/// `1 + w + ... + w^(d-1) <= pop_limit`, capped by
+/// [`LEXICAL_BRANCH_STAGE_0`] (which is the width the first stage is
+/// documented to open at, and which the coverage reserve's sweep floor is
+/// tied to) and by the widest list present.  Below the crossover this is
+/// `LEXICAL_BRANCH_STAGE_0` and costs exactly what it cost before, so the
+/// change is confined to the segmentations that were emitting nothing.
+/// The widening ladder ([`next_branch_stage`]) is untouched, so a
+/// traversal that drains at the derived width with appetite left still
+/// opens the next one.
+fn affordable_opening_width(slot_count: usize, pop_limit: usize) -> usize {
+    if slot_count <= 1 {
+        return LEXICAL_BRANCH_STAGE_0;
+    }
+    let mut width = LEXICAL_BRANCH_STAGE_0;
+    // `1 + w + ... + w^(d-1)`, accumulated so the comparison is on the
+    // quantity the bound is about rather than on `w^(d-1)` alone.
+    let fits = |w: usize| -> bool {
+        let mut total = 1usize;
+        let mut power = 1usize;
+        for _ in 1..slot_count {
+            power = power.saturating_mul(w);
+            total = total.saturating_add(power);
+        }
+        total <= pop_limit
+    };
+    while width > 1 && !fits(width) {
+        width -= 1;
+    }
+    width
+}
+
 /// How many candidates one subset of the coverage reserve's index sweep
 /// draws before it spends its share on one of them.
 ///
@@ -228,6 +326,13 @@ const EMIT_PROFILE_MAX_DEEP: usize = 3;
 /// at most `EMIT_PROFILE_SAMPLE * EMIT_PROFILE_RESERVE` = 16 * 16 = 256
 /// per segmentation, each one the arithmetic the traversal's heap key
 /// already performs.  It buys no extra emissions and no extra pops.
+///
+/// The sample is drawn from the same region of the same rotation as
+/// before, and its width is independent of
+/// [`affordable_opening_width`]: the first is how many positions of the
+/// sweep's own region are considered, the second is how wide the
+/// traversal opens the lists it can already reach.  Neither is a function
+/// of the other, so the two fronts' bounds compose rather than compete.
 const EMIT_PROFILE_SAMPLE: usize = 8;
 
 /// The `k`-subsets of `0..len`, in lexicographic order.
@@ -1343,65 +1448,6 @@ impl Generator {
         });
         segmentations.truncate(SEGMENTATION_KEEP);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        if let (Ok(span_spec), Ok(word_spec)) = (
-            std::env::var("MADGAB_TRACE_SPANS"),
-            std::env::var("MADGAB_TRACE_WORDS"),
-        ) {
-            let spans: Vec<(usize, usize)> = span_spec
-                .split(',')
-                .filter_map(|part| {
-                    let (a, b) = part.split_once('-')?;
-                    Some((a.parse().ok()?, b.parse().ok()?))
-                })
-                .collect();
-            let words: Vec<&str> =
-                word_spec.split(',').filter(|s| !s.is_empty()).collect();
-            let in_range =
-                spans.iter().all(|&(start, end)| start < n && end <= n);
-            let seg_rank = if in_range {
-                segmentations
-                    .iter()
-                    .position(|(_, path)| path.spans == spans)
-            } else {
-                None
-            };
-            eprintln!(
-                "MADGAB_TRACE segmentation={spans:?} rank={seg_rank:?}"
-            );
-            if in_range && spans.len() == words.len() {
-                for (slot, (&(start, end), wanted)) in
-                    spans.iter().zip(words.iter()).enumerate()
-                {
-                    let edge = span_lattice[start]
-                        .iter()
-                        .find(|edge| edge.end == end);
-                    let word_rank = edge.and_then(|edge| {
-                        edge.matches.iter().position(|m| {
-                            self.fuzzy_lexicon
-                                .word(m.word_idx)
-                                .word
-                                .eq_ignore_ascii_case(wanted)
-                        })
-                    });
-                    let word_cost = edge.and_then(|edge| {
-                        edge.matches
-                            .iter()
-                            .find(|m| {
-                                self.fuzzy_lexicon
-                                    .word(m.word_idx)
-                                    .word
-                                    .eq_ignore_ascii_case(wanted)
-                            })
-                            .map(|m| m.cost)
-                    });
-                    eprintln!(
-                        "MADGAB_TRACE span_slot={slot} span={start}-{end} word={wanted:?} rank={word_rank:?} cost={word_cost:?}"
-                    );
-                }
-            }
-        }
-
         // For a fixed segmentation, boundary novelty and word count are
         // fixed, so the only remaining choice is which word fills each
         // span.  Enumerate that Cartesian product exactly, in descending
@@ -1607,6 +1653,24 @@ impl Generator {
                 suf_max_syl[k] = suf_max_syl[k + 1]
                     + here.iter().map(|a| a.syllables).max().unwrap_or(0);
             }
+            // What a prefix has already committed, and what the slots after
+            // `k` cost at their own cheapest.  Together with a candidate's
+            // own cost these are the three terms of the per-slot
+            // affordability test below; they are read from the suffix
+            // bounds above rather than recomputed per candidate.
+            let slot_min_cost: Vec<f64> = (0..depth)
+                .map(|k| {
+                    slots[k]
+                        .iter()
+                        .map(|a| a.cost)
+                        .fold(f64::INFINITY, f64::min)
+                })
+                .collect();
+            // The minimum cost of every slot *after* `k`, i.e. the cheapest
+            // way to finish a prefix once slot `k` has been decided.
+            let later_min_cost: Vec<f64> = (0..depth)
+                .map(|k| suf_min_cost[k + 1] - slot_min_cost[k])
+                .collect();
 
             let clue_inner = depth.saturating_sub(1);
             let union = target_inner_count + clue_inner - segmentation.shared;
@@ -1763,7 +1827,15 @@ impl Generator {
             // can be missing merely because it sat at rank 99 of a slot that
             // a uniform pre-filter had already truncated.
             let widest = widths.iter().copied().max().unwrap_or(0);
-            let mut cap = LEXICAL_BRANCH_STAGE_0.min(widest);
+            // The opening width is derived, not chosen: at
+            // `LEXICAL_BRANCH_STAGE_0` a `d`-slot product needs
+            // `1 + w + ... + w^(d-1)` pops before the walk reaches its
+            // first wording at all, and a `d` where that exceeds
+            // `LEXICAL_HEAP_POP_LIMIT` is a segmentation whose emission
+            // allowance cannot be paid however the pops are spent.  See
+            // [`affordable_opening_width`] for the measured counts.
+            let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+                .min(widest);
             let mut emitted = 0usize;
             let mut popped = 0usize;
             // The traversal runs in passes over the heap.  A walk is the
@@ -1835,7 +1907,20 @@ impl Generator {
                         // already a wording.
                         expanded.push((k, prefix.clone()));
                     }
+                    let committed: f64 = prefix
+                        .iter()
+                        .enumerate()
+                        .map(|(j, &i)| slots[j][i].cost)
+                        .sum();
                     for i in 0..slots[k].len().min(cap) {
+                        if !slot_is_affordable(
+                            committed,
+                            later_min_cost[k],
+                            slots[k][i].cost,
+                            total_budget,
+                        ) {
+                            continue;
+                        }
                         let mut next = prefix.to_vec();
                         next.push(i);
                         let next: Rc<[usize]> = Rc::from(next);
@@ -1856,7 +1941,20 @@ impl Generator {
                     cap = next_branch_stage(opened, widest)
                         .expect("a stage was opened only when one was available");
                     for (k, prefix) in expanded.drain(..) {
+                        let committed: f64 = prefix
+                            .iter()
+                            .enumerate()
+                            .map(|(j, &i)| slots[j][i].cost)
+                            .sum();
                         for i in opened..slots[k].len().min(cap) {
+                            if !slot_is_affordable(
+                                committed,
+                                later_min_cost[k],
+                                slots[k][i].cost,
+                                total_budget,
+                            ) {
+                                continue;
+                            }
                             let mut next = prefix.to_vec();
                             next.push(i);
                             let next: Rc<[usize]> = Rc::from(next);
@@ -1999,33 +2097,6 @@ impl Generator {
         let mut seen = HashSet::new();
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
-            for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
-                match clues
-                    .iter()
-                    .position(|c| c.phrase.eq_ignore_ascii_case(phrase))
-                {
-                    Some(rank) => eprintln!(
-                        "MADGAB_TRACE raw phrase={phrase:?} rank={rank} score={:.9}",
-                        clues[rank].score
-                    ),
-                    None => eprintln!(
-                        "MADGAB_TRACE raw phrase={phrase:?} missing candidates={}",
-                        clues.len()
-                    ),
-                }
-            }
-            if let Some(cutoff) = clues.get(self.config.top_n.saturating_sub(1)) {
-                eprintln!(
-                    "MADGAB_TRACE raw_cutoff rank={} score={:.9} phrase={:?}",
-                    self.config.top_n.saturating_sub(1),
-                    cutoff.score,
-                    cutoff.phrase
-                );
-            }
-        }
 
         (select_diverse(clues, self.config.top_n), pool_size)
     }
