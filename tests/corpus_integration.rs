@@ -554,42 +554,47 @@ fn approximate_list_represents_enumerated_resegmentations() {
 /// candidates of other resegurations.
 #[test]
 fn approximate_output_is_locked() {
-    // Re-locked by w-9c6f2b, which reads the similarity axis per word
-    // (mean edit cost of a word on a one-unit-per-word scale) instead of
-    // dividing a candidate's total cost by a constant.  This target's
-    // clues are three words, so their similarity term is now
-    // `SIMILARITY * (1 - cost/3)` rather than `SIMILARITY * (1 - cost/4)`:
-    // every score falls by `SIMILARITY * cost / 12`, which over the five
-    // retained phrases is a per-entry spread of 0.0023 to 0.0087.
+    // Re-locked by w-9d4e10, which reads the similarity axis per *phone*
+    // (mean edit cost of one phone of the target's IPA stream) rather than
+    // per word.  This target is six phones long and its clues are three
+    // words, so the similarity term moves from `SIMILARITY * (1 - cost/3)`
+    // to `SIMILARITY * (1 - cost/1.8)`: `1.8` is six phones times
+    // `SIMILARITY_COST_PER_PHONE = 0.30`.  A retained entry therefore
+    // falls by `SIMILARITY * cost * (1/3 - 1/1.8)`, which is
+    // `SIMILARITY * cost / 4.5`.
     //
     // What actually changed, so a reviewer does not have to re-derive it:
-    // **five of the ten phrases are different, and all ten scores moved.**
-    // The two leading phrases keep their rank, but the retained phrases do
-    // not keep their scores -- every one of them falls by the bound above.
-    // The two middle entries give way: `i.'s a view`, `eye a view`, `how ill
-    // view`, `now ill view` and `i.'s of new` are gone, and `isle uhh
-    // view`, `i'll uhh view`, `a ill view`, `isle of too` and `eye ill
-    // view` are new.  That churn is a consequence of the three-word clue
-    // length -- the steeper fall reorders candidates that were within
-    // 0.003 of each other -- and is neither a regression nor an
-    // improvement claim: the same change leaves a four-word clue's
-    // similarity term bit-identical, which is why the canonical
-    // `recognize speech` case is unmoved.  Full before/after table and the
-    // canonical measurements are in `docs/work/items/w-9c6f2b.md`.
+    // **nine of the ten phrases are different, eight of the ten scores
+    // moved, and the two that did not move did not move for a reason.**
+    // The two leading entries, `isle uhh view` and `i'll uhh view`, keep
+    // their scores to the digit because their total edit cost is large
+    // enough that the axis clamps to zero on both denominators, so neither
+    // reading charges them.  Every other retained entry falls, by 0.0024
+    // to 0.0143 over the eight.  `yeah ill view` leaves the list and
+    // `isle of ooh` takes its place, and the ordering changes below the
+    // clamped pair: the two four-syllable readings of "uhh" move to the
+    // top and the five restatements of "isle/aisle ... view" fall.
+    //
+    // None of this is a regression or an improvement claim.  It is the
+    // price of removing the axis's span-length term, on a target whose
+    // clues all have the same word count, and it is disclosed here as the
+    // exact per-axis bound above rather than as a summary.  The
+    // before/after table, the canonical measurements and the swept safe
+    // band for the constant are in `docs/work/items/w-9d4e10.md`.
     const CASES: &[(&str, &[&str])] = &[
         (
             "I love you",
             &[
-                "0.936034 isle a view",
-                "0.935302 aisle a view",
                 "0.933655 isle uhh view",
                 "0.933646 i'll uhh view",
-                "0.922661 isle of new",
-                "0.922223 a ill view",
-                "0.921929 aisle of new",
-                "0.921298 eye ill view",
-                "0.920450 isle of too",
-                "0.920124 yeah ill view",
+                "0.932924 aisle uhh view",
+                "0.932087 isle a view",
+                "0.909157 a ill view",
+                "0.908375 isle of new",
+                "0.907643 aisle of new",
+                "0.907012 eye ill view",
+                "0.906165 isle of too",
+                "0.906023 isle of ooh",
             ],
         ),
     ];

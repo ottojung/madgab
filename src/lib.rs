@@ -2587,37 +2587,45 @@ impl Partial {
         counters::bump(&counters::METRICS);
         let words = self.word_count();
 
-        // Phonetic similarity is a per-word property, and the axis has
-        // always been documented as one: `SIMILARITY_PER_WORD` is the
-        // weight a single word's edit cost carries, and the proxies that
-        // order one word against another use it as exactly that.  But the
-        // axis itself divided the *whole candidate's* total cost by a
+        // Phonetic similarity is a property of the clue's *phones*, and the
+        // axis is scored on the mean edit cost of one phone.  Two earlier
+        // readings got this wrong, and the second was only a level down
+        // from the first.
+        //
+        // The original divided the whole candidate's total cost by a
         // constant, so the same per-word quality was charged once per
         // candidate for a once-per-word property: two clues whose words
-        // were individually as good as each other were ordered by how
-        // many words each happened to have, and a long clue could not
-        // reach the top of the list however good every one of its words
-        // was.
+        // were individually as good as each other were ordered by how many
+        // words each happened to have, and a long clue could not reach the
+        // top of the list however good every one of its words was.  That
+        // much was removed by reading the axis per word.
         //
-        // Reading the axis per word removes that.  One unit of *mean*
-        // cost per word is the full penalty, which is the same scale the
-        // constant expressed at the four-word clue it was written for, so
-        // a four-word clue scores exactly as before and only the
-        // length-dependent part of the axis moves.
+        // What per word left in place was the *span-length* term.  A clue
+        // word that must cover several of the target's phones is charged
+        // edit cost for all of them, so at equal per-phone phonetic
+        // quality a clue cut into long words scored strictly below one cut
+        // into short words: the axis was still a function of how the
+        // target's phones happen to be distributed among the words rather
+        // than of how good those words are.  Reading it per phone removes
+        // that, so the axis is now a function of the total edit cost over
+        // the target's phone count and of nothing else.  Two clues over the
+        // same target that cost the same total cost score the same however
+        // their phones are distributed; only a genuinely worse per-phone
+        // clue is charged.
         //
-        // `SIMILARITY_PER_WORD` is deliberately left at its old value.
-        // It is a *local* ordering weight for a span's alternatives, and
-        // the exact marginal weight of the new axis is
-        // `-SIMILARITY / (words + 1)`, which is a different number again;
-        // re-deriving all three proxy sites on it changes which words the
-        // search keeps, and it was measured to lose
+        // `SIMILARITY_PER_WORD` is deliberately left at its old value.  It
+        // is a *local* ordering weight for a span's alternatives, and it
+        // is left on the enumeration side of the boundary on purpose: the
+        // exact marginal weight of the new axis is
+        // `-SIMILARITY * weight / (phones * SIMILARITY_COST_PER_PHONE)`, a
+        // different number again; re-deriving all three proxy sites on it
+        // changes which words the search keeps, and it was measured to lose
         // `approximate_pool_reaches_matches_deep_in_a_span`.  That is an
         // enumeration-side effect, so it is left to the front that owns
         // enumeration rather than smuggled in here.
-        let cost_per_word = self.sub_cost_total / words.max(1) as f64;
-        let similarity = (1.0
-            - cost_per_word / axes::SIMILARITY_COST_PER_WORD)
-            .clamp(0.0, 1.0);
+        let cost_per_phone = self.sub_cost_total / total_len.max(1) as f64;
+        let similarity =
+            (1.0 - cost_per_phone / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0);
         let novelty =
             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
 
@@ -2700,6 +2708,7 @@ impl Partial {
 
         Metrics {
             combined,
+            similarity,
             novelty,
             familiarity,
             word_novelty,
@@ -2776,14 +2785,20 @@ mod axes {
     /// `FAMILIARITY` and half of `SIMILARITY`.
     pub const PUNCH: f64 = 0.10;
 
-    /// Mean edit cost of one clue word that scores this axis's full
+    /// Mean edit cost of one clue phone that scores this axis's full
     /// penalty.
+    ///
+    /// The denominator is the target's own phone count, so the axis is
+    /// `1 - (clue's total edit cost / target's phones) / this`.  Two clues
+    /// over the same target that cost the same total cost therefore score
+    /// the same however their phones are distributed among their words,
+    /// and a clue is charged for cost and for nothing else.
     ///
     /// `SIMILARITY_PER_WORD` below is the axis's derivative with respect
     /// to one word's cost at one word of clue, which is the local weight
-    /// the single-word ranking proxies use, and `metrics` divides a
-    /// candidate's mean per-word cost by this to get the axis itself.
-    pub const SIMILARITY_COST_PER_WORD: f64 = 1.0;
+    /// the single-word ranking proxies use, and it is deliberately left on
+    /// the old per-word scale: see `metrics`.
+    pub const SIMILARITY_COST_PER_PHONE: f64 = 0.30;
 
     /// Per-word share of the similarity axis, used by the single-word
     /// ranking proxies in `generate_approximate` (`quality`,
@@ -2796,6 +2811,10 @@ mod axes {
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Metrics {
     combined: f64,
+    /// The `SIMILARITY` axis on its own, kept so a test can assert the
+    /// axis's own behaviour without the seven other terms, which all
+    /// depend on the clue's word count in ways this axis must not.
+    similarity: f64,
     novelty: f64,
     familiarity: f64,
     word_novelty: f64,
@@ -4332,15 +4351,16 @@ mod tests {
             p: &Partial,
             target: &TargetPhrase,
             syllables: usize,
+            total_len: usize,
             partial: bool,
         ) -> Metrics {
-            // The similarity axis is scored on the *mean* per-word cost
+            // The similarity axis is scored on the mean per-phone cost
             // (see `metrics`); what this test pins is that the
             // incrementally maintained aggregates fold to the same
             // numbers, not which normaliser the axis uses.
             let similarity = (1.0
-                - p.sub_cost_total / p.word_count().max(1) as f64
-                    / axes::SIMILARITY_COST_PER_WORD)
+                - p.sub_cost_total / total_len.max(1) as f64
+                    / axes::SIMILARITY_COST_PER_PHONE)
                 .clamp(0.0, 1.0);
             let novelty =
                 boundary_novelty(&p.cuts, &[3usize, 6, 9], 12, partial);
@@ -4386,6 +4406,7 @@ mod tests {
                 + axes::CLOSED_CLASS * closed_penalty;
             Metrics {
                 combined,
+                similarity,
                 novelty,
                 familiarity,
                 word_novelty,
@@ -4415,7 +4436,7 @@ mod tests {
                 for partial in [true, false] {
                     assert_eq!(
                         p.metrics(&boundaries, 4, 12, partial),
-                        refold(&p, &target, 4, partial)
+                        refold(&p, &target, 4, 12, partial)
                     );
                 }
             }
@@ -5563,78 +5584,6 @@ mod tests {
         );
     }
 
-    /// The similarity axis is a per-word measure: a clue is scored on the
-    /// mean edit cost of its words, so two clues built from equally good
-    /// words score equally however many words each of them has.
-    ///
-    /// This is stated in general terms because the constant divisor it
-    /// replaces was length-*dependent* in the wrong direction.  It
-    /// charged a long clue once for a per-word property, so a clue could
-    /// be ranked below a shorter one whose every word was worse.
-    ///
-    /// Every other axis here is arranged to be length-neutral for these
-    /// chains -- the words are all the same length, rarity, class and
-    /// syllable count, the target has no inner boundaries to share, the
-    /// syllable counts agree, and no word is a target word -- so the
-    /// difference in `combined` below *is* the similarity axis.
-    #[test]
-    fn similarity_is_scored_per_word_not_per_candidate() {
-        let target_phrase = TargetPhrase::new("alpha beta gamma delta");
-        const TARGET_LEN: usize = 64;
-
-        let combined = |n: usize, word_cost: f64| {
-            let mut p = Partial::empty();
-            for i in 0..n {
-                p = p.extend_parts(
-                    &target_phrase,
-                    ["quorl", "vexil", "mirth", "gloam", "onset", "fluke"]
-                        [i % 6],
-                    "ae",
-                    Some(100.0),
-                    false,
-                    2,
-                    word_cost,
-                );
-            }
-            p.metrics(&[], n, TARGET_LEN, false).combined
-        };
-
-        // Same per-word quality, more words: length itself is not a
-        // penalty, so the axis is flat in the word count.
-        for cost in [0.05, 0.20, 0.40] {
-            let reference = combined(2, cost);
-            for n in [3usize, 4, 6, 8] {
-                assert!(
-                    (combined(n, cost) - reference).abs() < 1e-12,
-                    "{n} words at {cost} per word scored {} against {reference} \
-                     for 2 words at the same per-word cost",
-                    combined(n, cost)
-                );
-            }
-        }
-
-        // The axis is still able to rank: at a fixed length, worse words
-        // score strictly lower.
-        assert!(
-            combined(4, 0.05) > combined(4, 0.40),
-            "the axis stopped responding to per-word quality"
-        );
-        assert!(
-            combined(4, 0.40) > combined(4, 4.0),
-            "a clue whose words cost a full unit each should reach the \
-             axis's floor"
-        );
-
-        // And the sign of the length term: the same total cost spelled
-        // over more words is a *better* mean, not a worse one.
-        let total = 2.0 * 0.40;
-        assert!(
-            combined(8, total / 8.0) > combined(2, 0.40),
-            "spreading one total cost over more words was penalised"
-        );
-        assert!(combined(8, 0.0) >= combined(8, 0.40));
-    }
-
     /// boundary, and the general form of that is an inequality rather
     /// than a constant: the Jaccard distance between the two boundary
     /// sets is never below either one-sided reading of the same
@@ -5700,5 +5649,89 @@ mod tests {
         // are the only thing holding it back.
         let partial = boundary_novelty(&[3, 5, 7, 9, 11], &target, 12, false);
         assert!(partial > 0.0 && partial < 1.0, "partial resegmentation scored {partial}");
+    }
+
+    /// A synthetic clue over `target` made of `n` words of `len` phones
+    /// each, carrying `cost` edit cost in total.  The words are named by
+    /// index only: this test is about the arithmetic of the similarity
+    /// axis, not about any word, phrase or example.
+    fn synthetic_clue(target: &TargetPhrase, n: usize, len: usize, cost: f64) -> Partial {
+        let mut p = Partial::empty();
+        for i in 0..n {
+            let word = approx::FuzzyWord {
+                word: format!("w{i}"),
+                ipa: "aeiouy".chars().take(len).collect(),
+                ipa_len: len,
+                syllables: 1,
+                rarity: Some(500.0),
+                closed: false,
+            };
+            p = p.extend_fuzzy(target, &word, len * i, cost / n as f64);
+        }
+        p
+    }
+
+    /// `SIMILARITY` is a property of how well the clue's phones spell the
+    /// target's, so two clues that carry the *same total* edit cost over
+    /// the *same target* must score the same however those phones happen
+    /// to be distributed among their words.  A per-word reading charged a
+    /// clue for having more words, which is a fact about the cut and not
+    /// about the phonetics, and a third clue that really is worse per
+    /// phone must still rank strictly below both.
+    #[test]
+    fn similarity_is_charged_per_phone_not_per_word() {
+        let target = TargetPhrase::new("alpha bravo charlie delta");
+        let boundaries = [5usize, 11, 19];
+        let total_len = 24usize;
+        let syllables = 8usize;
+
+        // Same 24 phones, same total cost, two different cuts: three
+        // eight-phone words against six four-phone words.
+        let wide = synthetic_clue(&target, 3, 8, 0.6);
+        let fine = synthetic_clue(&target, 6, 4, 0.6);
+        assert_eq!(wide.word_count(), 3);
+        assert_eq!(fine.word_count(), 6);
+
+        let m_wide = wide.metrics(&boundaries, syllables, total_len, false);
+        let m_fine = fine.metrics(&boundaries, syllables, total_len, false);
+        assert_eq!(
+            m_wide.similarity, m_fine.similarity,
+            "the cut into words changed SIMILARITY at equal per-phone cost: \
+             {} over {} words vs {} over {} words",
+            m_wide.similarity,
+            wide.word_count(),
+            m_fine.similarity,
+            fine.word_count()
+        );
+
+        // Both are at the same per-phone cost, and a clue that spends no
+        // edit cost at all is the axis's maximum.  No absolute constant is
+        // named here: the property under test is the *denominator*, and it
+        // is a property of the relation between the three clues, not of any
+        // particular scale.
+        let free = synthetic_clue(&target, 6, 4, 0.0);
+        let m_free = free.metrics(&boundaries, syllables, total_len, false);
+        assert!(
+            (m_free.similarity - 1.0).abs() < 1e-12,
+            "a clue with no edit cost scored {} on SIMILARITY",
+            m_free.similarity
+        );
+        assert!(
+            m_wide.similarity < m_free.similarity,
+            "a clue that costs edit cost scored {} against {}",
+            m_wide.similarity,
+            m_free.similarity
+        );
+
+        // A worse cut, on the same target, at the same word count as the
+        // first: strictly worse per phone, so strictly worse on the axis.
+        let worse = synthetic_clue(&target, 3, 8, 0.9);
+        let m_worse = worse.metrics(&boundaries, syllables, total_len, false);
+        assert!(
+            m_worse.similarity < m_wide.similarity,
+            "a worse-per-phone clue scored {} against {}",
+            m_worse.similarity,
+            m_wide.similarity
+        );
     }
 }
