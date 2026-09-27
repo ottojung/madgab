@@ -494,3 +494,27 @@ fn approximate_output_is_locked() {
         assert_eq!(&got, expected, "approximate output changed for {target:?}");
     }
 }
+
+#[test]
+fn zz_dump_case2() {
+    use madgab::SearchMode;
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            max_rarity: Some(50_000.0),
+            mode: SearchMode::approximate(),
+            top_n: 50,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    for c in g.generate("Its just a stupid game") {
+        let w: Vec<String> = c
+            .words
+            .iter()
+            .map(|w| format!("{}/{}/{:.3}", w.word, w.ipa, w.sub_cost))
+            .collect();
+        println!("{:.4} cuts={:?} [{}] {}", c.score, c.cuts, w.join(" | "), c.phrase);
+    }
+    panic!("dump");
+}

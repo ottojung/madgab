@@ -62,6 +62,10 @@ impl FuzzyLexicon {
         }
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.words.len()
+    }
+
     pub(crate) fn is_empty(&self) -> bool {
         self.words.is_empty()
     }
@@ -547,5 +551,36 @@ mod tests {
                 "syllable count for /{ipa}/"
             );
         }
+    }
+}
+
+// ---- SCRATCH INSTRUMENTATION (scratch/c4d7e8-audit) ----
+#[test]
+fn zz_probe_case2() {
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+    let corpus = Corpus::from_json(CORPUS_JSON, Some(50_000.0)).unwrap();
+    let lex = build_lexicon(CORPUS_JSON, &corpus, Some(50_000.0));
+    let target: Vec<char> = "ɪtsdʒʌstəstʊpədɡeɪm".chars().collect();
+    for start in 0..target.len() {
+        let hits = lex.matches_at(&target, start, 0.5, 1);
+        let n = hits.len();
+        let mut rows: Vec<(usize, f64, String, String)> = hits
+            .iter()
+            .map(|m| {
+                let w = lex.word(m.word_idx);
+                (m.consumed, m.cost, w.word.clone(), w.ipa.clone())
+            })
+            .collect();
+        let want: Vec<&str> = vec!["dupe", "oop", "dame", "aim", "hid", "hits"];
+        let found: Vec<String> = rows
+            .iter()
+            .filter(|r| want.contains(&r.2.as_str()))
+            .map(|r| format!("{} sp{} c={:.3} /{}/", r.2, r.0, r.1, r.3))
+            .collect();
+        println!("start={start} ({}) n={n}", target[start..].iter().collect::<String>());
+        for f in &found { println!("   {f}"); }
+        rows.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.partial_cmp(&b.1).unwrap()));
+        let top: Vec<String> = rows.iter().take(6).map(|r| format!("{}:{:.2}", r.2, r.1)).collect();
+        println!("   best: {}", top.join(" "));
     }
 }

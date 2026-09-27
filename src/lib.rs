@@ -5033,3 +5033,87 @@ mod tests {
         );
     }
 }
+
+
+#[test]
+fn zz_ceiling() {
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+    let corpus = Corpus::from_json(CORPUS_JSON, Some(50_000.0)).unwrap();
+    let lex = approx::build_lexicon(CORPUS_JSON, &corpus, Some(50_000.0));
+    let target = "Its just a stupid game";
+    let (tipa, tb, tsyl) = transcribe_with_boundaries(&corpus, target, true).unwrap();
+    let chars: Vec<char> = tipa.chars().collect();
+    let n = chars.len();
+    let tp = TargetPhrase::new(target);
+    println!("target ipa={tipa} inner_boundaries={:?} syllables={tsyl}", &tb[1..tb.len()-1]);
+    let seq = ["hits", "justice", "dupe", "hid", "came"];
+    for name in seq {
+        let fw = (0..lex.len()).map(|i| lex.word(i)).find(|f| f.word == name).unwrap();
+        println!(
+            "  {name}: ipa=/{}/ rarity={:?} fam={:.4} closed={} syl={} shape={:.2} reuse={}",
+            fw.ipa, fw.rarity, word_familiarity(fw.rarity), fw.closed, fw.syllables,
+            lexical_shape_quality(&fw.word, word_familiarity(fw.rarity)), tp.reuse.reuses(&fw.word)
+        );
+    }
+    let cuts = vec![3usize, 10, 13, 15, 19];
+    let nov = boundary_novelty(&cuts, &tb, n, false);
+    println!("canonical best alignment cuts={cuts:?} novelty={nov:.4} term={:.4}", axes::NOVELTY*nov);
+    let mut fam = 0.0; let mut shape = 0.0; let mut closed = 0.0; let mut punch = 0.0; let mut syl = 0usize;
+    for name in seq {
+        let fw = (0..lex.len()).map(|i| lex.word(i)).find(|f| f.word == name).unwrap();
+        fam += word_familiarity(fw.rarity);
+        shape += lexical_shape_quality(&fw.word, word_familiarity(fw.rarity));
+        closed += f64::from(fw.closed);
+        punch += f64::from(fw.syllables <= 1);
+        syl += fw.syllables;
+    }
+    let w = 5.0;
+    let fam_t = axes::FAMILIARITY*(fam/w);
+    let sh_t = axes::SHAPE*(shape/w);
+    let cc_t = axes::CLOSED_CLASS*closed_class_penalty(closed, w);
+    let pu_t = axes::PUNCH*(punch/w - 1.0);
+    let rh_t = axes::RHYTHM*rhythm_match(syl, tsyl);
+    let wn_t = axes::WORD_NOVELTY*(1.0 - 0.0);
+    println!("  fam_mean={:.4} fam_term={fam_t:.4} | shape_term={sh_t:.4} | closed_term={cc_t:.4} | punch_term={pu_t:.4} | rhythm_term={rh_t:.4} | wordnov_term={wn_t:.4}", fam/w);
+    for cost in [1.12f64, 0.75, 0.0] {
+        let sim_t = axes::SIMILARITY * (1.0 - cost/4.0).clamp(0.0,1.0);
+        let total = sim_t + axes::NOVELTY*nov + wn_t + fam_t + rh_t + sh_t + cc_t + pu_t;
+        println!("  cost={cost:.2} sim_term={sim_t:.4} TOTAL={total:.4}");
+    }
+    println!("  hypothetical max with perfect novelty too: {:.4}", 0.25 + axes::NOVELTY + wn_t + fam_t + rh_t + sh_t + cc_t + pu_t);
+    println!("  current top-1 = 0.9052, rank-50 = 0.8978");
+    panic!("dump");
+}
+
+#[test]
+fn zz_apostrophe() {
+    use open_english_pronouncing_dictionary::CORPUS_JSON;
+    let corpus = Corpus::from_json(CORPUS_JSON, None).unwrap();
+    for w in ["it's", "its", "it", "is", "it's", "dont", "don't", "isnt", "isn't", "cant", "can't"] {
+        println!("{w:?} -> {:?}", corpus.preferred_ipa(w).map(|s| s.to_string()));
+    }
+    for w in ["It's just a stupid game", "It is just a stupid game", "Its just a stupid game"] {
+        println!("{w:?} -> {:?}", transcribe_with_boundaries(&corpus, w, true).map(|(i,b,s)| (i,b,s)));
+    }
+    panic!("dump");
+}
+
+#[test]
+fn zz_distance() {
+    let alpha: Vec<char> = "əɛɪɔʊuɐɑɒæɚəɫɹɾjɥʔbdfɡhjklmnŋprstvwzʃʒθðŋɕçɬʉɖɓʈɗʄʂʐŋɡɢʔ".chars().collect();
+    let mut pairs: Vec<(f64, char, char)> = Vec::new();
+    for &a in &alpha {
+        for &b in &alpha {
+            if a == b { continue; }
+            pairs.push((phonetics::distance(&a.to_string(), &b.to_string()), a, b));
+        }
+    }
+    pairs.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
+    println!("distinct-symbol distances: n={} min={:.4} max={:.4}", pairs.len(), pairs[0].0, pairs[pairs.len()-1].0);
+    println!("cheapest 8: {:?}", &pairs[..8].iter().map(|p| (p.1, p.2, p.0)).collect::<Vec<_>>());
+    println!("dearest 8: {:?}", &pairs[pairs.len()-8..].iter().map(|p| (p.1, p.2, p.0)).collect::<Vec<_>>());
+    let sub_gap = pairs.iter().filter(|p| p.0 < 0.20).count();
+    let sub_2gap = pairs.iter().filter(|p| p.0 > 0.40).count();
+    println!("pairs cheaper than GAP_COST(0.20): {sub_gap}; dearer than 2*GAP(0.40): {sub_2gap}");
+    panic!("dump");
+}
