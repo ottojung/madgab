@@ -105,9 +105,29 @@ is run. Rows 4-9 close the retention, reserve, floor, depth-cap and shortlist-wi
 it; rows 10-13 close the scoring, adjacency and lattice-coverage shapes. The list below is therefore
 short by design, and each entry is a shape that is **not** a re-specification of a closed row.
 
+**Priced since this section was written (do not re-open without a new argument):**
+
+* **Shape 1 is a priced NEGATIVE.** [w-3e91a4](items/w-3e91a4.md) (`done`) priced it in
+  [REPORT-3e91a4.md](REPORT-3e91a4.md), integrated 2026-09-27 at `91c0e35`. The refutation is a
+  **containment, not a percentile**: the walk's admission test is `index < cap`
+  (`src/lib.rs:2238-2241` and again at `:2276`), so *every* admitted set under *any* key — scalar,
+  set-level coverage, rank band, private oracle — is a subset of `{0, …, cap-1}`. At depth 5
+  `cap = 7` and the canonical's per-slot indices are `7 / 0 / 13 / 99 / 11`, so 4 of its 5 words are
+  outside the opening width for structural reasons no key can change; the cheapest single miss
+  (index 7, slot 0) already needs `F = 11,329` vs `pop_limit = 4,000` = **2.83×**, and the reaching
+  variant is `F = 64,001` = **22.8×** with a measured SIGKILL. Before truncation the shape
+  re-specifies rows 1 and 2; after truncation it is a strict subset of the shipped rule and can only
+  cost pool. The `hid` conflict (99 / 119 / 136) is therefore non-decisive; all three numbers are
+  recorded in the report. **Successor rule:** a band property is a reach coordinate only if it
+  changes `cap` or the shortlist *contents* — a **retention** band (which 160 are kept, at what
+  rank; map row 4's standing successor rule), never an **admission** band. Only **shape 2** below
+  remains genuinely unpriced.
+
 **Unpriced, and genuinely available:**
 
-1. **A cut that is not a function of a single scalar per-candidate property at all** — a *structural*
+1. ~~**A cut that is not a function of a single scalar per-candidate property at all**~~ —
+   **PRICED NEGATIVE, see above (REPORT-3e91a4).** Original wording kept for provenance — a
+   *structural*
    or *coverage*-keyed admission, e.g. admitting per slot the candidates that span the span's own
    candidate set in distinctness or in phonetic-feature coverage rather than in cost or in
    `contribution`. This is the successor rule both `w-5e2d41` fronts named independently (front A's
