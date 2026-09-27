@@ -6063,25 +6063,36 @@ mod tests {
         }
 
         // The same property for boundary cuts.  A clue that keeps every
-        // one of the target's boundaries and adds one more of its own is
-        // a finer *faithful* resegmentation, and it must not score lower
-        // for the extra boundary: `NOVELTY` is a distance from the
-        // target's own cuts, so a clue that is further away is further
-        // rewarded.  Ladder from the target's own cuts outwards.
+        // one of the target's boundaries and adds `extra` more of its own
+        // is a progressively finer *faithful* resegmentation, and it must
+        // not score lower for the extra boundaries: `NOVELTY` is a
+        // distance from the target's own cuts, so a clue further away is
+        // further rewarded.  The ladder really does grow the cut count --
+        // `extra` distinct new boundaries on top of the target's three --
+        // so an axis that falls with the clue's own segmentation fails
+        // here rather than passing on a set of rungs that all happen to
+        // have the same size.
+        let spare = [6usize, 7, 8, 9, 10, 12, 13, 14];
         let own = boundary_novelty(&boundaries, &boundaries, total_len, false);
         assert_eq!(own, 0.0, "the target's own cuts are not novelty 0.0");
         let mut previous = own;
-        for extra in 1..=8usize {
+        for extra in 1..=spare.len() {
             let mut cuts = boundaries.to_vec();
-            cuts.push(total_len - 1 - extra);
+            cuts.extend_from_slice(&spare[..extra]);
             cuts.sort_unstable();
+            assert_eq!(
+                cuts.len(),
+                boundaries.len() + extra,
+                "the ladder rung {extra} did not add a boundary"
+            );
             let novelty = boundary_novelty(&cuts, &boundaries, total_len, false);
             assert!(
                 novelty >= previous - 1e-12,
-                "adding a {extra}th boundary of its own to a clue that kept \
-                 every target boundary dropped NOVELTY from {previous} to \
-                 {novelty}: the axis is charging a faithful resegmentation \
-                 for being cut finer"
+                "cutting the same phones into {} words instead of {} dropped \
+                 NOVELTY from {previous} to {novelty}: the axis is charging a \
+                 faithful resegmentation for being cut finer",
+                cuts.len(),
+                boundaries.len() + extra - 1
             );
             previous = novelty;
         }
