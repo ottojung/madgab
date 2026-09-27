@@ -1833,11 +1833,33 @@ impl Generator {
             // them measurably costs a deep-in-a-span match
             // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
             // operator is instead bounded by the *global* emission budget,
-            // which is the search's real ceiling and which the baseline
-            // leaves slack (14,239 of 16,384 spent), so the operator's spend
-            // is bounded by the same constant that bounds everything else.
-            // `.min(adjacency_spend)` draws on the reserved slice, so the
-            // operator runs out of budget rather than the traversal.
+            // which is the search's real ceiling and which it shares with the
+            // traversal, so the operator's spend is bounded by the same
+            // constant that bounds everything else.  `.min(adjacency_spend)`
+            // draws on the reserved slice, so the operator runs out of budget
+            // rather than the traversal.
+            //
+            // The justification used to be that the ceiling *leaves slack* —
+            // "14,239 of 16,384 spent" — so funding the operator from it
+            // would cost the traversal nothing.  That is no longer true and the
+            // number is worth correcting where it was load-bearing rather than
+            // deleting: measured on three real multi-clause targets at
+            // `--approximate --top 50` (release, defaults; the accounting is
+            // `docs/work/items/w-b3e91a.md`), the lexical phase spends
+            // **16,384 of 16,384** emissions — 100 % saturated — while
+            // spending 175,957-212,108 of 1,024,000 pops, i.e. 17-21 % of the
+            // pop budget.  So the operator's emissions now come out of the
+            // same 16,384 as the traversal's and the two really are in
+            // competition; the *ordering* of the spend (reserve, then
+            // traversal, then operator, all against one ceiling) is what
+            // protects the traversal, not slack above it.  Raising the
+            // operator's share measurably does cost the tail: at
+            // `ADJACENCY_RESERVE` 64 and `ADJACENCY_GLOBAL_RESERVE` 8,192 the
+            // canonical target's retained-structure count falls 308 -> 214 and
+            // its pool width rises only 18,936 -> 19,141, because the operator
+            // runs per segmentation and starves the late-retained structures
+            // before the traversal reaches them.  See also the ordering
+            // measurement below and `docs/work/items/w-b3e91a.md`.
             let adjacency_allowance = ADJACENCY_RESERVE
                 .min(emit_allowance)
                 .min(adjacency_spend);
@@ -2096,6 +2118,21 @@ impl Generator {
             }
         }
 
+        // How much of each ceiling the lexical phase actually spent.  Test
+        // only: it is the measurement behind
+        // `the_global_emission_ceiling_is_reached_not_merely_respected`, which
+        // is what distinguishes a bound that binds from one that is merely
+        // respected, and it is what corrects the "the ceiling leaves slack"
+        // claim the adjacency operator's funding was justified by.
+        #[cfg(test)]
+        {
+            counters::note_total(
+                &counters::SPENT_EMISSIONS,
+                spent_emissions as u64,
+            );
+            counters::note_total(&counters::SPENT_POPS, spent_pops as u64);
+        }
+
         completed.extend(recovered);
         self.finish(
             completed,
@@ -2204,6 +2241,15 @@ mod counters {
         /// The deepest slot index the adjacency operator's admissions
         /// reach: the third of the three emission-spread counters.
         pub static DEEPEST_ADJACENCY: Cell<usize> = const { Cell::new(0) };
+        /// How many wordings the lexical phase actually put in the pool, so a
+        /// test can assert that the *global* emission ceiling is reached rather
+        /// than merely respected.  See
+        /// `the_global_emission_ceiling_is_reached_not_merely_respected`.
+        pub static SPENT_EMISSIONS: Cell<u64> = const { Cell::new(0) };
+        /// The same, for heap pops: the other half of the same question,
+        /// because a ceiling that is reached on emissions and never approached
+        /// on pops is the statement that the search is emission-bound.
+        pub static SPENT_POPS: Cell<u64> = const { Cell::new(0) };
     }
 
     pub fn bump(counter: &'static std::thread::LocalKey<Cell<u64>>) {
@@ -2231,6 +2277,15 @@ mod counters {
         counter: &'static std::thread::LocalKey<Cell<usize>>,
     ) -> usize {
         counter.with(|c| c.replace(0))
+    }
+
+    /// Record `total` if it is larger than anything already recorded.
+    pub fn note_total(counter: &'static std::thread::LocalKey<Cell<u64>>, total: u64) {
+        counter.with(|c| {
+            if total > c.get() {
+                c.set(total);
+            }
+        });
     }
 }
 
@@ -5068,6 +5123,82 @@ mod tests {
                 "{target:?}: the reserve only reached slot depth {profile}"
             );
         }
+    }
+
+    /// The emission ceiling is **reached**, not merely respected, and the
+    /// pop ceiling is not — which is the whole content of "the search is
+    /// emission-bound".
+    ///
+    /// Every comment in this file that describes the two budgets treats them
+    /// as interchangeable limits and ranks work against whichever is tighter.
+    /// On a real multi-clause target they are not interchangeable: the
+    /// emission side saturates and the pop side does not, by a wide margin.
+    /// That is asserted rather than described, because the description is what
+    /// drifted.  The adjacency operator's funding is justified in the source
+    /// by the ceiling "leaving slack (14,239 of 16,384 spent)"; the measured
+    /// figure on a real multi-clause target is 16,384 of 16,384.  A slack
+    /// claim that is false is not cosmetic — it is the stated reason two
+    /// mechanisms may share one ceiling without competing.  See
+    /// `docs/work/items/w-b3e91a.md`.
+    ///
+    /// The two assertions carry different information and are deliberately of
+    /// different shapes:
+    ///
+    /// * **Per target**, emissions may not exceed the ceiling.  This is the
+    ///   bound itself, and it holds for every input including a short one: a
+    ///   two-word target retains far fewer than 256 segmentations and spends
+    ///   4,529 of 16,384, so the ceiling is *respected* there and only
+    ///   *reached* where the lattice is big enough to spend it.  Asserting
+    ///   saturation per target would be asserting a fact about the size of
+    ///   particular phrases, not about the bound.
+    /// * **Over the corpus**, the ceiling must actually be reached, and the pop
+    ///   ceiling must not be approached.  This is the load-bearing half: if a
+    ///   future change leaves the emission side with slack, the ceiling has
+    ///   stopped bounding anything, and every share arithmetic drawn against
+    ///   it — `structure_depth_ceiling`'s equal share,
+    ///   `ADJACENCY_GLOBAL_RESERVE` being a slice of it — is describing
+    ///   budget that is not being spent.  Symmetrically, if pops ever approach
+    ///   1,024,000 the pop budget has become the binding constraint and every
+    ///   emission-allocation question has to be re-asked against a different
+    ///   search.
+    ///
+    /// It is phrase-free: it reads the counters over the shared reachability
+    /// corpus and names no target, no clue and no word.
+    #[test]
+    fn the_global_emission_ceiling_is_reached_not_merely_respected() {
+        // The two ceilings, restated from the constants the search itself
+        // uses — `SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION`
+        // and `SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT`.  They are
+        // function-local, so a test restates the arithmetic rather than
+        // reaching into the search.
+        let emission_ceiling = 256 * 64;
+        let pop_ceiling = 256 * 4_000;
+        let mut best_emissions = 0u64;
+        for (target, _) in reachability_corpus() {
+            let _ = approximate_generator(50).generate(target);
+            let emissions = counters::take(&counters::SPENT_EMISSIONS);
+            let pops = counters::take(&counters::SPENT_POPS);
+            assert!(
+                emissions <= emission_ceiling as u64,
+                "{target:?}: the lexical phase spent {emissions} emissions \
+                 against a ceiling of {emission_ceiling}, so the global \
+                 emission bound does not bound"
+            );
+            best_emissions = best_emissions.max(emissions);
+            assert!(
+                pops * 2 < pop_ceiling as u64,
+                "{target:?}: the lexical phase spent {pops} of \
+                 {pop_ceiling} pops, so the pop budget has become the \
+                 binding constraint and the emission ceiling is not what \
+                 limits this search any more"
+            );
+        }
+        assert_eq!(
+            best_emissions, emission_ceiling as u64,
+            "no target in the corpus reached the global emission ceiling, so \
+             it is not the ceiling: it bounds nothing, and every share \
+             arithmetic drawn against it describes budget that is not spent"
+        );
     }
 
     /// Score of an explicit word sequence, by cheapest alignment over
