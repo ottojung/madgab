@@ -1666,32 +1666,29 @@ impl Generator {
             // bound on the score of any completion of a prefix, so the
             // emission order really is descending in final score.
             let depth = slots.len();
-            let mut suf_min_cost = vec![0.0_f64; depth + 1];
-            let mut suf_min_reused = vec![0usize; depth + 1];
-            let mut suf_max_fam = vec![0.0_f64; depth + 1];
-            let mut suf_min_closed = vec![0usize; depth + 1];
-            let mut suf_max_shape = vec![0.0_f64; depth + 1];
-            let mut suf_min_syl = vec![0usize; depth + 1];
-            let mut suf_max_syl = vec![0usize; depth + 1];
+            let mut suf: Vec<SuffixRelaxation> =
+                vec![SuffixRelaxation::default(); depth + 1];
             for k in (0..depth).rev() {
                 let here = &slots[k];
-                suf_min_cost[k] = suf_min_cost[k + 1]
-                    + here.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min);
-                suf_min_reused[k] = suf_min_reused[k + 1]
-                    + usize::from(here.iter().all(|a| a.reused == 1));
-                suf_max_fam[k] = suf_max_fam[k + 1]
-                    + here
-                        .iter()
-                        .map(|a| a.familiarity)
-                        .fold(0.0_f64, f64::max);
-                suf_min_closed[k] = suf_min_closed[k + 1]
-                    + usize::from(here.iter().all(|a| a.closed == 1));
-                suf_max_shape[k] = suf_max_shape[k + 1]
-                    + here.iter().map(|a| a.shape).fold(0.0_f64, f64::max);
-                suf_min_syl[k] = suf_min_syl[k + 1]
-                    + here.iter().map(|a| a.syllables).min().unwrap_or(0);
-                suf_max_syl[k] = suf_max_syl[k + 1]
-                    + here.iter().map(|a| a.syllables).max().unwrap_or(0);
+                let next = suf[k + 1];
+                suf[k] = SuffixRelaxation {
+                    cost: next.cost
+                        + here.iter().map(|a| a.cost).fold(f64::INFINITY, f64::min),
+                    reused: next.reused + usize::from(here.iter().all(|a| a.reused == 1)),
+                    familiar: next.familiar
+                        + here
+                            .iter()
+                            .map(|a| a.familiarity)
+                            .fold(0.0_f64, f64::max),
+                    closed: next.closed
+                        + usize::from(here.iter().all(|a| a.closed == 1)),
+                    shape: next.shape
+                        + here.iter().map(|a| a.shape).fold(0.0_f64, f64::max),
+                    min_syllables: next.min_syllables
+                        + here.iter().map(|a| a.syllables).min().unwrap_or(0),
+                    max_syllables: next.max_syllables
+                        + here.iter().map(|a| a.syllables).max().unwrap_or(0),
+                };
             }
             // What a prefix has already committed, and what the slots after
             // `k` cost at their own cheapest.  Together with a candidate's
@@ -1709,86 +1706,46 @@ impl Generator {
             // The minimum cost of every slot *after* `k`, i.e. the cheapest
             // way to finish a prefix once slot `k` has been decided.
             let later_min_cost: Vec<f64> = (0..depth)
-                .map(|k| suf_min_cost[k + 1] - slot_min_cost[k])
+                .map(|k| suf[k + 1].cost - slot_min_cost[k])
                 .collect();
 
-            let clue_inner = depth.saturating_sub(1);
-            let union = target_inner_count + clue_inner - segmentation.shared;
-            let novelty = if union == 0 {
-                0.0
-            } else {
-                1.0 - segmentation.shared as f64 / union as f64
-            };
+            // The bound's boundary novelty is a *constant of this
+            // segmentation*, not a relaxation: every completion of a fixed
+            // segmentation has the same cuts, so the axis is exact.  It used
+            // to be re-derived here as `1 - shared / (target_inner_count +
+            // clue_inner - shared)`, and it is read through the scorer's own
+            // `boundary_novelty` for the same reason `SIMILARITY` is: a
+            // second derivation of a quantity the scorer also derives is a
+            // second thing that can drift from it, and on a real four-word
+            // target the two already differ by 0.167 of the axis, which is
+            // 0.025 of a final score — enough to put the bound under a
+            // completion of its own segmentation.  The measurement is in
+            // `the_lexical_bound_dominates_every_completion_it_covers`, which
+            // is what found it.
+            let seg_cuts: Vec<usize> =
+                segmentation.spans.iter().map(|&(_, e)| e).collect();
+            let novelty =
+                boundary_novelty(&seg_cuts, &target_boundaries, n, false);
 
             let bound = |prefix: &[usize]| -> f64 {
-                let (mut cost, mut reused, mut fam, mut closed, mut shape, mut syl) =
-                    (0.0_f64, 0usize, 0.0_f64, 0usize, 0.0_f64, 0usize);
+                let mut committed = ScoreParts::default();
                 for (k, &i) in prefix.iter().enumerate() {
                     let a = &slots[k][i];
-                    cost += a.cost;
-                    reused += a.reused;
-                    fam += a.familiarity;
-                    closed += a.closed;
-                    shape += a.shape;
-                    syl += a.syllables;
+                    committed.cost += a.cost;
+                    committed.reused += a.reused;
+                    committed.familiar += a.familiarity;
+                    committed.closed += a.closed;
+                    committed.shape += a.shape;
+                    committed.syllables += a.syllables;
                 }
-                let k = prefix.len();
-                // The similarity term has to be the *scorer's own* axis,
-                // relaxed over the suffix's cheapest completion, or the
-                // bound is not a bound.  It used to be
-                // `(1.0 - cost / 4.0).clamp(0.0, 1.0)`, a per-word
-                // normaliser that the scorer stopped reading when
-                // `SIMILARITY` became a per-*phone* axis
-                // (`SIMILARITY_COST_PER_PHONE`), and the two disagree in
-                // sign about which way to charge: the bound's penalty is
-                // `cost / 4`, the scorer's is `cost / (phones * 0.30)`, so
-                // for any target longer than `4 / 0.30` = 13.3 phones the
-                // bound's penalty is the *larger* of the two and the bound
-                // sits **below** the score of a completion it is supposed to
-                // dominate.  Measured on 14 real targets at
-                // `docs/work/items/w-5b1e93.md`: the old form is below the
-                // real score on 12 of 14, on up to 76% of one segmentation's
-                // whole product, by up to 0.0346; this form is above it on
-                // 14 of 14, on every one of 11.2 million wordings checked.
-                //
-                // The consequence is not a tuning difference.  The heap is
-                // keyed by this value and the coverage reserve spends its
-                // share on "the candidate with the highest admissible
-                // bound", so an inadmissible key does not merely order the
-                // walk slightly differently: it invalidates the argument
-                // that the reserve's choice is the best of the positions it
-                // looked at, and it demotes wordings the scorer will later
-                // rate above their neighbours.
-                //
-                // Reading the axis through the scorer's own normaliser also
-                // makes the bound *invariant to the cost model*: a change to
-                // what a word costs, or to how cost is normalised, now moves
-                // the bound and the score together instead of silently
-                // desynchronising them, which is what made this drift
-                // possible in the first place.
-                axes::SIMILARITY
-                    * (1.0
-                        - (cost + suf_min_cost[k])
-                            / (n.max(1) as f64 * axes::SIMILARITY_COST_PER_PHONE))
-                        .clamp(0.0, 1.0)
-                    + axes::NOVELTY * novelty
-                    + axes::WORD_NOVELTY
-                        * (1.0
-                            - (reused + suf_min_reused[k]) as f64 / word_count)
-                    + axes::FAMILIARITY
-                        * (fam + suf_max_fam[k]) / word_count
-                    + axes::CLOSED_CLASS
-                        * closed_class_penalty(
-                            (closed + suf_min_closed[k]) as f64,
-                            word_count,
-                        )
-                    + axes::RHYTHM
-                        * rhythm_match_in(
-                            syl + suf_min_syl[k],
-                            syl + suf_max_syl[k],
-                            target_syllables,
-                        )
-                    + axes::SHAPE * (shape + suf_max_shape[k]) / word_count
+                lexical_score_bound(
+                    committed,
+                    suf[prefix.len()],
+                    word_count,
+                    novelty,
+                    n,
+                    target_syllables,
+                )
             };
 
 
@@ -2979,6 +2936,121 @@ fn boundary_novelty(
 /// internal proxy that only knows the *minimum* closed-class count a
 /// span could be filled with stays a valid lower bound on the penalty
 /// after the square, which is not true of a concave or linear map.
+/// The score components a run of clue words commits to.
+///
+/// These are the six additive aggregates [`Partial::metrics`] folds, in the
+/// order it folds them, so a bound built from them is comparable with a
+/// score term by term.
+#[derive(Clone, Copy, Default)]
+struct ScoreParts {
+    cost: f64,
+    reused: usize,
+    familiar: f64,
+    closed: usize,
+    shape: f64,
+    syllables: usize,
+}
+
+/// What a *suffix* of a segmentation's slots may add, relaxed.
+///
+/// Each field is that suffix's own extremum in the direction that can only
+/// raise the final score, so a suffix summarised this way dominates every
+/// wording it can actually complete a prefix to — with one exception that is
+/// not a relaxation at all: syllables, which enter through
+/// [`rhythm_match_in`] as the *interval* the suffix's syllable total can
+/// fall in, so both ends are carried and the interval is exact.
+#[derive(Clone, Copy, Default)]
+struct SuffixRelaxation {
+    cost: f64,
+    reused: usize,
+    familiar: f64,
+    closed: usize,
+    shape: f64,
+    min_syllables: usize,
+    max_syllables: usize,
+}
+
+/// An upper bound on the final score of **every** completion of a prefix.
+///
+/// This is the key the per-segmentation lexical traversal's best-first heap
+/// orders by, the key the coverage reserve spends its share on ("the
+/// candidate with the highest admissible bound"), and the key the adjacency
+/// operator's children are scored with.  All three of those are only
+/// justified if the value is an upper bound on what the search will
+/// eventually compute, so the property is asserted executably — over a real
+/// lattice, for every completion of every prefix of a real segmentation — by
+/// `the_lexical_bound_dominates_every_completion_it_covers`.
+///
+/// # The one term that has to be the scorer's own
+///
+/// `SIMILARITY` is read per *phone* by [`Partial::metrics`], as
+/// `1 - (total_cost / target_phones) / SIMILARITY_COST_PER_PHONE` clamped to
+/// `[0, 1]`.  The bound used to read the same axis per *word*, as
+/// `1 - total_cost / 4`, and the two disagree about which of them charges
+/// more: the bound's penalty is `cost / 4` and the scorer's is
+/// `cost / (phones * 0.30)`, so for any target longer than `4 / 0.30` =
+/// 13.3 phones the bound's penalty is the larger of the two and the bound
+/// sits **below** the score of a completion it is supposed to dominate.  It
+/// is read here through the scorer's own expression, over the same
+/// `target_phones` the scorer divides by, with the suffix's cheapest cost
+/// added.
+///
+/// That is admissible because the expression is non-increasing in the cost:
+/// `cost + suffix_minimum >= total_cost` for every completion, so
+/// `bound >= scorer` at every `target_phones >= 1` and at both ends of the
+/// clamp, where both are exactly 0.  It is also *invariant to the cost
+/// model*: a change to what a word costs, or to how cost is normalised, now
+/// moves the bound and the score together instead of letting them drift
+/// apart, which is the only reason they were able to drift apart before.
+///
+/// The other terms relax as they always have, and each is a bound because
+/// the axis it feeds is monotone in it: `WORD_NOVELTY` falls with reuse,
+/// `FAMILIARITY` and `SHAPE` rise with the sum they divide by word count,
+/// `CLOSED_CLASS` charges a convex penalty on the closed-class share so a
+/// minimum count stays a lower bound on it, and `RHYTHM` reads the exact
+/// syllable interval.  `PUNCH` is absent, which is exact rather than a
+/// relaxation: its contribution `w * (share - 1)` is at most 0 and reaches
+/// 0 whenever every clue word has one syllable or fewer, so the maximum
+/// over completions contributes nothing.
+///
+/// Measured over 14 real targets, each with a real segmentation and a real
+/// deep-in-one-slot wording, enumerating the whole minimal product that
+/// contains that wording: the per-word form is below the real score on 12 of
+/// the 14, on up to 1,690,500 of 2,213,750 wordings of one segmentation
+/// (76%), by up to 0.034638; this form is above it on 14 of 14, on every one
+/// of 11,192,244 wordings checked.  See `docs/work/items/w-5b1e93.md`.
+fn lexical_score_bound(
+    committed: ScoreParts,
+    relaxed: SuffixRelaxation,
+    word_count: f64,
+    novelty: f64,
+    target_phones: usize,
+    target_syllables: usize,
+) -> f64 {
+    axes::SIMILARITY
+        * (1.0
+            - (committed.cost + relaxed.cost)
+                / (target_phones.max(1) as f64 * axes::SIMILARITY_COST_PER_PHONE))
+        .clamp(0.0, 1.0)
+        + axes::NOVELTY * novelty
+        + axes::WORD_NOVELTY
+            * (1.0
+                - (committed.reused + relaxed.reused) as f64 / word_count)
+        + axes::FAMILIARITY * (committed.familiar + relaxed.familiar) / word_count
+        + axes::CLOSED_CLASS
+            * closed_class_penalty(
+                (committed.closed + relaxed.closed) as f64,
+                word_count,
+            )
+        + axes::RHYTHM
+            * rhythm_match_in(
+                committed.syllables + relaxed.min_syllables,
+                committed.syllables + relaxed.max_syllables,
+                target_syllables,
+            )
+        + axes::SHAPE * (committed.shape + relaxed.shape) / word_count
+}
+
 fn closed_class_penalty(closed: f64, words: f64) -> f64 {
     if words <= 0.0 {
         return 0.0;
@@ -5683,6 +5755,271 @@ mod tests {
                 ranked[0].score
             );
         }
+    }
+
+    /// The lexical traversal's key must dominate every wording it covers.
+    ///
+    /// The per-segmentation best-first walk, the coverage reserve's choice
+    /// among the positions it sampled, and the adjacency operator's
+    /// re-scoring of its children all argue from
+    /// [`lexical_score_bound`] being an *upper bound* on the score of any
+    /// completion of a prefix.  That argument is only as good as the
+    /// function, and the bound's `SIMILARITY` term used to read the axis per
+    /// *word* (`1 - cost / 4`) while the scorer read the same axis per *phone*
+    /// (`1 - cost / (phones * SIMILARITY_COST_PER_PHONE)`).  For any target
+    /// longer than `4 / 0.30` = 13.3 phones the bound's penalty is the larger
+    /// of the two, so the bound sat *below* the score of a completion it is
+    /// supposed to dominate — measured on 12 of 14 real targets, on up to
+    /// 76% of one segmentation's whole product, by up to 0.0346.
+    ///
+    /// This asserts the property rather than the shape, on a real lattice
+    /// and real segmentations: for every prefix of a real segmentation and
+    /// every completion of it, the bound is at least the score the search
+    /// will compute for that completion.
+    ///
+    /// Non-vacuity is asserted too, and in the form that catches exactly the
+    /// regression.  A bound that is loose everywhere passes the domination
+    /// assertion for free, so the test also pins the *floor* of the slack:
+    /// at a full-length prefix the suffix is empty, the bound has no
+    /// relaxation left, and it must therefore equal the score the scorer
+    /// computes — except for `PUNCH`, whose maximum over completions is
+    /// exactly 0 and which the bound omits.  A clue whose every word has one
+    /// syllable or fewer has that maximum attained, so on such a clue the
+    /// two must be *equal to the last bit*.  The per-word form fails that
+    /// assertion on every target here, and equal-but-wrong is the failure
+    /// mode worth catching: a bound that is loose in the safe direction is
+    /// merely wasteful, one that is tight in the wrong direction is not a
+    /// bound at all.
+    #[test]
+    fn the_lexical_bound_dominates_every_completion_it_covers() {
+        /// How many candidates per slot the test walks.  The property is
+        /// per-completion, so a handful of real alternatives per slot
+        /// covers it; the full list is 160 wide and the assertion does not
+        /// get stronger by being exhaustive.
+        const PER_SLOT: usize = 4;
+
+        for target in [
+            "alpha bravo charlie delta",
+            "the quick brown fox jumps",
+            "she sells sea shells",
+            "big spender",
+            "in the middle of the night",
+            "put it back on the shelf",
+        ] {
+            let g = approximate_generator(4096);
+            let (ipa, boundaries, syllables) =
+                transcribe_with_boundaries(g.corpus(), target, true).unwrap();
+            let chars: Vec<char> = ipa.chars().collect();
+            let total = chars.len();
+            let target_phrase = TargetPhrase::new(target);
+
+            // A real segmentation of the whole target: at each span, the
+            // longest-consuming match the default lattice actually returns.
+            // This is the same `matches_at` the search reads, at the same
+            // budgets, so every candidate below is a candidate the search has.
+            let mut spans: Vec<(usize, usize)> = Vec::new();
+            let mut at = 0usize;
+            while at < total {
+                let longest = g
+                    .fuzzy_lexicon
+                    .matches_at(&chars, at, 0.5, 1)
+                    .into_iter()
+                    .filter(|m| m.consumed > 0 && at + m.consumed <= total)
+                    .max_by_key(|m| m.consumed);
+                let Some(m) = longest else { break };
+                spans.push((at, at + m.consumed));
+                at += m.consumed;
+            }
+            if spans.len() < 2 || at != total {
+                continue;
+            }
+            let depth = spans.len();
+
+            // One single-word `Partial` per candidate, per slot, so the
+            // aggregates the bound reads are the aggregates the scorer
+            // reads, and a tuple is assembled by extending a real prefix the
+            // way the traversal assembles it.
+            let mut per_slot: Vec<Vec<(approx::FuzzyMatch, Partial)>> =
+                Vec::with_capacity(depth);
+            for (start, end) in &spans {
+                let mut here: Vec<(approx::FuzzyMatch, Partial)> = Vec::new();
+                for m in g.fuzzy_lexicon.matches_at(&chars, *start, 0.5, 1) {
+                    if start + m.consumed != *end {
+                        continue;
+                    }
+                    let word = g.fuzzy_lexicon.word(m.word_idx);
+                    let one = Partial::empty().extend_fuzzy(
+                        &target_phrase,
+                        word,
+                        m.consumed,
+                        m.cost,
+                    );
+                    here.push((m, one));
+                }
+                here.truncate(PER_SLOT);
+                per_slot.push(here);
+            }
+            if per_slot.iter().any(Vec::is_empty) {
+                continue;
+            }
+
+            let parts = |p: &Partial| ScoreParts {
+                cost: p.sub_cost_total,
+                reused: p.reused_count,
+                familiar: p.familiarity_sum,
+                closed: p.closed,
+                shape: p.shape_sum,
+                syllables: p.syllables,
+            };
+            // The relaxation over the slots a prefix has not fixed: each
+            // one's own extremum in the score-raising direction, and the
+            // syllable interval the rest of the clue can land in.
+            let relaxation = |from: usize| -> SuffixRelaxation {
+                let mut r = SuffixRelaxation::default();
+                for slot in &per_slot[from..] {
+                    r.cost += slot
+                        .iter()
+                        .map(|(_, p)| p.sub_cost_total)
+                        .fold(f64::INFINITY, f64::min);
+                    r.reused +=
+                        usize::from(slot.iter().all(|(_, p)| p.reused_count == 1));
+                    r.familiar += slot
+                        .iter()
+                        .map(|(_, p)| p.familiarity_sum)
+                        .fold(0.0_f64, f64::max);
+                    r.closed +=
+                        usize::from(slot.iter().all(|(_, p)| p.closed == 1));
+                    r.shape += slot
+                        .iter()
+                        .map(|(_, p)| p.shape_sum)
+                        .fold(0.0_f64, f64::max);
+                    r.min_syllables +=
+                        slot.iter().map(|(_, p)| p.syllables).min().unwrap_or(0);
+                    r.max_syllables +=
+                        slot.iter().map(|(_, p)| p.syllables).max().unwrap_or(0);
+                }
+                r
+            };
+            // The scorer own novelty, on a clue that spans the whole
+            // target, exactly as the traversal reads it.
+            let seg_cuts: Vec<usize> = spans.iter().map(|&(_, e)| e).collect();
+            let novelty = boundary_novelty(&seg_cuts, &boundaries, total, false);
+
+            // Every prefix, every completion of it.
+            let mut checked = 0usize;
+            let mut equal_at_full_length = 0usize;
+            for prefix_len in 0..=depth {
+                // The committed prefix, built the way the traversal builds
+                // it, and the relaxation over the slots it has not fixed.
+                let mut prefix = Partial::empty();
+                for slot in 0..prefix_len {
+                    let (m, _) = &per_slot[slot][0];
+                    prefix = prefix.extend_fuzzy(
+                        &target_phrase,
+                        g.fuzzy_lexicon.word(m.word_idx),
+                        m.consumed,
+                        m.cost,
+                    );
+                }
+                let committed = ScoreParts {
+                    cost: prefix.sub_cost_total,
+                    reused: prefix.reused_count,
+                    familiar: prefix.familiarity_sum,
+                    closed: prefix.closed,
+                    shape: prefix.shape_sum,
+                    syllables: prefix.syllables,
+                };
+                let bound = lexical_score_bound(
+                    committed,
+                    relaxation(prefix_len),
+                    depth as f64,
+                    novelty,
+                    total,
+                    syllables,
+                );
+                // Enumerate this prefix's completions.
+                let mut idx = vec![0usize; depth - prefix_len];
+                loop {
+                    let mut full = prefix.clone();
+                    for (j, &i) in idx.iter().enumerate() {
+                        let (m, _) = &per_slot[prefix_len + j][i];
+                        full = full.extend_fuzzy(
+                            &target_phrase,
+                            g.fuzzy_lexicon.word(m.word_idx),
+                            m.consumed,
+                            m.cost,
+                        );
+                    }
+                    let score =
+                        full.metrics(&boundaries, syllables, total, false).combined;
+                    assert!(
+                        bound + 1e-12 >= score,
+                        "{target:?}: at prefix length {prefix_len} the bound is \
+                         {bound} but a completion scores {score}, so the bound \
+                         does not dominate what it covers"
+                    );
+                    checked += 1;
+                    // The tight end.  At full length the suffix is
+                    // empty, so the bound has no relaxation left at all and
+                    // the *only* axis it may exceed the scorer on is PUNCH,
+                    // whose maximum over completions is exactly 0.  So the
+                    // gap between them is not "small", it is a known
+                    // quantity: the PUNCH shortfall of this clue.  Asserting
+                    // the identity rather than a tolerance is what makes the
+                    // assertion bite: a bound that read any other normaliser
+                    // for any other axis would differ from the scorer by an
+                    // amount with no term to name it by, and the per-word
+                    // form this replaced did exactly that.
+                    if prefix_len == depth && full.word_count() > 0 {
+                        let punch = axes::PUNCH
+                            * (1.0 - full.punch_count as f64
+                                / full.word_count() as f64);
+                        assert!(
+                            (bound - score - punch).abs() < 1e-12,
+                            "{target:?}: at full length the bound ({bound}) \
+                             exceeds the score ({score}) by {}, but the only \
+                             axis the bound relaxes is PUNCH, whose \
+                             shortfall here is {punch}",
+                            bound - score
+                        );
+                        equal_at_full_length += 1;
+                    }
+                    let mut k = idx.len();
+                    loop {
+                        if k == 0 {
+                            break;
+                        }
+                        k -= 1;
+                        idx[k] += 1;
+                        if idx[k] < per_slot[prefix_len + k].len() {
+                            break;
+                        }
+                        idx[k] = 0;
+                    }
+                    if k == 0 {
+                        break;
+                    }
+                }
+            }
+            assert!(
+                checked > 0,
+                "{target:?}: no prefix/completion pair was checked"
+            );
+            assert!(
+                equal_at_full_length > 0,
+                "{target:?}: no full-length completion was reached, so the \
+                 tight end of the bound was never asserted"
+            );
+        }
+    }
+
+    /// The number of `boundaries` entries a segmentation of `spans` shares
+    /// with the target's own.
+    fn target_boundaries_of(boundaries: &[usize], spans: &[(usize, usize)]) -> usize {
+        boundaries
+            .iter()
+            .filter(|b| spans.iter().any(|(_, e)| *e == **b))
+            .count()
     }
 
     #[test]
