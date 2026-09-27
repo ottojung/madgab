@@ -2964,6 +2964,28 @@ impl Partial {
             word_novelty,
             rhythm,
             content,
+            #[cfg(test)]
+            terms: [
+                axes::SIMILARITY * similarity,
+                axes::NOVELTY * novelty,
+                axes::WORD_NOVELTY * word_novelty,
+                axes::FAMILIARITY * familiarity,
+                axes::RHYTHM * rhythm,
+                axes::SHAPE * shape_quality,
+                axes::CLOSED_CLASS * closed_penalty,
+                axes::PUNCH * (punch - 1.0),
+            ],
+            #[cfg(test)]
+            raw: [
+                similarity,
+                novelty,
+                word_novelty,
+                familiarity,
+                rhythm,
+                shape_quality,
+                closed_penalty,
+                punch,
+            ],
         }
     }
 
@@ -2974,16 +2996,21 @@ impl Partial {
         target_syllables: usize,
     ) -> Clue {
         let total_len = target_ipa.chars().count();
-        let score = self
-            .metrics(target_boundaries, target_syllables, total_len, false)
-            .combined;
+        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
+        let score = m.combined;
         let words: Vec<ClueWord> = self.words().cloned().collect();
+        let phrase = words
+            .iter()
+            .map(|w| w.word.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        #[cfg(test)]
+        SCORED
+            .lock()
+            .expect("scored")
+            .push((phrase.clone(), score, m.terms, m.raw));
         Clue {
-            phrase: words
-                .iter()
-                .map(|w| w.word.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
+            phrase,
             ipa: target_ipa.to_string(),
             words,
             score,
@@ -3071,6 +3098,29 @@ struct Metrics {
     rhythm: f64,
     /// Share of the clue's words that are content words, in [0, 1].
     content: f64,
+    /// The eight *weighted* terms of `combined`, in the order
+    /// `SIMILARITY, NOVELTY, WORD_NOVELTY, FAMILIARITY, RHYTHM, SHAPE,
+    /// CLOSED_CLASS, PUNCH`.  Test-only instrumentation for the score
+    /// decomposition front; absent from every build that is not a test
+    /// build, so production scoring and layout are untouched.
+    #[cfg(test)]
+    terms: [f64; 8],
+    /// The same eight axes before weighting.  Test-only; see `terms`.
+    #[cfg(test)]
+    raw: [f64; 8],
+}
+
+/// Test-only capture of every candidate the search turned into a `Clue`,
+/// with its eight weighted terms, so a test can decompose a score gap
+/// term by term against the *production* scorer instead of a
+/// re-implementation of it.  `drain_scored` empties it.
+#[cfg(test)]
+pub(crate) static SCORED: std::sync::Mutex<Vec<(String, f64, [f64; 8], [f64; 8])>> =
+    std::sync::Mutex::new(Vec::new());
+
+#[cfg(test)]
+pub(crate) fn drain_scored() -> Vec<(String, f64, [f64; 8], [f64; 8])> {
+    std::mem::take(&mut *SCORED.lock().expect("scored"))
 }
 
 /// Symmetric segmentation novelty: Jaccard distance between the
@@ -4647,13 +4697,15 @@ mod tests {
                 1.0 - closed / count as f64
             };
             let closed_penalty = closed_class_penalty(closed, count as f64);
+            let punch = p.punch_count as f64 / count.max(1) as f64;
             let combined = axes::SIMILARITY * similarity
                 + axes::NOVELTY * novelty
                 + axes::WORD_NOVELTY * word_novelty
                 + axes::FAMILIARITY * familiarity
                 + axes::RHYTHM * rhythm
                 + axes::SHAPE * shape_quality
-                + axes::CLOSED_CLASS * closed_penalty;
+                + axes::CLOSED_CLASS * closed_penalty
+                + axes::PUNCH * (punch - 1.0);
             Metrics {
                 combined,
                 similarity,
@@ -4662,6 +4714,26 @@ mod tests {
                 word_novelty,
                 rhythm,
                 content,
+                terms: [
+                    axes::SIMILARITY * similarity,
+                    axes::NOVELTY * novelty,
+                    axes::WORD_NOVELTY * word_novelty,
+                    axes::FAMILIARITY * familiarity,
+                    axes::RHYTHM * rhythm,
+                    axes::SHAPE * shape_quality,
+                    axes::CLOSED_CLASS * closed_penalty,
+                    axes::PUNCH * (punch - 1.0),
+                ],
+                raw: [
+                    similarity,
+                    novelty,
+                    word_novelty,
+                    familiarity,
+                    rhythm,
+                    shape_quality,
+                    closed_penalty,
+                    punch,
+                ],
             }
         }
 
@@ -6930,5 +7002,986 @@ mod tests {
                 assert_eq!(first_leaf_frontier(&vec![w; depth]), series);
             }
         }
+    }
+}
+
+// -----------------------------------------------------------------
+// w-6b2e19: the final-score decomposition front.
+//
+// `#[ignore]`d on purpose.  It runs two full approximate searches over the
+// real corpus and prints a report; it asserts nothing about behaviour and
+// is not part of the library's contract.  Run it with
+// `cargo test --release --lib front_6b2e19 -- --ignored --nocapture`.
+// -----------------------------------------------------------------
+
+#[cfg(test)]
+mod front_6b2e19 {
+    use super::*;
+
+    const AXES: [&str; 8] = [
+        "SIMILARITY",
+        "NOVELTY",
+        "WORD_NOVELTY",
+        "FAMILIARITY",
+        "RHYTHM",
+        "SHAPE",
+        "CLOSED_CLASS",
+        "PUNCH",
+    ];
+
+    fn m_word<'a>(lex: &'a approx::FuzzyLexicon, m: &approx::FuzzyMatch) -> &'a str {
+        &lex.word(m.word_idx).word
+    }
+
+    /// Score an arbitrary word sequence over `target` with the
+    /// **production** scorer, by finding its own least-cost alignment
+    /// through the same fuzzy lattice the search builds and extending a
+    /// `Partial` with it.  Test-only: it exists so a tuple the search
+    /// never enumerates can still be priced by the real scorer rather
+    /// than by a re-implementation of it.
+    fn score_phrase(
+        g: &Generator,
+        target: &str,
+        words: &[&str],
+    ) -> Option<(f64, [f64; 8], [f64; 8], Vec<usize>, Vec<(String, f64)>)> {
+        let (target_ipa, target_boundaries, target_syllables) =
+            transcribe_with_boundaries(&g.corpus, target, true)?;
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        let target_phrase = TargetPhrase::new(target);
+        let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
+            .map(|p| {
+                g.fuzzy_lexicon
+                    .matches_at(&chars, p, 0.5, g.config.min_word_ipa_chars)
+            })
+            .collect();
+
+        // position -> (words consumed, cost, predecessor, match)
+        let mut best: Vec<Option<(usize, f64, usize, approx::FuzzyMatch)>> = vec![None; n + 1];
+        best[0] = Some((0, 0.0, 0, approx::FuzzyMatch { consumed: 0, word_idx: 0, cost: 0.0 }));
+        for p in 0..n {
+            let Some((wi, cost, _, _)) = best[p] else { continue };
+            if wi >= words.len() {
+                continue;
+            }
+            for m in &lattice[p] {
+                if m_word(&g.fuzzy_lexicon, m) != words[wi] {
+                    continue;
+                }
+                let q = p + m.consumed;
+                if q > n {
+                    continue;
+                }
+                if best[q].map_or(true, |(_, c, _, _)| c > cost + m.cost) {
+                    best[q] = Some((wi + 1, cost + m.cost, p, m.clone()));
+                }
+            }
+        }
+        let mut chain = Vec::new();
+        let mut p = n;
+        while p > 0 {
+            let Some((_, _, from, m)) = best[p] else { return None };
+            chain.push(m);
+            p = from;
+        }
+        chain.reverse();
+
+        let mut partial = Partial::empty();
+        let mut costs = Vec::new();
+        for m in chain {
+            let cost = m.cost;
+            let consumed = m.consumed;
+            let word = g.fuzzy_lexicon.word(m.word_idx);
+            partial = partial.extend_fuzzy(&target_phrase, word, consumed, cost);
+            costs.push((word.word.to_string(), cost));
+        }
+        let m = partial.metrics(
+            &target_boundaries,
+            target_syllables,
+            n,
+            false,
+        );
+        Some((m.combined, m.terms, m.raw, (*partial.cuts).clone(), costs))
+    }
+
+    fn counterfactual(
+        pool: &[Clue],
+        by_phrase: &HashMap<String, ([f64; 8], [f64; 8])>,
+        mine: [f64; 8],
+    ) {
+        let variants: [(&str, [f64; 8]); 8] = [
+            ("as shipped", [0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10]),
+            ("NOVELTY=0", [0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10]),
+            ("FAMILIARITY=0", [0.25, 0.15, 0.15, 0.00, 0.30, 0.05, -0.15, 0.10]),
+            ("PUNCH=0", [0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -0.15, 0.00]),
+            ("NOVELTY+FAMILIARITY=0", [0.25, 0.00, 0.15, 0.00, 0.30, 0.05, -0.15, 0.10]),
+            ("all three = 0", [0.25, 0.00, 0.15, 0.00, 0.30, 0.05, -0.15, 0.00]),
+            ("SIMILARITY alone", [1.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00]),
+            ("RHYTHM alone", [0.00, 0.00, 0.00, 0.00, 1.00, 0.00, 0.00, 0.00]),
+        ];
+        println!("\n   counterfactual pool rank (raw axes re-weighted):");
+        for (name, w) in variants {
+            // The scorer applies PUNCH as `w * (v - 1)`; reproduce that
+            // shift so "as shipped" reproduces `Clue::score` exactly.
+            let s = |r: &[f64; 8]| {
+                (0..8)
+                    .map(|i| w[i] * if i == 7 { r[i] - 1.0 } else { r[i] })
+                    .sum::<f64>()
+            };
+            let my = s(&mine);
+            let pos = pool
+                .iter()
+                .filter(|c| s(&by_phrase[&c.phrase].1) >= my)
+                .count();
+            println!("     {name:<22} rank {pos:>6}  score {my:.10}");
+        }
+        // Ceiling for the query: every non-acoustic axis at its maximum.
+        // No general rule can give a clue more than this, so it bounds
+        // what any re-weighting of the other seven axes can do.
+        let mut ceil = mine;
+        ceil[0] = 1.0;
+        for i in [1usize, 2, 3, 5] {
+            ceil[i] = 1.0;
+        }
+        ceil[4] = 1.0;
+        ceil[6] = 0.0;
+        ceil[7] = 1.0;
+        let s = |r: &[f64; 8]| {
+            (0..8)
+                .map(|i| {
+                    let w = [0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10][i];
+                    w * if i == 7 { r[i] - 1.0 } else { r[i] }
+                })
+                .sum::<f64>()
+        };
+        let cs = s(&ceil);
+        let pos = pool.iter().filter(|c| c.score >= cs).count();
+        println!(
+            "     {:<22} rank {pos:>6}  score {cs:.10}   (all seven non-SIMILARITY axes at maximum)",
+            "ceiling"
+        );
+
+        // What the visible head is actually made of: mean raw axis value
+        // over the 50 best pool clues against the pool mean.
+        let mut order: Vec<&Clue> = pool.iter().collect();
+        order.sort_by(|a, b| cmp_desc(a.score, b.score));
+        let take = |sl: &[&Clue]| -> [f64; 8] {
+            let mut acc = [0.0; 8];
+            for c in sl {
+                let r = &by_phrase[&c.phrase].1;
+                for i in 0..8 {
+                    acc[i] += r[i];
+                }
+            }
+            acc.iter_mut().for_each(|v| *v /= sl.len() as f64);
+            acc
+        };
+        let head = take(&order[..50]);
+        let all = take(&order);
+        println!("\n   mean raw axis, top 50 of pool vs whole pool:");
+        for i in 0..8 {
+            println!(
+                "     {:<14} top50 {:.4}   pool {:.4}   lift {:>+.4}",
+                AXES[i], head[i], all[i], head[i] - all[i]
+            );
+        }
+    }
+
+    fn report(target: &str, canonical: &str) {
+        let g = Generator::from_json(
+            open_english_pronouncing_dictionary::CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let pool = g.generate_pool(target);
+        let scored = drain_scored();
+        if let Some((t, b, s)) = transcribe_with_boundaries(&g.corpus, target, true) {
+            println!("   target ipa {t:?} boundaries {b:?} syllables {s}");
+        }
+        // A phrase can be completed at more than one point in the search
+        // (a partial hypothesis completes early), and only the retained
+        // pool member's own score is authoritative, so keep the capture
+        // whose total matches the pool clue of that phrase.
+        let mut by_phrase: HashMap<String, ([f64; 8], [f64; 8])> = HashMap::new();
+        for c in &pool {
+            by_phrase.insert(c.phrase.clone(), ([0.0; 8], [0.0; 8]));
+        }
+        for (p, s, t, r) in scored {
+            let e = by_phrase.entry(p).or_insert(([0.0; 8], [0.0; 8]));
+            if *e == ([0.0; 8], [0.0; 8]) || (s - e.0.iter().sum::<f64>()).abs() < 1e-12 {
+                *e = (t, r);
+            }
+        }
+
+        let mut order: Vec<&Clue> = pool.iter().collect();
+        order.sort_by(|a, b| cmp_desc(a.score, b.score).then_with(|| a.phrase.cmp(&b.phrase)));
+
+        println!("== target {target:?}  pool {}", pool.len());
+        let canon = order.iter().position(|c| c.phrase == canonical);
+        let rank = match canon {
+            Some(i) => i + 1,
+            None => {
+                println!("   canonical {canonical:?} IS NOT IN THE POOL");
+                let ws: Vec<&str> = canonical.split(' ').collect();
+                match score_phrase(&g, target, &ws) {
+                    Some((score, terms, raw, cuts, costs)) => {
+                        println!(
+                            "   production scorer on the canonical tuple: {score:.10}  cuts {cuts:?}  word costs {costs:?}"
+                        );
+                        for i in 0..8 {
+                            println!("     {:<14} {:>12.6}  raw {:.4}", AXES[i], terms[i], raw[i]);
+                        }
+                        let above = order.iter().filter(|c| c.score >= score).count();
+                        println!("   pool clues at or above it: {above}");
+                        let c50 = &order[49];
+                        let kk = &by_phrase[&c50.phrase];
+                        println!("   vs 50th {:?} {:.10}: gap {:.10}", c50.phrase, c50.score, c50.score - score);
+                        for i in 0..8 {
+                            println!(
+                                "     {:<14} 50th {:>12.6}  canonical {:>12.6}  delta {:>12.6}",
+                                AXES[i], kk.0[i], terms[i], kk.0[i] - terms[i]
+                            );
+                        }
+                        counterfactual(&pool, &by_phrase, raw);
+                    }
+                    None => println!("   canonical tuple has NO alignment in the lattice at all"),
+                }
+                for w in canonical.split(' ') {
+                    let best = order
+                        .iter()
+                        .find(|c| c.words.iter().any(|x| x.word == w))
+                        .map(|c| (c.phrase.clone(), c.score));
+                    let n = order
+                        .iter()
+                        .filter(|c| c.words.iter().any(|x| x.word == w))
+                        .count();
+                    println!("     word {w:?}: {n} pool members, best {best:?}");
+                }
+                println!("   top 12 by score:");
+                for c in order.iter().take(12) {
+                    println!(
+                        "     {:.10}  {:?}  cuts {:?}",
+                        c.score, c.phrase, c.cuts
+                    );
+                }
+                println!("   score spread: max {:.10} min {:.10}", order[0].score, order[order.len() - 1].score);
+                let shown = g.generate(target);
+                println!("   displayed: {} clues, top 5 {:?}", shown.len(), shown.iter().take(5).map(|c| c.phrase.clone()).collect::<Vec<_>>());
+                return;
+            }
+        };
+        let ci = rank - 1;
+        let above = order.iter().filter(|c| c.score >= order[ci].score).count();
+        let ci = rank - 1;
+        println!("   canonical {canonical:?} rank {rank} score {:.10}", order[ci].score);
+        println!("   pool clues at or above it: {above}");
+        let cut = order[49.min(order.len() - 1)];
+        println!(
+            "   50th best {:?} score {:.10}  gap {:.10}",
+            cut.phrase,
+            cut.score,
+            cut.score - order[ci].score
+        );
+        let hid_best = order
+            .iter()
+            .find(|c| c.words.iter().any(|w| w.word == "hid"))
+            .map(|c| (c.phrase.clone(), c.score));
+        println!("   best clue containing `hid`: {hid_best:?}");
+
+        let c = &order[ci];
+        let k = &by_phrase[&c.phrase];
+        let kk = &by_phrase[&cut.phrase];
+        counterfactual(&pool, &by_phrase, k.1);
+        // The canonical tuple is never enumerated at all, so price it
+        // here too, with the same re-weighting, against the same pool.
+        if let Some((_, _, raw, _, _)) =
+            score_phrase(&g, target, &canonical.split(' ').collect::<Vec<_>>())
+        {
+            counterfactual(&pool, &by_phrase, raw);
+        }
+        println!(
+            "\n   term             50th(cut)     canonical        delta   raw canon / cut",
+        );
+        let mut total = 0.0;
+        for i in 0..8 {
+            let d = k.0[i] - kk.0[i];
+            total += d;
+            println!(
+                "   {:<14} {:>12.6} {:>12.6} {:>12.6}   {:.4} / {:.4}",
+                AXES[i], kk.0[i], k.0[i], d, k.1[i], kk.1[i]
+            );
+        }
+        println!(
+            "   {:<14} {:>12.6} {:>12.6} {:>12.6}",
+            "SUM", kk.0.iter().sum::<f64>(), k.0.iter().sum::<f64>(), total
+        );
+        println!("   canonical words: {:?}", c.words.iter().map(|w| (w.word.as_str(), w.sub_cost, approx::ipa_syllables(&w.ipa))).collect::<Vec<_>>());
+        println!("   50th     words: {:?}", cut.words.iter().map(|w| (w.word.as_str(), w.sub_cost, approx::ipa_syllables(&w.ipa))).collect::<Vec<_>>());
+        println!("   canonical cuts {:?} / 50th cuts {:?}", c.cuts, cut.cuts);
+
+        // where does the canonical tuple sit inside its own structure,
+        // and what does select_diverse do at the end?
+        let shown = g.generate(target);
+        let shown_rank = shown.iter().position(|c| c.phrase == canonical);
+        println!("   displayed list: {} clues; canonical present: {:?}", shown.len(), shown_rank);
+    }
+
+
+    #[test]
+    #[ignore]
+    fn front_6b2e19_decomposition() {
+        report("It's just a stupid game", "hits justice dupe hid came");
+        report("recognize speech", "wreck a nice beach");
+    }
+}
+
+// -----------------------------------------------------------------
+// w-3a8c05: re-specifying the non-acoustic axes of the final score.
+//
+// Test-only, `#[ignore]`d, on the same shape as `front_6b2e19`: it runs
+// two full approximate searches over the real corpus, captures the eight
+// production raw axis values per retained candidate, measures pool-wide
+// statistics of every axis against per-clue structural features, and then
+// re-ranks the captured pool under a set of *candidate* weight vectors
+// that add proposed new axes.  It asserts nothing and touches no
+// production path.  Run with
+// `cargo test --release --lib front_3a8c05 -- --ignored --nocapture`.
+// -----------------------------------------------------------------
+
+#[cfg(test)]
+mod front_3a8c05 {
+    use super::*;
+
+    const AXES: [&str; 8] = [
+        "SIMILARITY",
+        "NOVELTY",
+        "WORD_NOVELTY",
+        "FAMILIARITY",
+        "RHYTHM",
+        "SHAPE",
+        "CLOSED_CLASS",
+        "PUNCH",
+    ];
+    const SHIPPED: [f64; 8] = [0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10];
+
+    /// Per-clue features that are functions of the clue, the target's
+    /// transcription and the corpus only - no literal token from any
+    /// example appears anywhere in this module except as data passed to
+    /// it by the test that runs it.
+    #[derive(Clone, Debug)]
+    struct Feat {
+        words: usize,
+        shared: usize,
+        tib: usize,
+        rarity_sum: f64,
+        fam_content: f64,
+        fam_min: f64,
+        cost_sum: f64,
+        ipa_len_sum: usize,
+        closed: usize,
+        parsimony: f64,
+        fidelity: f64,
+        reseg: f64,
+        clean: f64,
+    }
+
+    fn features(c: &Clue, target_inner: &[usize]) -> Feat {
+        let twc = target_inner.len() + 1;
+        let inner: Vec<usize> = c.cuts.iter().copied().filter(|&x| x < *c.cuts.last().unwrap()).collect();
+        let shared = inner.iter().filter(|x| target_inner.contains(x)).count();
+        let tib = target_inner.len();
+        let mut rarity_sum = 0.0;
+        let mut cost_sum = 0.0;
+        let mut ipa_len_sum = 0usize;
+        let mut closed = 0usize;
+        for w in &c.words {
+            rarity_sum += word_familiarity(w.rarity);
+            cost_sum += w.sub_cost;
+            ipa_len_sum += w.ipa.chars().count();
+            closed += usize::from(lexical::is_closed_class(&w.word));
+        }
+        let parsimony = 1.0 - (c.words.len() as f64 - twc as f64).abs()
+            / (c.words.len() as f64).max(twc as f64) as f64;
+        let fidelity = if tib == 0 { 0.0 } else { shared as f64 / tib as f64 };
+        // Mean and worst-word familiarity over the clue's *content* words
+        // only, so the closed-class share is not read twice.
+        let mut csum = 0.0;
+        let mut cn = 0usize;
+        let mut cmin = f64::INFINITY;
+        for w in &c.words {
+            if lexical::is_closed_class(&w.word) {
+                continue;
+            }
+            let f = word_familiarity(w.rarity);
+            csum += f;
+            cn += 1;
+            cmin = cmin.min(f);
+        }
+        let fam_content = if cn == 0 { 0.0 } else { csum / cn as f64 };
+        let fam_min = if cn == 0 { 0.0 } else { cmin };
+        Feat {
+            words: c.words.len(),
+            shared,
+            tib,
+            #[allow(dead_code)]
+            rarity_sum,
+            fam_content,
+            fam_min,
+            cost_sum,
+            ipa_len_sum,
+            closed,
+            parsimony,
+            fidelity,
+            reseg: 0.0,
+            clean: parsimony * fidelity,
+        }
+    }
+
+    fn pearson(xs: &[f64], ys: &[f64]) -> f64 {
+        let n = xs.len() as f64;
+        let mx = xs.iter().sum::<f64>() / n;
+        let my = ys.iter().sum::<f64>() / n;
+        let mut sxy = 0.0;
+        let mut sxx = 0.0;
+        let mut syy = 0.0;
+        for i in 0..xs.len() {
+            let a = xs[i] - mx;
+            let b = ys[i] - my;
+            sxy += a * b;
+            sxx += a * a;
+            syy += b * b;
+        }
+        if sxx <= 0.0 || syy <= 0.0 {
+            0.0
+        } else {
+            sxy / (sxx * syy).sqrt()
+        }
+    }
+
+    struct Pool {
+        order: Vec<usize>,
+        raws: Vec<[f64; 8]>,
+        feats: Vec<Feat>,
+        phrases: Vec<String>,
+        scores: Vec<f64>,
+    }
+
+    fn build(g: &Generator, target: &str) -> (Pool, Vec<usize>) {
+        let pool = g.generate_pool(target);
+        let scored = drain_scored();
+        let (t, b, _s) = transcribe_with_boundaries(&g.corpus, target, true).unwrap();
+        let n = t.chars().count();
+        let tib: Vec<usize> = b.iter().copied().filter(|&x| x < n).collect();
+        // A phrase can be completed at more than one point in the search,
+        // so it has more than one capture; keep, for each retained pool
+        // member, the capture whose own score is closest to that member's
+        // `Clue::score`, so the re-ranking below starts from a pool that
+        // reproduces the shipped order exactly.
+        let mut by: HashMap<String, Vec<([f64; 8], [f64; 8])>> = HashMap::new();
+        for (p, _s, t, r) in scored {
+            by.entry(p).or_default().push((t, r));
+        }
+        let mut miss = 0usize;
+        let mut worst = 0.0_f64;
+        let mut raws: Vec<[f64; 8]> = Vec::with_capacity(pool.len());
+        let mut keep: HashMap<usize, [f64; 8]> = HashMap::new();
+        for (i, c) in pool.iter().enumerate() {
+            let Some(v) = by.get(&c.phrase) else {
+                miss += 1;
+                raws.push([0.0; 8]);
+                continue;
+            };
+            let best = v
+                .iter()
+                .min_by(|a, b| {
+                    (a.0.iter().sum::<f64>() - c.score)
+                        .abs()
+                        .partial_cmp(&(b.0.iter().sum::<f64>() - c.score).abs())
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .unwrap();
+            worst = worst.max((best.0.iter().sum::<f64>() - c.score).abs());
+            raws.push(best.1);
+            keep.insert(i, best.1);
+        }
+        let mut order: Vec<usize> = (0..pool.len()).collect();
+        order.sort_by(|&a, &b| {
+            cmp_desc(pool[a].score, pool[b].score).then_with(|| pool[a].phrase.cmp(&pool[b].phrase))
+        });
+        let raws: Vec<[f64; 8]> = order.iter().map(|&i| keep[&i]).collect();
+        println!("   capture self-check: {miss} pool members with no capture, worst |recomputed - Clue::score| {worst:.3e}");
+        let mut feats: Vec<Feat> = order.iter().map(|&i| features(&pool[i], &tib)).collect();
+        for (f, r) in feats.iter_mut().zip(raws.iter()) {
+            f.reseg = f.fidelity * r[2];
+        }
+        let phrases = order.iter().map(|&i| pool[i].phrase.clone()).collect();
+        let scores = order.iter().map(|&i| pool[i].score).collect();
+        (
+            Pool { order: order.clone(), raws, feats, phrases, scores },
+            tib,
+        )
+    }
+
+    /// Canonical tuple priced by the production scorer through the test
+    /// lattice aligner, plus its features.
+    fn price_phrase(
+        g: &Generator,
+        target: &str,
+        words: &[&str],
+    ) -> Option<([f64; 8], [f64; 8], Feat, usize)> {
+        let (target_ipa, target_boundaries, target_syllables) =
+            transcribe_with_boundaries(&g.corpus, target, true)?;
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        let tib: Vec<usize> = target_boundaries.iter().copied().filter(|&x| x < n).collect();
+        let target_phrase = TargetPhrase::new(target);
+        let lattice: Vec<Vec<approx::FuzzyMatch>> = (0..n)
+            .map(|p| {
+                g.fuzzy_lexicon
+                    .matches_at(&chars, p, 0.5, g.config.min_word_ipa_chars)
+            })
+            .collect();
+        let mut best: Vec<Option<(usize, f64, usize, approx::FuzzyMatch)>> = vec![None; n + 1];
+        best[0] = Some((0, 0.0, 0, approx::FuzzyMatch { consumed: 0, word_idx: 0, cost: 0.0 }));
+        for p in 0..n {
+            let Some((wi, cost, _, _)) = best[p] else { continue };
+            if wi >= words.len() {
+                continue;
+            }
+            for m in &lattice[p] {
+                if g.fuzzy_lexicon.word(m.word_idx).word != words[wi] {
+                    continue;
+                }
+                let q = p + m.consumed;
+                if q > n {
+                    continue;
+                }
+                if best[q].map_or(true, |(_, c, _, _)| c > cost + m.cost) {
+                    best[q] = Some((wi + 1, cost + m.cost, p, m.clone()));
+                }
+            }
+        }
+        let mut chain = Vec::new();
+        let mut p = n;
+        while p > 0 {
+            let Some((_, _, from, m)) = best[p] else { return None };
+            chain.push(m);
+            p = from;
+        }
+        chain.reverse();
+        let mut partial = Partial::empty();
+        let mut rarities = Vec::new();
+        for m in chain {
+            let cost = m.cost;
+            let consumed = m.consumed;
+            let w = g.fuzzy_lexicon.word(m.word_idx);
+            partial = partial.extend_fuzzy(&target_phrase, w, consumed, cost);
+            rarities.push((w.word.clone(), w.ipa.clone(), w.rarity));
+        }
+        let m = partial.metrics(&target_boundaries, target_syllables, n, false);
+        let cuts = partial.cuts.clone();
+        let clo = Clue {
+            phrase: words.join(" "),
+            ipa: target_ipa.clone(),
+            words: rarities
+                .iter()
+                .map(|(w, i, r)| ClueWord {
+                    word: w.clone(),
+                    ipa: i.clone(),
+                    rarity: *r,
+                    sub_cost: 0.0,
+                })
+                .collect(),
+            score: m.combined,
+            cuts: (*cuts).clone(),
+        };
+        let mut f = features(&clo, &tib);
+        f.reseg = f.fidelity * m.raw[2];
+        Some((m.terms, m.raw, f, tib.len()))
+    }
+
+    fn score_of(w: &[f64; 8], r: &[f64; 8]) -> f64 {
+        (0..8).map(|i| w[i] * if i == 7 { r[i] - 1.0 } else { r[i] }).sum()
+    }
+
+    /// A candidate objective: the eight shipped weights plus three
+    /// proposed axes, and a mode selecting how `FAMILIARITY`'s value is
+    /// computed.
+    #[derive(Clone, Copy, Debug)]
+    struct W {
+        w: [f64; 8],
+        par: f64,
+        reseg: f64,
+        clean: f64,
+        fam: u8,
+    }
+
+    impl W {
+        fn new(w: [f64; 8]) -> Self {
+            Self { w, par: 0.0, reseg: 0.0, clean: 0.0, fam: 0 }
+        }
+        fn par(mut self, v: f64) -> Self { self.par = v; self }
+        fn reseg(mut self, v: f64) -> Self { self.reseg = v; self }
+        fn clean(mut self, v: f64) -> Self { self.clean = v; self }
+        fn fam(mut self, v: u8) -> Self { self.fam = v; self }
+    }
+
+    fn analyse(g: &Generator, target: &str, canonical: &str) {
+        println!("\n================================================================");
+        println!("== target {target:?}   canonical {canonical:?}");
+        let (p, tib) = build(g, target);
+        let np = p.raws.len();
+        println!("   pool {np}, target inner boundaries at {tib:?} ({} target words)", tib.len() + 1);
+        let cw: Vec<&str> = canonical.split(' ').collect();
+        let Some((cterms, craw, cfeat, ctib)) = price_phrase(g, target, &cw) else {
+            println!("   canonical has no alignment"); return;
+        };
+        let cscore = score_of(&SHIPPED, &craw);
+        let in_pool = p.phrases.iter().position(|x| x == canonical);
+        println!(
+            "   canonical: score {cscore:.10}  words {}  shared {}/{}  parsimony {:.4}  fidelity {:.4}  reseg {:.4}",
+            cfeat.words, cfeat.shared, ctib, cfeat.parsimony, cfeat.fidelity, cfeat.reseg
+        );
+        match in_pool {
+            Some(i) => println!("   canonical IS in the pool at rank {} score {:.10}", i + 1, p.scores[i]),
+            None => println!("   canonical is NOT in the pool"),
+        }
+        println!("   50th best {:?} score {:.10} gap {:.10}", p.phrases[49], p.scores[49], p.scores[49] - cscore);
+
+        // ---- pool-wide structure: word counts and shared boundaries
+        let mut wc_hist = std::collections::BTreeMap::new();
+        let mut wc_top = std::collections::BTreeMap::new();
+        let mut sh_hist = std::collections::BTreeMap::new();
+        for i in 0..np {
+            *wc_hist.entry(p.feats[i].words).or_insert(0usize) += 1;
+            *sh_hist.entry(p.feats[i].shared).or_insert(0usize) += 1;
+            if i < 200 {
+                *wc_top.entry(p.feats[i].words).or_insert(0usize) += 1;
+            }
+        }
+        println!("   pool word-count histogram: {wc_hist:?}");
+        println!("   top-200 word-count histogram: {wc_top:?}");
+        println!("   pool shared-boundary histogram: {sh_hist:?}");
+
+        // ---- pool-wide correlations
+        let col = |i: usize| -> Vec<f64> { p.raws.iter().map(|r| r[i]).collect() };
+        let fe = |f: fn(&Feat) -> f64| -> Vec<f64> { p.feats.iter().map(|x| f(x)).collect() };
+        let wc = fe(|x| x.words as f64);
+        let fid = fe(|x| x.fidelity);
+        let par = fe(|x| x.parsimony);
+        let cost = fe(|x| x.cost_sum / x.words.max(1) as f64);
+        let iplen = fe(|x| x.ipa_len_sum as f64 / x.words.max(1) as f64);
+        let fam = col(3);
+        let clo = fe(|x| x.closed as f64 / x.words.max(1) as f64);
+        println!("\n   pool-wide Pearson r, 18,949 retained candidates");
+        println!("     {:<14} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7} {:>7}", "axis", "words", "parsim", "fidel", "meancost", "meaniplen", "fam", "closedsh", "SIM");
+        for i in 0..8 {
+            println!(
+                "     {:<14} {:>7.3} {:>7.3} {:>7.3} {:>7.3} {:>7.3} {:>7.3} {:>7.3} {:>7.3}",
+                AXES[i],
+                pearson(&col(i), &wc),
+                pearson(&col(i), &par),
+                pearson(&col(i), &fid),
+                pearson(&col(i), &cost),
+                pearson(&col(i), &iplen),
+                pearson(&col(i), &fam),
+                pearson(&col(i), &clo),
+                pearson(&col(i), &col(0)),
+            );
+        }
+        println!("     {:<14} {:>7.3} {:>7.3} {:>7.3} {:>7.3} {:>7.3}", "SIMILARITY", pearson(&col(0), &wc), pearson(&col(0), &par), pearson(&col(0), &fid), pearson(&col(0), &cost), pearson(&col(0), &iplen));
+
+        // conditional on word_novelty == 1 (no target word reused)
+        let rew: Vec<usize> = (0..np).filter(|&i| p.raws[i][2] >= 0.999).collect();
+        println!("\n   conditional on WORD_NOVELTY = 1.0 ({} clues, not a restatement)", rew.len());
+        let sub = |f: fn(&[f64; 8]) -> f64| -> Vec<f64> {
+            rew.iter().map(|&i| f(&p.raws[i])).collect()
+        };
+        let nov = sub(|r| r[1]);
+        let fam2 = sub(|r| r[3]);
+        let ffid: Vec<f64> = rew.iter().map(|&i| p.feats[i].fidelity).collect();
+        let sim: Vec<f64> = rew.iter().map(|&i| p.raws[i][0]).collect();
+        let wc2: Vec<f64> = rew.iter().map(|&i| p.feats[i].words as f64).collect();
+        println!("     r(NOVELTY, SIMILARITY | reworded)      = {:>+.3}", pearson(&nov, &sim));
+        println!("     r(NOVELTY, word_count  | reworded)     = {:>+.3}", pearson(&nov, &wc2));
+        println!("     r(fidelity,  SIMILARITY | reworded)    = {:>+.3}", pearson(&ffid, &sim));
+        println!("     r(FAMILIARITY, SIMILARITY | reworded) = {:>+.3}", pearson(&fam2, &sim));
+        // per shared-boundary count: mean similarity and mean shipped score
+        println!("     mean SIMILARITY and mean shipped score by shared-boundary count:");
+        for k in 0..=tib.len() {
+            let g: Vec<usize> = (0..np).filter(|&i| p.feats[i].shared == k).collect();
+            if g.is_empty() {
+                println!("       shared {k}: (none)");
+                continue;
+            }
+            let msim: f64 = g.iter().map(|&i| p.raws[i][0]).sum::<f64>() / g.len() as f64;
+            let msc: f64 = g.iter().map(|&i| score_of(&SHIPPED, &p.raws[i])).sum::<f64>() / g.len() as f64;
+            let mwc: f64 = g.iter().map(|&i| p.feats[i].words as f64).sum::<f64>() / g.len() as f64;
+            let mfam: f64 = g.iter().map(|&i| p.raws[i][3]).sum::<f64>() / g.len() as f64;
+            println!("       shared {k}: n {:>6}  SIM {msim:.4}  shipped {msc:.4}  words {mwc:.3}  FAM {mfam:.4}", g.len());
+        }
+
+        // ---- candidate re-rankings.  `new` are the three proposed axes.
+        let mut variants: Vec<(&'static str, W)> = Vec::new();
+        let mut push = |name: &'static str, w: [f64; 8], par: f64, res: f64| {
+            variants.push((name, W::new(w).par(par).reseg(res)));
+        };
+        push("C0 as shipped", SHIPPED, 0.0, 0.0);
+        // C1: parsimony, funded from the least efficient term (SHAPE 0.05)
+        // and from RHYTHM, which saturates for both canonical cases.
+        push("C1 +PARSIMONY 0.10 (SHAPE->0, RHY 0.30->0.25)", [0.25, 0.15, 0.15, 0.10, 0.25, 0.00, -0.15, 0.10], 0.10, 0.0);
+        push("C1b +PARSIMONY 0.15 (from NOVELTY)", [0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10], 0.15, 0.0);
+        push("C1c +PARSIMONY 0.20 (from NOVELTY+PUNCH)", [0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.00], 0.20, 0.0);
+        // C2: resegmentation fidelity, funded the same way
+        push("C2 +RESEG 0.10 (SHAPE->0, RHY 0.30->0.25)", [0.25, 0.15, 0.15, 0.10, 0.25, 0.00, -0.15, 0.10], 0.0, 0.10);
+        push("C2b +RESEG 0.15 (from NOVELTY)", [0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10], 0.0, 0.15);
+        // C3: both
+        push("C3 +PARSIMONY 0.10 +RESEG 0.10 (RHY 0.30->0.20, SHAPE->0)", [0.25, 0.15, 0.15, 0.10, 0.20, 0.00, -0.15, 0.10], 0.10, 0.10);
+        push("C3b +PARSIMONY 0.10 +RESEG 0.10 (NOV->0, RHY->0.20)", [0.25, 0.00, 0.15, 0.10, 0.20, 0.05, -0.15, 0.10], 0.10, 0.10);
+        // C4: NOVELTY re-specified: replaced by RESEG at the same weight
+        push("C4 NOVELTY->RESEG 0.15", [0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10], 0.0, 0.0);
+        // C5: SHAPE removed entirely (least efficient term), funds both
+        push("C5 +PARSIMONY 0.05 +RESEG 0.05 (from SHAPE)", [0.25, 0.15, 0.15, 0.10, 0.30, 0.00, -0.15, 0.10], 0.05, 0.05);
+        // C6: FAMILIARITY -> 0.05, funds parsimony
+        push("C6 +PARSIMONY 0.10, FAM 0.10->0.05", [0.25, 0.15, 0.15, 0.05, 0.30, 0.05, -0.15, 0.10], 0.10, 0.0);
+        // C7/C8: re-specify FAMILIARITY itself rather than re-weight it.
+        // The shipped axis is the mean over *all* words, so it reads the
+        // closed-class share that CLOSED_CLASS already penalises; and a
+        // mean is not the property a reader needs, which is that *every*
+        // word is a common one.  Both keep weight 0.10 and are not
+        // inversions (one drops function words, one changes the
+        // aggregator), so they are priced in their own right.
+        variants.push(("C7 FAM = content-word mean", W::new(SHIPPED).fam(1)));
+        variants.push(("C8 FAM = worst content word", W::new(SHIPPED).fam(2)));
+        // C9: the strongest possible boundary-fidelity correction.
+        // NOVELTY is deleted and RESEG is added *on top* rather than
+        // swapped, so nothing else gives up weight; the objective's
+        // documented maximum of 1.0 is deliberately broken here, because
+        // this row exists to bound the boundary-fidelity family, not to
+        // be shipped.
+        variants.push(("C9 NOV=0 and +RESEG 0.15 (max > 1.0)", W::new([0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10]).reseg(0.15)));
+        // C10: the conjunction.  Neither parsimony nor fidelity alone
+        // separates the canonical from the generic six-word attractor;
+        // requiring *both* - a clue with the target's own number of words
+        // that also keeps the target's own word boundaries - is a
+        // different property from either and is not an inversion of any
+        // single axis.
+        variants.push(("C10 NOVELTY -> CLEAN 0.15", W::new([0.25, 0.00, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10]).clean(0.15)));
+        variants.push(("C11 NOVELTY -> CLEAN 0.15, +PARSIMONY 0.05", W::new([0.25, 0.00, 0.15, 0.10, 0.30, 0.00, -0.15, 0.10]).clean(0.15).par(0.05)));
+        variants.push(("C12 NOVELTY -> CLEAN 0.10, +RESEG 0.05", W::new([0.25, 0.05, 0.15, 0.10, 0.30, 0.05, -0.15, 0.10]).clean(0.10).reseg(0.05)));
+
+        let cs = |w: &W, r: &[f64; 8], f: &Feat| -> f64 {
+            let mut fam = r[3];
+            if w.fam == 1 {
+                fam = f.fam_content;
+            } else if w.fam == 2 {
+                fam = f.fam_min;
+            }
+            (0..8)
+                .map(|i| {
+                    let v = if i == 3 { fam } else { r[i] };
+                    w.w[i] * if i == 7 { v - 1.0 } else { v }
+                })
+                .sum::<f64>()
+                + w.par * f.parsimony
+                + w.reseg * f.reseg
+                + w.clean * f.clean
+        };
+        println!("\n   candidate re-ranking over the captured pool");
+        println!("     {:<52} {:>11} {:>6}  {:>11} {:>11}  in top 50", "variant", "canon score", "rank", "50th score", "cutoff");
+        for (name, w) in &variants {
+            let mine = cs(w, &craw, &cfeat);
+            let rank = p
+                .raws
+                .iter()
+                .zip(p.feats.iter())
+                .filter(|(r, f)| cs(w, r, f) >= mine)
+                .count();
+            let mut ord: Vec<f64> = p.raws.iter().zip(p.feats.iter()).map(|(r, f)| cs(w, r, f)).collect();
+            ord.sort_by(|a, b| cmp_desc(*a, *b));
+            let cut = ord.get(49).copied().unwrap_or(0.0);
+            let in_pool_score = p.phrases.iter().position(|x| x == canonical).map(|i| cs(w, &p.raws[i], &p.feats[i]));
+            println!(
+                "     {name:<52} {mine:>11.10} {rank:>6}  {cut:>11.10} {cut:>11.10}  {}",
+                match in_pool_score {
+                    Some(s) => format!("{} (pool member, its own score {s:.10})", s >= cut),
+                    None => format!("{} (absent from pool)", mine >= cut),
+                }
+            );
+        }
+
+        // ---- head lift table, before and after, for the chosen variants
+        for (name, w) in &variants {
+            if !matches!(
+                *name,
+                "C0 as shipped"
+                    | "C1b +PARSIMONY 0.15 (from NOVELTY)"
+                    | "C9 NOV=0 and +RESEG 0.15 (max > 1.0)"
+                    | "C10 NOVELTY -> CLEAN 0.15"
+            ) {
+                continue;
+            }
+            let m = |sl: &[usize]| -> ([f64; 8], f64, f64, f64) {
+                let mut acc = [0.0; 8];
+                for &i in sl {
+                    for j in 0..8 {
+                        acc[j] += p.raws[i][j];
+                    }
+                }
+                let d = sl.len() as f64;
+                acc.iter_mut().for_each(|v| *v /= d);
+                (
+                    acc,
+                    sl.iter().map(|&i| p.feats[i].parsimony).sum::<f64>() / d,
+                    sl.iter().map(|&i| p.feats[i].reseg).sum::<f64>() / d,
+                    sl.iter().map(|&i| p.feats[i].clean).sum::<f64>() / d,
+                )
+            };
+            let all: Vec<usize> = (0..np).collect();
+            let (a, ap, ar, ac) = m(&all);
+            let mut ord: Vec<(usize, f64)> = p
+                .raws
+                .iter()
+                .zip(p.feats.iter())
+                .enumerate()
+                .map(|(i, (r, f))| (i, cs(w, r, f)))
+                .collect();
+            ord.sort_by(|x, y| cmp_desc(x.1, y.1));
+            let nh: Vec<usize> = ord.iter().take(50).map(|x| x.0).collect();
+            let (h2, h2p, h2r, h2c) = m(&nh);
+            println!("\n   mean raw axis, new top 50 of pool vs whole pool  [{name}]");
+            for i in 0..8 {
+                let old = 0.0;
+                let _ = old;
+                let hraw: f64 = {
+                    let mut s = 0.0;
+                    for k in 0..50 {
+                        s += p.raws[k][i];
+                    }
+                    s / 50.0
+                };
+                println!(
+                    "     {:<14} pool {:.4}   old head {:.4} ({:>+.4})   new head {:.4} ({:>+.4})",
+                    AXES[i], a[i], hraw, hraw - a[i], h2[i], h2[i] - a[i]
+                );
+            }
+            let (op, or, oc) = (ap, ar, ac);
+            println!("     {:<14} pool {op:.4}                ->  new head {h2p:.4} ({:>+.4})", "PARSIMONY", h2p - op);
+            println!("     {:<14} pool {or:.4}                ->  new head {h2r:.4} ({:>+.4})", "RESEG", h2r - or);
+            println!("     {:<14} pool {oc:.4}                ->  new head {h2c:.4} ({:>+.4})", "CLEAN", h2c - oc);
+        }
+
+        // ---- how much score is available at all: per-axis advantage of
+        // the canonical over the 50th-best clue, at that axis's full
+        // weight, against the axes on which the canonical is behind.
+        let cut_raw = p.raws[49];
+        println!("\n   per-axis raw advantage of the canonical over the 50th-best clue");
+        println!("     {:<14} {:>9} {:>9} {:>10} {:>9} {:>9} {:>12}", "axis", "canon", "50th", "delta", "weight", "max gain", "clues above");
+        let extras: [(&str, f64, f64); 3] = [
+            ("PARSIMONY", cfeat.parsimony, p.feats[49].parsimony),
+            ("RESEG", cfeat.reseg, p.feats[49].reseg),
+            ("CLEAN", cfeat.clean, p.feats[49].clean),
+        ];
+        for i in 0..8 {
+            let d = craw[i] - cut_raw[i];
+            println!(
+                "     {:<14} {:>9.4} {:>9.4} {:>10.4} {:>9.2} {:>9.4} {:>12}",
+                AXES[i], craw[i], cut_raw[i], d, SHIPPED[i], d * SHIPPED[i].abs(),
+                p.raws.iter().filter(|r| r[i] > craw[i]).count()
+            );
+        }
+        for (name, c, k) in extras {
+            let d = c - k;
+            println!(
+                "     {name:<14} {c:>9.4} {k:>9.4} {d:>10.4} {:>9} {d:>9.4} {:>12}",
+                "n/a",
+                "(not in the shipped score)"
+            );
+        }
+        let mut gain: Vec<f64> = (0..8)
+            .map(|i| (craw[i] - cut_raw[i]) * SHIPPED[i])
+            .chain(extras.iter().map(|(_, c, k)| c - k))
+            .collect();
+        gain.sort_by(|a, b| cmp_desc(*a, *b));
+        println!(
+            "     largest single-axis gain available to the canonical over the cutoff, summed: {:.4}",
+            gain.iter().filter(|g| **g > 0.0).sum::<f64>()
+        );
+
+        // ---- A lower bound on the best rank any monotone objective over
+        // the measured properties can reach.  A clue that is >= the
+        // canonical on *every* axis in a set stays >= it under every
+        // non-negative weighting of that set, so the number of such clues
+        // is a floor on the canonical's rank.
+        println!("\n   monotone lower bound on the canonical's rank");
+        let ge_all = |set: &[usize]| -> usize {
+            p.raws
+                .iter()
+                .zip(p.feats.iter())
+                .filter(|(r, f)| {
+                    set.iter().all(|&i| match i {
+                        8 => f.parsimony >= cfeat.parsimony,
+                        9 => f.reseg >= cfeat.reseg,
+                        10 => f.clean >= cfeat.clean,
+                        _ => r[i] >= craw[i],
+                    })
+                })
+                .count()
+        };
+        let sets: [(&str, &[usize]); 6] = [
+            ("SIMILARITY", &[0]),
+            ("PARSIMONY", &[8]),
+            ("RESEG", &[9]),
+            ("CLEAN", &[10]),
+            ("SIMILARITY + PARSIMONY", &[0, 8]),
+            ("PARSIMONY + RESEG + SIMILARITY", &[8, 9, 0]),
+        ];
+        for (name, set) in sets {
+            println!("     pool clues >= the canonical on {name:<30} {}", ge_all(set));
+        }
+
+        // words of the new head under the strongest candidate
+        println!("\n   top 10 by the strongest candidate (C3):");
+        let w = variants.iter().find(|(n, _)| n.starts_with("C3 ")).unwrap().1;
+        let mut ord: Vec<usize> = (0..np).collect();
+        ord.sort_by(|&a, &b| {
+            cmp_desc(cs(&w, &p.raws[a], &p.feats[a]), cs(&w, &p.raws[b], &p.feats[b]))
+                .then_with(|| p.phrases[a].cmp(&p.phrases[b]))
+        });
+        for &i in ord.iter().take(10) {
+            println!(
+                "     {:.10}  {:<40} words {}  shared {}/{}  par {:.3}  reseg {:.3}",
+                cs(&w, &p.raws[i], &p.feats[i]),
+                p.phrases[i],
+                p.feats[i].words,
+                p.feats[i].shared,
+                p.feats[i].tib,
+                p.feats[i].parsimony,
+                p.feats[i].reseg
+            );
+        }
+        let _ = cterms;
+    }
+
+    #[test]
+    #[ignore]
+    fn front_3a8c05_axes() {
+        let g = Generator::from_json(
+            open_english_pronouncing_dictionary::CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        analyse(&g, "It's just a stupid game", "hits justice dupe hid came");
+        analyse(&g, "recognize speech", "wreck a nice beach");
     }
 }
