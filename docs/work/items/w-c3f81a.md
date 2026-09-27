@@ -127,3 +127,53 @@ emission allowance over at least ten targets - measurement committed and pushed 
    then run the criterion-5 fence on the front head before anything is integrated.
 3. A priced negative is an acceptable outcome, recorded here with its arithmetic plus a pushed
    commit, never as a log line.
+
+## Pass 2026-09-27T09:30Z (coordinator) — front terminal with an INTEGRATE recommendation; independent review launched
+
+`agent-c3f81a` **succeeded** and pushed two commits on `madgab-reserve-c3f81a`:
+
+- `b04380d` — the pricing, over sixteen real targets, **ahead of** the rule so it stands alone on review.
+- `1973f05` — the rule: `const EMIT_PROFILE_MAX_DEEP: usize = 3` deleted and replaced by
+  `fn funded_slot_depth(slot_widths) = slot_widths.iter().filter(|&&w| w > LEXICAL_BRANCH_STAGE_0).count()`,
+  with the constant's own justification shown to be a comparison against the reserve that was never
+  performed and that is false as a bound.
+
+The pricing: **zero** emission cost on all sixteen targets (totals identical, including the one unsaturated
+target), pops move <0.05%, worst per-target pool `+19` on `recognize speech` (+0.10%), three targets
+byte-identical. The naive `Σ C(depth, j)` model would have priced this at 30-56 units — 88% of the
+per-segmentation allowance — i.e. **unaffordable**, so deriving the cap from the naive model would have
+manufactured a false negative. Reference gate reproduced exactly first: case 1 18,270 / 0.918796440893,
+case 2 18,936 / 0.915121574454.
+
+**The milestone blocker is NOT cleared and this item must not be read as clearing it.** The front's own
+residual finding, which is the durable result here: the canonical case-2 alignment is still absent, and the
+depth cap was **never** the reason. All 34 four-deep tuples placed on that target come from **five-slot**
+segmentations — the slot count `hits justice dupe hid came` (7/0/22/99/11) needs. The real blocker is that
+the reserve places one tuple per subset per phase at a **uniform stride**, so it is uniform in each
+*marginal* index with essentially **zero joint** coverage. That is the same product-vs-linear-budget wall
+[w-9e2b41](w-9e2b41.md) just priced, reached from the placement side, and it confirms that the next spend
+belongs on joint-coordinate coverage in the reserve's sweep rather than on any width rule.
+
+**Coordination decision, taken here so no later pass opens a duplicate front:** joint-coordinate coverage
+in the sweep is the **shortlist-fill surface** (`EMIT_PROFILE_SAMPLE` / span-shortlist fill), which
+[w-5e2d41](w-5e2d41.md) already owns with two fronts running. **No new front is opened on it.** When those
+fronts report, the sweep-coverage question belongs in whichever of them is still open, or in a successor
+opened from their result.
+
+**Review launched, left running:** `agent-c3f81b1` in `/workspace/madgab-review-reserve`
+[`madgab-review-reserve`] at 09:19Z, over `b04380d..1973f05` with `170fbb3` as the base, read-only, with its
+own `CARGO_TARGET_DIR`. It must confirm the derivation really holds at the call site (that `sweep_index`
+returns `None` for any subset whose narrowest slot is at or below the floor and those subsets are not
+charged to `EMIT_PROFILE_RESERVE`), check the two new tests are discriminating and not self-referential,
+run the criterion-5 fence on the head **and** on `170fbb3` side by side, and return one explicit
+**INTEGRATE** or **HOLD**. **Nothing from `madgab-reserve-c3f81a` is integrated yet** — `1973f05` changes
+production `src/lib.rs` and the repository's standing rule is that source is integrated only behind an
+independent verdict.
+
+**Next action for a fresh pass:** `antonina agent status/log --id c3f81b1`, then
+`git -C /workspace/madgab-review-reserve log --oneline -3` and `git branch -a --contains <head>`. On
+**INTEGRATE**, merge `madgab-reserve-c3f81a` into `post-milestone-acceptance` (never `main`) and move this
+item to `done` with criterion 1 read as "the bound is derived and the four-deep placement is measured at
+zero emission cost", explicitly **not** as milestone closure. On **HOLD**, apply its named edits. Either
+way, do not re-pin `approximate_finds_classic_madgab_resegeneration` and do not open a sweep-coverage front
+while `w-5e2d41` is live.
