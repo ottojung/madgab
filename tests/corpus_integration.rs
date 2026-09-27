@@ -557,14 +557,24 @@ fn approximate_output_is_locked() {
     // Re-locked by w-9c6f2b, which reads the similarity axis per word
     // (mean edit cost of a word on a one-unit-per-word scale) instead of
     // dividing a candidate's total cost by a constant.  This target's
-    // clue is three words, so its similarity term is now
+    // clues are three words, so their similarity term is now
     // `SIMILARITY * (1 - cost/3)` rather than `SIMILARITY * (1 - cost/4)`:
     // every score falls by `SIMILARITY * cost / 12`, which is 0.0023 to
-    // 0.0024 across this list, and the two mid-list entries that the
-    // slightly steeper fall pushes below their neighbours change places.
-    // The top of the list, its order, and every phrase in it are
-    // unchanged.  Before/after table in
-    // `docs/work/items/w-9c6f2b.md`.
+    // 0.0024 across this list.
+    //
+    // What actually changed, so a reviewer does not have to re-derive it:
+    // **five of the ten phrases are different.**  The two leading phrases
+    // and the scores of the retained ones are unchanged, but the two
+    // middle entries give way: `i.'s a view`, `eye a view`, `how ill
+    // view`, `now ill view` and `i.'s of new` are gone, and `isle uhh
+    // view`, `i'll uhh view`, `a ill view`, `isle of too` and `eye ill
+    // view` are new.  That churn is a consequence of the three-word clue
+    // length -- the steeper fall reorders candidates that were within
+    // 0.003 of each other -- and is neither a regression nor an
+    // improvement claim: the same change leaves a four-word clue's
+    // similarity term bit-identical, which is why the canonical
+    // `recognize speech` case is unmoved.  Full before/after table and the
+    // canonical measurements are in `docs/work/items/w-9c6f2b.md`.
     const CASES: &[(&str, &[&str])] = &[
         (
             "I love you",
