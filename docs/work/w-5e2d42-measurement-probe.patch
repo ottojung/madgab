@@ -1,0 +1,440 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -767,6 +767,7 @@
+         else {
+             return (Vec::new(), 0, Vec::new());
+         };
++        let _zz_unused = zz::active();
+         let target_phrase = TargetPhrase::new(target);
+         let chars: Vec<char> = target_ipa.chars().collect();
+         let n = chars.len();
+@@ -1160,6 +1161,7 @@
+         else {
+             return (Vec::new(), 0, Vec::new());
+         };
++        let zz_here = zz::active() && zz::target() == target;
+         let target_phrase = TargetPhrase::new(target);
+         let chars: Vec<char> = target_ipa.chars().collect();
+         let n = chars.len();
+@@ -1474,6 +1476,26 @@
+             }
+         }
+ 
++        if zz_here {
++            for (p, edges) in span_lattice.iter().enumerate() {
++                for e in edges {
++                    let hits: Vec<String> = e
++                        .matches
++                        .iter()
++                        .map(|m| self.fuzzy_lexicon.word(m.word_idx).word.clone())
++                        .filter(|w| zz::watched(w))
++                        .collect();
++                    if !hits.is_empty() {
++                        zz::line(format!(
++                            "EDGE [{},{}) width={} min_cost={:.10} words={:?}",
++                            p, e.end, e.matches.len(),
++                            e.extremes.min_cost, hits
++                        ));
++                    }
++                }
++            }
++        }
++
+         // Suffix relaxation over the span DAG: from every target offset,
+         // the least that finishing the target from there can be worth.
+         // A completion has to follow one path, so the relaxation joins
+@@ -1560,6 +1582,20 @@
+             }],
+         );
+ 
++        let has_watch = |edges: &[SpanEdge], end: usize| -> bool {
++            edges
++                .iter()
++                .find(|e| e.end == end)
++                .map(|e| {
++                    e.matches.iter().any(|m| {
++                        zz::watched(
++                            &self.fuzzy_lexicon.word(m.word_idx).word,
++                        )
++                    })
++                })
++                .unwrap_or(false)
++        };
++
+         for p in 0..n {
+             // w-6b91d3: the DP state map is a `HashMap`, so its iteration
+             // order is reseeded from `RandomState` on every process and
+@@ -1583,10 +1619,23 @@
+                 for path in paths {
+                     for edge in &span_lattice[p] {
+                         let next_words = word_count + 1;
+-                        if next_words > max_words
+-                            || path.extremes.min_cost + edge.extremes.min_cost
+-                                > total_budget + 1e-9
+-                        {
++                        let zz_cost_ok = !(path.extremes.min_cost
++                            + edge.extremes.min_cost
++                            > total_budget + 1e-9);
++                        if next_words > max_words || !zz_cost_ok {
++                            if zz_here {
++                                let mut chain = path.spans.clone();
++                                chain.push((p, edge.end));
++                                let live = chain.iter().any(|&(a, b)| {
++                                    has_watch(&span_lattice[a], b)
++                                });
++                                if live {
++                                    zz::line(format!(
++                                        "PRUNE-COST words={} max_words={} chain={:?}",
++                                        next_words, max_words, chain
++                                    ));
++                                }
++                            }
+                             continue;
+                         }
+ 
+@@ -1612,6 +1661,19 @@
+                         if span_bound(edge.end, next_words, &extended)
+                             < incumbent
+                         {
++                            if zz_here {
++                                let mut chain = path.spans.clone();
++                                chain.push((p, edge.end));
++                                let live = chain.iter().any(|&(a, b)| {
++                                    has_watch(&span_lattice[a], b)
++                                });
++                                if live {
++                                    zz::line(format!(
++                                        "PRUNE-BOUND words={} incumbent={:.10} chain={:?}",
++                                        next_words, incumbent, chain
++                                    ));
++                                }
++                            }
+                             continue;
+                         }
+ 
+@@ -1635,6 +1697,25 @@
+                             cmp_desc(a.rank, b.rank)
+                                 .then_with(|| a.spans.cmp(&b.spans))
+                         });
++                        if zz_here
++                            && bucket.len() > SEG_STATE_KEEP
++                        {
++                            for dropped in
++                                bucket.iter().skip(SEG_STATE_KEEP)
++                            {
++                                if dropped.spans.iter().any(|&(a, b)| {
++                                    has_watch(&span_lattice[a], b)
++                                }) {
++                                    zz::line(format!(
++                                        "CUT-STATE state=({},{}) bucket={} words={} \
++                                         rank={:.10} chain={:?}",
++                                        edge.end, next_shared, bucket.len(),
++                                        dropped.spans.len(),
++                                        dropped.rank, dropped.spans
++                                    ));
++                                }
++                            }
++                        }
+                         bucket.truncate(SEG_STATE_KEEP);
+                     }
+                 }
+@@ -1668,6 +1749,16 @@
+         segmentations.sort_by(|a, b| {
+             cmp_desc(a.0, b.0).then_with(|| a.1.spans.cmp(&b.1.spans))
+         });
++        if zz_here {
++            for (rank, (_, sp)) in segmentations.iter().enumerate() {
++                if sp.spans.iter().any(|&(a, b)| has_watch(&span_lattice[a], b)) {
++                    zz::line(format!(
++                        "SEG rank={} kept={} words={} chain={:?}",
++                        rank, rank < SEGMENTATION_KEEP, sp.spans.len(), sp.spans
++                    ));
++                }
++            }
++        }
+         segmentations.truncate(SEGMENTATION_KEEP);
+ 
+         // For a fixed segmentation, boundary novelty and word count are
+@@ -1756,6 +1847,7 @@
+             }
+             ceiling
+         };
++        let mut zz_sched_pos = 0usize;
+         let mut spent_emissions = 0usize;
+         // The coverage reserve's rotation, advanced once per segmentation.
+         // See [`coverage_tuples`].
+@@ -1769,6 +1861,10 @@
+             if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                 || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
+             {
++                zz::line(format!(
++                    "BUDGET-EXHAUSTED at sched pos {} spent_em={} spent_pops={}",
++                    zz_sched_pos, spent_emissions, spent_pops
++                ));
+                 break;
+             }
+             let (_, segmentation) = &segmentations[index];
+@@ -1838,6 +1934,59 @@
+                 continue;
+             }
+ 
++            let zz_w = zz_here
++                && structure
++                    .iter()
++                    .any(|&(a, b)| has_watch(&span_lattice[a], b));
++            let zz_tuple_words = |tuple: &[usize]| -> Vec<String> {
++                let mut out: Vec<String> = Vec::new();
++                for (k, &i) in tuple.iter().enumerate() {
++                    let w = self.fuzzy_lexicon
++                        .word(slots[k][i].match_ref.word_idx)
++                        .word
++                        .clone();
++                    if zz::watched(&w) {
++                        out.push(format!("{k}:{i}:{w}"));
++                    }
++                }
++                out
++            };
++            let zz_watch_here = zz_here
++                && structure
++                    .iter()
++                    .any(|&(a, b)| has_watch(&span_lattice[a], b));
++            if zz_watch_here {
++                let widest_here =
++                    slots.iter().map(Vec::len).max().unwrap_or(0);
++                zz::line(format!(
++                    "FUND sched={} words={} structure={:?} emit_allowance={} \
++                     widest={} cap={} budget_left={} adj_allow={}",
++                    zz_sched_pos, segmentation.spans.len(), structure,
++                    emit_allowance, widest_here,
++                    affordable_opening_width(
++                        segmentation.spans.len().max(1),
++                        LEXICAL_HEAP_POP_LIMIT,
++                    )
++                    .min(widest_here),
++                    LEXICAL_GLOBAL_EMISSION_BUDGET
++                        .saturating_sub(spent_emissions),
++                    adjacency_spend
++                ));
++                for (k, alts) in slots.iter().enumerate() {
++                    for (i, a) in alts.iter().enumerate() {
++                        let word = self.fuzzy_lexicon.word(a.match_ref.word_idx).word
++                            .clone();
++                        if zz::watched(&word) {
++                            zz::line(format!(
++                                "SLOT sched={} slot={} index={} of {} cost={:.10} \
++                                 word={}",
++                                zz_sched_pos, k, i, alts.len(), a.cost, word
++                            ));
++                        }
++                    }
++                }
++            }
++
+             // The traversal's own key, computed before the depth-profile
+             // reserve rather than after it: the reserve now spends its share
+             // on the best-bound member of the sweep's own sample, and the
+@@ -1995,6 +2144,22 @@
+                     &counters::DEEPEST_PROFILE,
+                     tuple.iter().copied().max().unwrap_or(0),
+                 );
++                if zz_w {
++                    let wv = zz_tuple_words(&tuple);
++                    if wv.len() >= 2 {
++                        zz::line(format!(
++                            "PROF-EMIT sched={} phase={} widths={:?} tuple={:?} \
++                             watched={:?}",
++                            zz_sched_pos, coverage_phase, widths, tuple, wv
++                        ));
++                    }
++                }
++                if zz_w {
++                    zz::line(format!(
++                        "PROF-TUPLE sched={} tuple={:?} watched={:?}",
++                        zz_sched_pos, &tuple, zz_tuple_words(&tuple)
++                    ));
++                }
+                 pooled.push(tuple);
+                 recovered.push(partial);
+                 profile_emitted += 1;
+@@ -2114,6 +2279,16 @@
+                                     prefix.iter().copied().max().unwrap_or(0),
+                                 );
+                                 pooled.push(prefix.to_vec());
++                                if zz_w {
++                                    let wv = zz_tuple_words(&prefix);
++                                    if wv.len() >= 2 {
++                                        zz::line(format!(
++                                            "TRAV-EMIT sched={} cap={} tuple={:?} \
++                                             watched={:?}",
++                                            zz_sched_pos, cap, prefix, wv
++                                        ));
++                                    }
++                                }
+                                 recovered.push(partial);
+                                 emitted += 1;
+                                 spent_emissions += 1;
+@@ -2184,6 +2359,14 @@
+                 if replaying {
+                     cap = next_branch_stage(opened, widest)
+                         .expect("a stage was opened only when one was available");
++                    if zz_w {
++                        zz::line(format!(
++                            "STAGE-WIDEN sched={} from={} to={} emitted={} popped={} \
++                             spent={}",
++                            zz_sched_pos, opened, cap, emitted, popped,
++                            spent_emissions
++                        ));
++                    }
+                     for (k, prefix) in expanded.drain(..) {
+                         let committed: f64 = prefix
+                             .iter()
+@@ -2210,6 +2393,14 @@
+                     replaying = false;
+                     continue 'stages;
+                 }
++                if zz_w {
++                    zz::line(format!(
++                        "STAGE-DRAIN sched={} cap={} emitted={} popped={} \
++                         spent={} next={:?}",
++                        zz_sched_pos, cap, emitted, popped, spent_emissions,
++                        next_branch_stage(cap, widest)
++                    ));
++                }
+                 if next_branch_stage(cap, widest).is_none() {
+                     break 'stages;
+                 }
+@@ -2233,6 +2424,14 @@
+                 replaying = true;
+             }
+             spent_pops += popped;
++            if zz_watch_here {
++                zz::line(format!(
++                    "EMITTED sched={} emitted={} popped={} spent={} profile={}",
++                    zz_sched_pos, emitted, popped, spent_emissions,
++                    profile_emitted
++                ));
++            }
++            zz_sched_pos += 1;
+ 
+             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+             //
+@@ -2280,6 +2479,15 @@
+                         &counters::DEEPEST_ADJACENCY,
+                         tuple.iter().copied().max().unwrap_or(0),
+                     );
++                    if zz_w {
++                        let wv = zz_tuple_words(&tuple);
++                        if wv.len() >= 2 {
++                            zz::line(format!(
++                                "ADJ-EMIT sched={} tuple={:?} watched={:?}",
++                                zz_sched_pos, &tuple, wv
++                            ));
++                        }
++                    }
+                     pooled.push(tuple);
+                     recovered.push(partial);
+                     adjacency_emitted += 1;
+@@ -2315,6 +2523,24 @@
+             counters::note_total(&counters::SPENT_POPS, spent_pops as u64);
+         }
+ 
++        if zz_here {
++            zz::line(format!(
++                "TOTALS spent_em={} / {} spent_pops={} / {} \
++                 scheduled={} structures={}",
++                spent_emissions, LEXICAL_GLOBAL_EMISSION_BUDGET,
++                spent_pops, LEXICAL_GLOBAL_POP_BUDGET, schedule.len(),
++                {
++                    let mut v: Vec<&[(usize, usize)]> = Vec::new();
++                    for &i in &schedule {
++                        if !v.contains(&segmentations[i].1.spans.as_slice()) {
++                            v.push(segmentations[i].1.spans.as_slice());
++                        }
++                    }
++                    v.len()
++                }
++            ));
++        }
++        zz::dump();
+         completed.extend(recovered);
+         self.finish(
+             completed,
+@@ -2407,7 +2633,76 @@
+ /// Test-only instrumentation. Approximate search is a constant-factor
+ /// problem, so the regression tests count calls rather than trusting the
+ /// wall clock. Compiled out of release builds entirely.
+-#[cfg(test)]
++mod zz {
++    use std::collections::BTreeSet;
++    use std::sync::Mutex;
++    use std::sync::OnceLock;
++
++    pub struct State {
++        pub on: bool,
++        pub watch: BTreeSet<String>,
++        pub target: String,
++        pub lines: Vec<String>,
++        pub seen_any: bool,
++    }
++
++    fn cell() -> &'static Mutex<State> {
++        static C: OnceLock<Mutex<State>> = OnceLock::new();
++        C.get_or_init(|| {
++            let watch: BTreeSet<String> = std::env::var("MADGAB_WATCH")
++                .unwrap_or_default()
++                .split(",")
++                .filter(|s| !s.is_empty())
++                .map(|s| s.to_string())
++                .collect();
++            let target = std::env::var("MADGAB_WATCH_TARGET")
++                .unwrap_or_default();
++            Mutex::new(State {
++                on: !watch.is_empty(),
++                watch,
++                target,
++                lines: Vec::new(),
++                seen_any: false,
++            })
++        })
++    }
++
++    pub fn active() -> bool {
++        cell().lock().map(|c| c.on).unwrap_or(false)
++    }
++
++    pub fn target() -> String {
++        cell().lock().map(|c| c.target.clone()).unwrap_or_default()
++    }
++
++    pub fn line(s: String) {
++        if let Ok(mut c) = cell().lock() {
++            if c.on {
++                c.seen_any = true;
++                c.lines.push(s);
++            }
++        }
++    }
++
++    pub fn dump() {
++        if let Ok(mut c) = cell().lock() {
++            if c.on && c.seen_any {
++                let mut out = String::new();
++                for l in c.lines.drain(..) {
++                    out.push_str(&l);
++                    out.push('\n');
++                }
++                eprint!("ZZREPORT-BEGIN\n{}ZZREPORT-END\n", out);
++                c.seen_any = false;
++            }
++        }
++    }
++
++    pub fn watched(w: &str) -> bool {
++        cell().lock().map(|c| c.watch.contains(w)).unwrap_or(false)
++    }
++}
++
+ mod counters {
+     use std::cell::Cell;
+ 
