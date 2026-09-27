@@ -90,6 +90,26 @@ impl Default for GeneratorConfig {
     }
 }
 
+/// One candidate of one target span, as the approximate matcher offers it.
+///
+/// Returned by [`Generator::span_candidates`] (every candidate the span
+/// offers) and [`Generator::span_shortlists`] (the ones the shortlist
+/// retains).  Both expose the span shortlist selection rule — a pure
+/// function of the target and the per-word budget — at the public API
+/// boundary, so "is this wording retained for this span" is answerable
+/// without running a search.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpanCandidate {
+    /// Target-IPA position the span starts at.
+    pub start: usize,
+    /// Target-IPA position one past the last phoneme the span covers.
+    pub end: usize,
+    /// The candidate word, as spelled in the corpus.
+    pub word: String,
+    /// The candidate's fuzzy edit cost against this span.
+    pub cost: f64,
+}
+
 /// A reusable Mad Gab generator.
 pub struct Generator {
     corpus: Corpus,
@@ -121,6 +141,12 @@ pub struct Generator {
 
 /// How many alternatives a span's shortlist retains.
 const SPAN_SHORTLIST: usize = 160;
+/// Candidates each single-axis (cost, familiarity, quality) pass keeps.
+const SPAN_AXIS_KEEP: usize = 16;
+/// Candidates each per-band sub-pass (quality, familiarity, rarity) keeps.
+const SPAN_BAND_KEEP: usize = 4;
+/// Candidates the whole-span rarity pass keeps.
+const SPAN_RARITY_KEEP: usize = 4;
 /// The wordings one segmentation may emit, profiles included.
 const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
 /// The width every slot of the per-segmentation traversal is *opened* at,
@@ -807,6 +833,319 @@ impl Generator {
         )
     }
 
+    /// The per-span shortlist selection rule, as one function.
+    ///
+    /// The rule is a pure function of the span's candidate set, the
+    /// target's reuse index and the per-word budget: nothing about the
+    /// traversal's width, depth or emission budgets enters it, so this
+    /// is the whole of "which candidates are retained for a span".
+    ///
+    /// Six named admission passes run first and are keyed on measured
+    /// properties only — cost, familiarity, rarity, and the four cost
+    /// bands, each with its own quality / familiarity / rarity
+    /// sub-pass.  They can admit at most
+    /// `SPAN_AXIS_KEEP + SPAN_AXIS_KEEP + SPAN_RARITY_KEEP +
+    /// 4 * SPAN_BAND_KEEP * 3 + SPAN_AXIS_KEEP` words, so on any span
+    /// offering more candidates than that the remaining slots are a
+    /// **fill**, and the fill is where the shortlist's *contents* are
+    /// decided.
+    ///
+    /// The fill is **cost-stratified**: its slots are apportioned across
+    /// the cost bands in proportion to each band's population and spent
+    /// within a band by `quality`.  A single global quality fill would
+    /// be wrong here, because `quality` is dominated by familiarity and
+    /// `-SIMILARITY_PER_WORD * cost` and both degrade monotonically with
+    /// phonetic distance, so a global fill is systematically the
+    /// worst-sounding retained words — a cost band can then be entirely
+    /// absent from a full shortlist.  Stratifying keeps
+    /// `SPAN_SHORTLIST = 160` exactly: it changes *which* 160 are
+    /// retained, not how many, and it scores no candidate the named
+    /// passes did not already score.
+    fn span_shortlist(
+        &self,
+        matches: &[approx::FuzzyMatch],
+        reuse: &ReuseIndex,
+        per_word_budget: f64,
+    ) -> Vec<approx::FuzzyMatch> {
+        let quality = |m: &approx::FuzzyMatch| {
+            let word = self.fuzzy_lexicon.word(m.word_idx);
+            let familiarity = word_familiarity(word.rarity);
+            let reused = reuse.reuses(&word.word);
+            axes::SIMILARITY_PER_WORD * (-m.cost)
+                + axes::FAMILIARITY * familiarity
+                - if reused { axes::WORD_NOVELTY } else { 0.0 }
+                + axes::SHAPE * lexical_shape_quality(&word.word, familiarity)
+                + axes::CLOSED_CLASS
+                    * closed_class_penalty(f64::from(word.closed), 1.0)
+        };
+
+        // A span shortlist is a portfolio, not simply the
+        // cheapest N words.  This preserves near-homophones that
+        // are strong on a different quality axis.
+        let mut selected = Vec::new();
+        let mut seen_words = HashSet::new();
+
+        let mut by_cost = matches.to_vec();
+        by_cost.sort_by(|a, b| {
+            a.cost
+                .partial_cmp(&b.cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        for m in by_cost.iter().take(SPAN_AXIS_KEEP) {
+            if seen_words.insert(m.word_idx) {
+                selected.push(*m);
+            }
+        }
+
+        let mut by_familiarity = matches.to_vec();
+        by_familiarity.sort_by(|a, b| {
+            cmp_desc(
+                word_familiarity(self.fuzzy_lexicon.word(a.word_idx).rarity),
+                word_familiarity(self.fuzzy_lexicon.word(b.word_idx).rarity),
+            )
+        });
+        for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
+            if seen_words.insert(m.word_idx) {
+                selected.push(*m);
+            }
+        }
+
+        // Every other axis above prefers cheap, familiar words,
+        // which is precisely the region the exact search already
+        // owns.  A resegmentation that needs an uncommon word is
+        // then silently unreachable: no axis ever retains it.
+        // Reserve explicit slots for the *least* familiar
+        // candidates so approximate mode can still reach wordings
+        // the common core never produces.
+        let mut by_rarity = matches.to_vec();
+        by_rarity.sort_by(|a, b| {
+            rarity_rank(self.fuzzy_lexicon.word(a.word_idx).rarity)
+                .cmp(&rarity_rank(
+                    self.fuzzy_lexicon.word(b.word_idx).rarity,
+                ))
+                .then_with(|| {
+                    a.cost.partial_cmp(&b.cost).unwrap_or(
+                        std::cmp::Ordering::Equal,
+                    )
+                })
+        });
+        for m in by_rarity.iter().take(SPAN_RARITY_KEEP) {
+            if seen_words.insert(m.word_idx) {
+                selected.push(*m);
+            }
+        }
+
+        let mut cost_bands: std::collections::BTreeMap<
+            usize,
+            Vec<approx::FuzzyMatch>,
+        > = std::collections::BTreeMap::new();
+        let budget_scale = per_word_budget.max(1e-9);
+        for &m in matches {
+            let band =
+                ((m.cost / budget_scale) * 4.0).floor().clamp(0.0, 3.0)
+                    as usize;
+            cost_bands.entry(band).or_default().push(m);
+        }
+        for bucket in cost_bands.values() {
+            let mut by_band_quality = bucket.clone();
+            by_band_quality
+                .sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+            for m in by_band_quality.iter().take(SPAN_BAND_KEEP) {
+                if seen_words.insert(m.word_idx) {
+                    selected.push(*m);
+                }
+            }
+
+            let mut by_band_familiarity = bucket.clone();
+            by_band_familiarity.sort_by(|a, b| {
+                cmp_desc(
+                    word_familiarity(
+                        self.fuzzy_lexicon.word(a.word_idx).rarity,
+                    ),
+                    word_familiarity(
+                        self.fuzzy_lexicon.word(b.word_idx).rarity,
+                    ),
+                )
+            });
+            for m in by_band_familiarity.iter().take(SPAN_BAND_KEEP) {
+                if seen_words.insert(m.word_idx) {
+                    selected.push(*m);
+                }
+            }
+
+            let mut by_band_rarity = bucket.clone();
+            by_band_rarity.sort_by(|a, b| {
+                rarity_rank(self.fuzzy_lexicon.word(a.word_idx).rarity)
+                    .cmp(&rarity_rank(
+                        self.fuzzy_lexicon.word(b.word_idx).rarity,
+                    ))
+                    .then_with(|| {
+                        a.cost.partial_cmp(&b.cost).unwrap_or(
+                            std::cmp::Ordering::Equal,
+                        )
+                    })
+            });
+            for m in by_band_rarity.iter().take(SPAN_BAND_KEEP) {
+                if seen_words.insert(m.word_idx) {
+                    selected.push(*m);
+                }
+            }
+        }
+
+        let mut by_quality = matches.to_vec();
+        by_quality.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+        for m in by_quality.iter().take(SPAN_AXIS_KEEP) {
+            if seen_words.insert(m.word_idx) {
+                selected.push(*m);
+            }
+        }
+
+        // The shortlist exists to bound the per-span alternative count,
+        // not to re-rank it.  Every axis above favours the
+        // cheap-and-familiar corner, so once the enumeration below is
+        // exact there is no reason to stop there: spend the remaining
+        // budget, so a word that only becomes the right choice in
+        // combination with the other spans is actually reachable.
+        //
+        // What the fill must not do is spend the whole tail on one
+        // score, because that score degrades with phonetic distance and
+        // the tail is therefore the worst-sounding part of the list.  The
+        // slots are apportioned over the cost bands in proportion to band
+        // population (highest average per-slot weight first, ties by
+        // band index) and spent within a band by `quality`, so a band
+        // cannot be emptied by losing a global comparison.
+        let fill_slots = SPAN_SHORTLIST.saturating_sub(selected.len());
+        if fill_slots > 0 {
+            let mut banded: Vec<(
+                usize,
+                Vec<approx::FuzzyMatch>,
+            )> = cost_bands
+                .into_iter()
+                .map(|(band, bucket)| (band, bucket))
+                .collect();
+            for (_, bucket) in banded.iter_mut() {
+                bucket.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+            }
+            let mut cursor = vec![0usize; banded.len()];
+            let mut left = fill_slots;
+            while left > 0 {
+                // Highest-average next pick among the bands that still
+                // have an unclaimed word: the integral form of a
+                // population-proportional apportionment.
+                let mut best: Option<usize> = None;
+                for (i, (_, bucket)) in banded.iter().enumerate() {
+                    if cursor[i] >= bucket.len() {
+                        continue;
+                    }
+                    best = match best {
+                        None => Some(i),
+                        Some(j) => {
+                            let lhs = (cursor[i] + 1) * banded[j].1.len();
+                            let rhs = (cursor[j] + 1) * bucket.len();
+                            if lhs > rhs { Some(i) } else { Some(j) }
+                        }
+                    };
+                }
+                let Some(i) = best else { break };
+                let m = banded[i].1[cursor[i]];
+                cursor[i] += 1;
+                left -= 1;
+                if seen_words.insert(m.word_idx) {
+                    selected.push(m);
+                }
+            }
+        }
+        selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+        selected
+    }
+
+    /// Every candidate every span of `target` offers at
+    /// `per_word_budget`, grouped by span edge.
+    pub fn span_candidates(
+        &self,
+        target: &str,
+        per_word_budget: f64,
+    ) -> Vec<SpanCandidate> {
+        self.span_groups(target, per_word_budget)
+            .into_iter()
+            .flat_map(|(start, end, matches)| {
+                matches.into_iter().map(move |m| SpanCandidate {
+                    start,
+                    end,
+                    word: self.fuzzy_lexicon.word(m.word_idx).word.clone(),
+                    cost: m.cost,
+                })
+            })
+            .collect()
+    }
+
+    /// Every per-span shortlist the approximate search would build for
+    /// `target` at `per_word_budget`, in the same order the search sees.
+    pub fn span_shortlists(
+        &self,
+        target: &str,
+        per_word_budget: f64,
+    ) -> Vec<SpanCandidate> {
+        let phrase = TargetPhrase::new(target);
+        let mut out = Vec::new();
+        for (start, end, matches) in self.span_groups(target, per_word_budget)
+        {
+            for m in self.span_shortlist(
+                &matches,
+                &phrase.reuse,
+                per_word_budget,
+            ) {
+                out.push(SpanCandidate {
+                    start,
+                    end,
+                    word: self.fuzzy_lexicon.word(m.word_idx).word.clone(),
+                    cost: m.cost,
+                });
+            }
+        }
+        out
+    }
+
+    /// The span lattice the approximate search builds for `target`:
+    /// every `(start, end, candidates)` triple it offers, in the same
+    /// order it groups them.
+    fn span_groups(
+        &self,
+        target: &str,
+        per_word_budget: f64,
+    ) -> Vec<(usize, usize, Vec<approx::FuzzyMatch>)> {
+        let Some((target_ipa, _, _)) =
+            transcribe_with_boundaries(&self.corpus, target, true)
+        else {
+            return Vec::new();
+        };
+        let chars: Vec<char> = target_ipa.chars().collect();
+        let n = chars.len();
+        let mut out = Vec::new();
+        for p in 0..n {
+            let lattice = self.fuzzy_lexicon.matches_at(
+                &chars,
+                p,
+                per_word_budget,
+                self.config.min_word_ipa_chars,
+            );
+            let mut grouped: std::collections::BTreeMap<
+                usize,
+                Vec<approx::FuzzyMatch>,
+            > = std::collections::BTreeMap::new();
+            for &m in &lattice {
+                let end = p + m.consumed;
+                if end <= n {
+                    grouped.entry(end).or_default().push(m);
+                }
+            }
+            for (end, matches) in grouped {
+                out.push((p, end, matches));
+            }
+        }
+        out
+    }
+
     fn generate_approximate(
         &self,
         target: &str,
@@ -974,9 +1313,6 @@ impl Generator {
             rank: f64,
         }
 
-        const SPAN_AXIS_KEEP: usize = 16;
-        const SPAN_BAND_KEEP: usize = 4;
-        const SPAN_RARITY_KEEP: usize = 4;
         const SEG_STATE_KEEP: usize = 32;
         const SEGMENTATION_KEEP: usize = 256;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
@@ -1057,168 +1393,11 @@ impl Generator {
             }
 
             for (end, matches) in grouped {
-                let quality = |m: &approx::FuzzyMatch| {
-                    let word = self.fuzzy_lexicon.word(m.word_idx);
-                    let familiarity = word_familiarity(word.rarity);
-                    let reused =
-                        target_phrase.reuse.reuses(&word.word);
-                    axes::SIMILARITY_PER_WORD * (-m.cost)
-                        + axes::FAMILIARITY * familiarity
-                        - if reused { axes::WORD_NOVELTY } else { 0.0 }
-                        + axes::SHAPE
-                            * lexical_shape_quality(
-                                &word.word,
-                                familiarity,
-                            )
-                    + axes::CLOSED_CLASS
-                        * closed_class_penalty(
-                            f64::from(word.closed),
-                            1.0,
-                        )
-                };
-
-                // A span shortlist is a portfolio, not simply the
-                // cheapest N words.  This preserves near-homophones that
-                // are strong on a different quality axis.
-                let mut selected = Vec::new();
-                let mut seen_words = HashSet::new();
-
-                let mut by_cost = matches.clone();
-                by_cost.sort_by(|a, b| {
-                    a.cost
-                        .partial_cmp(&b.cost)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-                for m in by_cost.iter().take(SPAN_AXIS_KEEP) {
-                    if seen_words.insert(m.word_idx) {
-                        selected.push(*m);
-                    }
-                }
-
-                let mut by_familiarity = matches.clone();
-                by_familiarity.sort_by(|a, b| {
-                    cmp_desc(
-                        word_familiarity(
-                            self.fuzzy_lexicon.word(a.word_idx).rarity,
-                        ),
-                        word_familiarity(
-                            self.fuzzy_lexicon.word(b.word_idx).rarity,
-                        ),
-                    )
-                });
-                for m in by_familiarity.iter().take(SPAN_AXIS_KEEP) {
-                    if seen_words.insert(m.word_idx) {
-                        selected.push(*m);
-                    }
-                }
-
-                // Every other axis above prefers cheap, familiar words,
-                // which is precisely the region the exact search already
-                // owns.  A resegmentation that needs an uncommon word is
-                // then silently unreachable: no axis ever retains it.
-                // Reserve explicit slots for the *least* familiar
-                // candidates so approximate mode can still reach wordings
-                // the common core never produces.
-                let mut by_rarity = matches.clone();
-                by_rarity.sort_by(|a, b| {
-                    rarity_rank(self.fuzzy_lexicon.word(a.word_idx).rarity)
-                        .cmp(&rarity_rank(
-                            self.fuzzy_lexicon.word(b.word_idx).rarity,
-                        ))
-                        .then_with(|| {
-                            a.cost.partial_cmp(&b.cost).unwrap_or(
-                                std::cmp::Ordering::Equal,
-                            )
-                        })
-                });
-                for m in by_rarity.iter().take(SPAN_RARITY_KEEP) {
-                    if seen_words.insert(m.word_idx) {
-                        selected.push(*m);
-                    }
-                }
-
-                let mut cost_bands:
-                    std::collections::BTreeMap<usize, Vec<approx::FuzzyMatch>> =
-                    std::collections::BTreeMap::new();
-                let budget_scale = per_word_budget.max(1e-9);
-                for &m in &matches {
-                    let band = ((m.cost / budget_scale) * 4.0)
-                        .floor()
-                        .clamp(0.0, 3.0) as usize;
-                    cost_bands.entry(band).or_default().push(m);
-                }
-                for bucket in cost_bands.values() {
-                    let mut by_band_quality = bucket.clone();
-                    by_band_quality
-                        .sort_by(|a, b| cmp_desc(quality(a), quality(b)));
-                    for m in by_band_quality.iter().take(SPAN_BAND_KEEP) {
-                        if seen_words.insert(m.word_idx) {
-                            selected.push(*m);
-                        }
-                    }
-
-                    let mut by_band_familiarity = bucket.clone();
-                    by_band_familiarity.sort_by(|a, b| {
-                        cmp_desc(
-                            word_familiarity(
-                                self.fuzzy_lexicon.word(a.word_idx).rarity,
-                            ),
-                            word_familiarity(
-                                self.fuzzy_lexicon.word(b.word_idx).rarity,
-                            ),
-                        )
-                    });
-                    for m in by_band_familiarity.iter().take(SPAN_BAND_KEEP) {
-                        if seen_words.insert(m.word_idx) {
-                            selected.push(*m);
-                        }
-                    }
-
-                    let mut by_band_rarity = bucket.clone();
-                    by_band_rarity.sort_by(|a, b| {
-                        rarity_rank(
-                            self.fuzzy_lexicon.word(a.word_idx).rarity,
-                        )
-                        .cmp(&rarity_rank(
-                            self.fuzzy_lexicon.word(b.word_idx).rarity,
-                        ))
-                        .then_with(|| {
-                            a.cost.partial_cmp(&b.cost).unwrap_or(
-                                std::cmp::Ordering::Equal,
-                            )
-                        })
-                    });
-                    for m in by_band_rarity.iter().take(SPAN_BAND_KEEP) {
-                        if seen_words.insert(m.word_idx) {
-                            selected.push(*m);
-                        }
-                    }
-                }
-
-                let mut by_quality = matches;
-                by_quality.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
-                for m in by_quality.iter().take(SPAN_AXIS_KEEP) {
-                    if seen_words.insert(m.word_idx) {
-                        selected.push(*m);
-                    }
-                }
-
-                // The shortlist exists to bound the per-span alternative
-                // count, not to re-rank it.  Every axis above favours the
-                // cheap-and-familiar corner, so once the enumeration
-                // below is exact there is no reason to stop there: fill
-                // the remaining budget from the full quality order, so a
-                // word that only becomes the right choice in combination
-                // with the other spans is actually reachable.
-                for m in by_quality {
-                    if selected.len() >= SPAN_SHORTLIST {
-                        break;
-                    }
-                    if seen_words.insert(m.word_idx) {
-                        selected.push(m);
-                    }
-                }
-                selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+                let selected = self.span_shortlist(
+                    &matches,
+                    &target_phrase.reuse,
+                    per_word_budget,
+                );
 
                 if selected.is_empty() {
                     continue;
