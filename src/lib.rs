@@ -5734,4 +5734,86 @@ mod tests {
             m_wide.similarity
         );
     }
+
+    /// The `SIMILARITY` axis is a bounded quantity, and it is bounded on
+    /// *both* sides rather than at whichever side happens to be reachable
+    /// by the candidates one happened to look at.
+    ///
+    /// The axis is `1 - (clue's total edit cost / target's phones) / cost
+    /// per phone`, so the numerator is unbounded above: a candidate far
+    /// enough from the target's phonetics scores below `0.0` in the
+    /// unclamped form, and a candidate that is a perfect transcription at
+    /// zero cost is the `1.0` end.  Every other axis here is a share, a
+    /// rate or a `match` against a count and is bounded by construction;
+    /// this one is an affine map of an edit cost, and an affine map of an
+    /// unbounded quantity is unbounded unless something bounds it.
+    ///
+    /// The property under test is the *value*, not the mechanism.  This
+    /// says nothing about how the bound is obtained — a clamp, a min/max,
+    /// a saturating subtraction — and it deliberately makes no claim about
+    /// where inside the range the normaliser sits: the floor case is
+    /// "dissimilar enough", and how dissimilar that is is the axis
+    /// constant's business, not this test's.
+    ///
+    /// Both ends are asserted to be *reached*, not merely respected.  A
+    /// bound that is never touched is not a bound in practice, and a
+    /// regression that silently narrowed the axis into, say, `[0.2, 0.9]`
+    /// would pass an `in`-range assertion at every point it happened to
+    /// sample.  The sweep below also walks the interior densely enough
+    /// that an axis which drifted off one edge for a band of costs would
+    /// be caught.
+    #[test]
+    fn similarity_axis_is_bounded_and_reaches_both_ends() {
+        let target = TargetPhrase::new("alpha bravo charlie delta");
+        let boundaries = [5usize, 11, 19];
+        let total_len = 24usize;
+        let syllables = 8usize;
+
+        // A candidate that is the target's own phonetics at no cost is
+        // the `1.0` end, and one that is not remotely it is the `0.0`
+        // end.  Both are read off the same scorer every other clue in the
+        // pool goes through, so this is the axis as the search sees it,
+        // not a re-derivation of the formula.
+        let free = synthetic_clue(&target, 6, 4, 0.0);
+        let free_similarity = free.metrics(&boundaries, syllables, total_len, false).similarity;
+        assert!(
+            (free_similarity - 1.0).abs() < 1e-12,
+            "a zero-cost candidate scored {free_similarity} on SIMILARITY, not the 1.0 end"
+        );
+
+        // The cost is `synthetic_clue`'s total over the clue and the axis
+        // divides by the target's phone count, so this is chosen large
+        // enough to be past the floor by a wide margin rather than tuned
+        // to land exactly on it.
+        let alien = synthetic_clue(&target, 6, 4, 48.0);
+        let alien_similarity = alien.metrics(&boundaries, syllables, total_len, false).similarity;
+        assert_eq!(
+            alien_similarity, 0.0,
+            "a candidate far outside the target's phonetics scored \
+             {alien_similarity} on SIMILARITY instead of the 0.0 floor"
+        );
+
+        // The sweep: a ladder of per-candidate costs from free to
+        // alienous, spanning the range the axis can express and past it
+        // at both ends.  Every point must be a real fraction, and the
+        // axis must be non-increasing in cost: a candidate that spells
+        // the target worse cannot score better on the axis that measures
+        // how well it spells the target.
+        let mut previous = f64::INFINITY;
+        for step in 0..=64 {
+            let cost = 48.0 * (2.0_f64).powf((step as i32 - 64) as f64 / 4.0);
+            let clue = synthetic_clue(&target, 6, 4, cost);
+            let similarity = clue.metrics(&boundaries, syllables, total_len, false).similarity;
+            assert!(
+                (0.0..=1.0).contains(&similarity),
+                "cost {cost} scored {similarity} on SIMILARITY, outside [0.0, 1.0]"
+            );
+            assert!(
+                similarity <= previous + 1e-12,
+                "raising the edit cost from the previous rung raised SIMILARITY \
+                 from {previous} to {similarity}"
+            );
+            previous = similarity;
+        }
+    }
 }
