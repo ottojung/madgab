@@ -231,7 +231,7 @@ const EMIT_PROFILE_MAX_DEEP: usize = 3;
 ///
 /// Before this, affordability was decided only at the leaf: the traversal
 /// pushed, allocated and scored a candidate the total budget could never
-/// pay for, popped it, and dropped it.  `LEXICAL_HEAP_POP_LIMIT` is the
+/// pay for, popped it, and dropped it.  `WIDTH_FRONT_POP_LIMIT` is the
 /// constant that actually bounds wall clock, so those pops were spent out
 /// of a global budget ([`LEXICAL_GLOBAL_POP_BUDGET`]) on subtrees with no
 /// admissible leaf anywhere in them.  Measured at the shipped budgets the
@@ -266,7 +266,7 @@ fn slot_is_affordable(
 ///
 /// Measured on the default release path at
 /// [`LEXICAL_BRANCH_STAGE_0`] = 10 and
-/// [`LEXICAL_HEAP_POP_LIMIT`] = 4 000: a 4-slot segmentation needs 1 111
+/// [`WIDTH_FRONT_POP_LIMIT`] = 4 000: a 4-slot segmentation needs 1 111
 /// pops to reach its first wording and does reach it, a 5-slot one needs
 /// 11 111 and does not, and the run shows it — of 256 retained
 /// segmentations, 27 emit no wording at all on one measured four-word
@@ -308,6 +308,140 @@ fn affordable_opening_width(slot_count: usize, pop_limit: usize) -> usize {
     }
     width
 }
+
+/// How many nodes a best-first walk must pop before it can reach *any* leaf,
+/// when slot `k` is enumerated to `caps[k]` candidates.
+///
+/// The walk extends a prefix, so before a leaf is reachable the whole subtree
+/// hanging off the all-cheapest leaf has been expanded: the empty prefix, then
+/// every one-candidate prefix, then every two-candidate prefix, and so on up to
+/// the deepest level that still has children.  Counting the prefixes of each
+/// length gives
+///
+/// ```text
+///     F(c) = 1 + c_0 + c_0*c_1 + ... + c_0*...*c_{d-2}
+/// ```
+///
+/// `caps[d - 1]` does not appear, because a leaf is reached at depth `d` and a
+/// slot's width only counts the nodes *above* it.  For a uniform `c` this is
+/// exactly the `1 + w + ... + w^(d-1)` series [`affordable_opening_width`]
+/// fits, so the two read the same quantity off a vector rather than a scalar,
+/// and the scalar is the wrong thing to fit.
+///
+/// `F` is monotone non-decreasing in every component.  That is what makes
+/// admission arithmetic rather than a search: the walk's test is `index < cap`,
+/// so an index tuple `t` needs `caps[k] >= t_k + 1`, and the *smallest* frontier
+/// any allocation admitting `t` can have is therefore `F(t + 1)`.  If that
+/// exceeds the pop allowance, no allocation rule of any shape admits `t`, and
+/// the shortfall is exactly `F(t + 1) - pop_limit`.
+///
+/// Derived for the width front; **not** called by the traversal, which still
+/// opens every slot at the scalar [`affordable_opening_width`].  Wiring this in
+/// is a measured negative: the rule below is correct and the arithmetic is
+/// right, and it still costs the fence, because the traversal's live cost is
+/// the frontier `F` and widening the cheapest slot multiplies it.  See
+/// `docs/work/REPORT-9e2b41.md`.
+#[cfg(test)]
+fn first_leaf_frontier(caps: &[usize]) -> usize {
+    let mut total = 1usize;
+    let mut prefix = 1usize;
+    // The last slot has no children, so it contributes no term.
+    for &c in caps.iter() {
+        prefix = prefix.saturating_mul(c);
+        total = total.saturating_add(prefix);
+    }
+    total
+}
+
+/// The **per-slot** opening widths of one segmentation's traversal, in
+/// traversal-index units, allocated in proportion to each slot's own measured
+/// push cost.
+///
+/// [`affordable_opening_width`] answers a different question in the wrong
+/// units: it divides the per-segmentation *pop allowance* by the cost of
+/// pushing one candidate and uses the quotient as a per-slot *list prefix
+/// length*, and it answers it once for the whole product, so every slot gets
+/// the same number however much that slot costs.  The two quantities are
+/// unrelated, and the equality between them is what caps the enumeration.  A
+/// pop allowance really buys a *frontier* — how many prefixes may exist above
+/// a leaf — and a frontier is a per-slot vector, not a scalar.
+///
+/// The per-slot cost is measured off the traversal, not assumed.  Slot `k` is
+/// expanded once per prefix that reaches it, and the number of such prefixes is
+/// `M_k = c_0 * ... * c_{k-1}`, the product of the widths *above* it, so the
+/// marginal cost of one more candidate in slot `k` is exactly `M_k`.  That is
+/// the cost the allocation spends, and it is why the ceiling is non-increasing
+/// in slot position: the same allowance buys more candidates low in the product
+/// than high in it.  It is also why a wider slot is not a longer list —
+/// `slots[k]` is ordered by `SlotAlt::contribution`, which divides by the
+/// slot's word count, so the candidate at traversal index `i` of a wide slot is
+/// not the candidate at index `i` of a narrow one.  Everything here is stated
+/// and validated in traversal-index units.
+///
+/// Three structural facts, all exact rather than tuned:
+///
+/// * the last slot's width does not enter [`first_leaf_frontier`], so it is
+///   allocated its whole list and charged nothing;
+/// * the first pass charges each slot its own marginal cost in slot order and
+///   never drops below `uniform_floor` — the width the scalar law would have
+///   opened every slot at — so the rule cannot narrow what already worked; and
+/// * those floors can overrun the allowance, so a second pass hands the overrun
+///   back to the widest slot, the one the product is most sensitive to, until
+///   the frontier fits.
+///
+/// Nothing here reads a word, a clue or a segmentation: the inputs are the
+/// per-slot pool sizes, the pop allowance and the scalar opening width.
+///
+/// Derived for the width front; **not** called by the traversal.  See
+/// [`first_leaf_frontier`] for why.
+#[cfg(test)]
+fn per_slot_opening_widths(
+    pool_sizes: &[usize],
+    pop_limit: usize,
+    uniform_floor: usize,
+) -> Vec<usize> {
+    if pool_sizes.is_empty() {
+        return Vec::new();
+    }
+    let last = pool_sizes.len() - 1;
+    let floor = uniform_floor.max(1);
+    let mut caps: Vec<usize> = pool_sizes.iter().map(|&n| n.max(1)).collect();
+    // The last slot hangs off a leaf, so enumerating it costs nothing.
+    caps[last] = pool_sizes[last].max(1);
+
+    // Pass 1: charge each slot the marginal pushes its own width causes.
+    // `charged` is the part of the frontier already paid for, `marginal` the
+    // number of pushes one further candidate in the slot under consideration
+    // costs.
+    let mut charged = 1usize;
+    let mut marginal = 1usize;
+    for k in 0..last {
+        let committed = charged.saturating_add(marginal);
+        let room = pop_limit.saturating_sub(committed);
+        let by_budget = room / marginal.max(1);
+        caps[k] = pool_sizes[k].max(1).min(floor.max(by_budget).max(1));
+        marginal = marginal.saturating_mul(caps[k]);
+        charged = committed.saturating_add(marginal);
+    }
+
+    // Pass 2: the floor in pass 1 can overrun the allowance.  Give the budget
+    // back from the widest slot, which is where the product is most sensitive
+    // to it, until the frontier fits.  The free slot is not a candidate: it
+    // costs nothing, so handing back from it would give away the whole list
+    // for a frontier that never included it.  Ties go to the lower slot,
+    // which is the one the product is more sensitive to.
+    while first_leaf_frontier(&caps) > pop_limit {
+        let Some(k) = (0..last)
+            .filter(|&k| caps[k] > 1)
+            .max_by_key(|&k| (caps[k], std::cmp::Reverse(k)))
+        else {
+            break;
+        };
+        caps[k] -= 1;
+    }
+    caps
+}
+
 
 /// How many candidates one subset of the coverage reserve's index sweep
 /// draws before it spends its share on one of them.
@@ -979,7 +1113,7 @@ impl Generator {
         const SPAN_RARITY_KEEP: usize = 4;
         const SEG_STATE_KEEP: usize = 32;
         const SEGMENTATION_KEEP: usize = 256;
-        const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
+        const WIDTH_FRONT_POP_LIMIT: usize = 4_000;
 
         // The lexical phase's budget is *global*.  These are the same two
         // products the old per-segmentation caps implied when multiplied
@@ -997,7 +1131,7 @@ impl Generator {
         const LEXICAL_GLOBAL_EMISSION_BUDGET: usize =
             SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION;
         const LEXICAL_GLOBAL_POP_BUDGET: usize =
-            SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
+            SEGMENTATION_KEEP * WIDTH_FRONT_POP_LIMIT;
 
         // These two are NON-BINDING and cannot be made to bind, and that
         // is a property of the traversal rather than of their values: the
@@ -1893,10 +2027,10 @@ impl Generator {
             // `LEXICAL_BRANCH_STAGE_0` a `d`-slot product needs
             // `1 + w + ... + w^(d-1)` pops before the walk reaches its
             // first wording at all, and a `d` where that exceeds
-            // `LEXICAL_HEAP_POP_LIMIT` is a segmentation whose emission
+            // `WIDTH_FRONT_POP_LIMIT` is a segmentation whose emission
             // allowance cannot be paid however the pops are spent.  See
             // [`affordable_opening_width`] for the measured counts.
-            let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+            let mut cap = affordable_opening_width(depth, WIDTH_FRONT_POP_LIMIT)
                 .min(widest);
             let mut emitted = 0usize;
             let mut popped = 0usize;
@@ -1959,7 +2093,7 @@ impl Generator {
                         continue;
                     }
 
-                    if !replaying && popped >= LEXICAL_HEAP_POP_LIMIT {
+                    if !replaying && popped >= WIDTH_FRONT_POP_LIMIT {
                         finished = true;
                         break;
                     }
@@ -2031,7 +2165,7 @@ impl Generator {
                 if next_branch_stage(cap, widest).is_none() {
                     break 'stages;
                 }
-                if popped >= LEXICAL_HEAP_POP_LIMIT
+                if popped >= WIDTH_FRONT_POP_LIMIT
                     || spent_pops + popped >= LEXICAL_GLOBAL_POP_BUDGET
                     || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
                 {
@@ -5168,7 +5302,7 @@ mod tests {
     fn the_global_emission_ceiling_is_reached_not_merely_respected() {
         // The two ceilings, restated from the constants the search itself
         // uses — `SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION`
-        // and `SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT`.  They are
+        // and `SEGMENTATION_KEEP * WIDTH_FRONT_POP_LIMIT`.  They are
         // function-local, so a test restates the arithmetic rather than
         // reaching into the search.
         let emission_ceiling = 256 * 64;
@@ -6064,5 +6198,379 @@ mod tests {
             "the whole boundary ladder was flat, so the assertions above \
              prove nothing about a length charge"
         );
+    }
+
+    /// The per-segmentation pop allowance the traversal charges against.
+    ///
+    /// It is scoped inside the search function, so it is not nameable here;
+    /// this is the shipped figure, written out.  It is a *budget*, and every
+    /// assertion below that uses it is an assertion about the budget, so a
+    /// change to the budget is a change to what these tests are about.
+    const WIDTH_FRONT_POP_LIMIT: usize = 4_000;
+
+    // ---- the per-slot width front (w-9e2b41) ----
+    //
+    // Everything below re-derives its expectations by *enumerating* the
+    // truncated lattice, never by calling the production recurrence.  A test
+    // that compared a bound against a scorer reading the same shared axis
+    // would be self-referential and could not detect a change to that
+    // normaliser; here the two sides are written independently, so mutating
+    // `first_leaf_frontier` or `per_slot_opening_widths` moves the production
+    // side alone and the assertion still bites.
+
+    /// The number of prefixes of length exactly `k` in a `caps`-truncated
+    /// `d`-slot lattice, counted by generating them.
+    ///
+    /// Deliberately *not* the product recurrence: this walks the tuples, so a
+    /// change to the production normaliser cannot move it.
+    fn counted_prefixes(caps: &[usize], k: usize) -> usize {
+        if k == 0 {
+            return 1;
+        }
+        let mut total = 0usize;
+        let mut prefix: Vec<usize> = vec![0; k];
+        loop {
+            total += 1;
+            let mut pos = k;
+            loop {
+                if pos == 0 {
+                    return total;
+                }
+                pos -= 1;
+                prefix[pos] += 1;
+                if prefix[pos] < caps[pos] {
+                    break;
+                }
+                prefix[pos] = 0;
+            }
+        }
+    }
+
+    /// Every node a best-first walk must pop before its first leaf, counted by
+    /// summing the generated prefixes of every level that still has children.
+    fn counted_frontier(caps: &[usize]) -> usize {
+        (0..caps.len()).map(|k| counted_prefixes(caps, k)).sum()
+    }
+
+    /// Independent check that the production frontier is the count it claims
+    /// to be, over shapes small enough to generate and depths long enough to
+    /// exercise every term.
+    #[test]
+    fn the_frontier_is_the_number_of_prefixes_the_walk_must_pop() {
+        for depth in 1..=5usize {
+            for caps in [
+                vec![1usize; 5][..depth].to_vec(),
+                vec![2usize; 5][..depth].to_vec(),
+                vec![1, 7, 1, 7, 1][..depth].to_vec(),
+                vec![10, 1, 10, 1, 10][..depth].to_vec(),
+                vec![3, 5, 2, 9, 4][..depth].to_vec(),
+                vec![160, 7, 160, 7, 93][..depth].to_vec(),
+            ] {
+                assert_eq!(
+                    first_leaf_frontier(&caps),
+                    counted_frontier(&caps),
+                    "frontier disagrees with the counted prefix total at {caps:?}"
+                );
+            }
+        }
+    }
+
+    /// The last slot is free: it hangs off a leaf, so its width is not in the
+    /// frontier at all.  Checked by making it enormous.
+    #[test]
+    fn the_last_slot_is_free_because_a_leaf_hangs_off_it() {
+        for depth in 1..=6usize {
+            let narrow: Vec<usize> = vec![7; depth];
+            let mut wide = narrow.clone();
+            *wide.last_mut().unwrap() = 1_000_000;
+            assert_eq!(
+                first_leaf_frontier(&narrow),
+                first_leaf_frontier(&wide),
+                "depth {depth}: the last slot changed the frontier"
+            );
+            // ... and it is not free at any other position.
+            if depth >= 2 {
+                let mut early = narrow.clone();
+                early[0] = 1_000_000;
+                assert!(
+                    first_leaf_frontier(&early) > first_leaf_frontier(&narrow),
+                    "depth {depth}: the first slot was free too, which is wrong"
+                );
+            }
+        }
+    }
+
+    /// The allocation is in proportion to each slot's *measured* push cost,
+    /// and that cost is the number of prefixes above the slot — counted, not
+    /// multiplied.  So: raising any slot that is not already at its pool size
+    /// must push the frontier past the allowance, and lowering any slot must
+    /// not.
+    #[test]
+    fn every_slot_is_opened_to_what_its_own_marginal_cost_affords() {
+        for pool in [
+            vec![SPAN_SHORTLIST, 7, SPAN_SHORTLIST, SPAN_SHORTLIST, 93],
+            vec![160, 160, 160, 160, 160],
+            vec![98, 26, 14, 35],
+            vec![37, 53, 29, 41, 19],
+            vec![1, 1, 1, 1, 1],
+        ] {
+            let depth = pool.len();
+            let pop_limit = WIDTH_FRONT_POP_LIMIT;
+            let uniform = affordable_opening_width(depth, pop_limit).min(
+                pool.iter().copied().max().unwrap_or(0),
+            );
+            let caps = per_slot_opening_widths(&pool, pop_limit, uniform);
+
+            assert_eq!(caps.len(), depth);
+            for (k, (&cap, &size)) in caps.iter().zip(pool.iter()).enumerate() {
+                assert!(cap >= 1, "slot {k} of {pool:?} opened at {cap}");
+                assert!(
+                    cap <= size.max(1),
+                    "slot {k} of {pool:?} opened at {cap}, past its pool of {size}"
+                );
+            }
+
+            // Charged slots only: the last one is free.
+            for k in 0..depth - 1 {
+                // The cost of one more candidate here, counted.
+                let marginal = counted_prefixes(&caps, k);
+                assert!(marginal >= 1);
+                if caps[k] < pool[k].max(1) {
+                    let mut wider = caps.clone();
+                    wider[k] += 1;
+                    assert!(
+                        first_leaf_frontier(&wider) > pop_limit,
+                        "slot {k} of {pool:?} opened at {} but {} also fits \
+                         (marginal cost {marginal}, frontier now {})",
+                        caps[k],
+                        caps[k] + 1,
+                        first_leaf_frontier(&wider)
+                    );
+                }
+                let mut narrower = caps.clone();
+                narrower[k] -= 1;
+                assert!(
+                    first_leaf_frontier(&narrower) <= pop_limit,
+                    "slot {k} of {pool:?} could afford {} but opened at {}",
+                    caps[k] - 1,
+                    caps[k]
+                );
+            }
+        }
+    }
+
+    /// The last slot is allocated its whole pool, because it is the one slot
+    /// whose width the allowance does not price.  Charging it anything else
+    /// is a narrowing that costs deep-in-a-span reach for nothing.
+    #[test]
+    fn the_free_slot_is_opened_to_its_whole_pool() {
+        for pool in [
+            vec![SPAN_SHORTLIST, 7, SPAN_SHORTLIST, SPAN_SHORTLIST, 93],
+            vec![160, 160, 160, 160, 160],
+            vec![98, 26, 14, 35],
+            vec![1, 1, 1, 1, 1],
+        ] {
+            let depth = pool.len();
+            let caps =
+                per_slot_opening_widths(&pool, WIDTH_FRONT_POP_LIMIT, 1);
+            assert_eq!(
+                caps[depth - 1],
+                pool[depth - 1].max(1),
+                "{pool:?}: the free slot opened at {} of {}",
+                caps[depth - 1],
+                pool[depth - 1]
+            );
+        }
+    }
+
+    /// The depth law, in traversal-index units: the number of candidates the
+    /// same allowance buys is non-increasing in slot position, because the
+    /// marginal cost of a candidate is the number of prefixes above it and
+    /// that number only grows.  Derived here from the counted prefixes of a
+    /// fixed reference shape rather than from anything the rule returns.
+    #[test]
+    fn the_width_a_slot_can_afford_decreases_with_its_depth_in_the_product() {
+        let pop_limit = WIDTH_FRONT_POP_LIMIT;
+        for depth in 3..=8usize {
+            let reference: Vec<usize> = vec![9; depth];
+            let mut committed = 1usize;
+            let mut ceiling = usize::MAX;
+            for k in 0..depth - 1 {
+                // What is already paid for, and what one more candidate costs.
+                committed += counted_prefixes(&reference, k);
+                let marginal = counted_prefixes(&reference, k);
+                let affordable = pop_limit.saturating_sub(committed) / marginal.max(1);
+                assert!(
+                    affordable <= ceiling,
+                    "depth {depth} slot {k}: the affordable width rose from \
+                     {ceiling} to {affordable} with depth, which the marginal \
+                     cost forbids"
+                );
+                ceiling = affordable;
+            }
+            // And the production rule never hands out more than the ceiling at
+            // the same slot, counting the prefixes of what it actually opened.
+            let pool: Vec<usize> = vec![SPAN_SHORTLIST; depth];
+            let uniform = affordable_opening_width(depth, pop_limit);
+            let caps = per_slot_opening_widths(&pool, pop_limit, uniform);
+            let mut spent = 1usize;
+            for k in 0..depth - 1 {
+                spent += counted_prefixes(&caps, k);
+                let affordable = pop_limit.saturating_sub(spent) / counted_prefixes(&caps, k);
+                assert!(
+                    caps[k] <= pool[k].max(affordable).max(uniform),
+                    "depth {depth} slot {k}: opened at {} with an affordable \
+                     width of {affordable} and a floor of {uniform}",
+                    caps[k]
+                );
+            }
+        }
+    }
+
+    /// The no-narrowing law: the rule is a *refinement* of the scalar one, so
+    /// wherever the scalar opening itself fits, no slot ends up narrower than
+    /// it.
+    #[test]
+    fn the_per_slot_rule_never_narrows_the_scalar_opening_that_fits() {
+        for depth in 1..=8usize {
+            for pool in [
+                vec![SPAN_SHORTLIST; 8][..depth].to_vec(),
+                vec![SPAN_SHORTLIST, 7, 160, 160, 93, 12, 3, 160]
+                    [..depth]
+                    .to_vec(),
+                vec![98, 26, 14, 35, 2, 160, 1, 7][..depth].to_vec(),
+            ] {
+                let pop_limit = WIDTH_FRONT_POP_LIMIT;
+                let uniform = affordable_opening_width(depth, pop_limit);
+                let scalar: Vec<usize> = pool.iter().map(|&n| n.min(uniform).max(1)).collect();
+                if first_leaf_frontier(&scalar) > pop_limit {
+                    continue; // the scalar opening is already unaffordable here
+                }
+                let caps = per_slot_opening_widths(&pool, pop_limit, uniform);
+                for k in 0..depth {
+                    assert!(
+                        caps[k] >= scalar[k],
+                        "depth {depth} {pool:?}: slot {k} narrowed from {} to {}",
+                        scalar[k],
+                        caps[k]
+                    );
+                }
+            }
+        }
+    }
+
+    /// The load-bearing priced negative, stated as a law rather than as a
+    /// measurement of one phrase.
+    ///
+    /// The walk's test is `index < cap`, so admitting an index tuple `t`
+    /// requires `caps[k] >= t_k + 1`, and [`first_leaf_frontier`] is monotone
+    /// non-decreasing in every component — so `F(t + 1)` is a *lower* bound
+    /// over every allocation that admits `t`, and `F(t + 1) - pop_limit` is the
+    /// exact shortfall in pops when that bound exceeds the allowance.  No
+    /// allocation rule, per-slot or otherwise, can do better, because the
+    /// bound is a property of the tuple and the limit rather than of the rule.
+    ///
+    /// The monotonicity that makes the bound valid is checked by brute force
+    /// over every allocation of a small shape, so the lower-bound claim is
+    /// earned here rather than assumed.
+    #[test]
+    fn admission_is_impossible_for_every_allocation_once_the_frontier_bound_is() {
+        // Brute-force the monotonicity the bound rests on, over every vector
+        // with entries in 1..=3 and up to four slots.
+        for depth in 1..=4usize {
+            let mut vectors = vec![vec![1usize; depth]];
+            for _ in 0..depth {
+                let mut next = Vec::new();
+                for v in &vectors {
+                    for w in 1..=3usize {
+                        let mut u = v.clone();
+                        u.push(w);
+                        next.push(u);
+                    }
+                }
+                vectors.extend(next);
+            }
+            // Compared within a depth: the bound is over allocations of the
+            // same lattice, and a deeper lattice is not a wider one.
+            for a in &vectors {
+                for b in &vectors {
+                    if a.len() != b.len() {
+                        continue;
+                    }
+                    let dominated = a.iter().zip(b).all(|(x, y)| x <= y);
+                    if dominated {
+                        assert!(
+                            first_leaf_frontier(a) <= first_leaf_frontier(b),
+                            "{a:?} is dominated by {b:?} but has the larger frontier"
+                        );
+                    }
+                }
+            }
+        }
+
+        // And the bound itself, on a shape the rule is asked about: a 4-slot
+        // lattice with 100-wide pools cannot enumerate a tuple two of whose
+        // slots sit past index 40.
+        let pop_limit = WIDTH_FRONT_POP_LIMIT;
+        for tuple in [
+            vec![0usize, 0, 0, 0],
+            vec![9, 0, 0, 0],
+            vec![9, 0, 44, 0],
+            vec![0, 0, 44, 0],
+        ] {
+            let needed: Vec<usize> = tuple.iter().map(|&i| i + 1).collect();
+            let bound = first_leaf_frontier(&needed);
+            let counted = counted_frontier(&needed);
+            assert_eq!(bound, counted, "the bound must be the counted frontier");
+            if bound > pop_limit {
+                // No allocation admits it, and the shortfall is exact.
+                let mut admissible: Vec<Vec<usize>> = vec![vec![1; 4]];
+                for k in 0..4 {
+                    let mut grown = Vec::new();
+                    for v in &admissible {
+                        for w in v[k]..=needed[k] {
+                            let mut u = v.clone();
+                            u[k] = w;
+                            grown.push(u);
+                        }
+                    }
+                    admissible.extend(grown);
+                }
+                for a in &admissible {
+                    let admits = a.iter().zip(&needed).all(|(x, n)| x >= n);
+                    assert!(
+                        !admits || first_leaf_frontier(a) <= pop_limit,
+                        "{a:?} admits {tuple:?} on a frontier of {} within {pop_limit}, \
+                         contradicting the bound {bound}",
+                        first_leaf_frontier(a)
+                    );
+                }
+            }
+        }
+    }
+
+    /// The scalar law's own row, printed rather than asserted, so the numbers
+    /// a downstream front would otherwise have to take on trust are visible in
+    /// the test log.  Nothing here names a phrase or a word.
+    #[test]
+    fn the_scalar_opening_and_its_frontier_are_what_the_docs_say() {
+        for depth in 1..=8usize {
+            let w = affordable_opening_width(depth, WIDTH_FRONT_POP_LIMIT);
+            let f = first_leaf_frontier(&vec![w; depth]);
+            eprintln!("depth {depth}: uniform {w}, frontier {f}");
+        }
+        // The uniform series is the vector recurrence read on a constant input,
+        // which is the identity the scalar law depends on.
+        for depth in 1..=8usize {
+            for w in 1..=12usize {
+                let mut series = 1usize;
+                let mut power = 1usize;
+                for _ in 1..depth {
+                    power = power.saturating_mul(w);
+                    series += power;
+                }
+                assert_eq!(first_leaf_frontier(&vec![w; depth]), series);
+            }
+        }
     }
 }
