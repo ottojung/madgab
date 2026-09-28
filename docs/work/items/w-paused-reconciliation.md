@@ -10484,10 +10484,9 @@ discharged by identity: the production fence against `origin/main` over
 Ninety-nine passes built the exclusion set from `git ls-remote --heads` plus a manual tag, and every one
 of them reported the size as "198 heads / 199 audit refs". `git ls-remote origin` with no refspec
 returns **203** lines, in **three** namespaces: 198 `refs/heads/*`, 1 `refs/tags/*`, and
-**`refs/pull/{1,2,3}/head`** — `d80163d` (`web-port`, "Disable generation until engine
-initialization"), `5e5f37f`-line `5e5f37f` is in fact `5e5f37f`=`5e5f37f`… precisely `5e5f37f` is
-`5e5f37f`: the second is `5e5f37fd97b464542f66ee907fe0593ea6b74314` ("Fix helper brace"), the third
-`734e37e` ("Fix hard-coding detector clippy lint"). A pass that never prints the *namespace* of each
+**`refs/pull/{1,2,3}/head`** — `d80163d` ("Disable generation until engine initialization"),
+`5e5f37f` ("Fix helper brace"), `734e37e` ("Fix hard-coding detector clippy lint"). A pass that never
+prints the *namespace* of each
 remote ref cannot notice the class it is blind to: `refs/pull/*` is neither a head nor a tag, so it is
 absent from every at-risk figure this log has published, and it is unreachable by the
 `+refs/heads/*:refs/…` fetch the log prescribes in rules 10/37.
