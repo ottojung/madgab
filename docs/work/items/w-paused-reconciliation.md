@@ -12144,3 +12144,52 @@ cut, no archive written, no superseded front resumed.
 entry is now the standing recommendation's evidence: the remaining value is in retiring or fixing the
 scheduler template, which is a human task outside this repository. Prefer *no commit*. If a pass does
 write, keep it to this length: verify the rows above, append, exit. Only a human can close this item.
+
+## Pass 125 (coord-4e17) — 2026-09-28T20:12Z
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` and the accepted-state document. No work item created or claimed,
+no agent launched or prompted, no branch cut, no superseded front resumed, nothing pushed to `main`.
+
+| | |
+|---|---|
+| MadGab agents running | **0**. Non-terminal madgab-cwd: the same **2** `stopped` (`3a8f01` `/workspace/madgab-diversity-3a8f01`, `3a8f02` `/workspace/madgab-poolrank-3a8f02`, ~16h20m, both items `superseded`). The 3 `running` host agents belong to other projects (`antonina-107-review`, `antonina-98-fixture`, `assemblyp1-94-audit`) |
+| Production fence | **0**, unchanged for a ninth pass. Re-derived with the per-file `#[cfg(test)]` boundary method over the three canonical phrases: `src/adjacency.rs` (boundary 269) 0/0; `src/lexical.rs` (260) 0/0; `src/approx.rs` (464) 1 total / **0 prod**; `src/lib.rs` (381) 11 total / **0 prod** |
+| `main` | untouched: `origin/main` = `0267ade` (`ls-remote`), still no local `main` ref. HEAD `post-milestone-acceptance` |
+| Uncommitted content at risk | **0** in the primary worktree. Per-worktree sweep not re-run: pass 118 measured all 127 worktrees and pass 121 re-hashed them, both 0 |
+| Open work items | **1**: this one (`blocked`) |
+| At-risk commits | **7**, see the correction below |
+
+### Correction: the at-risk count is **7**, not 91
+
+Re-measured this pass with rule 14's *correct* stateless spelling — the `^<ref>` list with **no**
+`--not` at all — over the full `ls-remote` set (**203** refs: 202 `refs/heads/*` + 1 tag), against
+baseline `rev-list --all --reflog` = **1,125**. The result is **7**, and all 7 are **ref-held**:
+`refs/stash`, `refs/heads/scratch-3f8c62-landed`, `scratch/0f3a17-shortlist-probe`,
+`scratch/4d1e93-f5f6`, `phon-probe-d4e8b1` — **0 are release material**. The standing **84
+reflog-only** holders are **not** at risk and are not missing from this figure: a reflog-only commit
+is already covered by the `--reflog` baseline and is reachable, so it is not an at-risk population at
+all. Pass 120's 91 = 7 + 84 was summing two different questions, and the 84 term should not be
+counted as risk.
+
+The earlier figure was reproduced exactly this pass as the rule-14 trap, confirming the log's own
+warning from a third direction: `rev-list --all` + a **repeated** `--not` prefix returns **136**, and
+the `--not`-with-`^`-list form returns the baseline. The number to sanity-check against is the
+baseline itself, never a remembered constant. **7, not 91** is the figure to carry forward.
+
+### Declined, same three clauses, thirty-fourth time
+
+(1) Recover/assign work, split fronts, launch or prompt Antonina agents: forbidden by the pause
+(rules 1–2), and there is nothing to recover — 0 uncommitted content, 7 at-risk commits of which 0
+are release material, 0 running madgab agents, no open item. (2) Prioritise the canonical
+approximate-search examples without phrase-specific hard-coding: that *is* the paused research goal,
+self-contradicting while paused; the production fence is at **0** and the documented limitation is a
+live assertion behind `#[ignore]` whose flip to red is a human release decision (rule 25). (3)
+Accumulate on `post-milestone-acceptance`: the itinerary retired it as an automatic target
+(rule 19); this entry is the only thing committed there and it carries no product code.
+
+**Next action for the next pass:** still no coordination action is available. Prefer *no commit*; if a
+pass does write, keep it to this length. The one substantive repair available is propagating the
+**91 → 7** at-risk correction into the standing header table above, which was not done this pass to
+stay inside the pass budget. The remaining value is still in retiring or fixing the scheduler
+template, a human task outside this repository. Only a human can close this item.
