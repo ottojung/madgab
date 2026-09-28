@@ -8245,10 +8245,10 @@ one level up, in the one check this log exists to run.
 ## Pass 82 — `coord-2f70`, 2026-09-28T15:37:00Z–15:44:00Z
 
 Fourth consecutive pass with nothing to launch, and the **fourth** to receive the same
-commissioning directive. **One new numbered rule (41)**, because this pass found a defect in the
-cross-check that rule 14 itself installed. Nothing launched, claimed, resumed, integrated or
-merged; `main` untouched (no local `main` ref; `origin/main` = `0267ade`); no new work item; no
-recovery branch created.
+commissioning directive. **No new numbered rule.** This pass re-confirmed rule 30 — a defect first
+found nine passes ago and still being cited as a live cross-check — and settled the one question
+pass 81 left open. Nothing launched, claimed, resumed, integrated or merged; `main` untouched (no
+local `main` ref; `origin/main` = `0267ade`); no new work item; no recovery branch created.
 
 ### The directive was declined a fourth time, and its two load-bearing clauses were tested
 
@@ -8265,41 +8265,38 @@ the kind that *sounds* obeyed:
   `working` item is this log, and every MadGab Antonina agent is terminal. Confirmed by direct
   inspection, not carried forward.
 
-### Rule 41 — the `^`-prefix cross-check installed by rule 14 is a **no-op**, and it was load-bearing
+### Rule 30 is still live, and four passes have been citing the broken spelling as a passing cross-check
 
-Rule 14 told every subsequent pass to cross-check the single-`--not` spelling against a "stateless"
-`^<ref>`-per-ref spelling, on the grounds that the two disagreeing is "the only reason to trust the
-cross-check". **The second spelling does not exclude anything.** On this repository, git 2.52.0:
+This pass set out to add a rule about the `^`-prefix cross-check and found, on checking, that
+**rule 30 already says exactly this** — `--not ^r1 ^r2` is the broken combination, it returns the
+unfiltered set, and the two safe spellings are `--all --not <bare list>` and `--all ^<list>`
+(*without* `--not`). It was written by `coord-7d42` measuring 1002 where the correct forms returned
+81. No new rule is warranted; the log records the re-confirmation instead.
+
+What is new is the *consequence*, and it is worse than the original finding. Rule 30 measured the
+broken form's count and moved on; the broken form has since been installed as **rule 14's
+sanctioned cross-check**, and passes 79, 80 and 81 each reported the two spellings "agreeing
+exactly". On this repository, git 2.52.0:
 
 | form | result |
 |---|---|
 | `--all --not <bare ref list>` (single `--not`) | **7** |
-| `--all --not ^<ref list>` — the spelling rule 14 sanctions | **982** |
+| `--all --not ^<ref list>` — what passes 79–81 ran | **982** |
 | `--all ^<ref list>` — the same list *without* `--not` | **7** |
 | `--all` with no exclusion at all | **982** |
 
-982 is the size of `git rev-list --all` itself, so the `--not ^ref` form returns *the unfiltered
-set*: it is arithmetically identical to running no check. The cause is that `^` is itself a
-negation marker, so `--not` followed by `^ref` **cancels** it — the pair means "do not *not* exclude
-this". Verified on a single ref, where the three spellings are unambiguous:
-`--all ^X` = 221, `--all --not X` = 221, `--all --not ^X` = 982.
+982 is the size of `git rev-list --all` itself, so `--not ^ref` is arithmetically identical to
+running no check: it returns the unfiltered set. Verified on a single ref, where the three
+spellings are unambiguous: `--all ^X` = 221, `--all --not X` = 221, `--all --not ^X` = 982.
 
-This is the same failure as rules 9, 10, 11, 14, 17 and 22 — *a check that cannot fail, returning a
-confident number* — but it is worse than any of them, because it was installed **as the defence
-against** that failure and was reported as agreeing. Passes 79–81 all recorded the two spellings
-"agreeing exactly"; they agreed because the first number was small and the second was the
-unfiltered total, and nobody wrote the two side by side. Rule 14's own instruction — "never accept
-a bare count from a generated command line without one cheap independent recomputation" — was
-followed in letter and defeated in substance, because the recomputation shared its bug with the
-thing it was checking.
-
-**Operational form.** The stateless spelling is `^<ref>` and it must be used **without** `--not`:
-`git rev-list --all $(git for-each-ref refs/remotes/audit --format='^%(refname)')` → 7. The
-single-`--not`-plus-bare-list form is also correct. The two now genuinely agree at 7, and the
-agreement is informative because they fail differently. A generalisation worth carrying: **when a
-cross-check is generated from the same template as the check it validates, it is one bug, not two
-checks** — and two different *counts* that a pass records as agreeing deserves the side-by-side
-table above rather than the word "agree".
+So three consecutive passes recorded a cross-check "agreeing" when one side of the agreement was
+the unfiltered total. **The 7 was right by luck, not by validation** — the real check was never run.
+The general form is rule 30's with the emphasis moved from the flag to its *adoption*: a known-bad
+form does not become safe by being cited often, and a cross-check that has been reported as
+passing three times running is the most likely thing in this log to be wrong. The guard is the
+table above, and it is cheap: **when a pass reports two spellings agreeing, print both numbers
+next to each other and one of them must not equal the no-check baseline.** Rule 30 also gives the
+falsifier — a count that grows by one per pass is tracking this log's own commits, not findings.
 
 ### The `88 → 7` discrepancy, left open by pass 81, is resolved: earlier passes were over-reporting
 
@@ -8375,7 +8372,7 @@ from `main`, with pass 76's `head_not_worse_than_pool` gap deliberately funded o
 The efficiency note from pass 81 is now actionable rather than advisory, because this pass showed
 what the sweep costs and what it buys. The at-risk count is **not** a stable series and should not
 be tracked as one; the standing check worth keeping is the cheap one — rule 10's two commands
-(under rule 41's corrected spelling) plus rule 18's index probe, which together cost seconds and
+(under rule 30's corrected spelling) plus rule 18's index probe, which together cost seconds and
 would catch a real loss. The expensive parts — the 180-commit `ls-tree` sweep and the full
 `git fetch` — are what produced this pass's one genuine finding, and are not worth repeating every
 twenty minutes against a repository that has been stable for forty passes. If the human confirms
