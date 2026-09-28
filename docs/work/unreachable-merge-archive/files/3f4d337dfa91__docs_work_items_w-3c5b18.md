@@ -1,0 +1,307 @@
+---
+work_item: true
+id: w-3c5b18
+state: working
+priority: high
+owner: front agent-3c5b18 (running, 5 prompts, steered 2026-09-28T00:28Z by pass coord-5e1f with three integration-blocking defects found by inspection and bounded for terminal delivery; also bounded 00:22Z by coord-9a20 and steered 00:10Z by coord-7f22) / opened and claimed 2026-09-27T23:41Z-23:48Z by coord-1f0d
+updated: 2026-09-28T00:34:00Z
+branch: madgab-thresh-3c5b18
+worktree: /workspace/madgab-thresh-3c5b18
+---
+
+# The discard threshold inside `prune_partials` (case-2 pool absence)
+
+## Goal
+
+The canonical near-homophonic proposal `It's just a stupid game` -> `Hits Justice Dupe Hid Came` is still absent from the executable's approximate proposal set. Four independent fronts have now agreed that the loss is **localised, not objective- or score-shaped**:
+
+- `w-6d2af3` (REJECT as landed) and `w-e086cc` (terminal, `REPORT-e086cc`): six of eight search-coupled fences are weight-coupled, the admissible weight-vector set is empty, and no monotone objective over measurable per-candidate properties can reach the target (`w-3a8c05` priced a lower-bound rank of 1,127).
+- `w-1a4e8d` (`REPORT-1a4e8d`): the coverage reserve axis is closed as a surface - the largest green reduction is 0 slots at cost `+0.0000000000`.
+- `w-3f6a21` (`REPORT-3f6a21`, priced negative): charging an adjacent-slot substitution is worth `0.000000`, because the per-slot cost is already an unconstrained alignment with free end gaps.
+- `w-5c1a3e` (measurement commit `a2e7898` on `madgab-retain-5c1a3e`): `hid` is **not** dropped by the span-shortlist retention policy; it is **rescued at fill #104** and is not pruned by retention. The first place it is actually lost is the discard decision inside `prune_partials` (`src/lib.rs:3454`).
+
+So the remaining surface is a **threshold**, not an axis, a weight, or a ranking rule. This item owns it.
+
+## Scope
+
+Read-only diagnosis first, then a general rule only if it survives its fences.
+
+- Instrument `prune_partials` and its callers to report, for the canonical case-2 input, at what partial index the `hid`-bearing partial is discarded, the discard quantity used at that point, its value, and the value distribution of that quantity over the partials that ARE kept.
+- Price the threshold: what value of the discard quantity would be required for the `hid`-bearing partial to be retained, how many extra partials that admits, and the resulting cost in wall clock, node expansions, DP paths, funded slots, emissions and pool size.
+- If and only if a general rule survives (a derived, budget-derived floor - not a literal constant, not a per-input or per-phrase special case), implement it in `src/lib.rs` with the weight vector, the score function and selection untouched.
+
+## Constraints
+
+- No phrase-specific hard-coding. Nothing that reads the literal input, the literal clue, `hid`, `dupe`, `came` or any canonical sentence. The `no_phrase_hard_coding` fence over `src/` must stay clean.
+- Hold the objective weights, the score function and the selection layer **fixed**. This front is a threshold front; if a general objective repair is needed, say so in the report and file it as a new work item rather than doing it here.
+- Do **not** edit `src/approx.rs` span-shortlist retention or `prune_partials`-adjacent code owned by the running front `agent-5c1a3e` (`madgab-retain-5c1a3e`). This front is `src/lib.rs`; that one is `src/approx.rs`. No self-merge: the front pushes its own branch and a coordinator integrates.
+- Small coherent changes. No rewrite.
+
+## Completion criteria
+
+1. The discard decision that loses the `hid`-bearing partial is **localised by measurement** on integrated `post-milestone-acceptance` - file, function, the quantity compared, the value at the loss point, and the keep-side distribution.
+2. The threshold is **priced**: the required value, the admitted-partial count, and the cost on pool size, wall clock, emissions and the green control (`recognize speech` -> `wreck a nice beach` must not regress; report its pool rank before and after).
+3. A general rule is either implemented with a derived floor and its fences green, or the front records a **priced negative** with the exact reason the threshold cannot be opened without breaking the budget.
+4. `cargo test --release --lib` green on the front branch, plus `no_phrase_hard_coding`, `emit_coverage`, `approximate_output_is_locked`, both determinism suites, and the pool-reach guards. `cargo fmt`/`clippy` cannot run on this host and are not claimed (see `docs/environment-notes.md`).
+5. `docs/work/REPORT-3c5b18.md` pushed on the front branch with per-stage counts and an explicit INTEGRATE/HOLD recommendation, and this work item updated.
+
+## Handoff
+
+Front `agent-3c5b18` launched 2026-09-27T23:47Z by pass `coord-1f0d` in `/workspace/madgab-thresh-3c5b18`
+on branch `madgab-thresh-3c5b18`, created from `post-milestone-acceptance` at `10c4a29`. Left RUNNING for a later
+pass to inspect. Sibling front `agent-5c1a3e` (`w-5c1a3e`) is running on `src/approx.rs` and is expected to
+return a priced negative with the falsified-premise record; its commit `a2e7898` is the localisation this front
+starts from. Umbrella item: `w-4b1e07`.
+
+## Reconciliation pass coord-7f22 (2026-09-28T00:06Z-00:11Z): the sibling front closed, its numbers became this front's price basis
+
+Pass verdict: this front is the only live front, it is healthy, and it was **steered once with two
+durable facts that change what its threshold has to be worth** — not with a plan change. Left RUNNING.
+
+**The sibling front is now terminal and integrated.** `agent-5c1a3e` finished `succeeded` (exit 0,
+4 prompts) at 23:58Z; its `madgab-retain-5c1a3e` head `f132be5` is merged into
+`post-milestone-acceptance` as **`cfe5578`** and pushed, and [w-5c1a3e](w-5c1a3e.md) is `done` as a
+priced negative with `docs/work/REPORT-5c1a3e.md` integrated alongside it. So the front named as this
+item's *predecessor* is closed and its record is on this branch to read.
+
+**Why the steer is load-bearing rather than informational.** The report measured the gap this front
+must price, and it is not the one its premise suggested. The canonical case-2 reading is
+**enumeration-limited, not retention-limited**: at `beam_width` 4096 — 64x the shipped 64 — the pool
+is 20,575 and still does not contain the clue, and the 3-word prefix is not in the top 4096 at
+`p=13`, the best depth-1 candidate there sitting at combined-score rank **2681 of 4878**. A discard
+threshold widened to cover the 104-rank fill headroom that `a2e7898` reports — which is what a
+reader of this item's own premise would price — moves the case by exactly nothing. The steer hands
+over that number, the 14-variant retention sweep showing the retention surface is closed rather than
+merely unfavourable, and the md5-identical case-1 top-50 across all 14 as the control reading.
+
+**Steer delivered at 00:10Z** via `antonina agent prompt --steer --id 3c5b18`; agent `prompts` 2 -> 3
+and `started` re-stamped to 1790554233, so it is running the new instruction. (Operational note for
+future passes: `antonina agent prompt` on a *running* agent refuses with `use --steer to redirect
+it`; `--steer` is the verb. A plain `prompt` against a running agent is not a lost prompt.)
+
+**A defect in the front's own current measurement was flagged rather than inherited.** Its log shows
+`-- beam 64` and `-- beam 1024` each printing **no `prune-stats` line at all**. That is
+indistinguishable, from the outside, from a threshold where the cut never fires. The steer requires
+it to state whether the empty output is a silent filter or a genuine absence, and to re-run
+unfiltered before treating either number as a measurement — a missing line is not a zero, and a
+priced negative built on it would not be a priced one.
+
+**State of the two fronts at this pass's inspection.** `agent-3c5b18`: `running`, alive, 3 prompts,
+~24m, worktree `/workspace/madgab-thresh-3c5b18` on `madgab-thresh-3c5b18` with the branch pushed at
+`ae56734` and an uncommitted `src/lib.rs` plus a modified `examples/zz-probe-3c5b18.rs` — i.e. the
+env-gated probe instrumentation the prior steer asked for, not a production change. It is mid-sweep
+and left running. `agent-5c1a3e`: terminal, integrated above.
+
+**Validation run by the coordinator on the integrated head `cfe5578`** (not inherited):
+`--test no_phrase_hard_coding` **9/9**; `--test corpus_integration` **12 passed / 1 failed**, the
+single failure being the known pre-existing base red `approximate_finds_classic_madgab_resegmentation`,
+whose literals were not touched and which is **not re-pinned**; the integrated new guard
+`approx::tests::a_span_over_budget_keeps_candidates_neither_the_head_nor_its_band_keeps` **passes**.
+Case 1 remains green (`approximate_finds_recognize_speech_resegmentation ... ok`).
+
+**Next action for a fresh pass.** `antonina agent status --id 3c5b18` first, then
+`git -C /workspace/madgab-thresh-3c5b18 log --oneline -3` and `status --short`; the precondition for
+review is a **pushed** commit. On a pushed head, review `docs/work/REPORT-3c5b18.md` for generality
+first — no phrase, clue, word or exact rank in a rule, `no_phrase_hard_coding` 9/9, `corpus_integration`
+12/1 with the known red **not re-pinned**, `--lib` no worse than 76/0/12 (76 now that the retention
+guard is integrated), and `wreck a nice beach` still at or better than display rank 27. On an
+INTEGRATE, verify `git diff --stat <parent> <new> -- src tests examples` line by line before merging,
+since this front's `src/lib.rs` carries probe instrumentation that must not land. Integrate onto
+`post-milestone-acceptance` only, never `main`.
+
+If this front also returns a priced negative on `prune_partials`, the case-2 surface is then closed on
+every coordinate this repository has named, and the correct next move is *not* a sixth front: it is
+a re-measure of the milestone predicate at the executable boundary, followed by general search-quality
+work under the itinerary's standing goal rather than another reach front.
+
+## Reconciliation pass coord-9a20 (2026-09-28T00:22Z-00:25Z): the front was bounded for terminal delivery, not redirected
+
+Pass verdict: the front is healthy and is the only live front, so the useful action was a **bounded
+steer carrying the durable facts that decide whether its sweep can ever pay** — not a new front, and
+not a plan change. Left RUNNING.
+
+**Why no new front, on the obstruction map's own conclusion rather than on capacity.**
+[../OBSTRUCTION-MAP.md](../OBSTRUCTION-MAP.md) section 3 now prices **all three**
+previously-unpriced shapes negative: shape 1 by [../REPORT-3e91a4.md](../REPORT-3e91a4.md)
+(integrated `91c0e35`, a *containment* proof), shape 2 by
+[../REPORT-2f1c03.md](../REPORT-2f1c03.md) (integrated `38361de`, reach-null by 5-6 orders of
+magnitude), shape 3 by `REPORT-9e2b41.md` and `REPORT-5d9c04.md`. The section states "**This section
+is now empty**" and "**case-2 reach is closed as a search-side question**". Any front this pass could
+open on the reserve, width, admission or joint-coverage surfaces would re-derive a priced negative
+that is already durable here, which is the duplication the 00:06Z pass declined and this pass repeats
+with the map as the citation. The host has idle capacity; that is not the reason and is not claimed.
+
+**Steer content, and why it is load-bearing.** (1) The front's cost-fill sweep is a **retention-band**
+change, and the retention surface is closed and *priced*: `w-5c1a3e` measured 14/14 retention-policy
+variants retaining the word and **0/14** reaching the pool, case-1 top-50 md5-identical
+(`d8136a142ac2`) across all fourteen, integrated as `cfe5578`. Its current reading — fill `k/8` needs
+421 and admits 256 at beam 2048, prefix still absent, `best_leading_run=2`, `needle_pool_rank=None`
+at beams 64/1024/2048 — is already the expected face of that closure, so the sweep is confirmatory
+rather than exploratory. (2) `REPORT-3e91a4`'s containment result bounds the shape directly: the walk
+admits `index < cap`, so **every** admitted set under **any** key is a subset of `{0..cap-1}`, and at
+depth 5 `cap = 7` against the canonical's per-slot indices `7/0/13/99/11`, so 4 of 5 words are
+structurally outside the opening width. A wider fill share that merely buys pool is a cost, not a
+reach. (3) The front is given the standing routing: on a confirmed priced negative here, case-2 reach
+is closed on every coordinate this repository has named, and the next move is a re-measure of the
+milestone predicate at the executable boundary plus general search-quality work — **not** a fifth
+reach front.
+
+**Bounded, and the bound is explicit.** The front was told to finish only the two points it had
+already queued (`k/4` and `k/2` at beam 2048) plus the green-control rank before/after, then stop
+widening, then deliver `docs/work/REPORT-3c5b18.md` against completion criteria 1-5 with an explicit
+INTEGRATE/HOLD and every commit marked env-gated and NOT production. A confirmed
+`needle_pool_rank=None` across all beams is to be stated plainly as a priced negative — an accepted
+outcome that closes the last named case-2 surface.
+
+**State at inspection.** `agent-3c5b18`: `running`, alive, `prompts` 3 -> 4, `started` re-stamped, and
+already executing the instruction (its log shows the two fill points and the green-control
+measurement queued). Branch `madgab-thresh-3c5b18` is **pushed at `b870d9a`** — `ae56734` localised
+the loss point, `b870d9a` added the expansion and printed-list counters — with an uncommitted
+`src/lib.rs`, still env-gated instrumentation and not a production change. Remote ref confirmed by
+`git ls-remote`. No integration candidate this pass; the accumulation head is unchanged at `c0d641c`.
+
+**Next action for a fresh pass.** `antonina agent status --id 3c5b18`; on terminal, review
+`docs/work/REPORT-3c5b18.md` for **generality first**, then verify line by line with
+`git diff --stat <parent> <new> -- src tests examples` that no probe instrumentation lands, that
+`no_phrase_hard_coding` is 9/9, that `corpus_integration` is 12/1 with the known base red
+`approximate_finds_classic_madgab_resegmentation` **not re-pinned**, that `--lib` is no worse than
+76/0/12, and that `wreck a nice beach` is still produced at or better than display rank 27. Integrate
+onto `post-milestone-acceptance` only, never `main`. If the verdict is a priced negative, close this
+item `done` and open the executable-boundary re-measure of the milestone predicate as the successor
+work item rather than another reach front.
+
+### Reconciliation pass coord-5e1f (2026-09-28T00:27Z-00:34Z): one steer, three defects found on inspection, no integration candidate
+
+Pass verdict: the front is alive and near delivery, but its worktree is **not** in a state that
+can be reviewed as-is, and its own non-vacuity experiment contradicts the doc comment on the test
+it intends to land. Steered once with those facts. Left RUNNING. No integration candidate. `main`
+untouched.
+
+**State at inspection, verified fresh.** `post-milestone-acceptance` is level with
+`origin/post-milestone-acceptance` (0/0) at `92e2e1b`, worktree clean. `agent-3c5b18`: `running`,
+alive, 4 prompts, ~42m, worktree `/workspace/madgab-thresh-3c5b18`, branch **pushed at `b870d9a`**
+(`git ls-remote` confirmed, this host's narrow refspec again) **plus an uncommitted `src/lib.rs` of
+77 insertions / 3 deletions**. `agent-8f0b3d1`: `running`, alive, 1 prompt, 3m.
+
+**Defect 1 — the front's own non-vacuity mutation did not falsify its test.** From its log: after
+mutating the round-robin to `orders.iter().take(1)` and recompiling (25.94s, so it really did
+rebuild), `beam_admission_is_a_rank_horizon_and_not_a_value_floor` at `src/lib.rs:5057` still
+**passed**. So the test does not currently distinguish the portfolio keep path from a
+single-order fill, and the review cannot certify it as non-vacuous. The test's own doc comment
+(5039-5055) makes "round-robin from the independent axis rankings" the load-bearing reason, which
+the front's own experiment does not support. This is a first-order review blocker, not a nit: a
+fence that cannot be shown to bite is exactly the artifact the itinerary's step 8 warns about.
+
+**Defect 2 — the uncommitted diff is production change, not just instrumentation.** The 77/3 diff
+contains, besides the `ZZ_COST_FILL` env-gated fill: `c % 1000` -> `c % 250` (a real expansion-cost
+change), `while selected.len() < k` -> `< portfolio_cap`, and `if selected.len() == k` ->
+`== portfolio_cap`. Two of those are behaviour changes to the hot loop. A `priced negative` deliverable
+must not carry them, and this queue has already paid one cleanup commit (in `f132be5`) for exactly
+this class of leftover on the sibling front `w-5c1a3e`.
+
+**Defect 3 — the verdict is already decided and is negative, but the front is still hedging.** Its
+own log: widening the cost-fill share makes the canonical 3-word prefix's acoustic rank at `p=13`
+**worse**, 421 -> 1236, with the green control unmoved at printed/pool rank 27, cost 1.59s -> 35.65s
+and 0.99M -> 33.8M expansions. That is a priced negative on the threshold, not an open question.
+
+**Action taken: one `--steer` prompt (prompts 4 -> 5, `started` re-stamped, confirmed by status).**
+It carries all three defects as terminal obligations — prove or weaken the fence test and record
+which mutations were tried, revert every production-line change before committing, re-measure `p=13`
+on the reverted tree as the green control — and restates that case 1 at display rank 27 is the guard
+to protect and that the agent merges nothing itself.
+
+**Cross-front number, flagged provisional until `REPORT-8f0b3d.md` is pushed.** The parallel CLI front
+`agent-8f0b3d1` is measuring the *shipped release binary*, which no load-bearing number on this
+branch has ever been taken from. Its in-flight log reports `wreck a nice beach` at **display rank 27
+of 50, score 0.920**, stable across `--top 1..1000` on `recognize speech`, and
+`hits justice dupe hid came` **absent at every `--top` up to 1000** on `It's just a stupid game`.
+Two consequences for this item: (a) the standing "display 26" figure in the older notes needs
+reconciling against 27, and the review bar is "at or better than 27"; (b) if 1000 does not surface
+case 2, then case 2 is **not** a budget, `top_n` or emission-ceiling artifact at the executable
+boundary, which retires a whole family of knob-shaped explanations that earlier passes could not
+rule out from inside the library.
+
+**Next action for a fresh pass.** `antonina agent status --id 3c5b18`. On terminal the review
+preconditions, in this order: (1) `git -C /workspace/madgab-thresh-3c5b18 status --short` is
+**clean** and `git diff --stat <parent> <new> -- src tests examples` shows **no production-line
+change** in `src/` beyond the new tests; (2) `REPORT-3c5b18.md` names the mutations tried and which
+left the fence green, or the fence's doc comment has been weakened to match; (3) `no_phrase_hard_coding`
+9/9; (4) `corpus_integration` 12/1 with `approximate_finds_classic_madgab_resegmentation` **not
+re-pinned**; (5) `--lib` no worse than 76/0/12; (6) `wreck a nice beach` still at or better than
+display rank 27. On a priced-negative verdict, integrate the report **docs-and-tests only** onto
+`post-milestone-acceptance`, close this item `done`, and record in [w-4b1e07](w-4b1e07.md) that every
+named case-2 search coordinate is now closed. Never `main`.
+
+---
+
+# Outcome — agent-3c5b18 (closed 2026-09-28T00:45Z): **HOLD**, a priced negative
+
+`docs/work/REPORT-3c5b18.md` is on `madgab-thresh-3c5b18`. All five completion
+criteria are met. Summary of the durable result, so a later pass does not re-run it:
+
+1. **Criterion 1 — localised by measurement.** `prune_partials`, `src/lib.rs:3443`
+   (the item's `:3454` is the same function on this base). The quantity compared
+   is **not a value**: the keep path has no scalar threshold, it admits by cell
+   protection (≤ 2 per structural cell, capped at `k/2`) plus a **seven-way
+   round-robin**, so the effective gate is a **rank horizon of ≈ `k/7`**. Value at
+   the loss point vs the keep-side value floor: **0.484 vs 0.250** at beam 64
+   (one-word prefix, `p=3`, best order rank 22 against a horizon of 9);
+   **0.552 vs 0.381** at beam 1024 (`p=10`, best rank 142 against 146);
+   **0.555 vs 0.402** at beam 2048 (`p=13`, best rank 421 against 293). The
+   reading's value is far **above** the keep floor in every row, which is the
+   measured reason no value threshold is the lever.
+2. **Criterion 2 — priced.** Required value ≈ `7r` beam slots per position, `r` =
+   best order rank: **154 / 994 / 2,947** for the first three hops, and the
+   requirement grows rather than shrinks. `k` sweep 64 → 2048 (8 points): pool
+   19,231 → 19,441 (**+1.1 %**), wall clock **1.20 s → 25.94 s (21.6×)**, candidate
+   expansions **1,088,828 → 27,544,801 (25.3×)**, emissions unchanged by
+   construction (the beam does not read any emission budget), DP paths and funded
+   slots untouched, case-2 clue **absent at 8 of 8** (confirmed, not a silent
+   absence), best leading run pinned at 2 of 5 at 8 of 8. Green control
+   `recognize speech` → `wreck a nice beach`: **pool/display rank 27** at base and
+   **27** on the delivered tree, printed mean score 0.919653909 → 0.919709397 under
+   the widest priced variant, for 22.4× wall clock and 34.3× expansions.
+3. **Criterion 3 — priced negative, no rule implemented.** The one candidate with
+   the right character (a budget-derived cost-ordered fill, the same shape as the
+   retention policy's third stage) was priced at shares `k/8`, `k/4`, `k/2` on beam
+   2048: the three-word prefix stays rejected, and its own best-order rank goes
+   **421 → 1236** as the fill widens — the fill buys coverage (+0.3 % pool) and
+   cost (+69 % wall clock) and buys nothing on the reading, because the extra
+   admitted partials crowd the very prefix it was opened for.
+4. **Criterion 4 — fences green.** `--lib` **76/0/12** (75 at base, +1 the new
+   test), `no_phrase_hard_coding` **9/9**, `emit_coverage` **7/7**,
+   `approx_determinism` **4/4**, `exact_determinism` **1/1**, `corpus_integration`
+   **12 passed / 1 failed** (the known pre-existing base red
+   `approximate_finds_classic_madgab_resegmentation`, untouched and not re-pinned),
+   pool-reach guards 3/3, output lock ok, representation fence ok, case-1 fence ok.
+   `cargo fmt` / `clippy` / doctests cannot run on this host and are **not claimed**.
+5. **Criterion 5 —** this item and `REPORT-3c5b18.md` pushed on
+   `madgab-thresh-3c5b18`.
+
+**Delivered diff: `src/lib.rs` +55 lines, 0 deletions** — one test,
+`beam_retention_is_a_portfolio_and_not_a_value_floor`, and its comment. All
+env-gated instrumentation, the `ZZ_COST_FILL` experiment, the `trace_pos`
+parameter and the probe example are **reverted**; the interim commits `0779260`
+and `b870d9a` are labelled NOT production and are superseded by the revert, so a
+reviewer should take the final tree. Non-vacuity is reported honestly: the test
+goes **red** when cell protection is disabled *and* the fill is reduced to the
+`combined` order, and stays **green** when only the fill is reduced, so it claims
+"not a value floor" and does not claim to isolate the round-robin.
+
+**Corrections recorded rather than reconciled.** `REPORT-5c1a3e` §2 reads that at
+`beam_width 64` the one-word prefix "is not in the surviving 64 at `p=3`"; measured
+here it **is** in the surviving set in the first two prune calls at `p=3` and is
+discarded in the third (best order rank 22 acoustic against a horizon of 9). The
+localisation is unchanged; only the single-call reading of `p=3` differs.
+`agent-8f0b3d1`'s CLI reading of case 1 at display rank 27 agrees with this front's
+27; the standing notes' 26 is left unreconciled, as instructed.
+
+**Successor rule, one line:** the case-2 beam prune is closed as a surface —
+`prune_partials` admits by a seven-way rank horizon of `k/7` and by no value
+threshold, and the beam budget is not a coverage lever (32× budget, +1.1 % pool,
+reading still absent) — so **the next case-2 front must be named on a surface this
+one did not touch, and must not be another beam-budget or band-ordering front.**
+
+Umbrella item: `w-4b1e07`. A coordinator integrates; nothing was self-merged and
+`main` was not touched.
+

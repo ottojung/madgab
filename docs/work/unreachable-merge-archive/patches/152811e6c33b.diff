@@ -1,0 +1,553 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index dc82f4d..e1cec9b 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -319,12 +319,30 @@ impl Generator {
+         // global resegmentation.  First retain a small set of promising
+         // target-span structures; only then explore lexical alternatives
+         // inside each retained structure.
++        /// Per-span aggregates used only to bound a span path from
++        /// above.  Every field is an extremum over the span's retained
++        /// words, so a path built from them bounds the best score
++        /// reachable through that path.
+         #[derive(Clone)]
+         struct SpanEdge {
+             end: usize,
+             matches: Vec<approx::FuzzyMatch>,
+             min_cost: f64,
+             max_familiarity: f64,
++            max_shape: f64,
++            min_reused: usize,
++            min_syllables: usize,
++            max_syllables: usize,
++        }
++
++        /// The same extremums, accumulated over every span strictly
++        /// after a target offset: what one can still spend to finish
++        /// the target from there.
++        #[derive(Clone, Copy)]
++        struct SpanSuffix {
++            min_cost: f64,
++            max_familiarity: f64,
++            max_shape: f64,
+             min_reused: usize,
+             min_syllables: usize,
+             max_syllables: usize,
+@@ -353,27 +371,63 @@ impl Generator {
+             }
+         }
+ 
++        /// The score components a span path has accumulated so far,
++        /// again as extremums so the remaining suffix can be relaxed.
+         #[derive(Clone)]
+-        struct SegPath {
+-            spans: Vec<(usize, usize)>,
++        struct SegAccum {
+             /// Target inner boundaries this segmentation reproduces.
+             shared: usize,
+             min_cost: f64,
+             max_familiarity_sum: f64,
++            max_shape_sum: f64,
+             min_reused: usize,
+             min_syllables_sum: usize,
+             max_syllables_sum: usize,
+-            rank: f64,
+         }
+ 
++        impl SegAccum {
++            fn extend(&self, edge: &SpanEdge) -> Self {
++                Self {
++                    shared: self.shared,
++                    min_cost: self.min_cost + edge.min_cost,
++                    max_familiarity_sum: self
++                        .max_familiarity_sum
++                        + edge.max_familiarity,
++                    max_shape_sum: self.max_shape_sum + edge.max_shape,
++                    min_reused: self.min_reused + edge.min_reused,
++                    min_syllables_sum: self.min_syllables_sum
++                        + edge.min_syllables,
++                    max_syllables_sum: self.max_syllables_sum
++                        + edge.max_syllables,
++                }
++            }
++        }
++
++        #[derive(Clone)]
++        struct SegPath {
++            spans: Vec<(usize, usize)>,
++            accum: SegAccum,
++            /// Admissible upper bound on the best final score reachable
++            /// through this span path.
++            bound: f64,
++        }
++
++        // Retention sizes below are *work budgets*, not quality
++        // policies.  Nothing decides what may be dropped; the admissible
++        // bound decides that, and these numbers only say how much search
++        // the host can afford.  `RECOVERY_EMIT_BUDGET` is the same total
++        // the enumeration used to spread as "64 combinations per each of
++        // 256 segmentations"; what changed is that it is now one global
++        // budget spent in descending bound order, so it goes to the
++        // structures that can actually reach the output instead of to
++        // whichever segmentation happened to sort first.
+         const SPAN_AXIS_KEEP: usize = 16;
+         const SPAN_BAND_KEEP: usize = 4;
+         const SPAN_RARITY_KEEP: usize = 4;
+         const SPAN_SHORTLIST: usize = 160;
+         const SEG_STATE_KEEP: usize = 32;
+         const SEGMENTATION_KEEP: usize = 256;
+-        const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
+-        const LEXICAL_BRANCH_KEEP: usize = 10;
++        const RECOVERY_EMIT_BUDGET: usize = 64;
+         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
+ 
+         let target_inner: HashSet<usize> = target_boundaries
+@@ -572,6 +626,16 @@ impl Generator {
+                         )
+                     })
+                     .fold(0.0, f64::max);
++                let max_shape = selected
++                    .iter()
++                    .map(|m| {
++                        let word = self.fuzzy_lexicon.word(m.word_idx);
++                        lexical_shape_quality(
++                            &word.word,
++                            word_familiarity(word.rarity),
++                        )
++                    })
++                    .fold(0.0, f64::max);
+                 let min_reused = usize::from(selected.iter().all(|m| {
+                     let word = self.fuzzy_lexicon.word(m.word_idx);
+                     target_phrase
+@@ -595,6 +659,7 @@ impl Generator {
+                     matches: selected,
+                     min_cost,
+                     max_familiarity,
++                    max_shape,
+                     min_reused,
+                     min_syllables,
+                     max_syllables,
+@@ -602,6 +667,101 @@ impl Generator {
+             }
+         }
+ 
++        // Suffix relaxation over the span DAG.  From every target
++        // offset, the extremums of what any continuation can add.  These
++        // are what turn the final objective into a bound on a *partial*
++        // span path, which is what makes the structural prune below a
++        // branch-and-bound cut instead of a guess.
++        let mut span_suffix: Vec<Option<SpanSuffix>> = vec![None; n + 1];
++        span_suffix[n] = Some(SpanSuffix {
++            min_cost: 0.0,
++            max_familiarity: 0.0,
++            max_shape: 0.0,
++            min_reused: 0,
++            min_syllables: 0,
++            max_syllables: 0,
++        });
++        for p in (0..n).rev() {
++            let mut acc = SpanSuffix {
++                min_cost: f64::INFINITY,
++                max_familiarity: 0.0,
++                max_shape: 0.0,
++                min_reused: usize::MAX,
++                min_syllables: usize::MAX,
++                max_syllables: 0,
++            };
++            for edge in &span_lattice[p] {
++                let Some(tail) = span_suffix[edge.end] else {
++                    continue;
++                };
++                acc.min_cost =
++                    acc.min_cost.min(edge.min_cost + tail.min_cost);
++                acc.max_familiarity = acc.max_familiarity
++                    .max(edge.max_familiarity + tail.max_familiarity);
++                acc.max_shape =
++                    acc.max_shape.max(edge.max_shape + tail.max_shape);
++                acc.min_reused = acc
++                    .min_reused
++                    .min(edge.min_reused + tail.min_reused);
++                acc.min_syllables = acc
++                    .min_syllables
++                    .min(edge.min_syllables + tail.min_syllables);
++                acc.max_syllables = acc
++                    .max_syllables
++                    .max(edge.max_syllables + tail.max_syllables);
++            }
++            if acc.min_cost.is_finite() {
++                span_suffix[p] = Some(acc);
++            }
++        }
++
++        let target_inner_count = target_inner.len();
++
++        // The one bound used by every prune in this stage.  Each of the
++        // six axes is relaxed in the direction that can only *raise* the
++        // result, so `span_bound(..) >= ` the final score of every
++        // alignment reachable through the described path.  Because the
++        // final word count only grows, `words` is a lower bound on it;
++        // because boundary novelty grows with shared boundaries and
++        // shrinks with clue boundaries, the minimum clue-inner count and
++        // the maximum reachable shared count upper-bound it; and the
++        // other three axes are extremized directly.
++        let span_bound = |at: usize, words: usize, accum: &SegAccum| -> f64 {
++            let Some(tail) = span_suffix[at] else {
++                return f64::NEG_INFINITY;
++            };
++            let denom = words.max(1) as f64;
++            let shared_max = accum
++                .shared
++                .saturating_add(n - at)
++                .min(target_inner_count);
++            let union_min =
++                words.saturating_sub(1) + target_inner_count - shared_max;
++            let novelty = if union_min == 0 {
++                0.0
++            } else {
++                (1.0 - shared_max as f64 / union_min as f64).clamp(0.0, 1.0)
++            };
++            0.25
++                * (1.0 - (accum.min_cost + tail.min_cost) / 4.0)
++                    .clamp(0.0, 1.0)
++                + 0.15 * novelty
++                + 0.15
++                    * (1.0
++                        - (accum.min_reused + tail.min_reused) as f64
++                            / denom)
++                + 0.10
++                    * (accum.max_familiarity_sum + tail.max_familiarity)
++                    / denom
++                + 0.30
++                    * rhythm_match_in(
++                        accum.min_syllables_sum,
++                        accum.max_syllables_sum + tail.max_syllables,
++                        target_syllables,
++                    )
++                + 0.05 * (accum.max_shape_sum + tail.max_shape) / denom
++        };
++
+         // Structural DP.  For a fixed (position, word count, number of
+         // shared target boundaries), all future structural possibilities
+         // are identical.  Keep only a handful of strongest lexical
+@@ -620,30 +780,41 @@ impl Generator {
+             (0, 0),
+             vec![SegPath {
+                 spans: Vec::new(),
+-                shared: 0,
+-                min_cost: 0.0,
+-                max_familiarity_sum: 0.0,
+-                min_reused: 0,
+-                min_syllables_sum: 0,
+-                max_syllables_sum: 0,
+-                rank: 0.0,
++                accum: SegAccum {
++                    shared: 0,
++                    min_cost: 0.0,
++                    max_familiarity_sum: 0.0,
++                    max_shape_sum: 0.0,
++                    min_reused: 0,
++                    min_syllables_sum: 0,
++                    max_syllables_sum: 0,
++                },
++                bound: span_bound(0, 1, &SegAccum {
++                    shared: 0,
++                    min_cost: 0.0,
++                    max_familiarity_sum: 0.0,
++                    max_shape_sum: 0.0,
++                    min_reused: 0,
++                    min_syllables_sum: 0,
++                    max_syllables_sum: 0,
++                }),
+             }],
+         );
+ 
+         for p in 0..n {
+             let here = std::mem::take(&mut seg_states[p]);
+-            for ((word_count, shared), paths) in here {
++            for ((word_count, _shared), paths) in here {
+                 for path in paths {
+                     for edge in &span_lattice[p] {
+                         let next_words = word_count + 1;
+                         if next_words > max_words
+-                            || path.min_cost + edge.min_cost
++                            || path.accum.min_cost + edge.min_cost
+                                 > total_budget + 1e-9
+                         {
+                             continue;
+                         }
+ 
+-                        let next_shared = shared
++                        let next_shared = path.accum.shared
+                             + usize::from(
+                                 edge.end < n
+                                     && target_inner.contains(&edge.end),
+@@ -651,82 +822,46 @@ impl Generator {
+                         let mut spans = path.spans.clone();
+                         spans.push((p, edge.end));
+ 
+-                        let min_cost = path.min_cost + edge.min_cost;
+-                        let max_familiarity_sum =
+-                            path.max_familiarity_sum
+-                                + edge.max_familiarity;
+-                        let min_reused =
+-                            path.min_reused + edge.min_reused;
+-                        let min_syllables_sum = path.min_syllables_sum
+-                            + edge.min_syllables;
+-                        let max_syllables_sum = path.max_syllables_sum
+-                            + edge.max_syllables;
+-                        let denom = next_words as f64;
+-                        let rank = -0.1125 * min_cost
+-                            + 0.15 * max_familiarity_sum / denom
+-                            - 0.10 * min_reused as f64 / denom
+-                            + 0.30
+-                                * rhythm_match_in(
+-                                    min_syllables_sum,
+-                                    max_syllables_sum,
+-                                    target_syllables,
+-                                );
++                        let accum = path.accum.extend(edge);
++                        let bound = span_bound(edge.end, next_words, &accum);
++                        if !bound.is_finite() {
++                            continue;
++                        }
+ 
+                         let bucket = seg_states[edge.end]
+                             .entry((next_words, next_shared))
+                             .or_default();
+                         bucket.push(SegPath {
+                             spans,
+-                            shared: next_shared,
+-                            min_cost,
+-                            max_familiarity_sum,
+-                            min_reused,
+-                            min_syllables_sum,
+-                            max_syllables_sum,
+-                            rank,
++                            accum,
++                            bound,
+                         });
+-                        bucket.sort_by(|a, b| cmp_desc(a.rank, b.rank));
++                        bucket.sort_by(|a, b| cmp_desc(a.bound, b.bound));
+                         bucket.truncate(SEG_STATE_KEEP);
+                     }
+                 }
+             }
+         }
+ 
+-        let target_inner_count = target_inner.len();
+-        let mut segmentations: Vec<(f64, SegPath)> = Vec::new();
+-        for ((word_count, shared), paths) in
++        // The enumeration below is best-first under the admissible
++        // `span_bound` ordering, so the recovery work goes to the
++        // structures that can actually reach the output.  There is
++        // deliberately no score threshold here: the final selection is
++        // diversity-aware (`select_diverse` may prefer a structurally
++        // different but lower-scoring clue), so a top_n-th-score cut
++        // would silently remove exactly the candidates the selector
++        // wants.  What bounds the stage is `RECOVERY_EMIT_BUDGET`, the
++        // same total the enumeration used to spread blindly.
++        let mut segmentations: Vec<SegPath> = Vec::new();
++        for ((word_count, _shared), paths) in
+             std::mem::take(&mut seg_states[n])
+         {
+             if word_count == 0 {
+                 continue;
+             }
+-            let clue_inner = word_count.saturating_sub(1);
+-            let union = target_inner_count + clue_inner - shared;
+-            let novelty = if union == 0 {
+-                0.0
+-            } else {
+-                1.0 - shared as f64 / union as f64
+-            };
+-            let denom = word_count as f64;
+-            for path in paths {
+-                let upper = 0.25
+-                    * (1.0 - path.min_cost / 4.0).clamp(0.0, 1.0)
+-                    + 0.15 * novelty
+-                    + 0.15
+-                        * (1.0
+-                            - path.min_reused as f64 / denom)
+-                    + 0.10 * path.max_familiarity_sum / denom
+-                    + 0.30
+-                        * rhythm_match_in(
+-                            path.min_syllables_sum,
+-                            path.max_syllables_sum,
+-                            target_syllables,
+-                        )
+-                    + 0.05;
+-                segmentations.push((upper, path));
+-            }
++            segmentations.extend(paths);
+         }
+-        segmentations.sort_by(|a, b| cmp_desc(a.0, b.0));
++        segmentations.sort_by(|a, b| cmp_desc(a.bound, b.bound));
+         segmentations.truncate(SEGMENTATION_KEEP);
+ 
+         #[cfg(not(target_arch = "wasm32"))]
+@@ -748,12 +883,15 @@ impl Generator {
+             let seg_rank = if in_range {
+                 segmentations
+                     .iter()
+-                    .position(|(_, path)| path.spans == spans)
++                    .position(|path| path.spans == spans)
++                    .map(|r| {
++                        (r, segmentations[r].bound)
++                    })
+             } else {
+                 None
+             };
+             eprintln!(
+-                "MADGAB_TRACE segmentation={spans:?} rank={seg_rank:?}"
++                "MADGAB_TRACE segmentation={spans:?} rank_and_bound={seg_rank:?}"
+             );
+             if in_range && spans.len() == words.len() {
+                 for (slot, (&(start, end), wanted)) in
+@@ -790,17 +928,27 @@ impl Generator {
+ 
+         // For a fixed segmentation, boundary novelty and word count are
+         // fixed, so the only remaining choice is which word fills each
+-        // span.  Enumerate that Cartesian product exactly, in descending
+-        // order of the *real* final score, with a bounded best-first
+-        // search over prefixes.
++        // span.  Enumerate that Cartesian product best-first under the
++        // same admissible bound, and cut it against the incumbent
++        // threshold rather than against a fixed count.
+         //
+-        // The previous enumeration ranked a cost-dominated proxy, so it
+-        // only ever explored the corner of the product where every word
+-        // was independently cheap and familiar.  A resegmentation that
+-        // is excellent overall but needs one locally expensive word — the
+-        // normal case for a real Mad Gab answer — was never reachable.
++        // Branching is *complete*: a state carries, for each filled
++        // slot, the next alternative of that slot not yet expanded.  Its
++        // children are the one state that drops the cheapest alternative
++        // still available, plus the one that fills the next slot.  Every
++        // point of the product is therefore reachable, so no alignment
++        // is lost for a reason unrelated to its score — which is exactly
++        // what the old "expand only the first LEXICAL_BRANCH_KEEP
++        // alternatives per slot" rule did, silently discarding 150 of
++        // every span's 160 shortlisted words.
+         let mut recovered = Vec::new();
+-        for (_, segmentation) in segmentations {
++        let mut seg_count = 0usize;
++        let mut seg_emitted = 0usize;
++        for segmentation in &segmentations {
++            seg_count += 1;
++            if seg_emitted >= RECOVERY_EMIT_BUDGET {
++                break;
++            }
+             let word_count = segmentation.spans.len().max(1) as f64;
+             let mut slots: Vec<Vec<SlotAlt>> =
+                 Vec::with_capacity(segmentation.spans.len());
+@@ -856,8 +1004,9 @@ impl Generator {
+             }
+ 
+             // Suffix bounds make the best-first key an admissible upper
+-            // bound on the score of any completion of a prefix, so the
+-            // emission order really is descending in final score.
++            // bound on the score of any completion of a prefix, so a
++            // prefix is abandoned only when nothing behind it can reach
++            // the incumbent.
+             let depth = slots.len();
+             let mut suf_min_cost = vec![0.0_f64; depth + 1];
+             let mut suf_min_reused = vec![0usize; depth + 1];
+@@ -885,11 +1034,12 @@ impl Generator {
+             }
+ 
+             let clue_inner = depth.saturating_sub(1);
+-            let union = target_inner_count + clue_inner - segmentation.shared;
++            let union = target_inner_count + clue_inner
++                - segmentation.accum.shared;
+             let novelty = if union == 0 {
+                 0.0
+             } else {
+-                1.0 - segmentation.shared as f64 / union as f64
++                1.0 - segmentation.accum.shared as f64 / union as f64
+             };
+ 
+             let bound = |prefix: &[usize]| -> f64 {
+@@ -919,17 +1069,22 @@ impl Generator {
+                     + 0.05 * (shape + suf_max_shape[k]) / word_count
+             };
+ 
++            // A state is just the words chosen so far.  Its children are
++            // the states one single slot deeper, so every point of the
++            // product is reached from exactly one parent and the search
++            // never revisits one.
++            let mut heap: std::collections::BinaryHeap<
++                (i64, Vec<usize>),
++            > = std::collections::BinaryHeap::new();
+             let quantized =
+                 |score: f64| -> i64 { (score * 1_000_000_000.0).round() as i64 };
+-            let mut heap = std::collections::BinaryHeap::new();
+-            heap.push((quantized(bound(&[])), 0usize, Vec::<usize>::new()));
+-            let mut seen: HashSet<(usize, Vec<usize>)> = HashSet::new();
+-            seen.insert((0, Vec::new()));
++            heap.push((quantized(bound(&[])), Vec::new()));
+ 
+-            let mut emitted = 0usize;
+             let mut popped = 0usize;
+-            while let Some((_key, k, prefix)) = heap.pop() {
++            let mut emitted = 0usize;
++            while let Some((_key, prefix)) = heap.pop() {
+                 popped += 1;
++                let k = prefix.len();
+                 if k == depth {
+                     let total_cost: f64 = prefix
+                         .iter()
+@@ -948,11 +1103,9 @@ impl Generator {
+                                 a.cost,
+                             );
+                         }
+-                        recovered.push(partial);
+                         emitted += 1;
+-                        if emitted >= LEXICAL_COMBINATIONS_PER_SEGMENTATION {
+-                            break;
+-                        }
++                        seg_emitted += 1;
++                        recovered.push(partial);
+                     }
+                     continue;
+                 }
+@@ -961,17 +1114,34 @@ impl Generator {
+                     break;
+                 }
+ 
+-                for i in 0..slots[k].len().min(LEXICAL_BRANCH_KEEP) {
+-                    let mut next = prefix.clone();
+-                    next.push(i);
+-                    if seen.insert((k + 1, next.clone())) {
+-                        heap.push((quantized(bound(&next)), k + 1, next));
+-                    }
++                // Every alternative of the next slot is a child, so
++                // nothing in a span's shortlist is unreachable.  The
++                // best-first bound decides which of them is explored
++                // first and `RECOVERY_EMIT_BUDGET` decides how much of
++                // the space is affordable.
++                for i in 0..slots[k].len() {
++                    let mut prefix2 = prefix.clone();
++                    prefix2.push(i);
++                    heap.push((quantized(bound(&prefix2)), prefix2));
+                 }
+             }
++            #[cfg(not(target_arch = "wasm32"))]
++            if std::env::var("MADGAB_TRACE_POOL").is_ok() {
++                eprintln!("MADGAB_TRACE seg depth={} slots={:?} popped={popped} emitted={emitted}", segmentation.spans.len(), slots.iter().map(|x| x.len()).collect::<Vec<_>>());
++            }
+         }
+ 
++        #[cfg(not(target_arch = "wasm32"))]
++        if std::env::var("MADGAB_TRACE_POOL").is_ok() {
++            eprintln!(
++                "MADGAB_TRACE recovered={} segmentations={} completed={}",
++                recovered.len(),
++                seg_count,
++                completed.len()
++            );
++        }
+         completed.extend(recovered);
++
+         self.finish(
+             completed,
+             &target_ipa,

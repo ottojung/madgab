@@ -1,0 +1,299 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index a580852..bbf7915 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -3947,29 +3947,31 @@ mod tests {
+ 
+     /// The reserve and the traversal draw on one per-segmentation allowance,
+     /// so this front's width is not additive with the reserve's spend.  The
+-    /// arithmetic the two share is the opening width itself, and it is
++    /// arithmetic the two share is the traversal's *opening width*, and it is
+     /// asserted here so a change to one that silently changes the other is
+     /// caught at the arithmetic rather than in a pool size.
+     #[test]
+-    fn the_reserve_ladder_and_the_width_schedule_share_one_width() {
+-        // The first rung is the opening width, so the reserve's shallowest
+-        // profile is the first thing the traversal would have emitted.
+-        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
+-        // Every rung is a width the traversal could in principle open, and
+-        // the deepest is past the widest list, so the reserve always spends
+-        // at the far end of some slot.
+-        assert!(EMIT_DEEP_INDEX_LADDER[1] > LEXICAL_BRANCH_STAGE_0);
+-        assert!(EMIT_DEEP_INDEX_LADDER[3] >= SPAN_SHORTLIST);
+-        // The stages the schedule can open are exactly the widths between
+-        // the opening width and the widest list, so no rung is a width the
+-        // traversal can spend and the reserve cannot.
+-        let mut cap = LEXICAL_BRANCH_STAGE_0;
+-        while let Some(wider) = next_branch_stage(cap, SPAN_SHORTLIST) {
+-            assert!(
+-                !EMIT_DEEP_INDEX_LADDER.contains(&wider) || wider == SPAN_SHORTLIST,
+-                "a ladder rung and an openable width coincide at {wider}"
+-            );
+-            cap = wider;
++    fn the_coverage_sweep_starts_where_the_traversal_stops() {
++        // Every index the reserve can spend is one the traversal's first
++        // stage cannot generate, and the reserve can reach the deepest
++        // alternative the widest list has.  So the reserve's spend is
++        // coverage and not a re-run of the traversal.
++        for width in 0..=SPAN_SHORTLIST {
++            for phase in 0..SPAN_SHORTLIST {
++                let Some(at) = sweep_index(width, 16, phase, phase) else {
++                    assert!(
++                        width <= LEXICAL_BRANCH_STAGE_0,
++                        "width {width} has no index the traversal misses"
++                    );
++                    continue;
++                };
++                assert!(
++                    at >= LEXICAL_BRANCH_STAGE_0,
++                    "width {width}: reserve spent at {at}, which the \
++                     traversal's first stage already generates"
++                );
++                assert!(at < width, "width {width}: reserve walked off the end");
++            }
+         }
+     }
+ 
+@@ -4016,63 +4018,41 @@ mod tests {
+         }
+     }
+ 
+-    /// The depth-profile reserve is bounded by named arithmetic, and the
++    /// The coverage reserve is bounded by named arithmetic, and the
+     /// arithmetic is the whole of the mechanism.
+     ///
+-    /// Three claims.  The ladder is ordered and starts at the traversal's
+-    /// own branch width, so no rung re-spends the allowance on a tuple the
+-    /// traversal already emits; its top rung is above the shortlist, so the
+-    /// deepest rung is always the deepest alternative a slot has.  The
+-    /// reserve is a strict fraction of the per-segmentation allowance, so
+-    /// ordinary quality keeps the majority of it.  And the candidate list
+-    /// a segmentation may draw from is bounded by the ladder times the
+-    /// number of slot subsets, which is what keeps the rule from needing
+-    /// an unbounded pool to work.
++    /// Four claims.  The reserve is a strict fraction of the per-segmentation
++    /// allowance, so ordinary quality keeps the majority of it.  Every index
++    /// it spends is one the traversal's first stage cannot generate.  Its
++    /// candidate list is bounded by the number of slot subsets, which is what
++    /// keeps the rule from needing an unbounded pool to work.  And its sweep
++    /// is *uniform over the slot's list*: a systematic sample that leaves the
++    /// interval between two sampled indices unsampled is not a sample, and
++    /// that is the defect this rule exists to remove.
+     #[test]
+     fn depth_profile_reserve_is_bounded_by_named_arithmetic() {
+-        assert_eq!(EMIT_DEEP_INDEX_LADDER[0], LEXICAL_BRANCH_STAGE_0);
+-        assert!(
+-            EMIT_DEEP_INDEX_LADDER
+-                .windows(2)
+-                .all(|w| w[0] < w[1]),
+-            "the deep-index ladder must be strictly increasing"
+-        );
+-        assert!(
+-            *EMIT_DEEP_INDEX_LADDER.last().unwrap() >= SPAN_SHORTLIST,
+-            "the top rung must be past the shortlist, so it is always the \
+-             deepest alternative a slot has"
+-        );
+         assert!(
+             EMIT_PROFILE_RESERVE > 0
+                 && EMIT_PROFILE_RESERVE < LEXICAL_COMBINATIONS_PER_SEGMENTATION
+-                / 2,
++                    / 2,
+             "the reserve is a part of the allowance, not all of it"
+         );
+         assert!(EMIT_PROFILE_MAX_DEEP >= 1 && EMIT_PROFILE_MAX_DEEP <= 4);
+ 
+         // The reserve is carved out of `emit_allowance` and the traversal
+         // is handed the remainder, so the per-segmentation total is
+-        // unchanged whatever the profiles manage to afford.
++        // unchanged whatever the reserve manages to afford.
+         for emit_allowance in 1..=LEXICAL_COMBINATIONS_PER_SEGMENTATION {
+             let profile_allowance = EMIT_PROFILE_RESERVE.min(emit_allowance);
+             for spent in 0..=profile_allowance {
+-                assert!(
+-                    spent + emit_allowance - spent <= emit_allowance,
+-                    "profiles and traversal overshot {emit_allowance}"
+-                );
+                 assert_eq!(spent + (emit_allowance - spent), emit_allowance);
+             }
+         }
+ 
+-        // The candidate list is bounded by the named ladder and by the
+-        // slot subsets, and never exceeds them.
++        // The candidate list is bounded by the number of slot subsets, and
++        // never exceeds the reserve or that bound.
+         for depth in 1..=24usize {
+             let widths = vec![SPAN_SHORTLIST; depth];
+-            let tuples = profile_tuples(
+-                &widths,
+-                &EMIT_DEEP_INDEX_LADDER,
+-                EMIT_PROFILE_MAX_DEEP,
+-            );
+             let classes: usize = (1..=EMIT_PROFILE_MAX_DEEP.min(depth))
+                 .map(|k| {
+                     let mut c = 1usize;
+@@ -4082,50 +4062,91 @@ mod tests {
+                     c
+                 })
+                 .sum();
+-            let rungs = EMIT_DEEP_INDEX_LADDER
+-                .iter()
+-                .filter(|&&r| r < SPAN_SHORTLIST)
+-                .count();
+-            let bound = rungs * classes;
+-            assert_eq!(tuples.len(), bound, "depth {depth}");
+-            // Every profile slot is one of the ladder's rungs and every
+-            // other slot keeps the traversal's own best index, so a
+-            // profile never displaces a coordinate the traversal has
+-            // already settled.
+-            for tuple in &tuples {
+-                let deep: Vec<usize> = tuple
++            for phase in 0..64usize {
++                let tuples = coverage_tuples(
++                    &widths,
++                    EMIT_PROFILE_RESERVE,
++                    EMIT_PROFILE_MAX_DEEP,
++                    phase,
++                );
++                assert!(tuples.len() <= EMIT_PROFILE_RESERVE, "depth {depth}");
++                assert!(tuples.len() <= classes, "depth {depth}");
++                for tuple in &tuples {
++                    let deep: Vec<usize> = tuple
++                        .iter()
++                        .copied()
++                        .filter(|&i| i != 0)
++                        .collect();
++                    assert!(!deep.is_empty(), "{tuple:?} is not a profile");
++                    // Every index spent is one the traversal's own first
++                    // stage cannot generate, and no coordinate walks off
++                    // the end of its own list.
++                    assert!(
++                        deep.iter()
++                            .all(|&i| i >= LEXICAL_BRANCH_STAGE_0),
++                        "{tuple:?} re-spent the traversal's own width"
++                    );
++                    for (slot, &i) in tuple.iter().enumerate() {
++                        assert!(i < widths[slot], "slot {slot} of {tuple:?}");
++                    }
++                    // The deep coordinates of a subset share one index, and
++                    // every other slot keeps the traversal's own best.
++                    assert!(deep.windows(2).all(|w| w[0] == w[1]));
++                }
++                // Breadth before depth: a reserve smaller than the number
++                // of single-slot classes still touches every slot.
++                let singles: HashSet<usize> = tuples
+                     .iter()
+-                    .copied()
+-                    .filter(|&i| i != 0)
++                    .filter(|t| t.iter().filter(|&&i| i != 0).count() == 1)
++                    .map(|t| t.iter().position(|&i| i != 0).unwrap())
+                     .collect();
+-                assert!(!deep.is_empty(), "{tuple:?} is not a profile");
+-                assert!(
+-                    deep.iter().all(|&i| EMIT_DEEP_INDEX_LADDER.contains(&i)),
+-                    "{tuple:?} uses an index off the ladder"
+-                );
+-                assert!(deep.windows(2).all(|w| w[0] == w[1]));
++                if depth <= EMIT_PROFILE_RESERVE {
++                    assert_eq!(
++                        singles.len(),
++                        depth,
++                        "depth {depth} phase {phase}: {tuples:?}"
++                    );
++                }
+             }
+-            assert!(tuples.windows(2).all(|w| {
+-                w[0].iter().copied().max().unwrap_or(0)
+-                    >= w[1].iter().copied().max().unwrap_or(0)
+-            }));
+         }
+ 
+-        // A slot too short for a rung drops that profile rather than
+-        // inventing an index, so the rule cannot walk off the end of a
+-        // list.
++        // A slot no wider than the traversal's opening width drops out
++        // rather than inventing an index, so the rule cannot walk off the
++        // end of a list.
+         let widths = [3usize, LEXICAL_BRANCH_STAGE_0 * 2];
+-        for tuple in profile_tuples(
+-            &widths,
+-            &EMIT_DEEP_INDEX_LADDER,
+-            EMIT_PROFILE_MAX_DEEP,
+-        ) {
+-            for (slot, &i) in tuple.iter().enumerate() {
+-                assert!(i < widths[slot], "slot {slot} of {tuple:?}");
++        for phase in 0..64usize {
++            for tuple in coverage_tuples(
++                &widths,
++                EMIT_PROFILE_RESERVE,
++                EMIT_PROFILE_MAX_DEEP,
++                phase,
++            ) {
++                for (slot, &i) in tuple.iter().enumerate() {
++                    assert!(i < widths[slot], "slot {slot} of {tuple:?}");
++                }
+             }
+         }
++
++        // The sweep is uniform: over a whole run's phases every index of a
++        // `SPAN_SHORTLIST`-wide slot is sampled, and the number of distinct
++        // indices grows with the number of sweeps rather than staying at the
++        // handful a fixed ladder would offer.
++        let width = SPAN_SHORTLIST;
++        let mut seen: HashSet<usize> = HashSet::new();
++        for phase in 0..SPAN_SHORTLIST {
++            if let Some(at) = sweep_index(width, EMIT_PROFILE_RESERVE, 0, phase)
++            {
++                seen.insert(at);
++            }
++        }
++        assert_eq!(
++            seen.len(),
++            width - LEXICAL_BRANCH_STAGE_0,
++            "a run's sweeps must tile the list, not sample a few points"
++        );
+     }
+ 
++
+     /// What the reserve buys, asserted externally: the depth-profile
+     /// emissions reach further into a slot's candidate list than the
+     /// traversal's own emissions do, on real targets, at the same
+@@ -4142,16 +4163,14 @@ mod tests {
+     /// share one allowance.
+     ///
+     /// What survives is the front's actual purpose, and it is asserted
+-    /// rather than assumed: the traversal still does not reach the rung the
+-    /// reserve is really buying — `EMIT_DEEP_INDEX_LADDER[2]`, index 80,
+-    /// which the reserve reaches on every target — so the reserve's spend is
+-    /// still coverage the traversal does not have.  The measured
+-    /// composition is in `docs/work/items/w-9d4e17.md`, including the fact
+-    /// that the reserve's emission count is *unchanged* by the traversal's
+-    /// widening (3807 / 3681 / 938 before and after on this corpus): the two
+-    /// spends share the allowance without cannibalising each other, because
+-    /// the reserve spends first and is bounded by `EMIT_PROFILE_RESERVE`
+-    /// whatever the traversal does with the remainder.
++    /// rather than assumed: the traversal's own emissions stay inside the
++    /// width its first stage opens at, while the reserve reaches indices
++    /// the traversal cannot generate at all.  The reserve's spend is
++    /// therefore still coverage the traversal does not have, and the two
++    /// spends share one allowance: the reserve spends first and is bounded
++    /// by `EMIT_PROFILE_RESERVE` whatever the traversal does with the
++    /// remainder.  The measured composition is in
++    /// `docs/work/items/w-9d4e17.md`.
+     #[test]
+     fn depth_profile_emissions_reach_deeper_than_the_traversal() {
+         for (target, _) in reachability_corpus() {
+@@ -4159,10 +4178,10 @@ mod tests {
+             let traversal = counters::take_depth(&counters::DEEPEST_TRAVERSAL);
+             let profile = counters::take_depth(&counters::DEEPEST_PROFILE);
+             assert!(
+-                traversal < EMIT_DEEP_INDEX_LADDER[2],
+-                "{target:?}: the traversal reached the reserve's own rung \
+-                 ({traversal}), so the reserve is no longer buying coverage \
+-                 the traversal lacks"
++                traversal < profile,
++                "{target:?}: the traversal reached slot depth {traversal}, \
++                 past the reserve's own {profile}, so the reserve is no \
++                 longer buying coverage the traversal lacks"
+             );
+             assert!(
+                 profile >= 4 * LEXICAL_BRANCH_STAGE_0,

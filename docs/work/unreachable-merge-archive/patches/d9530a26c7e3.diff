@@ -1,0 +1,71 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 198aca3..e5165be 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1671,7 +1671,66 @@ impl Generator {
+             // every target and every segmentation.  The measurement that
+             // motivates it is in `docs/work/items/w-c1d3a7.md`.
+ 
++            // ZZ_SCRATCH: force a tuple into the pool to read its real score
++            #[cfg(not(target_arch = "wasm32"))]
++            if let Ok(spec) = std::env::var("ZZ_INJECT") {
++                let want = spec.split('|').next().unwrap_or("");
++                let mine = segmentation
++                    .spans
++                    .iter()
++                    .map(|(a, b)| format!("{a}-{b}"))
++                    .collect::<Vec<_>>()
++                    .join(",");
++                if mine == want {
++                    if let Some(t) = spec.split('|').nth(1) {
++                        let tup: Vec<usize> = t
++                            .split(',')
++                            .filter_map(|x| x.parse().ok())
++                            .collect();
++                        if let Some(p) = build(&tup) {
++                            recovered.push(p);
++                        }
++                    }
++                }
++            }
+             let mut adjacency_emitted = 0usize;
++            // ZZ_SCRATCH
++            #[cfg(not(target_arch = "wasm32"))]
++            if let Ok(spec) = std::env::var("ZZ_EVAL") {
++                let want = spec.split('|').next().unwrap_or("");
++                let mine = segmentation
++                    .spans
++                    .iter()
++                    .map(|(a, b)| format!("{a}-{b}"))
++                    .collect::<Vec<_>>()
++                    .join(",");
++                if mine == want {
++                    if let Some(t) = spec.split('|').nth(1) {
++                        let tup: Vec<usize> = t
++                            .split(',')
++                            .filter_map(|x| x.parse().ok())
++                            .collect();
++                        eprintln!("ZZEVAL {tup:?} bound={:.9} builds={}", bound(&tup), build(&tup).is_some());
++                    }
++                }
++            }
++            // ZZ_SCRATCH
++            #[cfg(not(target_arch = "wasm32"))]
++            if let Ok(spec) = std::env::var("ZZ_POOL") {
++                let want = spec.split('|').next().unwrap_or("");
++                let mine = segmentation
++                    .spans
++                    .iter()
++                    .map(|(a, b)| format!("{a}-{b}"))
++                    .collect::<Vec<_>>()
++                    .join(",");
++                if mine == want {
++                    eprintln!("ZZPOOL n={} emit_allowance={emit_allowance} profile={profile_emitted} adj={adjacency_allowance} emitted={emitted}", pooled.len());
++                    for t in &pooled {
++                        eprintln!("ZZPOOLT {t:?} bound={:.9}", bound(t));
++                    }
++                }
++            }
+             if adjacency_allowance > 0
+                 && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
+             {

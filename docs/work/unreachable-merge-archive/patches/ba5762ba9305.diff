@@ -1,0 +1,131 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 4517b59..138c3f7 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -396,6 +396,18 @@ impl Generator {
+         const LEXICAL_BRANCH_KEEP: usize = 10;
+         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
+ 
++        // Hard ceiling on heap pops across the *whole* lexical phase, not
++        // per segmentation.  `LEXICAL_HEAP_POP_LIMIT` bounds one
++        // segmentation's frontier and `SEGMENTATION_KEEP` bounds how many
++        // segmentations are retained, so their product was always the
++        // real worst case and was only ever reached implicitly, by
++        // multiplying two unrelated constants.  Naming it makes the time
++        // and memory bound a property of the search rather than an
++        // arithmetic accident, and it is what the structure-aware
++        // allowance below has to fit inside.
++        const LEXICAL_GLOBAL_POP_BUDGET: usize =
++            SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
++
+         // The score of the worst clue the ordinary beam already put in
+         // the pool.  This is the bar the search already commits to — it
+         // is the same pool size `final_keep` fixes above, not a new one.
+@@ -903,8 +915,42 @@ impl Generator {
+         // was independently cheap and familiar.  A resegmentation that
+         // is excellent overall but needs one locally expensive word — the
+         // normal case for a real Mad Gab answer — was never reachable.
++        //
++        // The *global* budget is what this loop spends, and it is spent on
++        // boundary structures rather than on segmentations.  Measured on
++        // real targets at `top_n = 50`, the retained pool holds 137-180
++        // distinct structures while the visible list shows 4-9 of them:
++        // every structure is funded `LEXICAL_COMBINATIONS_PER_SEGMENTATION`
++        // wordings deep, and all but a handful of those wordings are
++        // wordings of a resegmentation the display policy has already
++        // filled.  `structure_wording_allowance` is how many wordings of
++        // one structure the policy can admit, so the rest were never
++        // spendable; funding them anyway is what made the search cost
++        // `SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION`
++        // emissions to fill a list of `top_n` slots.
+         let mut recovered = Vec::new();
+-        for (_, segmentation) in segmentations {
++        let allowance = structure_wording_allowance(self.config.top_n);
++        // Wordings funded so far per boundary structure, and how many of a
++        // structure's retained segmentations have been enumerated.  The key
++        // is the segmentation's own span list, which is exactly what
++        // `Clue::cuts` later reports, so the search and the display policy
++        // count the same structure rather than two re-derived versions of
++        // it.
++        let mut funded: HashMap<&[(usize, usize)], usize> = HashMap::new();
++        let mut seen_structures: HashMap<&[(usize, usize)], usize> =
++            HashMap::new();
++        let mut spent_pops = 0usize;
++        'segmentations: for (_, segmentation) in &segmentations {
++            let structure: &[(usize, usize)] = &segmentation.spans;
++            // A structure's best-ranked segmentation is funded the whole
++            // allowance; each further segmentation of the *same*
++            // structure is funded what is left, and never less than one
++            // wording, so a rare resegmentation realized by several
++            // alignments still contributes and a common one cannot spend
++            // the whole budget on its own strongest alignment.
++            let prior = *seen_structures.entry(structure).or_default();
++            *seen_structures.entry(structure).or_default() = prior + 1;
++            let emit_allowance = allowance.saturating_sub(prior).max(1);
+             let word_count = segmentation.spans.len().max(1) as f64;
+             let mut slots: Vec<Vec<SlotAlt>> =
+                 Vec::with_capacity(segmentation.spans.len());
+@@ -1075,7 +1121,23 @@ impl Generator {
+                         }
+                         recovered.push(partial);
+                         emitted += 1;
+-                        if emitted >= LEXICAL_COMBINATIONS_PER_SEGMENTATION {
++                        let held = {
++                            let slot = funded.entry(structure).or_default();
++                            *slot += 1;
++                            *slot
++                        };
++                        // Two ceilings, both of them about spend the
++                        // display policy cannot use: this segmentation's
++                        // own share of its structure's allowance, and the
++                        // structure's allowance itself.  The old code had
++                        // only the first shape of limit and applied it per
++                        // segmentation, so `SEGMENTATION_KEEP` alignments
++                        // each bought 64 wordings of a resegmentation
++                        // whose 18th wording is unselectable.
++                        if emitted >= emit_allowance.min(
++                            LEXICAL_COMBINATIONS_PER_SEGMENTATION,
++                        ) || held >= allowance
++                        {
+                             break;
+                         }
+                     }
+@@ -1095,6 +1157,10 @@ impl Generator {
+                     }
+                 }
+             }
++            spent_pops += popped;
++            if spent_pops >= LEXICAL_GLOBAL_POP_BUDGET {
++                break 'segmentations;
++            }
+         }
+ 
+         completed.extend(recovered);
+@@ -2506,6 +2572,27 @@ fn share_cap(top_n: usize, available: usize) -> usize {
+         .max(top_n.div_ceil(available.max(1)))
+ }
+ 
++/// How many wordings of one boundary structure the lexical enumeration is
++/// allowed to fund.
++///
++/// This is [`share_cap`] evaluated against the *floor* rather than against
++/// the number of structures a real pool turns out to hold, so it is the
++/// tightest cap the display policy can impose and it is known before the
++/// search runs.  It is the right bound for the search because the two
++/// numbers are two ends of the same contract: the enumeration is filling a
++/// list of `top_n` slots, [`select_diverse`] is choosing what goes in them,
++/// and a structure's share of that list is capped.  Funding a structure
++/// deeper than its share buys wordings that cannot be selected.
++///
++/// Measured on five real targets at `--approximate --top 50`, the retained
++/// pool holds 137-180 distinct structures of which 4-9 are visible, and
++/// each visible structure is filled to its cap (17 = `share_cap(50, 180)`)
++/// from a pool that held 48-64 wordings of it.  See
++/// [../../docs/work/items/w-6b2f04.md](../../docs/work/items/w-6b2f04.md).
++fn structure_wording_allowance(top_n: usize) -> usize {
++    share_cap(top_n, STRUCTURE_FLOOR)
++}
++
+ fn admit(
+     i: usize,
+     structures: &[Vec<usize>],

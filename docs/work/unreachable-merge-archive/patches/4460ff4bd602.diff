@@ -1,0 +1,190 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 969e03f..97416be 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -147,6 +147,14 @@ const SPAN_AXIS_KEEP: usize = 16;
+ const SPAN_BAND_KEEP: usize = 4;
+ /// Candidates the whole-span rarity pass keeps.
+ const SPAN_RARITY_KEEP: usize = 4;
++/// The factor by which the cheap-end retention floor's cost thresholds
++/// step outward, and the most of them it ever states.  The thresholds
++/// are this factor raised to successive powers above the span's own
++/// cheapest offered candidate, which makes them *cheap* in the only
++/// sense that means anything for one span: near its own best match,
++/// whatever absolute cost that is.
++const SPAN_CHEAP_COST_FACTOR: f64 = 1.25;
++const SPAN_CHEAP_FLOOR_STEPS: usize = 12;
+ /// The wordings one segmentation may emit, profiles included.
+ const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
+ /// The width every slot of the per-segmentation traversal is *opened* at,
+@@ -850,14 +858,24 @@ impl Generator {
+     /// **fill**, and the fill is where the shortlist's *contents* are
+     /// decided.
+     ///
+-    /// The fill is **cost-stratified**: its slots are apportioned across
+-    /// the cost bands in proportion to each band's population and spent
+-    /// within a band by `quality`.  A single global quality fill would
+-    /// be wrong here, because `quality` is dominated by familiarity and
++    /// The fill is **cost-stratified behind a cheap-end floor**.  Its
++    /// slots are first charged a floor: at each of a ladder of cost
++    /// thresholds stepping outward from the span's own cheapest offered
++    /// candidate, the list must already hold at least as many candidates
++    /// at or below that threshold as a single global `quality` order
++    /// would have retained there, so a cheap word is never lost merely
++    /// because a dearer band offered more candidates.  What is left of
++    /// the budget is then apportioned across the cost bands in
++    /// proportion to each band's population and spent within a band by
++    /// `quality`.  A purely global fill would be wrong here, because
++    /// `quality` is dominated by familiarity and
+     /// `-SIMILARITY_PER_WORD * cost` and both degrade monotonically with
+     /// phonetic distance, so a global fill is systematically the
+     /// worst-sounding retained words — a cost band can then be entirely
+-    /// absent from a full shortlist.  Stratifying keeps
++    /// absent from a full shortlist.  The floor is charged against the
++    /// same `SPAN_SHORTLIST` slots the global order would have spent, so
++    /// the two are jointly feasible and the list is exactly as wide.
++    /// Stratifying keeps
+     /// `SPAN_SHORTLIST = 160` exactly: it changes *which* 160 are
+     /// retained, not how many, and it scores no candidate the named
+     /// passes did not already score.
+@@ -1007,16 +1025,52 @@ impl Generator {
+         // budget, so a word that only becomes the right choice in
+         // combination with the other spans is actually reachable.
+         //
+-        // What the fill must not do is spend the whole tail on one
+-        // score, because that score degrades with phonetic distance and
+-        // the tail is therefore the worst-sounding part of the list.  The
+-        // slots are apportioned over the cost bands in proportion to band
+-        // population (highest average per-slot weight first, ties by
+-        // band index) and spent within a band by `quality`, so a band
+-        // cannot be emptied by losing a global comparison.  A pick that
+-        // is already in the list spends no slot: the named passes have
+-        // taken the head of each band already, and the fill must still
+-        // top the list up to `SPAN_SHORTLIST` rather than stop short.
++        // What a single global `quality` order would have retained: the
++        // walk this fill replaced, deduplicated and truncated to the
++        // same width.  It is the yardstick the cheap-end floor below is
++        // measured against.
++        let mut by_global = matches.to_vec();
++        by_global.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
++        let mut seen_global = HashSet::new();
++        let global: Vec<approx::FuzzyMatch> = by_global
++            .into_iter()
++            .filter(|m| seen_global.insert(m.word_idx))
++            .take(SPAN_SHORTLIST)
++            .collect();
++
++        // The ladder the cheap-end floor is stated on: cost thresholds
++        // stepping outward from the span's own cheapest offered
++        // candidate by `SPAN_CHEAP_COST_FACTOR`.  It stops before the
++        // span's dearest candidate, so this is a statement about the
++        // cheap end and not a second way of saying "retain everything";
++        // a span whose cheapest candidate is exact has no cheap end to
++        // protect and states no floor.
++        let cheapest = matches
++            .iter()
++            .map(|m| m.cost)
++            .fold(f64::INFINITY, f64::min);
++        let dearest = matches
++            .iter()
++            .map(|m| m.cost)
++            .fold(f64::NEG_INFINITY, f64::max);
++        let mut cheap_thresholds: Vec<f64> = Vec::new();
++        let mut threshold = cheapest * SPAN_CHEAP_COST_FACTOR;
++        for _ in 0..SPAN_CHEAP_FLOOR_STEPS {
++            if threshold > dearest {
++                break;
++            }
++            cheap_thresholds.push(threshold);
++            threshold *= SPAN_CHEAP_COST_FACTOR;
++        }
++
++        // What is left of the budget, apportioned over the cost bands in
++        // proportion to band population (highest average per-slot
++        // weight first, ties by band index) and spent within a band by
++        // `quality`, so a band cannot be emptied by losing a global
++        // comparison.  A pick that is already in the list spends no
++        // slot: the named passes have taken the head of each band
++        // already, and the fill must still top the list up to
++        // `SPAN_SHORTLIST` rather than stop short.
+         let fill_slots = SPAN_SHORTLIST.saturating_sub(selected.len());
+         if fill_slots > 0 {
+             let mut banded: Vec<(
+@@ -1058,6 +1112,77 @@ impl Generator {
+                 }
+             }
+         }
++
++        // The cheap-end retention floor, charged against the list the
++        // apportionment just built.
++        //
++        // A proportional apportionment thins the *thick* bands, so a
++        // candidate can leave the list because a dearer band happened to
++        // offer more words rather than because it ranked badly, and the
++        // reachability arguments the rest of the search makes are all
++        // about the cheap end.  So at each threshold of the ladder above
++        // the list must hold at least as many candidates at or below it
++        // as the global `quality` order held there.  Where the
++        // apportionment already does, the floor costs nothing; where it
++        // does not, the floor is funded by releasing the *dearest*
++        // retained candidates, which are exactly the ones the
++        // stratification spent its slots on.  So the floor can only
++        // trade a dearer word for a cheaper one inside the same
++        // `SPAN_SHORTLIST` slots: it never widens the list, and it never
++        // charges more slots than the global order it guards against
++        // would have charged, because that order's own picks satisfy
++        // every threshold of the ladder at once.
++        for threshold in cheap_thresholds {
++            let want = global.iter().filter(|m| m.cost <= threshold).count();
++            let mut have =
++                selected.iter().filter(|m| m.cost <= threshold).count();
++            if have >= want {
++                continue;
++            }
++            let mut release: Vec<&approx::FuzzyMatch> = selected
++                .iter()
++                .filter(|m| m.cost > threshold)
++                .collect();
++            // Never release a band's last representative: a band with
++            // no retained word left is a band whose every wording is
++            // unreachable at every width, which is a worse outcome
++            // than the thin band the floor is protecting.
++            let band = |m: &approx::FuzzyMatch| {
++                ((m.cost / budget_scale) * 4.0).floor().clamp(0.0, 3.0)
++                    as usize
++            };
++            release.retain(|m| {
++                selected
++                    .iter()
++                    .filter(|o| band(o) == band(m))
++                    .count()
++                    > 1
++            });
++            release.sort_by(|a, b| {
++                cmp_desc(a.cost, b.cost).then_with(|| {
++                    cmp_desc(quality(a), quality(b))
++                })
++            });
++            release.truncate(want - have);
++            let released: HashSet<usize> =
++                release.iter().map(|m| m.word_idx).collect();
++            selected.retain(|m| !released.contains(&m.word_idx));
++            seen_words.retain(|w| !released.contains(w));
++            for m in global.iter() {
++                if have >= want
++                    || selected.len() >= SPAN_SHORTLIST
++                {
++                    break;
++                }
++                if m.cost > threshold {
++                    continue;
++                }
++                if seen_words.insert(m.word_idx) {
++                    selected.push(*m);
++                    have += 1;
++                }
++            }
++        }
+         selected.sort_by(|a, b| cmp_desc(quality(a), quality(b)));
+         selected
+     }

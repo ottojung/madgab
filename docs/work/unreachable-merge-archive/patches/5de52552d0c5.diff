@@ -1,0 +1,119 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 8516aed..b75fc46 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -407,14 +407,17 @@ fn coverage_tuples(
+     // small to afford every shape still touches every slot, as it always did.
+     // Every later round then offers one class of each *deeper* shape in turn,
+     // so a reserve that cannot afford all of them pays for a spread of depths
+-    // rather than for the whole of one of them.  A class's `nth` draw widens
+-    // its own sweep (`per = nth + 1`), so a class that survives several
+-    // rounds gets several distinct points rather than a repeat of its first.
++    // rather than for the whole of one of them.  A class that survives
++    // several rounds therefore gets several distinct points rather than a
++    // repeat of its first: a draw's `nth` is its position in the reserve and
++    // its `per` is the reserve itself, so consecutive tuples of one
++    // segmentation still land on different indices of the same sweep and one
++    // class's sweep is as dense over each of its slots' lists as it always was.
+     for combo in &by_depth[0] {
+         if out.len() >= reserve {
+             return out;
+         }
+-        if let Some(tuple) = profile_tuple(slot_widths, combo, 0, phase) {
++        if let Some(tuple) = profile_tuple(slot_widths, combo, out.len(), reserve, phase) {
+             out.push(tuple);
+         }
+     }
+@@ -430,7 +433,7 @@ fn coverage_tuples(
+             let Some(combo) = by_depth[k].get(drawn[k]) else {
+                 continue;
+             };
+-            if let Some(tuple) = profile_tuple(slot_widths, combo, drawn[k], phase) {
++            if let Some(tuple) = profile_tuple(slot_widths, combo, out.len(), reserve, phase) {
+                 out.push(tuple);
+             }
+             drawn[k] += 1;
+@@ -451,9 +454,9 @@ fn profile_tuple(
+     slot_widths: &[usize],
+     combo: &[usize],
+     nth: usize,
++    per: usize,
+     phase: usize,
+ ) -> Option<Vec<usize>> {
+-    let per = nth + 1;
+     let mut tuple = vec![0usize; slot_widths.len()];
+     for &slot in combo {
+         let at = sweep_index(
+@@ -1374,6 +1377,10 @@ impl Generator {
+             ceiling
+         };
+         let mut spent_emissions = 0usize;
++        let mut zz_seg = 0usize;
++        let mut zz_offered = 0usize;
++        let mut zz_built = 0usize;
++        let mut zz_rejected = 0usize;
+         // The coverage reserve's rotation, advanced once per segmentation.
+         // See [`coverage_tuples`].
+         let mut coverage_phase = 0usize;
+@@ -1492,18 +1499,23 @@ impl Generator {
+             let mut pooled: Vec<Vec<usize>> = Vec::new();
+             let widths: Vec<usize> =
+                 slots.iter().map(Vec::len).collect();
++            zz_seg += 1;
++            zz_offered += coverage_tuples(&widths, profile_allowance, EMIT_PROFILE_MAX_DEEP, coverage_phase).len();
++            zz_seg += 1;
+             for tuple in coverage_tuples(
+                 &widths,
+                 profile_allowance,
+                 EMIT_PROFILE_MAX_DEEP,
+                 coverage_phase,
+             ) {
++                zz_offered += 1;
+                 if profile_emitted >= profile_allowance
+                     || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
+                 {
+                     break;
+                 }
+                 let Some(partial) = build(&tuple) else {
++                    zz_rejected += 1;
+                     continue;
+                 };
+                 #[cfg(test)]
+@@ -1511,6 +1523,8 @@ impl Generator {
+                     &counters::DEEPEST_PROFILE,
+                     tuple.iter().copied().max().unwrap_or(0),
+                 );
++                zz_built += 1;
++                zz_built += 1;
+                 pooled.push(tuple);
+                 recovered.push(partial);
+                 profile_emitted += 1;
+@@ -1836,6 +1850,9 @@ impl Generator {
+         }
+ 
+         completed.extend(recovered);
++        if std::env::var("ZZ_COUNT_OUT").is_ok() {
++            eprintln!("ZZCOUNT segmentations={zz_seg} profile_offered={zz_offered} profile_built={zz_built} profile_cost_rejected={zz_rejected} spent_emissions={spent_emissions}");
++        }
+         self.finish(
+             completed,
+             &target_ipa,
+@@ -1903,6 +1920,18 @@ impl Generator {
+             }
+         }
+ 
++        #[cfg(not(target_arch = "wasm32"))]
++        {
++            use std::io::Write;
++            if let Ok(path) = std::env::var("ZZ_POOL_OUT") {
++                if let Ok(mut f) = std::fs::File::create(&path) {
++                    for c in &clues {
++                        let _ = writeln!(f, "{}\t{:?}\t{:.9}", c.phrase.to_lowercase(), c.cuts, c.score);
++                    }
++                }
++            }
++        }
++
+         select_diverse(clues, self.config.top_n)
+     }
+ }

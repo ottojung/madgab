@@ -1,0 +1,203 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 494cc21..91fc8bb 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1418,13 +1418,8 @@ impl Generator {
+                     + here.iter().map(|a| a.syllables).max().unwrap_or(0);
+             }
+ 
+-            let clue_inner = depth.saturating_sub(1);
+-            let union = target_inner_count + clue_inner - segmentation.shared;
+-            let novelty = if union == 0 {
+-                0.0
+-            } else {
+-                1.0 - segmentation.shared as f64 / union as f64
+-            };
++            let novelty =
++                boundary_novelty_from_counts(segmentation.shared, target_inner_count);
+ 
+             let bound = |prefix: &[usize]| -> f64 {
+                 let (mut cost, mut reused, mut fam, mut closed, mut shape, mut syl) =
+@@ -2322,17 +2317,57 @@ struct Metrics {
+     content: f64,
+ }
+ 
+-/// Symmetric segmentation novelty: Jaccard distance between the
+-/// target's inner word boundaries and the clue's inner word boundaries.
++/// Boundary novelty: how far a clue's resegmentation departs from the
++/// target's *own* word boundaries.
++///
++/// The clue's job is to re-cut the target, so the question this axis asks
++/// is not "how much do these two offset sets have in common" — it is
++/// "has this clue resegmented the target at all".  A Jaccard distance
++/// answers the first question, and it answers it in a way that charges a
++/// clue for the target's spelling: its denominator is the union of the two
++/// boundary sets, so a clue pays for a boundary it reproduces out of a
++/// total that grows with the number of boundaries the clue itself invents.
++/// The result is that the price of one reproduced boundary depends on how
++/// long the clue is, the axis cannot tell a clue that has resegmented
++/// *completely* from one that has resegmented *halfway*, and — because the
++/// visible candidates of a real target are overwhelmingly the completely
++/// resegmented ones — the axis is a step function whose only surviving
++/// information is the amount of the target's own segmentation a clue
++/// failed to discard.
++///
++/// So the charge is the *excess* of the reproduced share over the half a
++/// resegmentation is entitled to keep:
++///
++/// ```text
++/// charge = max(0, 2 * kept / total - 1)
++/// ```
++///
++/// A clue that keeps at most half of the target's word boundaries has
++/// resegmented and pays nothing, however many new boundaries it invented
++/// and however many of the target's it merged away; a clue that keeps
++/// more than half has mostly reproduced the target's own segmentation, and
++/// pays in proportion.  Reproducing the target's segmentation exactly is
++/// charged in full, so the axis still refuses to call the target a clue.
+ ///
+-/// Counting only the boundaries that disappeared would give zero novelty
+-/// to a useful split that preserved an original boundary, so the measure
+-/// is a Jaccard distance and rewards both added and removed boundaries.
++/// Both facts the measure needs are counts, so it does not depend on the
++/// clue's length at all: the same divergence costs the same whether the
++/// clue is three words or seven.  A target with no inner word boundary has
++/// nothing in dispute, so nothing can be charged.
++fn boundary_novelty_from_counts(kept: usize, total: usize) -> f64 {
++    if total == 0 {
++        return 1.0;
++    }
++    let retained = kept as f64 / total as f64;
++    (2.0 - 2.0 * retained).clamp(0.0, 1.0)
++}
++
++/// How many of the target's inner word boundaries a clue reproduces, and
++/// how many the target has.
+ ///
+-/// Both inputs are ascending runs of distinct offsets, so union and
+-/// intersection are counted by merge.  This runs once per candidate in
+-/// every beam comparison, where a set-based implementation dominated the
+-/// whole approximate search.
++/// Both inputs are ascending runs of distinct offsets, so the intersection
++/// is counted by merge and the union is not needed at all any more.  This
++/// runs once per candidate in every beam comparison, where a set-based
++/// implementation dominated the whole approximate search.
+ fn boundary_novelty(
+     cuts: &[usize],
+     target_boundaries: &[usize],
+@@ -2348,11 +2383,11 @@ fn boundary_novelty(
+         .filter(|&x| x < total_len && (!partial || x <= covered));
+ 
+     let mut shared = 0usize;
+-    let mut union = 0usize;
++    let mut total = 0usize;
+     let mut next_a = a.next();
+     let mut next_b = b.next();
+     while let (Some(x), Some(y)) = (next_a, next_b) {
+-        union += 1;
++        total += 1;
+         if x == y {
+             shared += 1;
+             next_a = a.next();
+@@ -2363,13 +2398,10 @@ fn boundary_novelty(
+             next_b = b.next();
+         }
+     }
+-    union += usize::from(next_a.is_some()) + a.count();
+-    union += usize::from(next_b.is_some()) + b.count();
++    total += usize::from(next_a.is_some()) + a.count();
++    total += usize::from(next_b.is_some()) + b.count();
+ 
+-    if union == 0 {
+-        return 0.0;
+-    }
+-    1.0 - shared as f64 / union as f64
++    boundary_novelty_from_counts(shared, total)
+ }
+ 
+ /// The content-word penalty, given `closed` closed-class words out of
+@@ -2781,44 +2813,18 @@ impl SpanExtremes {
+ }
+ 
+ /// Boundary novelty is the one axis that is not a sum over spans: it
+-/// compares the clue's inner cuts with the target's as sets.
+-///
+-/// The two counts cannot be chosen independently.  A clue inner cut that
+-/// lands on a target inner boundary is counted in *both* the shared set
+-/// and the clue's own set, so naming `added` the boundaries a completion
+-/// adds to the shared count and `clue_inner` the clue's final inner cut
+-/// count, the reachable triples satisfy
++/// compares the clue's inner cuts with the target's as sets, and collapses
++/// to two counts — how many of the target's inner boundaries a completion
++/// can still have reproduced, and how many the target has.
+ ///
+-/// ```text
+-/// shared_final = shared + added
+-/// clue_inner  >= max(words - 1, shared, added)
+-/// ```
+-///
+-/// and the novelty is `1 - shared_final / (clue_inner + target_inner -
+-/// shared_final)`.  That ratio is *not* monotone in `added` on its own,
+-/// so rather than reason about which extreme wins, the maximum is taken
+-/// over the small set of reachable `added` values directly.  The result
+-/// is an upper bound, and because the search only ever uses it to discard
+-/// a span path, a loose one costs time and never quality.
+-fn novelty_upper_bound(
+-    words: usize,
+-    shared: usize,
+-    still_possible: usize,
+-    target_inner: usize,
+-) -> f64 {
+-    let reachable = still_possible.min(target_inner.saturating_sub(shared));
+-    let clue_floor = words.saturating_sub(1).max(shared);
+-    let mut best = 0.0_f64;
+-    for added in 0..=reachable {
+-        let clue_inner = clue_floor.max(added);
+-        let union = clue_inner + target_inner - shared - added;
+-        if union == 0 {
+-            continue;
+-        }
+-        let novelty = 1.0 - (shared + added) as f64 / union as f64;
+-        best = best.max(novelty);
+-    }
+-    best.clamp(0.0, 1.0)
++/// [`boundary_novelty_from_counts`] is non-increasing in `kept`, so the
++/// most favourable completion is the one that reproduces nothing further,
++/// and the bound is that value.  The `added`/`clue_inner` reachability
++/// argument this used to need is gone with the measure's dependence on the
++/// clue's own boundary count: the same divergence costs the same at every
++/// clue length, so a completion cannot buy novelty by growing.
++fn novelty_upper_bound(kept: usize, target_inner: usize) -> f64 {
++    boundary_novelty_from_counts(kept, target_inner)
+ }
+ 
+ /// Score of a span path that is still open, in the final scorer's own
+@@ -2862,12 +2868,7 @@ fn complete_span_score(
+     target_syllables: usize,
+ ) -> f64 {
+     let denom = words.max(1) as f64;
+-    let union = words.saturating_sub(1) + target_inner - shared;
+-    let novelty = if union == 0 {
+-        0.0
+-    } else {
+-        (1.0 - shared as f64 / union as f64).clamp(0.0, 1.0)
+-    };
++    let novelty = boundary_novelty_from_counts(shared, target_inner);
+     axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+         + axes::NOVELTY * novelty
+         + axes::WORD_NOVELTY * (1.0 - ext.min_reused as f64 / denom)
+@@ -2923,13 +2924,7 @@ fn span_score_bound(
+     // cannot end at more than one word per remaining character.
+     let widest = (words + still_possible).max(1) as f64;
+     axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+-        + axes::NOVELTY
+-            * novelty_upper_bound(
+-                words,
+-                shared,
+-                still_possible,
+-                target_inner,
+-            )
++        + axes::NOVELTY * novelty_upper_bound(shared, target_inner)
+         + axes::WORD_NOVELTY * (1.0 - ext.min_reused as f64 / denom)
+         + axes::FAMILIARITY * ext.max_familiarity / denom
+         + axes::RHYTHM

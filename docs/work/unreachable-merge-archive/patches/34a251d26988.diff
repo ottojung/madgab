@@ -1,0 +1,1160 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 329168b..fee06cb 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1122,15 +1122,15 @@ impl Generator {
+             /// own.  Only used to order a span's alternatives; the
+             /// enumeration itself is scored on the real objective.
+             fn contribution(&self, word_count: f64) -> f64 {
+-                axes::SIMILARITY_PER_WORD * (-self.cost)
+-                    - axes::WORD_NOVELTY * self.reused as f64 / word_count
+-                    + axes::FAMILIARITY * self.familiarity / word_count
+-                    + axes::CLOSED_CLASS
++                axes::sim_per_word() * (-self.cost)
++                    - axes::word_novelty() * self.reused as f64 / word_count
++                    + axes::familiarity() * self.familiarity / word_count
++                    + axes::closed_class()
+                         * closed_class_penalty(
+                             self.closed as f64,
+                             word_count,
+                         )
+-                    + axes::SHAPE * self.shape / word_count
++                    + axes::shape() * self.shape / word_count
+             }
+         }
+ 
+@@ -1233,15 +1233,15 @@ impl Generator {
+                     let familiarity = word_familiarity(word.rarity);
+                     let reused =
+                         target_phrase.reuse.reuses(&word.word);
+-                    axes::SIMILARITY_PER_WORD * (-m.cost)
+-                        + axes::FAMILIARITY * familiarity
+-                        - if reused { axes::WORD_NOVELTY } else { 0.0 }
+-                        + axes::SHAPE
++                    axes::sim_per_word() * (-m.cost)
++                        + axes::familiarity() * familiarity
++                        - if reused { axes::word_novelty() } else { 0.0 }
++                        + axes::shape()
+                             * lexical_shape_quality(
+                                 &word.word,
+                                 familiarity,
+                             )
+-                    + axes::CLOSED_CLASS
++                    + axes::closed_class()
+                         * closed_class_penalty(
+                             f64::from(word.closed),
+                             1.0,
+@@ -1496,14 +1496,28 @@ impl Generator {
+         //   lexical enumeration expands,
+         // * [`span_score_bound`] is the admissible one, and is the only
+         //   key allowed to discard a path outright.
++        //
++        // `target_words` is the target's own word count — the length of
++        // the boundary run the whole lattice is built on — and is what
++        // the parsimony axis reads on all three.  It is a property of the
++        // target, not of the path, so adding it costs no per-candidate
++        // state.
++        let target_words = target_boundaries.len();
++
+         let span_partial = |words: usize, s: &SegPath| -> f64 {
+-            partial_span_score(s.extremes, words, target_syllables)
++            partial_span_score(
++                s.extremes,
++                words,
++                target_words,
++                target_syllables,
++            )
+         };
+ 
+         let span_objective = |words: usize, s: &SegPath| -> f64 {
+             complete_span_score(
+                 s.extremes,
+                 words,
++                target_words,
+                 s.shared,
+                 target_inner_count,
+                 target_syllables,
+@@ -1518,6 +1532,7 @@ impl Generator {
+                 s.extremes,
+                 tail,
+                 words,
++                target_words,
+                 s.shared,
+                 n - at,
+                 target_inner_count,
+@@ -1915,26 +1930,26 @@ impl Generator {
+                     syl += a.syllables;
+                 }
+                 let k = prefix.len();
+-                axes::SIMILARITY
++                axes::sim()
+                     * (1.0 - (cost + suf_min_cost[k]) / 4.0).clamp(0.0, 1.0)
+-                    + axes::NOVELTY * novelty
+-                    + axes::WORD_NOVELTY
++                    + axes::novelty() * novelty
++                    + axes::word_novelty()
+                         * (1.0
+                             - (reused + suf_min_reused[k]) as f64 / word_count)
+-                    + axes::FAMILIARITY
++                    + axes::familiarity()
+                         * (fam + suf_max_fam[k]) / word_count
+-                    + axes::CLOSED_CLASS
++                    + axes::closed_class()
+                         * closed_class_penalty(
+                             (closed + suf_min_closed[k]) as f64,
+                             word_count,
+                         )
+-                    + axes::RHYTHM
++                    + axes::rhythm()
+                         * rhythm_match_in(
+                             syl + suf_min_syl[k],
+                             syl + suf_max_syl[k],
+                             target_syllables,
+                         )
+-                    + axes::SHAPE * (shape + suf_max_shape[k]) / word_count
++                    + axes::shape() * (shape + suf_max_shape[k]) / word_count
+             };
+ 
+ 
+@@ -2994,7 +3009,7 @@ impl Partial {
+         // enumeration rather than smuggled in here.
+         let cost_per_phone = self.sub_cost_total / total_len.max(1) as f64;
+         let similarity =
+-            (1.0 - cost_per_phone / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0);
++            (1.0 - cost_per_phone / axes::cost_per_phone()).clamp(0.0, 1.0);
+         let novelty =
+             boundary_novelty(&self.cuts, target_boundaries, total_len, partial);
+ 
+@@ -3052,29 +3067,53 @@ impl Partial {
+         // it bites hardest exactly where the target has long words.
+         let punch = self.punch_count as f64 / words.max(1) as f64;
+ 
+-
+-        // Written as `w * (v - 1)` rather than `w * v`.  The six existing
+-        // weights sum to exactly 1.00 and `CLOSED_CLASS` is the only
+-        // signed one, so the objective's maximum is already exactly 1.0
+-        // and there is zero headroom: `+ w*v` would push every
+-        // all-axes-perfect clue above the documented `Clue::score` upper
+-        // bound at any weight above print precision.  Shifting the axis
+-        // by its own maximum makes the term non-positive and leaves the
+-        // bound where it was.  It is *ordering*-identical to the `+ w*v`
+-        // form — the same constant comes off every candidate, so no
+-        // comparison between two candidates changes — which is what makes
+-        // it the right choice rather than a different axis.  It does not
+-        // by itself settle `approximate_output_is_locked`, which locks
+-        // printed score *strings*: a band that is not entirely
+-        // monosyllabic still moves, by up to `w`.
+-        let combined = axes::SIMILARITY * similarity
+-            + axes::NOVELTY * novelty
+-            + axes::WORD_NOVELTY * word_novelty
+-            + axes::FAMILIARITY * familiarity
+-            + axes::RHYTHM * rhythm
+-            + axes::SHAPE * shape_quality
+-            + axes::CLOSED_CLASS * closed_penalty
+-            + axes::PUNCH * (punch - 1.0);
++        // Word-count parsimony.  This is the only place in the objective
++        // that reads a count of anything at all: not a phone count, not a
++        // syllable count, not a rarity — the number of words in the clue
++        // against the number of words in the target.  Every other axis
++        // is indifferent to the clue being one word longer than its
++        // target, and every other axis is at its best on short, common,
++        // single-syllable words, so without this term the head drifts
++        // towards over-segmentation.  `target_boundaries` is the target's
++        // full boundary run, so its length is the target's own word
++        // count.
++        let parsimony = word_count_parsimony(words, target_boundaries.len());
++
++
++        // `PUNCH` is written as `w * (v - 1)` rather than `w * v`.  The
++        // weights that were positive summed to exactly 1.00 and
++        // `CLOSED_CLASS` was the only signed one, so the objective's
++        // maximum was already exactly 1.0 and there is zero headroom:
++        // `+ w*v` would push every all-axes-perfect clue above the
++        // documented `Clue::score` upper bound at any weight above print
++        // precision.  Shifting the axis by its own maximum makes the
++        // term non-positive and leaves the bound where it was.  It is
++        // *ordering*-identical to the `+ w*v` form — the same constant
++        // comes off every candidate, so no comparison between two
++        // candidates changes — which is what makes it the right choice
++        // rather than a different axis.  It does not by itself settle
++        // `approximate_output_is_locked`, which locks printed score
++        // *strings*: a band that is not entirely monosyllabic still
++        // moves, by up to `w`.
++        //
++        // `PARSIMONY` is the one term added on top, and it is *funded*
++        // rather than added: `SHAPE` gives up all 0.05, `NOVELTY` gives
++        // up 0.10 and `RHYTHM` gives up 0.05, so the positive weights now
++        // sum to 0.95 and the objective's maximum is 0.95 — still inside
++        // the documented [0.0, 1.0] range, and *below* it, so nothing
++        // here can breach the bound.  `SHAPE` stays at zero weight rather
++        // than being deleted from the code so the objective's shape is
++        // unchanged and the funding is one line of arithmetic a reader
++        // can check against `axes`.
++        let combined = axes::so::sim() * similarity
++            + axes::so::novelty() * novelty
++            + axes::so::word_novelty() * word_novelty
++            + axes::so::familiarity() * familiarity
++            + axes::so::rhythm() * rhythm
++            + axes::so::shape() * shape_quality
++            + axes::so::closed_class() * closed_penalty
++            + axes::so::punch() * (punch - 1.0)
++            + axes::so::parsimony() * parsimony;
+ 
+         Metrics {
+             combined,
+@@ -3176,21 +3215,97 @@ const CLOSED_CLASS_WEIGHT: f64 = 0.15;
+ /// `CLOSED_CLASS` is signed and *subtracted*: a clue whose words are all
+ /// content words pays nothing.
+ mod axes {
++    // ---- SCRATCH-ONLY PROBE OVERRIDE (branch scratch/e086cc-probe) ----
++    // Every axis weight is read from the environment, defaulting to the
++    // value the landed C1d vector has, so one build can sweep the weight
++    // family.  Nothing of this survives to integration.
++    pub fn probe(name: &str, default: f64) -> f64 {
++        match std::env::var(name) {
++            Ok(v) => v.parse().unwrap_or(default),
++            Err(_) => default,
++        }
++    }
++    pub fn sim() -> f64 { probe("W_SIM", 0.25) }
++    pub fn novelty() -> f64 { probe("W_NOV", 0.05) }
++    pub fn word_novelty() -> f64 { probe("W_WNOV", 0.15) }
++    pub fn familiarity() -> f64 { probe("W_FAM", 0.10) }
++    pub fn rhythm() -> f64 { probe("W_RHY", 0.25) }
++    pub fn shape() -> f64 { probe("W_SHA", 0.0) }
++    pub fn punch() -> f64 { probe("W_PUN", 0.10) }
++    pub fn parsimony() -> f64 { probe("W_PARS", 0.15) }
++    pub fn cost_per_phone() -> f64 { probe("W_CPP", 0.30) }
++    pub fn sim_per_word() -> f64 { probe("W_SIMW", sim() / 4.0) }
++    /// SCRATCH-ONLY: the *scorer-only* weight channel.  `S_*` overrides
++    /// are read by `Partial::metrics` and by nothing else, so a vector
++    /// set here re-ranks the pool and cannot reach any search key.
++    pub mod so {
++        pub fn sim() -> f64 { super::probe("S_SIM", super::sim()) }
++        pub fn novelty() -> f64 { super::probe("S_NOV", super::novelty()) }
++        pub fn word_novelty() -> f64 { super::probe("S_WNOV", super::word_novelty()) }
++        pub fn familiarity() -> f64 { super::probe("S_FAM", super::familiarity()) }
++        pub fn rhythm() -> f64 { super::probe("S_RHY", super::rhythm()) }
++        pub fn shape() -> f64 { super::probe("S_SHA", super::shape()) }
++        pub fn punch() -> f64 { super::probe("S_PUN", super::punch()) }
++        pub fn parsimony() -> f64 { super::probe("S_PARS", super::parsimony()) }
++        pub fn closed_class() -> f64 { super::probe("S_CLS", super::closed_class()) }
++    }
++    pub fn positive_sum() -> f64 {
++        sim() + novelty() + word_novelty() + familiarity() + rhythm()
++            + shape() + punch() + parsimony()
++    }
++
+     /// Phonetic similarity of the clue's word sequence to the target.
++    #[allow(dead_code)]
+     pub const SIMILARITY: f64 = 0.25;
+     /// Boundary novelty against the target's own word boundaries.
+-    pub const NOVELTY: f64 = 0.15;
++    ///
++    /// Reduced from 0.15 to 0.05 by w-3f8c62.  `REPORT-3a8c05.md` §1.1
++    /// measured this axis to be anti-correlated with the acoustic axis
++    /// (r = -0.316 among reworded candidates) and `REPORT-9b4a15.md` §3
++    /// measured that the last 0.10 of a parsimony axis has to be funded
++    /// from here rather than from `RHYTHM` to move the shipped head at
++    /// all.  The weight is not deleted — only the share of it the score
++    /// can spend is reduced.
++    pub const NOVELTY: f64 = 0.05;
+     /// Fraction of clue words that are not a target word.
+     pub const WORD_NOVELTY: f64 = 0.15;
+     /// Mean per-word corpus familiarity.
+     pub const FAMILIARITY: f64 = 0.10;
+     /// Agreement between clue and target syllable counts.
+-    pub const RHYTHM: f64 = 0.30;
++    ///
++    /// Reduced from 0.30 to 0.25 by w-3f8c62.  `RHYTHM` reads the
++    /// syllable *total* only, so a clue satisfies it by redistributing
++    /// syllables across any number of words; the share it is not spent on
++    /// funds the word-count axis, which is the statistic `RHYTHM` cannot
++    /// see.  `REPORT-9b4a15.md` §3 measured the *placement* of this
++    /// reduction to be worth nothing on its own (`RHYTHM 0.30 -> 0.20`
++    /// left both failing head lifts bit-identical); what the front shipped
++    /// is the total reduction, not a claim about where inside it the
++    /// effect lies.
++    pub const RHYTHM: f64 = 0.25;
+     /// Per-word orthographic shape.
+-    pub const SHAPE: f64 = 0.05;
++    ///
++    /// **Zero weight as of w-3f8c62.**  The term is still computed and
++    /// still carried in `Metrics` and in the structural keys, so that the
++    /// objective's *shape* — which axis reads what — is unchanged and the
++    /// deletion is one weight and not a refactor.  What it costs is 0.05,
++    /// and 0.05 of that is exactly the parsimony axis's price.
++    ///
++    /// The evidence for spending it here rather than anywhere else is
++    /// `REPORT-3a8c05.md` §7: `SHAPE` is the least efficient term in the
++    /// score — 0.05 of weight for +0.0209 of head-50 `SIMILARITY` lift,
++    /// and pool-wide correlation with every other axis of 0.33 or less —
++    /// and deleting it for a word-count term flips the head's acoustic
++    /// lift from -0.0180 to positive.  `REPORT-9b4a15.md` §3 prices the
++    /// same deletion as the largest single share of every parsimony
++    /// candidate's budget, and its table is entirely `SHAPE -> 0`.
++    pub const SHAPE: f64 = 0.0;
++
+     /// Closed-class (function) word share, subtracted.  The share is
+     /// squared by `closed_class_penalty` before it gets here.
+-    pub const CLOSED_CLASS: f64 = -super::CLOSED_CLASS_WEIGHT;
++    pub fn closed_class() -> f64 {
++        -super::CLOSED_CLASS_WEIGHT
++    }
+     /// Share of clue words of one syllable or fewer, `PUNCH`, also
+     /// non-positive: `metrics` applies it as `w * (v - 1)`, so a clue
+     /// that is entirely monosyllabic pays nothing and one with no
+@@ -3198,6 +3313,34 @@ mod axes {
+     /// `FAMILIARITY` and half of `SIMILARITY`.
+     pub const PUNCH: f64 = 0.10;
+ 
++    /// Word-count parsimony: how close the clue's word count is to the
++    /// target's, in [0, 1] and 1.0 exactly when the two are equal.
++    ///
++    /// The axis is [`word_count_parsimony`] itself, and it is a function
++    /// of **two integer word counts and nothing else** — no sentence, no
++    /// clue, no word list, no target text, no per-input branch.  That is
++    /// the whole reason it is admissible in a scorer that has never named
++    /// an example phrase outside a test module.
++    ///
++    /// It exists because the objective reads the clue's word count
++    /// *nowhere else*.  Every other axis is at its best on short, common,
++    /// single-syllable words, so with no term reading the count the head
++    /// drifts towards over-segmentation into a longer phrase than the
++    /// target: shipped, the top 50 of a two-word-slice pool of ordinary
++    /// targets sat **below** the pool's own mean acoustic similarity for
++    /// 2 of 10 (`REPORT-9b4a15.md` §2), which is the red fence
++    /// `head_not_worse_than_pool` in this file.
++    ///
++    /// 0.15 is the cheapest *complete* version of the axis
++    /// (`REPORT-9b4a15.md` §6, vector C1d): 0.05 comes off `SHAPE`,
++    /// 0.10 off `NOVELTY` and 0.05 off `RHYTHM`, and `SIMILARITY` stays
++    /// at 0.25 because every vector that raises it moves the search's
++    /// own reserve-depth fence.  The positive weights therefore sum to
++    /// 0.95, so the objective's maximum is 0.95 — inside the documented
++    /// `Clue::score` range of [0.0, 1.0] with room to spare, and no
++    /// weight was added without being funded.
++    pub const PARSIMONY: f64 = 0.15;
++
+     /// Mean edit cost of one clue phone that scores this axis's full
+     /// penalty.
+     ///
+@@ -3747,6 +3890,65 @@ fn novelty_upper_bound(
+     best.clamp(0.0, 1.0)
+ }
+ 
++/// Word-count parsimony: `1 - |w_clue - w_target| / max(w_clue, w_target)`.
++///
++/// Two integer word counts in, one number in [0, 1] out, and 1.0 exactly
++/// when the clue has as many words as the target.  Read as written, a
++/// Mad Gab answer is a *phrase* standing in for the target sentence, so a
++/// six-word clue for a five-word target is a different sentence rather
++/// than a resegmentation of this one, and the objective said so by
++/// silence.
++///
++/// It is deliberately not a general "similarity" and there is no second
++/// argument, no cutoff, no tier and no exception: `REPORT-3a8c05.md` §2
++/// derived it as a function of per-clue structure only, and §3 bounded
++/// the whole family of monotone objectives at rank 1,127 for the
++/// canonical case-2 tuple *with* this axis in it, so nothing is gained by
++/// embellishing it.
++fn word_count_parsimony(clue_words: usize, target_words: usize) -> f64 {
++    let target = target_words.max(1);
++    1.0 - clue_words.abs_diff(target) as f64 / clue_words.max(target) as f64
++}
++
++/// Admissible upper bound on [`word_count_parsimony`] for every word count
++/// a path could still finish at.
++///
++/// A path that has taken `words` words and has `still_possible` IPA
++/// characters left ends at some count in `[words, words + still_possible]`
++/// — at least `words`, and at most one word per remaining character,
++/// because every word consumes at least one.  Write `f(c)` for
++/// `word_count_parsimony(c, t)`: for `c <= t` it is `c / t`, rising in
++/// `c`, and for `c >= t` it is `t / c`, falling in `c`.  So `f` is
++/// unimodal in `c` with its single maximum at `c = t`, and the maximum of
++/// `f` over any interval is `f` evaluated at `t` clamped into that
++/// interval.
++///
++/// The interval is used as it is, including the empty path's `words = 0`:
++/// `f` is monotone on each side of `t` there too, so the clamp is still
++/// the exact maximum, and flooring the interval at one would have made
++/// the bound *larger* than the truth for a path that has not yet taken a
++/// word — padding, in the one case where the search uses the key at its
++/// most.
++///
++/// The bound is therefore not merely *loose enough* to keep
++/// `structural_bounds_dominate_the_real_scorer` true: it is the largest
++/// value `f` can possibly take over the reachable set, so the axis's
++/// contribution to the admissible key is exact wherever the target's own
++/// word count is still reachable and is the correct endpoint relaxation
++/// where it is not.  A bound that was merely padded — say, pinned at 1.0
++/// — would leave the fence green and the search pruning strictly worse
++/// candidates than it needed to.
++fn word_count_parsimony_upper_bound(
++    words: usize,
++    target_words: usize,
++    still_possible: usize,
++) -> f64 {
++    let target = target_words.max(1);
++    let lo = words;
++    let hi = words.saturating_add(still_possible);
++    word_count_parsimony(target.clamp(lo, hi), target)
++}
++
+ /// Score of a span path that is still open, in the final scorer's own
+ /// weights.
+ ///
+@@ -3756,33 +3958,52 @@ fn novelty_upper_bound(
+ /// more inflated that credit is — which is precisely the bias that
+ /// makes a "rank" built this way prefer short paths.  Every other axis
+ /// is already fixed by the path taken so far.
++///
++/// `PARSIMONY` is the one term here that is *not* fixed by the path so
++/// far — the path can still take more words — and it is the one term the
++/// function is nevertheless given exactly, for `word_count_parsimony`
++/// and not for its upper bound.  That is safe because the structural DP's
++/// representative buckets are keyed by `(word count, shared boundaries)`:
++/// every comparison `partial_span_score` takes part in is between paths
++/// in one bucket, so the axis contributes the same constant to all of
++/// them and cannot reorder anything.  The admissible key, which *is*
++/// compared across counts and does discard, takes
++/// [`word_count_parsimony_upper_bound`] instead.
+ fn partial_span_score(
+     ext: SpanExtremes,
+     words: usize,
++    target_words: usize,
+     target_syllables: usize,
+ ) -> f64 {
+     let denom = words.max(1) as f64;
+-    axes::SIMILARITY_PER_WORD * (-ext.min_cost)
+-        + axes::FAMILIARITY * ext.max_familiarity / denom
+-        - axes::WORD_NOVELTY * ext.min_reused as f64 / denom
+-        + axes::RHYTHM
++    axes::sim_per_word() * (-ext.min_cost)
++        + axes::familiarity() * ext.max_familiarity / denom
++        - axes::word_novelty() * ext.min_reused as f64 / denom
++        + axes::rhythm()
+             * rhythm_match_in(
+                 ext.min_syllables,
+                 ext.max_syllables,
+                 target_syllables,
+             )
+-        + axes::SHAPE * ext.max_shape / denom
+-        + axes::CLOSED_CLASS
++        + axes::shape() * ext.max_shape / denom
++        + axes::closed_class()
+             * closed_class_penalty(ext.min_closed as f64, denom)
++        + axes::parsimony() * word_count_parsimony(words, target_words)
+ }
+ 
+ /// Score of a *finished* span path, where boundary novelty is exact.
+ /// This is the same quantity the final scorer will compute for the best
+ /// alignment of this structure, so it is the right key for ordering
+ /// the structures the lexical enumeration expands.
++///
++/// `words` is the structure's final word count, so `PARSIMONY` enters
++/// exactly as the final scorer computes it, and
++/// `structural_bounds_dominate_the_real_scorer` keeps comparing the key
++/// against a real score that contains the identical term.
+ fn complete_span_score(
+     ext: SpanExtremes,
+     words: usize,
++    target_words: usize,
+     shared: usize,
+     target_inner: usize,
+     target_syllables: usize,
+@@ -3794,18 +4015,19 @@ fn complete_span_score(
+     } else {
+         (1.0 - shared as f64 / union as f64).clamp(0.0, 1.0)
+     };
+-    axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+-        + axes::NOVELTY * novelty
+-        + axes::WORD_NOVELTY * (1.0 - ext.min_reused as f64 / denom)
+-        + axes::FAMILIARITY * ext.max_familiarity / denom
+-        + axes::RHYTHM
++    axes::sim() * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
++        + axes::novelty() * novelty
++        + axes::word_novelty() * (1.0 - ext.min_reused as f64 / denom)
++        + axes::familiarity() * ext.max_familiarity / denom
++        + axes::rhythm()
+             * rhythm_match_in(
+                 ext.min_syllables,
+                 ext.max_syllables,
+                 target_syllables,
+             )
+-        + axes::SHAPE * ext.max_shape / denom
+-        + axes::CLOSED_CLASS * closed_class_penalty(ext.min_closed as f64, denom)
++        + axes::shape() * ext.max_shape / denom
++        + axes::closed_class() * closed_class_penalty(ext.min_closed as f64, denom)
++        + axes::parsimony() * word_count_parsimony(words, target_words)
+ }
+ 
+ /// Admissible upper bound on the final score of *every* alignment
+@@ -3830,6 +4052,12 @@ fn complete_span_score(
+ ///   closed-class words over the *most* words it could still reach.
+ ///   That is the one axis `denom` is wrong for — a small word count
+ ///   inflates the closed-class share rather than deflating it.
++/// * `parsimony` is a function of the final word count alone, and the
++///   reachable counts are exactly `[words, words + still_possible]`, so
++///   its maximum over them is
++///   [`word_count_parsimony_upper_bound`]: the exact value whenever the
++///   target's own word count is still reachable, and the correct
++///   endpoint relaxation when it is not.
+ ///
+ /// Being sound rather than tight, this is the right key for discarding a
+ /// path outright and the wrong key for ranking one against another.
+@@ -3837,6 +4065,7 @@ fn span_score_bound(
+     head: SpanExtremes,
+     tail: SpanExtremes,
+     words: usize,
++    target_words: usize,
+     shared: usize,
+     still_possible: usize,
+     target_inner: usize,
+@@ -3847,25 +4076,31 @@ fn span_score_bound(
+     // Every word consumes at least one IPA character, so a completion
+     // cannot end at more than one word per remaining character.
+     let widest = (words + still_possible).max(1) as f64;
+-    axes::SIMILARITY * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
+-        + axes::NOVELTY
++    axes::sim() * (1.0 - ext.min_cost / 4.0).clamp(0.0, 1.0)
++        + axes::novelty()
+             * novelty_upper_bound(
+                 words,
+                 shared,
+                 still_possible,
+                 target_inner,
+             )
+-        + axes::WORD_NOVELTY * (1.0 - ext.min_reused as f64 / denom)
+-        + axes::FAMILIARITY * ext.max_familiarity / denom
+-        + axes::RHYTHM
++        + axes::word_novelty() * (1.0 - ext.min_reused as f64 / denom)
++        + axes::familiarity() * ext.max_familiarity / denom
++        + axes::rhythm()
+             * rhythm_match_in(
+                 ext.min_syllables,
+                 ext.max_syllables,
+                 target_syllables,
+             )
+-        + axes::SHAPE * ext.max_shape / denom
+-        + axes::CLOSED_CLASS
++        + axes::shape() * ext.max_shape / denom
++        + axes::closed_class()
+             * closed_class_penalty(ext.min_closed as f64, widest)
++        + axes::parsimony()
++            * word_count_parsimony_upper_bound(
++                words,
++                target_words,
++                still_possible,
++            )
+ }
+ 
+ // -----------------------------------------------------------------
+@@ -4784,7 +5019,7 @@ mod tests {
+             // numbers, not which normaliser the axis uses.
+             let similarity = (1.0
+                 - p.sub_cost_total / total_len.max(1) as f64
+-                    / axes::SIMILARITY_COST_PER_PHONE)
++                    / axes::cost_per_phone())
+                 .clamp(0.0, 1.0);
+             let novelty =
+                 boundary_novelty(&p.cuts, &[3usize, 6, 9], 12, partial);
+@@ -4822,14 +5057,23 @@ mod tests {
+             };
+             let closed_penalty = closed_class_penalty(closed, count as f64);
+             let punch = p.punch_count as f64 / count.max(1) as f64;
+-            let combined = axes::SIMILARITY * similarity
+-                + axes::NOVELTY * novelty
+-                + axes::WORD_NOVELTY * word_novelty
+-                + axes::FAMILIARITY * familiarity
+-                + axes::RHYTHM * rhythm
+-                + axes::SHAPE * shape_quality
+-                + axes::CLOSED_CLASS * closed_penalty
+-                + axes::PUNCH * (punch - 1.0);
++            // `metrics` reads the target's word count off the boundary
++            // run it is handed, so the twin does the same.  This test's
++            // target is four words but its `boundaries` literal is the
++            // three offsets `[3, 6, 9]`, and the axis is a function of
++            // the count of that run exactly as production is — the
++            // discrepancy is the test's, and pinning it is the point of
++            // having a twin at all.
++            let parsimony = word_count_parsimony(count, 3);
++            let combined = axes::sim() * similarity
++                + axes::novelty() * novelty
++                + axes::word_novelty() * word_novelty
++                + axes::familiarity() * familiarity
++                + axes::rhythm() * rhythm
++                + axes::shape() * shape_quality
++                + axes::closed_class() * closed_penalty
++                + axes::punch() * (punch - 1.0)
++                + axes::parsimony() * parsimony;
+ 
+             Metrics {
+                 combined,
+@@ -6032,6 +6276,7 @@ mod tests {
+                 let keyed = complete_span_score(
+                     head,
+                     words.len(),
++                    boundaries.len(),
+                     shared,
+                     target_inner,
+                     syllables,
+@@ -6046,6 +6291,7 @@ mod tests {
+                     SpanExtremes::ZERO,
+                     tail,
+                     words.len(),
++                    boundaries.len(),
+                     0,
+                     total,
+                     target_inner,
+@@ -8000,8 +8246,8 @@ mod front_1c7d40 {
+                 "O contribution, no familiarity",
+                 (|a: &Alt, b: &Alt| {
+                     cmp_desc(
+-                        a.contrib - axes::FAMILIARITY * a.familiarity,
+-                        b.contrib - axes::FAMILIARITY * b.familiarity,
++                        a.contrib - axes::familiarity() * a.familiarity,
++                        b.contrib - axes::familiarity() * b.familiarity,
+                     )
+                 }) as Key,
+             ),
+@@ -8009,8 +8255,8 @@ mod front_1c7d40 {
+                 "P contribution, no cost",
+                 (|a: &Alt, b: &Alt| {
+                     cmp_desc(
+-                        a.contrib + axes::SIMILARITY_PER_WORD * a.cost,
+-                        b.contrib + axes::SIMILARITY_PER_WORD * b.cost,
++                        a.contrib + axes::sim_per_word() * a.cost,
++                        b.contrib + axes::sim_per_word() * b.cost,
+                     )
+                 }) as Key,
+             ),
+@@ -8157,19 +8403,35 @@ mod front_9b4a15 {
+         reseg: f64,
+     }
+ 
+-    const SHIPPED: [f64; 8] = [
+-        axes::SIMILARITY,
+-        axes::NOVELTY,
+-        axes::WORD_NOVELTY,
+-        axes::FAMILIARITY,
+-        axes::RHYTHM,
+-        axes::SHAPE,
+-        axes::CLOSED_CLASS,
+-        axes::PUNCH,
++    /// The weight vector shipped **before** w-3f8c62, written out as
++    /// literals rather than read from `axes`.  It used to be `SHIPPED =
++    /// axes::*`, which was correct while `axes` *was* the shipped vector
++    /// and silently stops being a comparator the moment the production
++    /// weights change: the baseline row would quietly become the new
++    /// objective and every price would be relative to itself.  Every
++    /// candidate below is stated as a *delta from this vector*, so the
++    /// table survives the landing.
++    const C0: [f64; 8] = [
++        0.25, 0.15, 0.15, 0.10, 0.30, 0.05, -super::CLOSED_CLASS_WEIGHT, 0.10,
+     ];
+ 
++    /// What production actually scores with, asserted against `axes` by
++    /// `the_production_weights_are_the_priced_c1d` below.
++    fn shipped() -> [f64; 8] {
++        [
++            axes::sim(),
++            axes::novelty(),
++            axes::word_novelty(),
++            axes::familiarity(),
++            axes::rhythm(),
++            axes::shape(),
++            axes::closed_class(),
++            axes::punch(),
++        ]
++    }
++
+     fn with(novelty: f64, rhythm: f64, shape: f64) -> [f64; 8] {
+-        let mut w = SHIPPED;
++        let mut w = C0;
+         w[1] = novelty;
+         w[4] = rhythm;
+         w[5] = shape;
+@@ -8200,8 +8462,8 @@ mod front_9b4a15 {
+     fn candidates() -> Vec<Weights> {
+         vec![
+             Weights {
+-                label: "C0  as shipped",
+-                w: SHIPPED,
++                label: "C0  as shipped before w-3f8c62",
++                w: C0,
+                 parsimony: 0.0,
+                 reseg: 0.0,
+             },
+@@ -8303,16 +8565,106 @@ mod front_9b4a15 {
+         ]
+     }
+ 
+-    /// `PARSIMONY`, the axis this front priced: a function of two integer
+-    /// word counts and nothing else — no sentence, no clue, no word
+-    /// list, no target text — in [0, 1], and 1.0 exactly when the clue
+-    /// has as many words as the target.  It is written out here rather
+-    /// than called from the scorer because the scorer does not have it:
+-    /// the front's verdict is HOLD and nothing about the shipped
+-    /// objective changed.
++    /// `PARSIMONY` is the *production* axis, not a copy of it: every row in
++    /// the table below is priced with the same function the scorer uses,
++    /// so a table can never disagree with the shipped objective by a
++    /// rounding of its own.
+     fn parsimony(words: usize, target_words: usize) -> f64 {
+-        let target = target_words.max(1);
+-        1.0 - words.abs_diff(target) as f64 / words.max(target) as f64
++        word_count_parsimony(words, target_words)
++    }
++
++    /// The priced vector and the shipped one are the same numbers, so the
++    /// table's "C1d" row is a measurement of production and not of a
++    /// description of it.
++    #[test]
++    fn the_production_weights_are_the_priced_c1d() {
++        assert_eq!(shipped(), with(0.05, 0.25, 0.0), "production is not C1d");
++        assert_eq!(axes::parsimony(), 0.15);
++        // Funded, not added: the positive weights stay inside the
++        // documented [0.0, 1.0] score range.  `PUNCH` is excluded for
++        // the reason `ceiling` excludes it — it is applied as
++        // `w * (v - 1)`, so it contributes at most nothing and never
++        // raises the maximum.
++        let positive: f64 = shipped()[..7]
++            .iter()
++            .filter(|w| **w > 0.0)
++            .sum::<f64>();
++        assert!(
++            positive + axes::parsimony() <= 1.0,
++            "the objective's maximum is {}, above its documented range",
++            positive + axes::parsimony()
++        );
++        assert_eq!(positive + axes::parsimony(), 0.95);
++    }
++
++    /// The admissible bound is *tight*: the largest value the axis can
++    /// take over the word counts a path can still finish at.  If this ever
++    /// returned `1.0` unconditionally the structural bound would still
++    /// dominate the real scorer and
++    /// `structural_bounds_dominate_the_real_scorer` would still be
++    /// green — with a key that under-reports less, i.e. a bound that was
++    /// made true by padding rather than by being right.  So the fence
++    /// below checks the bound against a brute-force maximum over the same
++    /// interval, and checks that it is *strictly below* 1.0 where the
++    /// target's own word count is out of reach.
++    #[test]
++    fn the_word_count_bound_is_tight_and_not_padded() {
++        for target_words in 1..=8usize {
++            for words in 0..=9usize {
++                for still in 0..=9usize {
++                    let hi = words.saturating_add(still);
++                    let brute = (words..=hi)
++                        .map(|c| word_count_parsimony(c, target_words))
++                        .fold(f64::NEG_INFINITY, f64::max);
++                    let got =
++                        word_count_parsimony_upper_bound(
++                            words,
++                            target_words,
++                            still,
++                        );
++                    assert!(
++                        got >= brute - 1e-12,
++                        "bound {got} below the true maximum {brute} at \
++                         words {words}, target {target_words}, still {still}"
++                    );
++                    assert!(
++                        got <= brute + 1e-12,
++                        "bound {got} above the true maximum {brute} at \
++                         words {words}, target {target_words}, still {still}"
++                    );
++                    if !(words..=hi).contains(&(target_words.max(1))) {
++                        assert!(
++                            got < 1.0,
++                            "the bound is pinned at 1.0 at words {words}, \
++                             target {target_words}, still {still}, so it is \
++                             padding rather than an upper bound"
++                        );
++                    }
++                }
++            }
++        }
++    }
++
++    /// The axis is a function of two integer word counts and nothing
++    /// else: in [0, 1], and 1.0 exactly when the counts are equal.  The
++    /// `max(1)` inside it is a division guard, so the one input pair it
++    /// does not report 1.0 for is the pair that cannot arise: a target
++    /// with no words has no target boundaries at all, and the scorer is
++    /// never handed one.
++    #[test]
++    fn word_count_parsimony_is_a_function_of_two_counts() {
++        assert_eq!(word_count_parsimony(5, 5), 1.0);
++        assert_eq!(word_count_parsimony(4, 5), 4.0 / 5.0);
++        assert_eq!(word_count_parsimony(6, 5), 5.0 / 6.0);
++        for a in 0..=12usize {
++            for b in 1..=12usize {
++                let v = word_count_parsimony(a, b);
++                assert!((0.0..=1.0).contains(&v), "{a} vs {b} gave {v}");
++                if a == b {
++                    assert_eq!(v, 1.0);
++                }
++            }
++        }
+     }
+ 
+     fn generator(top_n: usize) -> Generator {
+@@ -9210,18 +9562,62 @@ mod head_not_worse_than_pool {
+         values.iter().sum::<f64>() / values.len() as f64
+     }
+ 
+-    /// **This test is RED on this branch and is `#[ignore]`d, deliberately.**
++    /// Where the green canonical case sits under the *corpus suite's*
++    /// configuration, which is not the one the fence above uses: that
++    /// suite runs `beam_width: 64`, and beam width changes which
++    /// candidates the search keeps, so a rank measured at the default
++    /// width says nothing about what `approximate_finds_recognize_speech_
++    /// resegmentation` will see.  Both numbers are reported, because the
++    /// difference between them is the whole of the disagreement.
++    #[test]
++    #[ignore = "printer: reports the green case's rank, it asserts nothing"]
++    fn the_green_case_under_the_corpus_suite_configuration() {
++        for beam in [None, Some(64usize)] {
++            let mut config = GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: HEAD,
++                ..GeneratorConfig::default()
++            };
++            if let Some(b) = beam {
++                config.beam_width = b;
++            }
++            let generator = || {
++                Generator::from_json(CORPUS_JSON, config.clone())
++                    .expect("the corpus loads")
++            };
++            let pool = generator().generate_pool("recognize speech");
++            let phrase = "wreck a nice beach";
++            let rank = pool
++                .iter()
++                .position(|c| c.phrase == phrase)
++                .map(|p| p + 1);
++            println!(
++                "  beam_width {:>3}: pool {} clues, {:?} at rank {:?} score {:?}",
++                beam.map_or(0, |b| b),
++                pool.len(),
++                phrase,
++                rank,
++                pool.iter()
++                    .find(|c| c.phrase == phrase)
++                    .map(|c| c.score),
++            );
++        }
++    }
++
++    /// The fence `w-9b4a15` left in the tree, red and `#[ignore]`d, now
++    /// green on its own evidence and no longer `#[ignore]`d.
+     ///
+     /// Run it with:
+     ///
+     /// ```text
+-    /// cargo test --release --lib head_not_worse_than_pool -- --ignored
++    /// cargo test --release --lib head_not_worse_than_pool
+     /// ```
+     ///
+-    /// See the module comment above for the measured red and for why no
+-    /// weight vector this front was permitted to try turns it green.
++    /// The measured before and after, and the reason the axis is in the
++    /// structural keys as well as the final scorer, are in the module
++    /// comment above and in
++    /// [REPORT-3f8c62](../docs/work/REPORT-3f8c62.md).
+     #[test]
+-    #[ignore = "red on purpose: the shipped objective has no word-count axis"]
+     fn the_top_of_the_list_is_not_a_worse_phonetic_match_than_the_whole_pool() {
+         let generator = || {
+             Generator::from_json(
+@@ -9323,3 +9719,286 @@ mod head_not_worse_than_pool {
+         );
+     }
+ }
++
++#[cfg(test)]
++mod probe_e086cc {
++    //! SCRATCH-ONLY measurement harness for w-e086cc.  Not for integration.
++    //!
++    //! Measures every one of the eight fences that `REPORT-3f8c62.md` §5
++    //! records as green on HEAD and red under the landed C1d vector, plus
++    //! the head criterion that defines the admissible vector family, at one
++    //! weight vector per process (the vector comes from `W_*` in the
++    //! environment, see `mod axes`).
++    use super::*;
++    use open_english_pronouncing_dictionary::CORPUS_JSON;
++
++    fn gen(top_n: usize) -> Generator {
++        Generator::from_json(
++            CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n,
++                ..GeneratorConfig::default()
++            },
++        )
++        .expect("corpus loads")
++    }
++
++    fn phrase_of(c: &Clue) -> String {
++        c.words.iter().map(|w| w.word.to_lowercase()).collect::<Vec<_>>().join(" ")
++    }
++
++    /// Fence 1: `a_target_whose_best_wording_is_deep_in_one_slot_gets_a_deep_tuple`.
++    fn f1_reserve_depth() -> bool {
++        const TARGETS: &[&str] = &[
++            "a whole lot of trouble", "he was a big fat man",
++            "what are you going to do", "there is no way to know",
++            "the cat sat on the mat", "when the rain finally stopped",
++            "you can do it yourself", "an old man in a big hat",
++            "we should have told her", "in the middle of the night",
++            "put it back on the shelf", "they are going to be late",
++        ];
++        let expected = (TARGETS.iter().map(|t| t.split_whitespace().count()).min().unwrap() - 1) as u64;
++        let g = gen(50);
++        let mut worst = u64::MAX;
++        let mut bad = Vec::new();
++        for t in TARGETS {
++            counters::take_total(&counters::DEEPEST_PROFILE_COORDINATES);
++            let _ = g.generate(t);
++            let d = counters::take_total(&counters::DEEPEST_PROFILE_COORDINATES);
++            if d < worst { worst = d; }
++            if d < expected { bad.push(format!("{t:?}={d}")); }
++        }
++        println!("F1_reserve_depth expected>={expected} worst={worst} red={:?}", bad);
++        bad.is_empty()
++    }
++
++    /// Fences 2-4: the three `approximate_pool_reaches_*` tests.
++    fn f2_f3_f4_pool_reach(g: &Generator) -> (bool, bool, bool) {
++        // 2: approximate_pool_reaches_matches_deep_in_a_span
++        let mut red2 = Vec::new();
++        for (t, w) in [
++            ("I love you", "ask lovey"),
++            ("big spender", "began edgar"),
++            ("play games with me now", "bay games meow"),
++            ("taco cat", "taco net"),
++        ] {
++            let pool = g.generate_pool(t);
++            if !pool.iter().any(|c| phrase_of(c) == w) {
++                red2.push(format!("{t}:{w}"));
++            }
++        }
++        println!("F2_deep_in_span red={red2:?}");
++
++        // 3: approximate_pool_reaches_alternatives_past_the_opening_slot_width
++        let mut red3 = Vec::new();
++        for (t, floor) in [
++            ("the cat sat on the mat", 1000usize),
++            ("a whole lot of trouble", 1000),
++            ("when the rain finally stopped", 1000),
++        ] {
++            let pool = g.generate_pool(t);
++            let d: std::collections::HashSet<String> =
++                pool.iter().flat_map(|c| c.words.iter().map(|w| w.word.to_lowercase())).collect();
++            if d.len() < floor { red3.push(format!("{t}:distinct={}", d.len())); }
++        }
++        for (t, word) in [
++            ("taco cat", "taught"),
++            ("a whole lot of trouble", "touched"),
++            ("when the rain finally stopped", "wince"),
++            ("the cat sat on the mat", "tickets"),
++        ] {
++            let pool = g.generate_pool(t);
++            if !pool.iter().any(|c| c.words.iter().any(|w| w.word.to_lowercase() == word)) {
++                red3.push(format!("{t}:{word}"));
++            }
++        }
++        println!("F3_past_opening_width red={red3:?}");
++
++        // 4: approximate_pool_reaches_resegmentations_deeper_than_one_walk
++        let mut red4 = Vec::new();
++        for (t, w) in [
++            ("she sells sea shells", "see if a law thus ish l.'s"),
++            ("she sells sea shells", "see ish a law this ish l.'s"),
++            ("she sells sea shells", "see ish air law this ish l.'s"),
++        ] {
++            let pool = g.generate_pool(t);
++            if !pool.iter().any(|c| phrase_of(c) == w) { red4.push(w.to_string()); }
++        }
++        println!("F4_deeper_than_one_walk red={red4:?}");
++        (red2.is_empty(), red3.is_empty(), red4.is_empty())
++    }
++
++    /// Fence 5: `a_lattice_alignment_can_be_absent_from_the_production_pool`,
++    /// plus the size ratio its sibling asserts.
++    fn f5_lattice(g: &Generator) -> bool {
++        let pool = g.generate_pool("It's just a stupid game");
++        let alignment = ["hits", "justice", "dupe", "hid", "came"];
++        let present = pool.iter().any(|c| {
++            let w: Vec<String> = c.words.iter().map(|w| w.word.to_lowercase()).collect();
++            w == alignment
++        });
++        let missing_words: Vec<&str> = alignment.iter().copied().filter(|word| {
++            !pool.iter().any(|c| c.words.iter().any(|w| w.word.to_lowercase() == *word))
++        }).collect();
++        println!(
++            "F5_lattice pool={} alignment_present={present} words_absent={missing_words:?}",
++            pool.len()
++        );
++        !present && missing_words.is_empty()
++    }
++
++    /// Fence 6: `approximate_output_is_locked` (the top-10 golden list).
++    fn f6_output_lock() -> bool {
++        const EXPECTED: &[&str] = &[
++            "0.933655 isle uhh view", "0.933646 i'll uhh view",
++            "0.932924 aisle uhh view", "0.932087 isle a view",
++            "0.909157 a ill view", "0.908375 isle of new",
++            "0.907643 aisle of new", "0.907012 eye ill view",
++            "0.906165 isle of too", "0.906023 isle of ooh",
++        ];
++        let got: Vec<String> = gen(10).generate("I love you").iter()
++            .map(|c| format!("{:.6} {}", c.score, c.phrase.to_lowercase()))
++            .collect();
++        let locked = got == EXPECTED;
++        if !locked { println!("F6_output_lock LOCK-RED first={:?}", &got[..got.len().min(3)]); }
++        else { println!("F6_output_lock LOCK-GREEN"); }
++        locked
++    }
++
++    /// Fences 7-8: the two green-case tests on `recognize speech`.
++    fn f7_f8_green_case() -> (bool, bool) {
++        let g = gen(50);
++        let (printed, _) = g.generate_with_pool("recognize speech");
++        let wanted = ["wreck", "a", "nice", "beach"];
++        let in_printed = printed.iter().any(|c| {
++            let w: Vec<String> = c.words.iter().map(|w| w.word.to_lowercase()).collect();
++            w == wanted
++        });
++        let pool = g.generate_pool("recognize speech");
++        let rank = pool.iter().position(|c| {
++            let w: Vec<String> = c.words.iter().map(|w| w.word.to_lowercase()).collect();
++            w == wanted
++        }).map(|i| (i + 1, pool[i].score));
++        let case2 = {
++            let p2 = gen(50).generate_pool("It's just a stupid game");
++            let has = p2.iter().any(|c| phrase_of(c) == "hits justice dupe hid came");
++            println!("CASE2_canonical_in_pool={has} pool={}", p2.len());
++            has
++        };
++        println!("GREEN_CASE pool_rank={rank:?} in_printed={in_printed} case2_claimed={case2}");
++        (in_printed, rank.is_some())
++    }
++
++    /// The admissibility criterion: `head_not_worse_than_pool`, plus the
++    /// bound soundness that makes any vector landable at all.
++    fn f0_head() -> (usize, usize) {
++        const TARGETS: &[&str] = &[
++            "walk the dog", "open the window", "turn off the lights",
++            "they ate the whole pie", "call the office tomorrow",
++            "put the milk away", "the train leaves at noon",
++            "my brother lost his wallet", "he runs to the station",
++            "we should leave earlier",
++        ];
++        let g = gen(50);
++        let mut red = 0;
++        for t in TARGETS {
++            let pool = g.generate_pool(t);
++            let mut rows = counters::drain_scored();
++            rows.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap().then_with(|| a.phrase.cmp(&b.phrase)));
++            let mean = |v: &[f64]| v.iter().sum::<f64>() / v.len() as f64;
++            let all: Vec<f64> = rows.iter().map(|r| r.similarity).collect();
++            let head: Vec<f64> = rows.iter().take(50).map(|r| r.similarity).collect();
++            let lift = mean(&head) - mean(&all);
++            if lift < 0.0 { red += 1; }
++            println!("  head {t:<26} lift {lift:+.4}");
++        }
++        (red, TARGETS.len())
++    }
++
++    #[test]
++    fn probe_e086cc_sweep() {
++        println!("=== VECTOR sim={} nov={} wnov={} fam={} rhy={} sha={} par={} cpp={} simw={} ceiling={} ===",
++            axes::sim(), axes::novelty(), axes::word_novelty(), axes::familiarity(),
++            axes::rhythm(), axes::shape(), axes::parsimony(), axes::cost_per_phone(),
++            axes::sim_per_word(), axes::positive_sum());
++        let pool_gen = gen(20_000);
++        let f1 = f1_reserve_depth();
++        let (f2, f3, f4) = f2_f3_f4_pool_reach(&pool_gen);
++        let f5 = f5_lattice(&pool_gen);
++        let f6 = f6_output_lock();
++        let (f7, f8) = f7_f8_green_case();
++        let (red, n) = f0_head();
++        println!("=== SUMMARY f1_reserve={f1} f2_deep_span={f2} f3_past_width={f3} f4_deep_reseg={f4} f5_lattice={f5} f6_lock={f6} f7_green_printed={f7} f8_green_pool={f8} head_red={red}/{n} ===");
++    }
++}
++
++#[cfg(test)]
++mod probe_scorer_only {
++    //! SCRATCH-ONLY: is the final scorer a *filter* on the pool, or only an
++    //! order on it?  The `S_*` channel is read by `Partial::metrics` and by
++    //! nothing else, so any difference in the pool's *contents* here is
++    //! evidence that the scorer reaches the search.
++    use super::*;
++    use open_english_pronouncing_dictionary::CORPUS_JSON;
++
++    const TARGETS: &[&str] = &[
++        "I love you", "taco cat", "the cat sat on the mat",
++        "a whole lot of trouble", "she sells sea shells",
++        "big spender", "play games with me now",
++    ];
++
++    #[test]
++    fn probe_scorer_only_invariance() {
++        println!("=== SCORER-ONLY CHANNEL: S_NOV={:?} S_SIM={:?} S_PARS={:?} S_SHA={:?} S_RHY={:?} ===",
++            std::env::var("S_NOV").ok(), std::env::var("S_SIM").ok(),
++            std::env::var("S_PARS").ok(), std::env::var("S_SHA").ok(),
++            std::env::var("S_RHY").ok());
++        let g = Generator::from_json(
++            CORPUS_JSON,
++            GeneratorConfig { mode: SearchMode::approximate(), top_n: 20_000, ..GeneratorConfig::default() },
++        ).unwrap();
++        let mut all_words: std::collections::BTreeSet<String> = Default::default();
++        for t in TARGETS {
++            let pool = g.generate_pool(t);
++            let sigs: std::collections::BTreeSet<String> =
++                pool.iter().map(|c| phrase_signature(&c.phrase)).collect();
++            let words: std::collections::BTreeSet<String> =
++                pool.iter().flat_map(|c| c.words.iter().map(|w| w.word.to_lowercase())).collect();
++            all_words.extend(words.iter().cloned());
++            println!("POOLSIGN {t}\t{}\t{}\t{:?}", pool.len(), sigs.len(), &pool[..pool.len().min(3)].iter().map(|c| c.phrase.as_str()).collect::<Vec<_>>());
++        }
++        println!("POOLWORDS_ALL {}", all_words.len());
++    }
++}
++
++#[cfg(test)]
++mod probe_display {
++    use super::*;
++    use open_english_pronouncing_dictionary::CORPUS_JSON;
++    const TARGETS: &[&str] = &[
++        "I love you", "taco cat", "sign on", "big spender",
++        "the cat sat on the mat", "a sturdy green cardigan",
++    ];
++    #[test]
++    fn probe_display_is_a_function_of_the_pool() {
++        for top_n in [10usize, 50] {
++            let g = Generator::from_json(CORPUS_JSON, GeneratorConfig {
++                mode: SearchMode::approximate(), top_n, ..GeneratorConfig::default()
++            }).unwrap();
++            for t in TARGETS {
++                let (printed, _) = g.generate_with_pool(t);
++                let pool = g.generate_pool(t);
++                let ordered = pool.windows(2).all(|w| w[0].score >= w[1].score);
++                let in_pool = printed.iter().all(|c| pool.iter()
++                    .any(|p| p.phrase == c.phrase && (p.score - c.score).abs() < 1e-12));
++                let distinct = { let mut v: Vec<&str> = printed.iter().map(|c| c.phrase.as_str()).collect();
++                    v.sort_unstable(); let n = v.len(); v.dedup(); v.len() == n };
++                println!("DISPLAY top_n={top_n} {t:<26} printed={} pool={} min={} ordered={ordered} in_pool={in_pool} distinct={distinct} subseseq={}",
++                    printed.len(), pool.len(), top_n.min(pool.len()),
++                    pool.iter().map(|c| c.phrase.as_str()).collect::<std::collections::HashSet<_>>()
++                        .is_superset(&printed.iter().map(|c| c.phrase.as_str()).collect::<std::collections::HashSet<_>>()));
++            }
++        }
++    }
++}
