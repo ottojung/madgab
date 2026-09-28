@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5e3a
-updated: 2026-09-28T12:29:00Z
+owner: coord-8d42
+updated: 2026-09-28T12:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5113,3 +5113,114 @@ had recorded and none had resolved.**
     named direction, a qualitatively different whole-path algorithm (compact pronunciation
     DAG with k-best / A*-style search, or a strong backward suffix heuristic), **never**
     phrase-specific hard-coding of the canonical phrases.
+
+## 43. **A tree holds no content of its own, so once rule 42's blobs are durable the tree
+## class is not an independent risk class. Measured: 338 unreachable trees, 587 blobs,
+## 2 not durable, and the 2 are the same regenerable binaries.**
+
+  The fifty-third pass closed the blob class and named the remaining `fsck` object types as
+  the untried instance of its own technique. Measured here, classification by *tree* rather
+  than as children of the 205 commits:
+
+  | `fsck` class | pass 53 reported | this pass |
+  |---|---|---|
+  | unreachable commit | 205 | 180 |
+  | unreachable tree | 398 | **338** |
+  | unreachable/dangling blob | 227 | **2** |
+
+  The blob row is rule 42's recovery, and it is the control for the whole entry: the two
+  remaining blobs are the same 30,129,432- and 30,111,288-byte instrumented binaries
+  (`24753c1`, `aad696a0`), still excluded on rule 41 as regenerable from the archived
+  `run.sh`/`summarize.py` and their three durable inputs. The commit and tree rows moved
+  because the recovery commit and the intervening log commits changed reachability.
+
+  Recursing every unreachable tree with `git ls-tree -r` yields **587 distinct blobs**, of
+  which **587 − 585 = 2** are outside the durable set
+  (`rev-list --objects --all --reflog`, 6,432 objects, including the 189 `ls-remote`-confirmed
+  remote tips). So the tree class is now **closed by measurement, at zero new risk**: a tree
+  is a list of names, not content, and every name it carries is either already durable or is
+  one of the two deliberately-excluded regenerable binaries.
+
+  **The general form, and it is the reason this class was worth one pass and no more.** Rule
+  42's lesson was *group the check's input by something other than ref, commit or file*. A
+  tree is a fourth key, and it is the one key that cannot carry a finding on its own, because
+  the bytes a tree names live in blobs — which rules 42 and 43 have now both swept. **An
+  object class's independence from the classes already swept is a property of the object
+  model, and it is checkable before spending a pass on it.** Every remaining `fsck` type is
+  now classified, so a future pass should not re-run this one for a new result.
+
+  A control that could not succeed is recorded as such rather than as a pass. The natural
+  negative control — remove a known-durable blob from the durable set and watch the count
+  rise — was run by deleting `origin/main:src/lib.rs` (`6c10290`) and returned **2, not 3**,
+  because that blob is not in the tree set at all, so deleting it changes nothing. The
+  control was vacuous, not fired. The one that does fire: shrink the durable set to
+  `origin/main` alone (3,927 objects) and the at-risk count goes **2 → 196**. Positive
+  control also fires: `6c10290` is durable and is not flagged. So the `2` is a measurement.
+
+### `coord-8d42` — fifty-fourth pass, 2026-09-28T12:21Z–12:32Z
+
+**The gate is unchanged and still only a human can answer it. This pass created no work item,
+claimed none, launched no agent, resumed no front, and did not touch `main` (`0267ade`) or any
+front branch. It ran the one untried instance rule 42 named, closed the last `fsck` object
+class, and recorded a new mis-spelling that made a failed command print a clean-looking 0.**
+
+  * **(a) The tree class: closed at zero new risk.** Rule 43 above. 338 unreachable trees,
+    587 distinct blobs under them, **2** outside the durable set, and those 2 are the
+    documented oversize binaries. Nothing archived, because nothing is lost. **Every `fsck`
+    object type on this repository is now classified**, so this sweep should not be re-run.
+  * **(b) A new mis-spelling, and it is the `tr -d '\n'` version of rules 14 and 30.** The
+    at-risk check was first run as
+    `git rev-list --all --reflog $(git for-each-ref --format='^%(objectname)' refs/remotes/audit | tr -d '\n')`.
+    Command substitution splits on unquoted whitespace, so removing the newlines fuses 189
+    revisions into **one malformed revision**: git prints `fatal: bad revision '^1786530…^b987b5…'`
+    and then the pipeline still emits a count — **0**. A pass that reads only the number
+    records *"the at-risk population is zero"*, which is the single most reassuring sentence
+    this log could print and is the opposite of the truth. **The correct figure is 92.** The
+    general form: a failed `rev-list` does not fail the `wc -l` at the end of the pipe, so a
+    mis-spelled exclusion set degrades to `0` rather than to an error, and **0 is the one
+    number in this rule family that reads as a clean bill of health.** Always compare against
+    the unexcluded baseline — here **1,022** against 92, the two differing, which is the
+    cheapest control in the log and the one that would have caught this.
+  * **(c) At-risk population: 92 for the fifth consecutive pass**, stateless `^` spelling,
+    exclusion set named (the **189** `ls-remote`-confirmed remote tips from
+    `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`). The `refs/remotes/audit/*`
+    scratch namespace was deleted afterwards and verified at 0, per rule 30. This is a
+    re-confirmation, not a new class, and per the standing guidance a further pass should not
+    re-run it for a different result.
+  * **(d) Agents: no MadGab agent alive, none claimable, nothing to leave running.**
+    `antonina agent list` filtered to MadGab worktrees returns only terminal entries; the two
+    paused fronts `3a8f01`/`3a8f02` are still `stopped`, deliberately left so by the pause.
+    The nonterminal agents host-wide all have working directories outside `/workspace/madgab*`
+    and belong to other projects; per the contract they were left running for their own
+    owners. **This pass launched nothing, so there is nothing for a later pass to supervise.**
+  * **(e) Branch policy.** Only this log commits on `post-milestone-acceptance`; no product
+    state needed a `recovery/*` branch this pass because there was nothing to recover;
+    `git ls-remote` shows `main` at `0267ade` and `post-milestone-acceptance` at `8413eaa`
+    before this entry, both matching the remote, and `main` remains remote-only so no push to
+    it was possible. `coord-7b31`'s byte-identity finding stands and was not re-run — it is
+    closed by measurement and there is no code anywhere waiting to be integrated.
+  * **(f) The prompt's canonical-example clause, checkable half, run and green.** The
+    prebuilt `target/release/deps/no_phrase_hard_coding-5cce163437db32d3` reports
+    **9 passed, 0 failed**, and per rule 29 it was bound to the tree before its result was
+    believed (binary `08:05:35Z`, worktree clean, `origin/main:src/lib.rs` and the
+    accumulation branch's `src/lib.rs` both `6c10290`). The forbidden half — making the
+    canonical examples work — remains undone by design, and the limitation stands as
+    documented in [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
+  * **Next useful action.** (i) The gate question is now **eighteen** passes old and is the
+    only thing that can change the programme's status: *is MadGab development being
+    reopened?* (ii) **Every `fsck` object class is closed**, so rule 42's technique has
+    exhausted this repository's object store: blob (rule 42, recovered), tree (rule 43, zero
+    risk) and commit (rules 13/28, archived at `recovery/unreachable-merge-content-2026-09-28`).
+    A pass wanting a new class must change the *key* again, and the one untried instance is
+    the **index**: `git ls-files -s` over each linked worktree's index, checking staged blob
+    shas that no commit holds. That is the same question rules 6–11 answered for the worktree
+    *file* and the *commit*, never for the *staged entry*. (iii) The honest report for any
+    further pass is unchanged and now stated four ways: **no at-risk state left to recover,
+    no work item left to claim, no agent to supervise, and no code on any branch waiting to
+    be integrated.** (iv) `target-after/`, `target-base/` and the two oversize binaries must
+    never be archived. (v) If the gate answer is ever yes, the order is unchanged: rule 29's
+    binding check before any timing is quoted, `coord-1c8e`'s three measurement corrections,
+    **cut the branch from `main`** — which `coord-7b31` confirms is a byte-identical starting
+    point for production code — and the named direction, a qualitatively different whole-path
+    algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
+    suffix heuristic), **never** phrase-specific hard-coding of the canonical phrases.
