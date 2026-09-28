@@ -1055,8 +1055,7 @@ impl Generator {
                         self.config
                             .top_n
                             .saturating_mul(128)
-                            .max(1024)
-                            .min(8192)
+                            .clamp(1024, 8192)
                     } else {
                         self.config.beam_width.max(1)
                     };
@@ -1078,8 +1077,7 @@ impl Generator {
             .config
             .top_n
             .saturating_mul(128)
-            .max(1024)
-            .min(8192);
+            .clamp(1024, 8192);
         let mut completed = prune_partials(
             std::mem::take(&mut beam[n]),
             final_keep,
@@ -1583,7 +1581,7 @@ impl Generator {
             // order-independent from here on.
             let mut here: Vec<((usize, usize), Vec<SegPath>)> =
                 std::mem::take(&mut seg_states[p]).into_iter().collect();
-            here.sort_by(|(a, _), (b, _)| a.cmp(b));
+            here.sort_by_key(|(key, _)| *key);
             for ((word_count, shared), paths) in here {
                 for path in paths {
                     for edge in &span_lattice[p] {
@@ -1655,7 +1653,7 @@ impl Generator {
         // different set of wordings in the pool.
         let mut final_states: Vec<((usize, usize), Vec<SegPath>)> =
             std::mem::take(&mut seg_states[n]).into_iter().collect();
-        final_states.sort_by(|(a, _), (b, _)| a.cmp(b));
+        final_states.sort_by_key(|(key, _)| *key);
         for ((word_count, _shared), paths) in final_states {
             if word_count == 0 {
                 continue;
@@ -2289,6 +2287,7 @@ impl Generator {
                             .enumerate()
                             .map(|(j, &i)| slots[j][i].cost)
                             .sum();
+                        #[allow(clippy::needless_range_loop)]
                         for i in opened..slots[k].len().min(cap) {
                             if !slot_is_affordable(
                                 committed,
@@ -2887,6 +2886,7 @@ impl Partial {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn extend_parts(
         &self,
         target: &TargetPhrase,
@@ -3133,7 +3133,7 @@ impl Partial {
             // that it reads the *maximum* per-word cost and therefore
             // is not a function of the total the other axes read.
             #[cfg(test)]
-            worst_word: worst_word,
+            worst_word,
             #[cfg(test)]
             words,
         }
@@ -3707,10 +3707,8 @@ fn cmp_desc(a: f64, b: f64) -> std::cmp::Ordering {
 fn rhythm_match_in(lo: usize, hi: usize, target_syllables: usize) -> f64 {
     let closest = if target_syllables < lo {
         lo - target_syllables
-    } else if target_syllables > hi {
-        target_syllables - hi
     } else {
-        0
+        target_syllables.saturating_sub(hi)
     };
     (1.0 - (closest as f64 / 2.0).min(1.0)).max(0.0)
 }
@@ -4262,13 +4260,11 @@ mod tests {
     /// extending an empty one with `words`, in order.
     fn word_chain(words: Vec<ClueWord>) -> Option<Rc<WordNode>> {
         let mut tail = None;
-        let mut len = 0usize;
-        for word in words {
-            len += 1;
+        for (index, word) in words.into_iter().enumerate() {
             tail = Some(Rc::new(WordNode {
                 word,
                 prev: tail,
-                len,
+                len: index + 1,
             }));
         }
         tail
@@ -4406,7 +4402,7 @@ mod tests {
         }
         for (i, extra) in [0usize, 1, 3, 4, 5, 6].iter().enumerate() {
             let words: Vec<&str> = std::iter::once("dd")
-                .chain(std::iter::repeat("b").take(*extra))
+                .chain(std::iter::repeat_n("b", *extra))
                 .collect();
             pool.push(clue(&words.join(" "), 0.909 - i as f64 * 1e-3));
         }
@@ -5239,12 +5235,14 @@ mod tests {
     /// that is the defect this rule exists to remove.
     #[test]
     fn depth_profile_reserve_is_bounded_by_named_arithmetic() {
-        assert!(
-            EMIT_PROFILE_RESERVE > 0
-                && EMIT_PROFILE_RESERVE < LEXICAL_COMBINATIONS_PER_SEGMENTATION
-                    / 2,
-            "the reserve is a part of the allowance, not all of it"
-        );
+        const {
+            assert!(
+                EMIT_PROFILE_RESERVE > 0
+                    && EMIT_PROFILE_RESERVE
+                        < LEXICAL_COMBINATIONS_PER_SEGMENTATION / 2,
+                "the reserve is a part of the allowance, not all of it"
+            );
+        }
         // The depth bound is a *count of slots*, so the only property worth
         // pinning here is that it is a count of a real slot list and never
         // exceeds it.  The interesting content of the bound — that a
@@ -5436,13 +5434,13 @@ mod tests {
                     }
                 }
             }
-            for slot in 0..depth {
+            for (slot, indices) in placed.iter().enumerate().take(depth) {
                 assert_eq!(
-                    placed[slot].len(),
+                    indices.len(),
                     span,
                     "depth {depth} slot {slot}: the reserve reached {} of the \
                      slot's {span} indices above the floor",
-                    placed[slot].len()
+                    indices.len()
                 );
             }
             if depth >= 2 {
@@ -5912,6 +5910,7 @@ mod tests {
     /// span DAG.  Taking the extremums over everything the lattice
     /// offers keeps this reference strictly more generous than the
     /// search's own summary, so a violation is the search's fault.
+    #[allow(clippy::type_complexity)]
     fn lattice_spans_and_tail(
         g: &Generator,
         target: &str,
@@ -5922,7 +5921,7 @@ mod tests {
         let n = chars.len();
         let mut spans: Vec<Vec<(usize, SpanExtremes)>> =
             (0..n).map(|_| Vec::new()).collect();
-        for p in 0..n {
+        for (p, span_entries) in spans.iter_mut().enumerate().take(n) {
             let lattice = g.fuzzy_lexicon.matches_at(&chars, p, 0.5, 1);
             let mut ends: Vec<usize> =
                 lattice.iter().map(|m| p + m.consumed).collect();
@@ -5958,7 +5957,7 @@ mod tests {
                 // lattice can contain both reusing and fresh words for
                 // one span, so the minimum here is zero.
                 ext.min_reused = 0;
-                spans[p].push((end, ext));
+                span_entries.push((end, ext));
             }
         }
         let mut tail: Vec<Option<SpanExtremes>> = vec![None; n + 1];
@@ -6595,7 +6594,7 @@ mod tests {
         // how well it spells the target.
         let mut previous = f64::INFINITY;
         for step in 0..=64 {
-            let cost = 48.0 * (2.0_f64).powf((step as i32 - 64) as f64 / 4.0);
+            let cost = 48.0 * (2.0_f64).powf((step - 64) as f64 / 4.0);
             let clue = synthetic_clue(&target, 6, 4, cost);
             let similarity = clue.metrics(&boundaries, syllables, total_len, false).similarity;
             assert!(
@@ -7552,12 +7551,14 @@ mod slot_probe {
                 let mut taken = vec![0usize; strata];
                 while perm.len() < n {
                     let mut placed = false;
-                    for s in 0..strata {
+                    for (s, used) in
+                        taken.iter_mut().enumerate().take(strata)
+                    {
                         let lo = s * n / strata;
                         let hi = ((s + 1) * n / strata).max(lo + 1).min(n);
-                        if taken[s] < hi - lo {
-                            perm.push(lo + taken[s]);
-                            taken[s] += 1;
+                        if *used < hi - lo {
+                            perm.push(lo + *used);
+                            *used += 1;
                             placed = true;
                             break;
                         }
@@ -7650,9 +7651,9 @@ mod front_1c7d40 {
     fn rank_of(pool: &[Clue], want: &[String]) -> Option<(usize, f64)> {
         let mut best: Option<(usize, f64)> = None;
         for (i, c) in pool.iter().enumerate() {
-            if &clue_multiset(c) == want {
+            if clue_multiset(c) == want {
                 let r = i + 1;
-                if best.map_or(true, |(b, _)| r < b) {
+                if best.is_none_or(|(b, _)| r < b) {
                     best = Some((r, c.score));
                 }
             }
@@ -7909,8 +7910,8 @@ mod front_1c7d40 {
             }
             println!("{label}: {} slot lists captured", front_gap.len());
             println!(
-                "  contribution lost from the best to the {}-th of a slot: mean {:.6}, max {:.6}",
-                "cap", mean(&front_gap),
+                "  contribution lost from the best to the cap-th of a slot: mean {:.6}, max {:.6}",
+                mean(&front_gap),
                 front_gap.iter().cloned().fold(0.0, f64::max)
             );
             println!(
@@ -8520,7 +8521,7 @@ mod front_9b4a15 {
             .iter()
             .enumerate()
             .map(|(i, r)| {
-                let mut s = cand.w[7] * -1.0;
+                let mut s = -cand.w[7];
                 for (k, wk) in cand.w.iter().enumerate() {
                     s += wk * r.terms[k];
                 }
@@ -8791,9 +8792,9 @@ mod front_5d9c04 {
     fn rank_of(pool: &[Clue], want: &[String]) -> Option<(usize, f64)> {
         let mut best: Option<(usize, f64)> = None;
         for (i, c) in pool.iter().enumerate() {
-            if &clue_multiset(c) == want {
+            if clue_multiset(c) == want {
                 let r = i + 1;
-                if best.map_or(true, |(b, _)| r < b) {
+                if best.is_none_or(|(b, _)| r < b) {
                     best = Some((r, c.score));
                 }
             }
