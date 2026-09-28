@@ -548,4 +548,188 @@ mod tests {
             );
         }
     }
+    /// Build a lexicon of invented words against `target`, from
+    /// `(ipa, count, rarity_base)` groups.
+    ///
+    /// Every word in a group shares its group's pronunciation, which is
+    /// deliberate. The property under test is about *positions* in a span's
+    /// shortlist and about how the keep's arithmetic divides a fixed budget,
+    /// so each group's costs have to be uniform for the counts to be
+    /// checkable at all; varying them within a group would make the expected
+    /// numbers depend on the phonetics of the fixture. The names are not
+    /// English words, so a failure is unambiguously about the policy and not
+    /// about the corpus.
+    ///
+    /// Rarity bases are supplied per group so a caller can make one group
+    /// *common* and another *rare* at the same cost, which is what separates
+    /// the two rescue stages from each other.
+    fn synthetic_span_lexicon(
+        target: &[char],
+        groups: &[(&str, &str, usize, f64)],
+    ) -> FuzzyLexicon {
+        let mut words = Vec::new();
+        let mut specs: Vec<(&str, &str, f64)> = Vec::new();
+        for (tag, ipa, count, rarity_base) in groups {
+            for i in 0..*count {
+                specs.push((tag, ipa, rarity_base + i as f64));
+            }
+        }
+        for (tag, ipa, rarity) in &specs {
+            words.push(FuzzyWord {
+                word: format!("zq{tag}{:.0}", rarity),
+                ipa_len: ipa.chars().count(),
+                syllables: 1,
+                ipa: ipa.to_string(),
+                // Ascending rarity inside a group makes the
+                // cost-then-rarity-then-word order identical to construction
+                // order within a cost, so a position is a name.
+                rarity: Some(*rarity),
+                closed: false,
+            });
+        }
+
+        let mut nodes = vec![TrieNode::default()];
+        for (word_idx, word) in words.iter().enumerate() {
+            let mut node_idx = 0usize;
+            for ch in word.ipa.chars() {
+                // Reuse an existing child, as `build_lexicon` does: a fresh
+                // node per word would overwrite the previous word's edge and
+                // leave all but the last word unreachable from the root.
+                let child_idx = if let Some(&existing) = nodes[node_idx].children.get(&ch) {
+                    existing
+                } else {
+                    let next = nodes.len();
+                    nodes.push(TrieNode::default());
+                    nodes[node_idx].children.insert(ch, next);
+                    next
+                };
+                node_idx = child_idx;
+            }
+            nodes[node_idx].terminations.push(word_idx);
+        }
+
+        let mut alphabet: Vec<char> = target.to_vec();
+        for (_, ipa, _) in &specs {
+            for ch in ipa.chars() {
+                if !alphabet.contains(&ch) {
+                    alphabet.push(ch);
+                }
+            }
+        }
+        let mut substitution_costs = HashMap::new();
+        for &a in &alphabet {
+            for &b in &alphabet {
+                substitution_costs.insert(
+                    (a, b),
+                    if a == b {
+                        0.0
+                    } else {
+                        phonetics::distance(&a.to_string(), &b.to_string())
+                    },
+                );
+            }
+        }
+
+        FuzzyLexicon {
+            words,
+            nodes,
+            substitution_costs,
+        }
+    }
+
+    /// A span whose matches overrun the retention budget keeps candidates
+    /// that **neither** the cheap head **nor** its own cost band's ranking
+    /// would keep — and it keeps them for two different reasons at once.
+    ///
+    /// The keep is three stages, and the property is that the last two are
+    /// not redundant with the first:
+    ///
+    /// * a **cheap but rare** candidate is past the cheap head and past its
+    ///   band's rarity-first keep, and survives only because the third
+    ///   stage's cost-ordered fill completes the budget;
+    /// * an **expensive but common** candidate is at the very end of the
+    ///   span's cost order, so no cost-ordered fill could ever reach it, and
+    ///   survives only because its cost band's rarity-first keep admits it.
+    ///
+    /// Each direction is separately load-bearing, and the test is written so
+    /// that deleting either stage fails it: with the fill gone the cheap-but-
+    /// rare group loses its tail, and with the band stage gone the
+    /// expensive-but-common group is not kept at all.
+    ///
+    /// An earlier form of this front assumed a span's band ranking was the
+    /// last word on its shortlist. It is not — the fill is — and that
+    /// assumption is what made a canonical case look like a pruning problem
+    /// when it was not. The claim here is stated as counts over a synthetic
+    /// span, not as any word, phrase or rank of a real target.
+    #[test]
+    fn a_span_over_budget_keeps_candidates_neither_the_head_nor_its_band_keeps() {
+        let target: Vec<char> = "abc".chars().collect();
+        // Three groups against a 3-segment target, all reaching the *full*
+        // span: an exact match at no cost, one segment long at one gap, and
+        // two segments long at two gaps. Rarity is arranged so the middle
+        // group is the common one and the outer two are rare in opposite
+        // directions, which is what puts each group's rescue on a different
+        // stage.
+        let exact_ipa = "abc";
+        let one_gap_ipa = "abcc";
+        let two_gap_ipa = "abccc";
+        let lexicon = synthetic_span_lexicon(
+            &target,
+            &[
+                ("S", exact_ipa, 150, 1000.0),
+                ("M", one_gap_ipa, 150, 500.0),
+                ("L", two_gap_ipa, 150, 2000.0),
+            ],
+        );
+
+        // 450 matches for the full span against a budget of 256, so all
+        // three stages are the thing under test.
+        assert!(
+            450 > MATCHES_PER_SPAN,
+            "the fixture must overrun the budget to exercise the keep"
+        );
+        let kept = lexicon.matches_at(&target, 0, 0.5, 3);
+
+        // Isolate the full-span group. A shorter span also holds these words,
+        // at other costs, so each group is selected by its own tag *and* the
+        // cost at which it reaches the full span.
+        let count_of = |tag: char, cost: f64| -> usize {
+            kept.iter()
+                .filter(|m| {
+                    let w = lexicon.word(m.word_idx);
+                    w.word.starts_with(&format!("zq{tag}"))
+                        && (m.cost - cost).abs() < 1e-9
+                })
+                .count()
+        };
+        let exact_kept = count_of('S', 0.0);
+        let one_gap_kept = count_of('M', GAP_COST);
+        let two_gap_kept = count_of('L', 2.0 * GAP_COST);
+
+        // The cheap head is drawn entirely from the no-cost group, so a full
+        // haul of that group is the fill's work and cannot happen without it.
+        assert_eq!(
+            exact_kept, 150,
+            "only {exact_kept} of 150 no-cost candidates survived; the cheap head \
+             holds fewer than the group, so the cost-ordered fill is what \
+             completes it and it appears to be missing"
+        );
+
+        // The two-gap group sits at the end of the span's cost order, so
+        // nothing cost-ordered can reach it. Only its band's rarity-first
+        // keep admits it.
+        assert!(
+            two_gap_kept > 0,
+            "no expensive-but-common candidate survived, so the cost-band \
+             stage contributes nothing the cheap head and the fill do not \
+             already cover"
+        );
+
+        // Both directions at once: the kept set is not one cost band.
+        assert!(
+            one_gap_kept > 0 && two_gap_kept > 0,
+            "the kept set did not span the middle and far cost bands \
+             ({exact_kept}/{one_gap_kept}/{two_gap_kept})"
+        );
+    }
 }
