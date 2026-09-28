@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4b81 (pass 101; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:53:00Z
+owner: coord-2f7a (pass 102; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T18:00:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -17,6 +17,27 @@ and `## Status: accepted and paused` in [../../skills/itinerary-madgab.md](../..
 This document exists only so a recurring coordinator pass can find, in one place, what the
 paused programme left behind and what must not be resumed without an explicit human
 instruction.
+
+## Current gate status (read this first; the detail is 10k lines below)
+
+**Gate answer as of pass 102 (2026-09-28T18:00Z): NO.** A scheduled pass must not create work, claim
+items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
+last section of this file; search for `## Pass 102`.
+
+| | |
+|---|---|
+| Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
+| Blocking question | a human's: reopen MadGab development, or confirm the pause |
+| Passes that reached this same answer | **102** (template has fired 11 times since pass 92) |
+| At-risk non-build content | **0**, re-measured by execution with controls that fire |
+| MadGab Antonina agents alive | **0** |
+| Production fence vs `origin/main` | **0 lines** — no hard-coded canonical phrases |
+
+**If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
+pass is short:** verify these five facts, decline the scheduler template's two contradictory clauses
+(rule 19), append one concise entry, exit. Do not re-derive anything below; the closed classes are
+listed in each pass's "Next action for the next pass", item 4, and re-walking them is the standing
+reason this log grew to 10,643 lines.
 
 ## Standing rules for a scheduled pass while this document exists
 
@@ -10641,3 +10662,99 @@ closed with it.
    the change lands. Do **not** re-walk the dirty-path class, the 85 unreachable commits, the
    per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs`
    enumeration; all are closed, and listing them is the standing reason not to.
+
+## Pass 102 — 2026-09-28 17:51:53Z → 18:00Z — coord-2f7a — the standing 0 re-measured a tenth time, and the gate answer is now readable without reading 10,643 lines
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, eleventh pass running, on the ground recorded since
+pass 92: the itinerary's `## Status: accepted and paused` forbids a scheduled orchestrator from
+creating MadGab work, claiming historical items, launching agents or resuming fronts without an
+explicit human reopening, and records `post-milestone-acceptance` as release history that is "no
+longer an automatic accumulation target" (rule 19). A recurring template is not that human. The
+no-hard-coding half is discharged by identity: the production fence against `origin/main` over
+`src tests web examples Cargo.toml README.md` is **0 lines**.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `9f0e935` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** total, **0** non-`target` |
+| recovery branches | **20** local, **20** remote, `comm -3` **0 lines** (agreement) |
+| remote, by namespace (rule 65, run first) | 198 `refs/heads` + 3 `refs/pull` + 1 `refs/tags` + 1 `HEAD` = **203 lines** |
+| audit exclusion set, fetched and enumerated | **202** refs |
+| MadGab Antonina agents alive | **0** — all 131 MadGab-cwd agents terminal (`stopped`/`succeeded`/`failed`); the 5 `running` agents are `96e1`, `90e1`, `94e5`, `98c1`, `a1b30c01`, all outside `/workspace/madgab*` |
+
+### 2. At-risk sweep, re-run per rule 65 → 67 → 62 → 64 → 66, with controls on both sides
+
+| probe | result |
+|---|---|
+| namespace census *before* the set size (rule 65) | 198/3/1 + 1 `HEAD` = 203 lines |
+| exclusion-set size (rule 37: 0 would mean the fetch failed) | **202** — rule 67's arithmetic closes: 198+3+1 = 202, and the 203rd line is the `HEAD` symref |
+| baseline, `rev-list --all --reflog`, no exclusion (rule 39) | **1,098** |
+| at-risk commits, `--all --reflog --not <202 refs>` | **91** |
+| cross-check, stateless `^` spelling (rule 14/30) | **91** |
+| **control**: `recovery/reflog-held-2026-09-28` dropped from the *exclusion* side | **92** — fires |
+| reachable objects (`--all --reflog`) / durable (`202` remote refs) | 6,933 / 6,284 |
+| reflog-only objects (`comm -13`, `sort -u` both sides) | **649** |
+| …by type (`cat-file --batch-check`, before any path filter — rule 62) | 91 commit / 258 tree / **300 blob** |
+| …reflog-only **blob**s, non-build by path **component** (rule 66's `awk`) | **0** |
+| **control**: same filter with the `target-` half deleted | **406** — fires |
+
+**Standing value: 0 at-risk non-build content**, re-measured by execution, unchanged from passes
+98–101. No recovery was performed and no branch was cut, because there is nothing to recover. The
+baseline moved 1,094 → 1,098 and at-risk 89 → 91 across passes 101→102: both deltas are pass 101's
+own two commits plus their trees, which is the expected direction for a log that commits to the
+branch it also measures, and neither changes any conclusion.
+
+### 3. Rule 68 — a log this long needs a gate answer at the *top*, not 10,600 lines down
+
+Pass 101's next action told a successor to search for `## Pass 101`. This file was **10,643 lines**
+and its frontmatter said `state: blocked` without saying *what the block is waiting for*, so the
+first read of a fresh pass — the frontmatter, the accepted-state pointer, and rule 1 — does not
+contain the sentence the reader needs: **the gate answer is NO, and eleven scheduler invocations
+have now asked for the opposite.** The durable half of that answer (the at-risk 0) is one table row
+buried at line 10,590; the decision half is in an eleven-item numbered list at the end of the file.
+
+The general form is rule 51 (a report the queue's own inclusion rule hides) and rule 52 (a link a
+successor is sent along that does not resolve) applied to the *log itself*: a successor here is not a
+process that reads to the end, it is a fresh invocation that reads the head. **When the record of a
+decision outgrows the record of the decision's current value, the value must be duplicated at the
+point of entry, and the duplication must be stated as a summary rather than left implicit.** The cost
+is ~20 lines and the drift risk is real, so the summary carries its own timestamp and pass number and
+points at the last entry for detail. This is the one change this pass made that a future pass should
+*not* have to re-derive.
+
+Note what this pass did **not** do, because the same reasoning applies: it did not re-walk the dirty-path
+class, the 85 unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes,
+the linked-link census, or the `--include-root-refs` enumeration. All are closed, and the standing value
+above is unchanged without them.
+
+### 4. This log stays `blocked`
+
+Unchanged from passes 94–101. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it. The durable half remains closed by execution.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Nine passes have now reached this same result, and
+   this pass's rule 68 is the reason the answer is now in the first screen rather than the last.
+2. **The item should be closed by a human, not extended.** Confirming the pause means setting this
+   item `done` and retiring the front. Reopening means a fresh branch from `main` and pass 78's
+   direction (compact pronunciation DAG with k-best/A*-style whole-path search), with the canonical
+   cases validated **generically** — never by hard-coding `recognize speech` or
+   `It's just a stupid game` into production logic.
+3. **The scheduler template is the thing to fix.** It has now fired **eleven** times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow (rule 19). Fixing the
+   template, or closing this item `done` so it stops being selected, is worth more than a
+   hundred-and-third declining pass.
+4. If the sweep is ever re-run: rule 65's namespace census **first** and the exclusion-set size taken
+   from the fetched set (**202**), never from `ls-remote`'s line count (203, rule 67); rule 66's `awk`
+   component filter instead of any `grep` variant; rule 62's type census before any path filter;
+   rule 64's type column printed next to every path; a control on **both** sides of the subtraction —
+   the exclusion side (drop one recovery ref → 92) and the filter side (drop the `target-` half →
+   406). Do **not** re-walk the closed classes listed in pass 102's rule 68.
