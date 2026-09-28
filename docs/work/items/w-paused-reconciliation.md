@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e19 (pass 95; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:10:00Z
+owner: coord-6b2f (pass 96; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10023,3 +10023,143 @@ decision below.**
    re-walk the 85 dirty paths, the stash entries, the 180 unreachable commits, the per-worktree
    `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs` enumeration; all are
    closed, and the carry-forwards listing them is the standing reason not to.
+
+## 63. **A count and the filter that produced it must share a denominator; pass 95's own census
+## row did not, and it was the one place in this log that was demonstrably wrong about itself.**
+## `work_item: false` is a *deliberate* terminal marker, not a malformed item.**
+
+Pass 95 reported `census 97 files / 95 work_item:true, 84 done, 11 superseded, 0 open, 1 blocked`.
+The state column sums to **96** against a stated 95 items. Re-measured here: 97 files, 95 with
+`work_item: true`, and **83 done / 11 superseded / 1 blocked = 95**. The extra `done` is
+`docs/work/items/w-0f3a17-shortlist-rule.md`, whose frontmatter reads `work_item: false` *on purpose*
+— it says so at its own line 16 ("`work_item: false` and a terminal `state: done` are recorded here.
+It sat in ..."). So the file count was filtered on `work_item: true` and the state counts were not:
+two denominators in one table row, which is the cheapest possible way for a census to be a fiction
+that reads as verified. The file is excluded on purpose and its exclusion is correct; the **table**
+was wrong, and a successor reading pass 95's numbers would have gone looking for a phantom item.
+
+The general form, and it joins rule 25 ("bind a number to the thing measured"): **when a table states
+a filter and a breakdown, the breakdown is produced by that same filter.** A count is not evidence
+about a population it was not drawn from. The `work_item: true` filter is the discovery rule in
+[../../skills/work-items.md](../../skills/work-items.md) ("discovery is based on metadata state"), so
+the census must be `grep -l '^work_item: true'` **once**, and every state count must come from that
+same file list — not from a second `ls docs/work/items/*.md | grep '^state:'` over the directory.
+
+## Pass 96 — 2026-09-28 17:06:50Z → 17:12Z — coord-6b2f — the standing 0 holds, and the census that was wrong about itself is corrected
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no production code read into or written; no `src/`, `tests/`, `web/`,
+`examples/` or `Cargo.toml` touched; `main` untouched (`origin/main` = `0267ade`, no local `main`
+ref); `main` never pushed to; **no `recovery/*` branch cut, because there was nothing to archive** —
+20 local and 20 remote recovery branches, in agreement. No agent launched, so nothing is left running
+for a successor to inspect.
+
+The prompt's two clauses were **declined again**, for the fifth consecutive pass, by pass 94's
+standing next-action 3: the recurring template asserts the itinerary "requires" accumulating on
+`post-milestone-acceptance` and asks for the canonical approximate-search examples to be prioritised.
+Read directly, the itinerary says the opposite on both counts — `## Status: accepted and paused`:
+scheduled orchestrators "must not create new MadGab work items, claim existing historical items,
+launch MadGab agents, or resume superseded fronts unless a human explicitly asks to reopen MadGab
+development", and the closing paragraph records the historical `post-milestone-acceptance` branch as
+release history that is "no longer an automatic accumulation target". **A recurring template is not
+the explicit human reopening the itinerary requires.** The no-hard-coding half of the canonical clause
+is discharged by identity again, per rule 25: `git diff origin/main post-milestone-acceptance -- src
+tests web examples Cargo.toml README.md` is **0 lines**. Standing note, unchanged: **verify the fence,
+never add a phrase to make a case pass.**
+
+This pass *did* record durable state on `post-milestone-acceptance`, which is this log's own rule 3
+and the itinerary's "the calling itinerary supplies the branch policy" — that is the reconciliation
+log, not the development accumulation the prompt asked for, and the distinction is the whole point.
+
+### 1. Rule 63 — pass 95's census row mixed two denominators. Corrected above; re-measured here
+
+| | |
+|---|---|
+| files in `docs/work/items/` | **97** |
+| with `work_item: true` | **95** |
+| states, drawn from that same 95-file list | **83 `done`, 11 `superseded`, 0 `open`, 1 `blocked` = 95** |
+| the 96th `done` | `w-0f3a17-shortlist-rule.md`, deliberately `work_item: false` |
+
+### 2. Rule 22, tripped for the **eleventh** time — and this time by a *negative control*, which is
+## the one place the check is written to be able to say non-zero
+
+Pass 95 left the standing 0 at "confirmed with a control that can fail" and next-action 4 says to use
+that control on any re-run. The control was re-run and it failed first, in a new place, with the
+signature shape this log keeps cataloguing.
+
+* **Attempt 1, wrong by 9.3×: 2,973 where 319 is the true figure.** The control deletes one ref-held
+  non-build blob (`Cargo.toml` at `HEAD`, `6746bbb`) from the *ref-held* set so the probe can see it.
+  I did it by appending the blob to the reflog-held side (`printf …; cat reflogheld.txt | comm -13`),
+  which is **unsorted**, so `comm` printed `input is not in sorted order` **twice on stderr** and
+  emitted a count anyway: **2,973**. A pipeline that takes stdout and never reads stderr gets a
+  confident number that is 9.3× the truth, from a check whose *subject* is not the thing at risk.
+* **Attempt 2, correct: 320 = 319 + 1 expected.** Delete from the ref-held side (`grep -v "^$CB\$" |
+  sort -u`) and leave the reflog side untouched; `comm` stderr empty. This is rule 22 restated in the
+  one place it had not been hit: **rule 22's sort requirement binds both sides, and the side you are
+  *adding to* is the one you will get wrong.** Pass 95 recorded "correct form: `cut … | sort -u` on
+  both sides first"; the complementary form is now recorded too — when a control is injected, inject it
+  by *subtracting from the exclusion set*, never by *appending to the subject set*.
+* **Rule 33's requirement, met.** The probe reported a non-zero it was constructed to be able to
+  report, so the 0 below is a measurement rather than an output.
+
+### 3. The standing at-risk sweep, re-measured: **0**, type-separated per rule 62
+
+| | |
+|---|---|
+| ref-held objects (`rev-list --objects --all`, field 1, `sort -u` both sides) | **6,564** |
+| reflog-held objects (`rev-list --objects --all --reflog`) | **6,883** |
+| reflog-only objects (`comm -13`, stderr empty) | **319** |
+| …by type (`git cat-file -t` each, per rule 62) | 82 commit / 166 tree / **71 blob** |
+| reflog-only blobs under `target-after/` | **70** — rule 41, build output, durable by definition |
+| reflog-only **non-build** blobs | **1**, and it is this log's own superseded draft (pass 84's known non-issue) |
+| **reflog-only non-build blobs, excluding this log's own draft — the standing value** | **0** |
+
+Rule 62's filter did its job this time: the type census was run before the path filter, and it is
+what makes the 71 → 70 → 0 chain legible instead of a single unauditable number.
+
+### 4. Standing counts, re-measured
+
+| | |
+|---|---|
+| `origin/main` | `0267ade`, no local `main` ref |
+| `post-milestone-acceptance` | `2248a42` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** over `src tests web examples Cargo.toml README.md` |
+| non-`target` dirty paths in this worktree | **0** |
+| recovery branches | **20** local, **20** remote, in agreement |
+| MadGab agents alive | **0** |
+
+**No MadGab Antonina agent is alive.** The host's three `running` agents — `104b2`, `a1b30d01`,
+`a1b30c01` — all have `cwd` outside `/workspace/madgab*` and belong to other projects (boards 104, 74,
+94); they were left alone per rule 1. The only two MadGab agents not `succeeded`, `3a8f01` and
+`3a8f02`, are `stopped` 13h22m ago on `state: superseded` items: closed history, not resumable
+fronts, and per rule 2 not resumed. **This pass launched nothing, so a fresh pass has no MadGab
+agent to inspect here** — which is the correct end state, not a gap for a successor to fill.
+
+### 5. This log stays `blocked`
+
+Unchanged from passes 94 and 95, and for the same reason. Not `done`: nobody has confirmed the pause.
+Not `working`: there is no work in it — the durable-state half, the enumeration half and now the
+census are all closed, and 96 passes show that re-deriving any of them manufactures a ninety-seventh
+thing to measure. **`state: blocked`, owner `coord-6b2f`, blocker = the human reopen/confirm decision.**
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** The at-risk sweep is at its standing **0** and this
+   pass demonstrated the control can report non-zero. If a future pass finds no human instruction and
+   no unpreserved state, the correct outcome is a no-op. **Three passes have now done exactly that**,
+   which is a result, not a failure to find one.
+2. **The standing decision remains a human's, and it is the only thing left.** Either a human
+   **reopens** MadGab development — direction per pass 78, a compact pronunciation DAG with
+   k-best/A*-style whole-path search, on a fresh branch cut from `main`, validating the canonical
+   cases **generically**, never hard-coding `recognize speech` or `It's just a stupid game` — or the
+   pause is **confirmed**, in which case this log closes `done` and the front retires.
+3. **The stale scheduler prompt has now fired five times running** (passes 92–96) with the same two
+   false instructions, and this pass's finding is a *cost*, not just a nuisance: rule 22 was tripped
+   again by the very control it prescribed, and a wrong census got written into the log by a pass
+   that had a control in reach. **This is worth one fix by a human, not one more declining pass**:
+   correct the template, or close this item `done` so the template stops selecting it.
+4. If the sweep is re-run here: rule 62's type census before any path filter, rule 33's control
+   injected by `grep -v` on the **exclusion** side, rule 22's `sort -u` on both sides with stderr
+   read, and rule 63's single-file-list census. Do not re-walk the 85 dirty paths, the stash entries,
+   the unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the
+   `--include-root-refs` enumeration; all are closed, and listing them is the standing reason not to.
