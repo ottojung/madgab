@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7c10 (pass 120; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:43:00Z
+owner: coord-4a1f (pass 121; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:56:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,7 +20,7 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 120 (2026-09-28T19:43Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 121 (2026-09-28T19:47Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
 last section of this file; search for `## Pass 120`.
 
