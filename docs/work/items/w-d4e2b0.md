@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-d4e2b0
-state: working
+state: done
 priority: normal
-owner: front agent-d4e2b0 (claimed and launched 2026-09-28T01:53Z by pass coord-3f18)
-updated: 2026-09-28T01:53:00Z
+owner: front agent-d4e2b0 (claimed 2026-09-28T01:53Z by pass coord-3f18; closed done 2026-09-28T02:18Z by pass coord-7c15 after the front reached `succeeded` and its report and handoff were read)
+updated: 2026-09-28T02:18:00Z
 branch: madgab-poolrank-d4e2b0
 worktree: /workspace/madgab-poolrank-d4e2b0
 ---
@@ -124,3 +124,32 @@ neither format- nor lint-verified — carried forward as a standing caveat.
 
 **Next action for a later pass:** confirm `docs/work/REPORT-d4e2b0.md` is committed and pushed, read
 the front's final suite result, and if it matches the above, set this item `state: done`.
+
+### Closure 2026-09-28T02:18Z (pass coord-7c15)
+
+The durability gap named above is **closed**. The front reached `succeeded` and pushed a second
+commit `ad78385` on `madgab-poolrank-d4e2b0` carrying both `docs/work/REPORT-d4e2b0.md` and its own
+handoff edit to this item. Final serial suite, as reported by the front and consistent with the
+coordinator's own run on the integrated tree: `pool_rank_reporting` 5/0,
+`no_phrase_hard_coding` **9/0** with `src/` allowlist at 0, `corpus_integration` **12 passed /
+1 failed** on the known base red `approximate_finds_classic_madgab_resegmentation` — not relaxed,
+re-pinned or skipped — everything else green. Case 1 re-measured present at display 27 of 50 and
+pool rank 27 of 18 289; case 2 neither better nor worse, still unreachable, still the known red.
+
+**A second, more useful detail the front found and this item did not ask for:** the report is
+`--pool-rank` opt-in, not on by default, and the reason is structural. `generate` is literally
+`generate_with_pool(..).0`, so the **pool size** was already being computed and discarded and is now
+reported for free on stderr; but a **rank** needs the pool's contents via `generate_pool`, a second
+search worth +315 to +737 ms, because no single public API returns both and `src/lib.rs` was out of
+this front's scope. The proper fix — one public call returning proposals *and* pool — is recorded in
+the report as suggested follow-up and is **not** attempted here.
+
+`docs/work/REPORT-d4e2b0.md` is integrated onto the accumulation branch as `92484e5`. It was taken
+as its own commit rather than by merging the front branch, because `ad78385` descends from the
+front's older base `4a796d4` and a wholesale merge would have reverted two coordinator records
+(`w-4b1e07`, `w-c31a07`) written after that base.
+
+Standing environment caveats, not regressions: `cargo fmt` and `cargo clippy` cannot run on this host
+(no rustup), and the `--doc` target cannot execute at all (no rustdoc installed).
+
+**All five completion criteria are met.** Done.
