@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-b4e1
-updated: 2026-09-28T10:52:00Z
+owner: coord-4b90
+updated: 2026-09-28T11:08:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -3687,8 +3687,17 @@ and the canonical-example instruction declined for the thirty-seventh time.
     at `5b48fc3`. `post-milestone-acceptance` is verified back at its pre-pass tip `07cf372` and
     the worktree is clean. Had it stood, nine measurement sources and a `tests/` file would have
     gone onto the release-history branch that rules 5 and 19 reserve for this log alone.
-  * **Cheap checks, all clean.** Census re-derived: 92 `done`, 11 `superseded`, 5 `produced`,
-    1 `open` (the `TEMPLATE.md` placeholder), 1 `working` (this log), 0 `blocked`. 127 worktree
+  * **Cheap checks, all clean, except the census figure, which was wrong and is corrected here
+    by `coord-4b90`.** Census re-derived: 92 `done`, 11 `superseded`, 5 `produced`,
+    1 `open` (the `TEMPLATE.md` placeholder), 1 `working` (this log), 0 `blocked`. **[Corrected
+    in place by the forty-second pass: this entry's census is not the durable figure and should
+    not be copied. It used the `docs/work/` denominator plus the 10 files that carry
+    `work_item: <id>` as a back-reference, 5 of them with a `state: produced` that
+    [../../skills/work-items.md](../../skills/work-items.md) does not allow. The durable figure
+    is `grep -rl '^work_item: true$' docs/` → **87 `done`, 12 `superseded`, 2 `open` (neither
+    claimable), 1 `working`, 0 `blocked` = 102**, and the search root `docs/` is part of the
+    figure — `docs/work/` gives 100, because `docs/skills/work-items.md` and
+    `docs/continuation-approximate-search.md` are outside it.]** 127 worktree
     registrations, `git worktree prune -n` reports nothing stale. Worktree clean
     (`git status --porcelain -uall` empty). `main` = `0267ade`, remote-only — `git rev-parse main`
     still fails, so it cannot be written to even by accident. **Agents: no MadGab agent alive or
@@ -3721,3 +3730,141 @@ and the canonical-example instruction declined for the thirty-seventh time.
     showed is a complete product tree**, and (iv) the named search direction — a qualitatively
     different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a
     strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-4b90` — forty-second pass, 2026-09-28T11:01Z–11:08Z
+
+**Reconciliation only. No at-risk state found: every one of the four standing classes is
+closed and each closure is now re-verified with a positive control, which is the first time
+that has been possible for the reflog class. No front opened, no agent launched or prompted,
+no item claimed, nothing integrated, no `src/` change, `main` untouched at `0267ade` and
+never written to, `post-milestone-acceptance` carrying only this log.** The pause gate was
+read and confirmed closed for the thirty-eighth time, and the canonical-example instruction
+declined for the thirty-eighth time.
+
+  * **Rule 10 returns 11, and the fortieth pass's falsifiable prediction of 0 is refuted —
+    but the class is empty, which is the stronger claim.** Both sanctioned spellings were run
+    (shell array with `--not "$@"`, and `^%(refname)`) over a freshly fetched
+    `refs/remotes/audit/*` (188 refs, 193 remote heads) and **agree to the commit at 11**; no
+    `^$(…)`, no `xargs` (rule 31). The 11 is the *same* 11 `coord-3e88` classified: five on
+    local-only branches, two under `refs/stash`, four under `refs/remotes/origin/*` names that
+    `git ls-remote` contradicts. Per-commit `ls-tree -r`, field 3 (rule 17), `target*` excluded
+    by path component (rule 9), gives **0 blobs absent from the remote object set**. The
+    **positive control is what makes the 0 believable this time**: re-running the identical
+    pipeline against the remote set *minus* `recovery/local-only-held-2026-09-28` returns
+    **exactly the 9** `coord-3e88` archived (5 460 objects instead of 5 488), so the check is
+    demonstrated able to return non-zero, and it was this pass that found its own way to a
+    clean result. A clean result with no control is a number, not a fact; this is rules 9, 10,
+    14, 17, 22, 28, 31 and 33 again, and the general form is unchanged: **a check that cannot
+    return non-zero has not been tested.**
+  * **The reflog-only class is closed to a control for the first time, and the closure holds.**
+    `git rev-list --all --reflog` minus the remote set returns **92** commits (rule 15's
+    reflog-inclusive form, which is the only one that sees `refs/stash`'s entries 1–5), and
+    exactly **4** carry a blob the remote lacks: `f7258d4d`, `81a04204`, `a004d777`,
+    `07b29320`, all `src/lib.rs`, in `44e36a61` (`stash@{5}`), `5c21572f` (`stash@{2}`),
+    `e34eb42c` (`stash@{3}`), `f6688de9` (`stash@{1}`). Those are byte-for-byte the four
+    `coord-6c31` archived as `docs/work/stash-patches/{44e36a6,5c21572,e34eb42,f6688de}-stash.diff`
+    on `recovery/stash-reflog-2026-09-28`; they are absent from that branch's *tree* only
+    because rule 12 archives them as patches, which have no blob of their own — rule 7's
+    consequence, and the reason a naive tree lookup reports them missing. The four `stash@{n}`
+    attributions are confirmed against `git reflog refs/stash`, so the entry-to-commit mapping
+    is measured, not assumed. **`git stash list` still reports all six entries**, and
+    `git for-each-ref --contains` returns nothing for any of the four commits, so the
+    reflog-only fragility rule 11 describes is unchanged and the class remains one `stash clear`
+    from loss of the *originals*; the archive is the durable copy, not a substitute for the ref.
+  * **Worktree administrative state: 5 hits in 4 worktrees, unchanged, all four `AUTO_MERGE`
+    trees clean.** `madgab-7b2d40-measure`, `madgab-adjacency`, `madgab-audit-d5a2c1` and
+    `madgab-baseline-1f6c40` each carry an `AUTO_MERGE` tree; `madgab-scorespread-measure`
+    still carries a `rebase-merge/` directory. Field-3 comparison of all four trees against the
+    remote object set: **0 unique of 57 / 56 / 91 / 93**, matching rule 17's recorded figures
+    exactly. Nothing was cleared, and nothing needed to be.
+  * **New fact, and it is about the log rather than the repository: the census denominator is
+    still not written down, so the forty-first pass recorded a wrong durable figure and called
+    it "byte-for-byte".** The log has carried a **102** figure since the thirtieth pass
+    (87 `done`, 12 `superseded`, 2 `open`, 1 `working`) and has said in four places that "the
+    denominator is the set of files carrying `work_item: true`, and nothing else". That
+    denominator is reproducible — but only if `docs/` is the search root, and the log never
+    says so. Re-derived three ways:
+    - `grep -rl '^work_item: true$' docs/` → **102 files** → 87 `done`, 12 `superseded`,
+      2 `open`, 1 `working`. **The 102 is right**, and the two `open` are
+      `docs/work/TEMPLATE.md` and `docs/skills/work-items.md` — the blank placeholder and the
+      protocol specification, which is why "2 open" has been read as "0 claimable" for
+      thirteen passes.
+    - The same search rooted at **`docs/work/`** → **100 files** → 87 `done`, 11 `superseded`,
+      **1** `open`, 1 `working`. The two lost are `docs/continuation-approximate-search.md`
+      (`superseded`) and `docs/skills/work-items.md` (`open`), both outside `docs/work/`.
+    - The **forty-first pass recorded 92 `done`, 11 `superseded`, 5 `produced`, 1 `open`,
+      1 `working` = 110**, which is neither figure. It is the `docs/work/` denominator **plus**
+      the 10 files that use `work_item: <id>` as a *back-reference* instead of the protocol
+      marker, 5 of them carrying `state: produced` — a state
+      [../../skills/work-items.md](../../skills/work-items.md) does not allow. So the most
+      recent entry in this log reintroduced, as a "durable" figure, exactly the error the
+      thirty-seventh pass diagnosed and wrote a paragraph about: the `produced` state is
+      fictitious, and `docs/skills/work-items.md` is the protocol itself.
+    This pass walked into the same trap in the opposite direction — its first count, 100, was
+    the `docs/work/` denominator, and it was about to be recorded as a correction to the 102.
+    The saved step was checking what the *two* documented denials (`docs/work/items/*.md` = 98,
+    `docs/work/items/*.md docs/work/*.md` = 131) had in common, which is that neither is
+    `docs/`. The lesson is one level above rules 9/10/11/13/14/17/31: **those are all about a
+    check that returns a wrong *number*; this one is about a check that returns the right
+    number for a *population the log never named*, so it can be defended indefinitely.** A
+    recorded figure is only durable if the set it counts is written down next to it. This is
+    the ninth instance of the log's own recurring pattern and the first where the durable
+    figure itself was the defect.
+    A second, smaller finding in the same family: **4 work-item IDs are duplicated** —
+    `w-3f8c62`, `w-5d9c04`, `w-9b4a15`, `w-e086cc` each appear in both
+    `docs/work/items/w-<id>.md` and `docs/work/REPORT-<id>.md`, and the REPORT copies carry
+    the full protocol header including `work_item: true`. Both sides agree on `state: done` in
+    all four cases, so nothing is mis-discovered today, but a coordinator grepping by `id:`
+    gets two files and must know which is the item. `docs/work/items/README.md` and
+    `docs/work/items/w-0f3a17-shortlist-rule.md` carry the marker with **no `id:` and no
+    `state:`**; the latter is a front's report that happens to live in `items/`. Neither
+    inflates the 102, because the 102 is keyed on the marker and the state is read from the
+    same file. Left as recorded, not repaired: repairing them would be editing research
+    history to suit a counting convention, which is the error this log exists to prevent.
+  * **A new question about the accepted state, as the fortieth pass prescribed, and it is
+    answered above: the product tree is byte-identical between the two refs.** `origin/main`
+    (`0267ade`) and this branch's `post-milestone-acceptance` agree on `src/`, `tests/`,
+    `web/`, `examples/`, `Cargo.toml` and `Cargo.lock` — six subtree hashes, six `IDENTICAL` —
+    while the root tree shas differ (`a01b7433` vs `4acdf202`), so the whole 45-commit
+    divergence is documentation and this log, exactly as `coord-5e83` recorded. That is now
+    confirmed by content hash rather than by diff, which is the check the log's own rules
+    argue for. The accepted limitation stands unchanged and is not re-measured: no test was
+    run, no timing quoted (rule 29), no canonical phrase written into any file.
+  * **Agents: no MadGab agent alive or claimable, and nothing was prompted or stopped.** The
+    eight nonterminal agents host-wide (`31b1`, `66c1`, `92d1`, `71e1`, `73f1`, `76a1`, and two
+    others) all belong to other repositories and were left running and untouched.
+    `3a8f01`/`3a8f02` remain `stopped` on superseded items; `a11d` remains `idle` in
+    `/tmp/cwd-7ze5eU` at its usual age. The 100 MadGab agents are all terminal, and the 8
+    `failed` ones (`7e1a04`, `7e1a05`, `7e1a06`, `7f01a0`, `9b4a151`, `9b4a152`, `0f3a173`,
+    `5c11a2`/`5c11a3`, `d5a2c2`/`d5a2c3`, `1c3e77`, `8f0b3d1`, `b0d1c5`, `a1f001`,
+    `b3e91a`–`b3e91f`, `52f1`) are historical, on closed items, and left exactly as found.
+    The 126 worktree registrations and `git worktree prune -n` reporting nothing stale are
+    unchanged; the worktree is clean (`git status --porcelain -uall` empty).
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-eighth time and declined for the thirty-eighth time.** It restates the programme's
+    standing goal and asks for fronts, claims, agents and integration;
+    [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+    (`## Status: accepted and paused`) forbids all of them without an explicit human
+    instruction, which has not been given. Its *no-hard-coding* half is discharged on the
+    merits and untouched here: the only path this pass wrote is this log, **no canonical
+    phrase appears anywhere in it** — every file is named by path, marker or blob sha — and no
+    `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte changed. The two recovery
+    branches' contents were read, not promoted.
+  * **Next useful action.** The gate question is unchanged and still only a human can answer
+    it: *is MadGab development being reopened?* A forty-third pass should (a) **re-run rule 10
+    once and the reflog probe once, each WITH a positive control** — the remote set minus the
+    matching archive, which returns 9 and 4 respectively, so the clean result is known to be
+    detectable; (b) **write the census population into this log** — `grep -rl '^work_item:
+    true$' docs/`, keyed on the marker, expected **87 / 12 / 2 / 1 = 102** with **0
+    claimable** open — and **correct the forty-first pass's 110 / `produced` entry in place**,
+    since a superseded figure left uncorrected is the one thing this log must not carry; and
+    (c) if it wants a new fact, ask a **new question about the accepted state**, which remains
+    the only thing that has produced one for eight consecutive passes — the next one not yet
+    asked being whether the 4 duplicated IDs and the 2 marker-without-`id` files change any
+    *claim* decision under the thirty-eighth pass's own discovery rule. If the gate answer is
+    ever yes, the first work in order is (i) rule 29's binding check before quoting any
+    timing, (ii) `coord-1c8e`'s three measurement-infrastructure corrections in their stated
+    order, (iii) **cut the branch from `main`, which this pass re-confirmed is a complete
+    product tree**, and (iv) the named search direction — a qualitatively different whole-path
+    algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
+    suffix heuristic), **never** phrase-specific hard-coding.
