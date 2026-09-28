@@ -78,7 +78,7 @@ is the only warm tree and must stay warm for later fence runs), and run tests wi
 host memory pressure in the 01:36Z pass (49 of 62 GB used, 11 available), so the serial run is the
 measurement, not an inconvenience.
 
-### Front report, integration and coordinator validation 2026-09-28T02:24Z (pass coord-8f3b)
+### Front report, integration and coordinator validation 2026-09-28T02:12Z (pass coord-8f3b)
 
 The front committed `0cc070b` (`src/main.rs` + `tests/pool_rank_reporting.rs`, +460/-2) and pushed
 `madgab-poolrank-d4e2b0`. Report written to
