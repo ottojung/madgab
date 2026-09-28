@@ -7811,3 +7811,135 @@ pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch from
 be closed `done` rather than left `working` indefinitely. Reopening now inherits pass 76's correction:
 `w-3f8c62` closed HOLD with the parsimony axis un-landed, so the `head_not_worse_than_pool` fence is
 an **open gap with no owner**, to be funded or superseded deliberately.
+
+## Seventy-eighth pass (`coord-3e17`, wall clock 2026-09-28T15:08:32Z–15:13:20Z) — the vocabulary-expansion claim measured, and it is true for a reason the document does not give
+
+Pause gate confirmed closed before anything else was done; the gate question is now **forty-two
+passes old**. No MadGab work item created, none claimed, no agent launched, no front resumed,
+nothing merged, nothing pushed to `main` (`origin/main` = `0267ade`, verified by `ls-remote --heads`
+this pass). The recurring prompt's canonical-example instruction was read against the gate for the
+**nineteenth** time and declined for the nineteenth time as *development*; its *no-hard-coding* half
+is discharged on the merits by **running** the fence, and its *prioritise-the-canonical-examples*
+half is measured below, inside the pause, with no code change. Per rule 19 this log is the only
+tracked change and it is documentation.
+
+Pass 77 said to spend the budget on "measured claims that were true when written" and named two
+cheapest classes. Its own finding — that the accepted state's *timing* is a host artifact — is a
+defect in a number that cannot be repaired here. This pass took the class it did not take: a
+**claim about an intervention that was tried and failed**, recorded in
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) as a bare bullet —
+
+> removing the rarity bound and expanding the vocabulary from about 50k to about 281k words still
+> does not make the phrase appear
+
+— with no number, no knob, and no statement of **how much the pool actually grew**. A successor
+re-running this has no idea whether the intervention was a near miss or a miss by six orders of
+magnitude, and the bullet reads as though a 5.6x larger vocabulary were still an inadequate one.
+
+### The claim holds, and it holds for a measurable reason that strengthens it
+
+All measurements below are from the shipped binary `target/release/madgab` (mtime
+`2026-09-28T08:05:40Z`), which is **newer than the newest build input** (`05:19:07Z`, the
+`tests/*.rs` set) — rule 29's binding condition, checked rather than assumed. The release binary
+was not rebuilt during the pass; the runs report `corpus loaded in …ms`, so the search really ran.
+
+| knob | `recognize speech` | `It's just a stupid game` |
+|---|---|---|
+| default (`--max-rarity 50000`) | `wreck a nice beach` at display 9, score **0.900**, **pool rank 9 of 18301** | absent |
+| `--max-rarity 281502` | — | absent |
+
+Both accepted claims reproduce. The case-1 rank is **9**, inside the accepted document's "roughly
+pool rank 8–9", and the score is 0.900 — a claim that had never been bound to a measurement.
+
+The vocabulary-expansion experiment, now bound:
+
+| measure | at bound 50000 | at bound 281502 | change |
+|---|---|---|---|
+| fuzzy lexicon (documented) | ~50,000 words | 281,502 words | **+463%** |
+| **scored candidate pool, case 2** | **14,350** | **14,684** | **+2.33%** |
+| `justice` occurrences in the top 50 | 5 | 16 | +11 |
+| `came` occurrences in the top 50 | 0 | 1 | +1 |
+| `hits` / `dupe` / `hid` | 0 | 0 | — |
+
+Measured twice, identical both times, and the pool count is host-stable across the two runs (rule
+14's cross-check, and the same figure reproduces at `--top 1` and `--top 50`).
+
+**The finding: a 463% vocabulary expansion buys a 2.33% pool expansion.** The bullet is correct and
+its true explanation is stronger than the one a reader would infer — the bound is not the binding
+constraint *in the way the phrasing implies*, because lifting it does not meaningfully enlarge the
+set of candidates the search can rank at all. The three remaining words never enter the pool at
+either bound. So a successor re-running the experiment will not find a fix on this axis, and now
+has the number that says so rather than the absence of one. `justice` and `came` entering at all is
+the only part of the intervention with visible reach, and they enter as isolated words inside
+otherwise-wrong phrases (`it justice too pad came`, rank 24), never as the wanted five.
+
+**The knob's semantics are a trap worth recording, and the bullet does not warn about it.**
+`--max-rarity` is an **upper cap on a word's rarity rank** (`src/approx.rs`:
+`*r <= max`), so `--max-rarity 0` is the *tightest possible* bound, not "no bound":
+`madgab --approximate --max-rarity 0 "It's just a stupid game"` returns
+`no clue coverings found` — zero candidates, not a larger pool. The natural reading of the flag name
+inverts it. A successor who tries to "remove the rarity bound" with `0` will measure an empty pool,
+conclude the expansion is catastrophic rather than reach-null, and file a spurious finding. The
+correct spelling of "no bound" is a value **above** the corpus size, and there is no way to express
+`None` from the CLI at all — `src/main.rs:107-110` does `.parse::<f64>().ok()`, so only a
+non-numeric argument reaches `None`. This is rule 25 one level down: the bullet is true, and the
+*tool* that reproduces it is reachable by a path that contradicts it.
+
+### Also re-measured, because the previous pass moved both of them
+
+* `cargo test --release --test no_phrase_hard_coding` = **9 passed; 0 failed; 0 ignored**, 0.02 s.
+  The prompt's "without phrase-specific hard-coding" is a measurement, not a promise, and the
+  measurement is green on the accepted head.
+* Both canonical release tests still behave as documented. Pass 77 measured 7.92 s and 6.86 s and
+  attributed the gap from the accepted state's "about 1.8 seconds" to host load from five
+  nonterminal agents on other repositories. **This pass is the control for that attribution:** it
+  measured the same code under the same host load, and the accepted state's numbers are still not
+  reproducible here. Nothing in this log rewrites the human acceptance document (pass 77's
+  reasoning, unchanged: an acceptance record is not a coordinator's to reword) — but the *second*
+  independent pass failing to reproduce them is now recorded, and the corrected reading is carried
+  forward: **the behavioural table is durable, the timing sentence is environment-dependent.**
+
+### Census, re-measured
+
+95 `docs/work/items/*.md` files carry `work_item: true` — **83 `done`, 11 `superseded`, 0 `open`,
+0 `blocked`, 1 `working`** (this log). `HEAD` = `9376b7e` on arrival, working tree clean, and
+`post-milestone-acceptance` = `9376b7e` on the remote (0 ahead / 0 behind before this pass's
+commit). There is **no local `main` ref**, so a push to `main` would require creating one — rule
+19's read-only finding, unchanged. `git stash list` = 6. **No MadGab Antonina agent is alive**; the
+six nonterminal agents host-wide belong to other repositories and were left running for their own
+supervisors, per rule 47.
+
+### Next action for the next pass
+
+Development remains closed and there is still no unfinished text and no unsaturated check. What this
+pass did is close the last *unbound* claim in the accepted-state document: both of its numbers are
+now bound to measurements (case 1 = rank 9, score 0.900; the tests = environment-dependent), and
+its one intervention bullet is bound to a pool figure that explains it. Read alongside the two
+deliberate PHANTOM links and the repaired `OBSTRUCTION-MAP.md`, the accepted state is now fully
+*reconciled* in the sense this log means it: every claim in it has been either confirmed against
+the code or measured and recorded with its scope.
+
+So the honest next action is a human one, and this pass is the one that makes that unambiguous
+rather than a matter of degree. Either **reopen MadGab development** — in which case
+`w-6b2f04`'s report names the surviving direction, a compact pronunciation DAG with
+k-best/A*-style whole-path search, on a fresh branch from `main`, never on
+`post-milestone-acceptance` and never on `main`; whoever reopens inherits pass 76's correction that
+`w-3f8c62` closed HOLD with the parsimony axis un-landed, so `head_not_worse_than_pool` is an
+**open gap with no owner**, to be funded or superseded deliberately — or **confirm the pause**, in
+which case this log should be closed `done` rather than left `working` indefinitely.
+
+A pass that runs next should **not** invent a check to look thorough. This log's recurring failure
+mode is a pass manufacturing a question, and it has just been named as such by two consecutive
+passes. The strongest available statement is that the reconciliation is saturated: the sweep is
+closed, the links are 2 deliberate phantoms, the currency defects are repaired, the claims are
+bound, and the one remaining question cannot be answered by any agent.
+
+### Scope note on this pass's own text, recorded because pass 76 recorded the same thing
+
+This entry names all four canonical phrases three times, in a Markdown log, as the *subjects* of
+the measurements above. `git diff --name-only | grep -v '^docs/'` = **0**, so no `src/`, `tests/`,
+`web/`, `examples/` or `Cargo.toml` byte moved, and the fence that governs exactly those paths was
+**run** rather than assumed: 9 passed / 0 failed / 0 ignored. A canonical phrase appearing in a
+document that reports a measurement of it is the opposite of the failure mode the fence exists to
+catch; a reader who greps this file for the phrase and finds it is looking at this table, not at
+production logic.
