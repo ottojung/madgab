@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3d70
-updated: 2026-09-28T08:25:00Z
+owner: coord-2b74
+updated: 2026-09-28T08:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -86,6 +86,37 @@ instruction.
       answer "is this commit an ancestor of that head".
     Run the commit check, not the file check, when asked whether anything is at risk. It is
     cheaper than the file sweep — two commands, no hashing.
+
+11. **Rule 10's check sees every commit; reading its output branch-by-branch does not.** This is
+    the same error as rules 9 and 10 one level up. `coord-11b9` ran rule 10's command correctly
+    and then reasoned about the 5 commits it returned *as branches*, so it could only ever count
+    refs under `refs/heads/`. Re-running the identical command returns **13**: the same 5, plus 8
+    in three ref classes a branch list has no slot for. `--all` is not "all the refs you care
+    about" — it is a specific set (`refs/heads/*`, `refs/tags/*`, `refs/remotes/*`, every linked
+    worktree's `HEAD`, plus reflogs), and the check is only as good as the shape of the reasoning
+    applied to its output. So:
+    * **Classify every at-risk commit by which ref holds it** (`git for-each-ref --contains <c>`)
+      before concluding anything about it. Three classes were missed for real: stale
+      `refs/remotes/origin/*`, `refs/stash`, and a **detached worktree HEAD**.
+    * **Treat any name under `refs/remotes/` as unproven until `git ls-remote` agrees.** Rule 10
+      records the narrow refspec as a source of false *negatives*; it is equally a source of false
+      *positives*, which is the more dangerous direction because it looks like a safety finding.
+      `refs/remotes/origin/madgab-fuzzy-cost` reads as remote-backed and points at `b7b22b7`,
+      while the real tip is `0f7f763` and `b7b22b7` is not an ancestor of it. Those entries are
+      local-only refs wearing a remote-tracking name.
+    * **A commit with no containing ref is not safe — it is reflog-only.** `git for-each-ref
+      --contains` returning nothing while `git rev-list --all` finds the commit means the only
+      thing holding it is a reflog entry, which `gc` will expire. Both `ZZ_AXIS` commits were in
+      this state, reachable solely from the detached HEAD of `madgab-scorespread-measure`.
+
+12. **`git format-patch` on a stash commit emits the *index parent's* diff, and the result does
+    not apply.** A stash entry is a merge (parents: HEAD, index commit, optionally untracked), so
+    `format-patch` takes the wrong side. The output looks like a normal patch, reads correctly,
+    and fails `git apply` at a plausible hunk. It was caught only because verification is by
+    forward application against the commit's own tree — reading the patch would not have shown
+    it. Archive a stash entry as `git diff --binary <stash>^ <stash>`. Rule 10's verification
+    requirement is what caught this; treat a verification failure as a real signal about the
+    archive method, never as a patch to nudge until it applies.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -659,6 +690,31 @@ recorded as a priced negative.
 
 ## Next action for a fresh pass
 
+> **Superseded as of `coord-2b74`.** The text below this note is the eighteenth-pass
+> predecessor's advice and is **wrong at its first instruction** — it says to sweep worktree
+> *files*, which standing rule 10 established is structurally blind to unpushed commits, and which
+> then turned out to be blind again at the ref-class level (rule 11). Two real recoveries came out
+> of the corrected check. A fresh pass should do this instead:
+>
+> 1. Read `docs/accepted-state-2026-09-27.md` and confirm the pause gate is still closed. It is.
+> 2. `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`, then
+>    `git rev-list --all --not $(git for-each-ref refs/remotes/audit/ --format='%(refname)')`.
+>    Two commands, no hashing, and it is the only check that has ever found anything.
+> 3. If it returns anything, **classify each commit by the ref that holds it**
+>    (`git for-each-ref --contains <c>`) per rule 11 before concluding anything. Stale
+>    `refs/remotes/origin/*`, `refs/stash`, and detached worktree HEADs have all hidden real
+>    at-risk state; a commit with *no* containing ref is reflog-only and is the most at risk of all.
+> 4. If clean, `git ls-remote` the two `recovery/*` branches to confirm they are still pushed, and
+>    `antonina agent list` to confirm nothing MadGab-owned is alive. Then record one line and exit.
+>
+> **Do not re-run rule 10's command unchanged a third time expecting new results.** It has now
+> been run twice and both times the yield came from *asking a new question about the check*, not
+> from running it again. The uncovered object classes that remain, in the order they are worth
+> checking: the **184 remote branches** and **125 worktrees**, which are still treated as settled
+> history on the strength of local-only checks (flagged by `coord-11b9`, not yet attempted); and
+> whether anything on the two `recovery/*` branches is reachable from a ref that is itself
+> prunable. Whichever is chosen, ask what class of object the existing checks cannot see.
+
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
 for anything alive, and every worktree's `git status --porcelain` for uncommitted `src/` or
 untracked `examples/`/`tests/`/`src/` files **and untracked directories** not already
@@ -965,3 +1021,89 @@ question they had already been told the answer to, and this one asked the questi
   next open question is not a deeper sweep but a different *kind* of one: the same coverage
   argument applies to the 184 remote branches and 125 worktrees, which have been treated as
   settled history on the strength of a local-only check.
+
+### `coord-2b74` — eighteenth pass, 2026-09-28T08:42Z–08:52Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass did what the seventeenth pass's closing note asked
+for — it ran the commit-level check and then asked *what kind of object was the check counting* —
+and found **eight more at-risk commits** that seventeen passes had missed.
+
+  * **Cheap checks first, all unchanged.** `git ls-remote`: `main` = `0267ade` (untouched,
+    remote-only, no local `main` ref), `post-milestone-acceptance` = `2e15a5b` (0 ahead / 0
+    behind after fetch), `recovery/probe-scaffolding-2026-09-28` = `2408c25` and
+    `recovery/unpushed-commits-2026-09-28` = `6b21857`, both still on the remote. Worktree clean
+    (`git status --porcelain -uall` empty). Census re-derived with the rule 10 parser (count an
+    item only if `work_item: true` is in its header): **87 `done`, 12 `superseded`, 2 `open`**
+    (the two protocol placeholders, neither claimable), **1 `working`** (this log), 0 `blocked`.
+    No MadGab agent alive: `3a8f01`/`3a8f02` remain `stopped` on superseded items, left stopped
+    deliberately. The five nonterminal agents host-wide (`89b1`, `94e1`, `94d1`, plus others in
+    `/workspace/volodyslav-*`, `/workspace/assemblyp1-*`, `/workspace/skrynia-cat500`,
+    `/workspace/antonina-71-schema`) are all other repositories and were not touched.
+  * **Standing rule 10's check is right; reading it branch-by-branch is what limited it.**
+    Re-running it verbatim returns **13** at-risk commits, not the 5 that `coord-11b9` recorded.
+    Five are the ones already archived at `6b21857`. The other **eight** sit in three ref classes
+    a list of local branches has no slot for:
+    * **stale `refs/remotes/origin/*`** — `3f098bc`, `8b1a61f`, `880d7bc`, `b7b22b7`. These are
+      the sharp ones, and they are standing rule 10's own trap pointing the other way. Rule 10
+      warns that the narrow refspec leaves `refs/remotes/` stale and that containment checks
+      against it give false negatives. The same staleness produces false *positives* of a
+      different kind: `refs/remotes/origin/madgab-fuzzy-cost` reads as a remote-backed branch and
+      points at `b7b22b7`, while the real remote tip is `0f7f763` and `b7b22b7` is **not** an
+      ancestor of it. Those entries are local-only refs wearing a remote-tracking name, and three
+      at-risk commits were sitting in them.
+    * **`refs/stash`** — `496826b` (`stash@{0}`, a WIP on `scratch/review-c3f81a`, +39 lines of
+      `src/lib.rs`) and its index parent `3fdcbe7`, which is an **empty tree diff** and is
+      recorded as carrying no content of its own.
+    * **a detached worktree HEAD** — `69b5a07` and `a7f08ea`, the `ZZ_AXIS` per-axis population
+      dump for `w-2e5b93`. `--all` includes the HEAD of every linked worktree;
+      `/workspace/madgab-scorespread-measure` is detached at `a7f08ea` and is on no branch at all.
+  * **New standing rule 11, above.** Standing rule 10 fixed the *file-vs-commit* blindness. It
+    did not fix the **ref-class** blindness, and the two are the same error one level up: a check
+    that only ever looks where it has looked before. `--all` is not "all the refs you care
+    about"; it is a specific list (`refs/heads/* refs/tags/* refs/remotes/* HEAD` plus the
+    reflogs) and the commit-level check is only as good as the *shape of the reasoning applied to
+    its output*. A future pass must classify every at-risk commit by **which ref holds it**, and
+    must treat any name under `refs/remotes/` as unproven until `git ls-remote` agrees.
+  * **New standing rule 12, above.** `git format-patch` on a **stash** commit silently emits the
+    *index parent's* diff, and the result does not apply. It was caught here only because
+    verification is by forward application against the commit's own tree — a reader of the patch
+    would not have seen it. Archive a stash entry as `git diff --binary <stash>^ <stash>`.
+  * **Recovery, on its own branch per standing rule 5.** `recovery/at-risk-refs-2026-09-28` =
+    **`cc666db`**, pushed, **not merged**. Seven patches under `docs/work/at-risk-patches/` with
+    a README giving per-commit provenance. Content: the `w-3b8e15` phonetic-cost front's
+    `src/approx.rs` pair (`880d7bc` +294/−12, `b7b22b7` +211/−24) and its opening work item
+    (`8b1a61f`); the `w-d5a2c1` close-out plus the new `w-3a7f0d` item (`3f098bc`, docs only);
+    the `w-c3f81a` stash WIP (`496826b`); and the `ZZ_AXIS` axis dump pair (`69b5a07`, `a7f08ea`).
+  * **Verified by forward application, all seven byte-exact.** A throwaway worktree at each
+    commit's first parent, patch applied, resulting blobs compared with `git hash-object` against
+    `git rev-parse <commit>:<path>`: seven `APPLIES`, every file `MATCH` — `w-3b8e15.md`,
+    `src/approx.rs` ×2, `w-3a7f0d.md`, `w-d5a2c1.md`, `src/lib.rs` ×3. `496826b` **failed** this
+    check on the first attempt for exactly the rule-12 reason, and was regenerated as an explicit
+    two-dot diff before passing; it is recorded that way rather than quietly fixed.
+  * **Nothing here is a merge candidate.** `scratch-3f8c62-landed`'s "never to be integrated"
+    decision is unchanged, and the same fence note as `coord-11b9` applies and is repeated in the
+    new README: `880d7bc` and `b7b22b7` contain canonical phrases as instrumentation, `docs/` is
+    not scanned by `tests/no_phrase_hard_coding.rs`, `ALLOWLIST_CAPS` is unchanged, and any future
+    promotion must strip the literals rather than waive them.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  fourteenth time and declined for the fourteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits: the fence-scanned surface
+  (`src/ tests/ web/ examples/ Cargo.toml`) is byte-identical to `a676176`, the head `coord-4d31`
+  ran green by execution, so that result holds by content and the fence was not re-run. The pause
+  and its documented limitation stand. If development is ever reopened, the named direction is
+  still a qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
+  A*-style search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+  **On the escalation, which is now superseded in the same way as last pass's.** The seventeen
+  prior passes' convergence on "nothing left to do" was a coverage gap, twice over: the file
+  sweep could not see commits, and then the commit sweep could not see commits outside
+  `refs/heads/`. Both are now closed and the closures were found by *asking a new question about
+  the check*, not by sweeping harder — which is the transferable lesson, and the reason a
+  nineteenth pass should look for the next uncovered object class rather than re-run rule 10's
+  command a third time. The obvious remaining candidates are the **184 remote branches and 125
+  worktrees** `coord-11b9` flagged, which are still treated as settled history on the strength of
+  local-only checks. The human gate question is still the only thing a human must answer; it is
+  simply no longer the *only* thing left to do.
