@@ -77,3 +77,50 @@ is the only warm tree and must stay warm for later fence runs), and run tests wi
 `-- --test-threads=1` — the 13-test `corpus_integration` run at default threads was SIGKILLed by
 host memory pressure in the 01:36Z pass (49 of 62 GB used, 11 available), so the serial run is the
 measurement, not an inconvenience.
+
+### Front report, integration and coordinator validation 2026-09-28T02:24Z (pass coord-8f3b)
+
+The front committed `0cc070b` (`src/main.rs` + `tests/pool_rank_reporting.rs`, +460/-2) and pushed
+`madgab-poolrank-d4e2b0`. Report written to
+`docs/work/REPORT-d4e2b0.md` **but still uncommitted in the front's worktree at the time of this
+pass** — the front is still `running`, mid-way through its own full serial suite, so the report has
+not been folded into the commit. Recorded here as an outstanding durability gap; a later pass
+should confirm the report is committed and pushed, and can then close this item.
+
+**Integrated into `post-milestone-acceptance` as `9f01a49`**, ahead of the front's still-running
+full suite, after review on the tree. Reviewed as reporting-only, exactly as claimed:
+
+* the default path's stdout is byte-identical — `render_row`'s `None` arm reproduces the old
+  `"{:2}. [{:.3}] {}"` format exactly, and the phrase still begins at the first `]`;
+* no change to search, scoring, selection, ordering, the default `--top`, or what ranks first;
+* the pool-size line goes to **stderr**, so it cannot perturb a stdout parser, and it is read out
+  of the `generate_pool` result `generate` was already computing and discarding — zero extra search
+  on the default path;
+* no phrase literal in `src/`; the canonical strings live in `tests/`, which `no_phrase_hard_coding`
+  does not scan.
+
+**Coordinator validation, on the integrated tree, `cargo test --release -- --test-threads=1`:**
+
+| suite | result |
+| --- | --- |
+| `tests/pool_rank_reporting.rs` | **5 passed / 0 failed** |
+| `tests/no_phrase_hard_coding.rs` | **9 passed / 0 failed**, `src/` allowlist still 0 |
+| `tests/cli_milestone_predicate.rs` | **3 passed / 0 failed / 1 ignored** |
+
+**Measured consequence worth keeping.** The two coordinates diverge sharply, and for the canonical
+case-1 input they coincide — which is why they were never separated before:
+
+| target | pool size | display 50's pool rank |
+| --- | --- | --- |
+| `recognize speech` | 18 289 | 27 |
+| `It's just a stupid game` | 18 949 | 115 |
+| `Coors light` | 12 956 | 1 346 |
+
+The front's own full serial suite is still running and its remaining results are unconfirmed here;
+`tests/corpus_integration.rs` is expected to be 12/1 on the known base red
+`approximate_finds_classic_madgab_resegmentation`, which the front reports it did not relax, re-pin
+or skip. `cargo fmt` and `cargo clippy` do not exist on this host, so the integrated change is
+neither format- nor lint-verified — carried forward as a standing caveat.
+
+**Next action for a later pass:** confirm `docs/work/REPORT-d4e2b0.md` is committed and pushed, read
+the front's final suite result, and if it matches the above, set this item `state: done`.
