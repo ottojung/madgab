@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7d3b
-updated: 2026-09-28T05:58:00Z
+owner: coord-5e19
+updated: 2026-09-28T06:00:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -41,7 +41,16 @@ instruction.
    instrumented `src/lib.rs` copies as "unarchived" even though
    `docs/work/probe-patches/` already carries them. Verify those by diffing the live
    worktree's `src/lib.rs` against its recorded patch before re-archiving, or a pass will
-   spend its whole budget re-saving state that is already durable.
+   spend its whole budget re-saving state that is already durable. The reliable test is
+   `git apply --check --reverse <archived.diff>` run *inside* the live worktree, reading
+   the diff out with `git show <recovery-branch>:<path>` — the recovery branch is not
+   checked out in `/workspace/madgab`, so a bare path fails and looks like a real gap.
+8. **Archived a *harness* is not the same as archived a *reproducible* harness.** A pass
+   that archives scripts must also archive the inputs, data files and phrase lists they
+   read, and must check that it did. `coord-7d3b` archived `run.sh` and `summarize.py`
+   without noticing that `run.sh` ends in `done < prof/targets.txt`; the harness was
+   therefore inert. Archiving the script is not evidence that the measurement can be
+   repeated — grep the archived script for every path it opens and check each one.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -145,6 +154,38 @@ One loose end, unchanged and not actionable while paused: `prof/README.md` docum
 comparison) that exists in no branch and no commit. The harness that measured it is now
 durable; the change itself still is not.
 
+## Fourth recovery pass (`coord-5e19`)
+
+`recovery/probe-scaffolding-2026-09-28` = **`2408c25`**, pushed, not merged. The prescribed
+sweep was re-run from scratch: all 21 worktrees, every dirty and untracked file hashed
+against all 1504 blob objects reachable in this repository (Cargo `target/` directories and
+the two 30 MB instrumented binaries excluded as build output). **28** live files had no
+matching blob. They account for as:
+
+* **19** files in `madgab-approx-runtime/prof/`. Sixteen of them are the
+  `results-*.txt` / `sum-*.txt` summaries — the deliberate, already-documented drop, since
+  the archived markdown write-ups summarise them. The other **three were a real gap and
+  are this pass's recovery**: `targets.txt`, `scale.txt`, `scale-after.txt`, now durable
+  under `docs/work/probe-inputs/`.
+* **8** instrumented `src/lib.rs` copies — **independently re-verified this pass** with
+  `git apply --check --reverse` inside each live worktree. All eight match their archived
+  patch. Standing rule 7 confirmed, not taken on trust.
+* **1** `c1d3a7-instr/m.txt` (4.0 MB `ZZMETRICS` dump), covered by
+  `probe-output/c1d3a7-m-head200.txt` at `3ce5262`.
+
+The third pass archived the harness (`run.sh`, `summarize.py`) and the baseline output and
+concluded the `prof/` findings were reproducible. They were not: `run.sh`'s final line is
+`done < prof/targets.txt`, so the archived harness had no input list to iterate, and the
+scale series had no phrase list on either side of the change. Three small text files, none
+of them source, raw output, or an unarchived `src/` file — which is exactly why rules 6 and
+7, both of which reason about source and diffs, missed them. That gap is now standing
+rule 8, and it is a better lesson than the two before it: *the previous passes kept
+auditing for the wrong kind of file.*
+
+**Nothing else is at risk.** With these three durable, the entire remaining unarchived live
+state is binaries, Cargo `target/` directories, and summaries the archived markdown already
+supersedes.
+
 ## The preserved limitation (do not re-litigate)
 
 Approximate mode generates `wreck a nice beach` for `recognize speech`. It does **not**
@@ -181,6 +222,18 @@ recorded as a priced negative.
   superseded, 0 open, 0 blocked; this log the only `working` entry). No agent launched, no
   front resumed, no item claimed, nothing integrated, `main` untouched.
 
+* **`coord-5e19` (this pass), 2026-09-28T05:46Z–06:00Z** — reconciliation only. Both
+  prescribed checks run again. `antonina agent list` is entirely terminal (`3a8f01`/`3a8f02`
+  still `stopped` by the pause, deliberately left that way). The hash sweep found a real
+  gap that the previous three passes had missed: the `prof/` harness *inputs*,
+  `targets.txt`/`scale.txt`/`scale-after.txt`, now at `2408c25` on the recovery branch —
+  the third pass had archived the harness without the file `run.sh` reads, so the
+  measurement it claimed to have preserved still could not be re-run. Rule 7's eight
+  diff-archived `src/lib.rs` copies re-verified individually rather than assumed. Census
+  unchanged (87 done, 12 superseded, 0 open, 0 blocked; this log the only `working` entry).
+  No agent launched, no front resumed, no item claimed, nothing integrated, `main`
+  untouched.
+
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
@@ -188,7 +241,16 @@ for anything alive, and every worktree's `git status --porcelain` for uncommitte
 untracked `examples/`/`tests/`/`src/` files **and untracked directories** not already
 covered. Verify coverage by **content hash against the live file** — against blobs *and*
 against the archived diffs (standing rules 6 and 7; two same-basename/different-content
-pairs and eight diff-archived `src/lib.rs` copies have already tripped a naive check). If
-both checks are clean, **there is no work to do** — confirm the pause, record nothing
+pairs and eight diff-archived `src/lib.rs` copies have already tripped a naive check).
+
+The three passes before this one each missed something, and it was never the same kind of
+thing twice, so do not narrow the sweep to whatever the last pass went looking for. A file
+is unarchived if no reachable blob hashes to its content and no archived diff reconstructs
+it — full stop, regardless of what it is. Note that `git rev-list --objects --all` feeds
+`cat-file --batch-check` a *path* on most lines, so `$2` is the path, not the type; extract
+the shas with `cut -d' ' -f1` first or the blob set comes out empty and every file looks
+unarchived.
+
+If both checks are clean, **there is no work to do** — confirm the pause, record nothing
 further to avoid commit noise, and exit. Do not open a front.
 
