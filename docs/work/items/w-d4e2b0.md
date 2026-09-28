@@ -1,12 +1,12 @@
 ---
 work_item: true
 id: w-d4e2b0
-state: open
+state: working
 priority: normal
-owner: null
-updated: 2026-09-28T01:42:00Z
-branch: null
-worktree: null
+owner: front agent-d4e2b0 (claimed and launched 2026-09-28T01:53Z by pass coord-3f18)
+updated: 2026-09-28T01:53:00Z
+branch: madgab-poolrank-d4e2b0
+worktree: /workspace/madgab-poolrank-d4e2b0
 ---
 
 # Expose a candidate's pool rank in the approximate CLI output
@@ -63,3 +63,17 @@ the `state: working` metadata change.
 
 Disjoint from [w-c31a07](w-c31a07.md) by construction — this one is confined to `src/main.rs`
 reporting, that one changes ordering/selection. They can run in parallel in separate worktrees.
+
+### Claimed 2026-09-28T01:53Z (pass coord-3f18)
+
+Claimed by pushing this metadata change against `origin/post-milestone-acceptance` at `a953c61`,
+then launched as front `agent-d4e2b0` in worktree `/workspace/madgab-poolrank-d4e2b0` on branch
+`madgab-poolrank-d4e2b0` off `a953c61`. Launched deliberately in parallel with the still-running
+`agent-c31a07`, which is confined to ordering/selection in `src/approx.rs`; this front is confined
+to `src/main.rs` reporting, so the two do not contend and neither may merge.
+
+Host note for the front: use its own `CARGO_TARGET_DIR` (the coordinator's `/workspace/madgab/target`
+is the only warm tree and must stay warm for later fence runs), and run tests with
+`-- --test-threads=1` — the 13-test `corpus_integration` run at default threads was SIGKILLed by
+host memory pressure in the 01:36Z pass (49 of 62 GB used, 11 available), so the serial run is the
+measurement, not an inconvenience.
