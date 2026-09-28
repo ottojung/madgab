@@ -3987,15 +3987,39 @@ fn clue_structure(c: &Clue) -> Vec<usize> {
     c.cuts[..c.cuts.len().saturating_sub(1)].to_vec()
 }
 
-/// EXPERIMENT (w-3a8f01): one wording of one resegmentation.
+/// The **wording class** of a clue: its [`clue_structure`] together with
+/// the IPA of its *last* word, lowercased.
+///
+/// This is the key one step finer than [`clue_structure`], and it is the
+/// step at which the redundancy the display policy is supposed to remove
+/// actually lives.  Two clues can share a boundary structure and still be
+/// the same sentence to a reader — `wreck a nice pitch` and
+/// `wreck a nice peach` are two spellings of one resegmentation whose
+/// sound is carried by one varying position, and a list that is ten of
+/// them is a list a reader cannot choose between.  Neither the structure
+/// cap nor the score order sees that redundancy: the structure cap
+/// stops the *fourth* wording of a resegmentation, which is already far
+/// past the point where the endings start to repeat, and by then the
+/// slots are gone.
+///
+/// The key is a sound, not a wording: it is built from the clue's own
+/// aligned IPA, the same way [`clue_structure`] is, so it is a property
+/// of the alignment the search produced and never of a phrase, a target,
+/// a word count or a particular word.  The last word is the position a
+/// Mad Gab list varies for its echo, which is why it is the discriminating
+/// position; the whole-wording stream was tried and is too fine to help,
+/// because two clues that differ only in their *first* word already
+/// differ there and are then admitted as distinct wordings of one
+/// resegmentation, which is the concentration this key exists to stop.
+///
+/// See [../../docs/work/REPORT-3a8f01.md](../../docs/work/REPORT-3a8f01.md).
 fn clue_wording_class(c: &Clue) -> (Vec<usize>, String) {
-    (
-        clue_structure(c),
-        c.words
-            .last()
-            .map(|w| w.ipa.to_lowercase())
-            .unwrap_or_default(),
-    )
+    let tail = c
+        .words
+        .last()
+        .map(|w| w.ipa.to_lowercase())
+        .unwrap_or_default();
+    (clue_structure(c), tail)
 }
 
 /// Pick `top_n` proposals under an ordered rule, highest score first.
@@ -4016,6 +4040,16 @@ fn clue_wording_class(c: &Clue) -> (Vec<usize>, String) {
 ///    remaining slots are still filled on score alone, so the reserve
 ///    costs visible quality exactly and only to the extent stated by
 ///    [`structure_reserve_slots`].
+/// 1b. **Then represent wordings.**  Spend [`wording_reserve_slots`]
+///    further slots on the best-scoring candidate of each further
+///    [`clue_wording_class`].  Tier 1 alone leaves the head of a
+///    monoculture unrepresentable as a *sentence*: one resegmentation can
+///    hold a whole share of the list and fill it with one ending, and no
+///    key at the structure level can see that.  This tier's criterion is
+///    "this candidate ends in a sound the visible list has none of", which
+///    is what makes a high-ranked-but-unrepresented wording reachable.
+///    It is a *remainder* of the list, not a second budget, and it is
+///    bounded by [`STRUCTURE_FLOOR`] so it can never become the list.
 /// 2. **Then score, under a share cap.**  Walk the pool in descending
 ///    score order and admit any candidate whose boundary structure is
 ///    still under its [`STRUCTURE_FLOOR`]-th share of the list.  A
@@ -4058,13 +4092,11 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     });
 
     let structures: Vec<Vec<usize>> = clues.iter().map(clue_structure).collect();
-    // EXPERIMENT (w-3a8f01): wording classes.
-    let classes: Vec<(Vec<usize>, String)> = clues.iter().map(clue_wording_class).collect();
 
     let mut picked: Vec<usize> = Vec::with_capacity(top_n);
     let mut taken = vec![false; clues.len()];
     let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
-    let mut represented: HashSet<(Vec<usize>, String)> = HashSet::new();
+    let mut represented: HashSet<Vec<usize>> = HashSet::new();
 
     // 1. one representative per boundary structure, best first, drawn
     // from the *whole* pool and bounded by `structure_reserve_slots`.
@@ -4082,15 +4114,13 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     // which is a criterion other than "this candidate's own score is
     // inside the cutoff": the criterion is "this resegmentation is one
     // the search enumerated and nothing better of its kind is listed".
-    let reserve = structure_reserve_slots(top_n)
-        .max(STRUCTURE_FLOOR)
-        .min(top_n);
+    let reserve = structure_reserve_slots(top_n);
     let mut reserved = 0usize;
     for &i in &order {
         if picked.len() == top_n || reserved == reserve {
             break;
         }
-        if represented.insert(classes[i].clone()) {
+        if represented.insert(structures[i].clone()) {
             admit(
                 i,
                 &structures,
@@ -4099,6 +4129,49 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
                 &mut counts,
             );
             reserved += 1;
+        }
+    }
+
+    // 1b. the *wording* tier of the same reserve, bounded by
+    // `wording_reserve_slots`: the best candidate of each further
+    // [`clue_wording_class`], in descending score order.
+    //
+    // Tier 1 spends a slot per *resegmentation*, which is the right key for
+    // what it was built for — a resegmentation the enumeration produced
+    // whose best candidate is below the visible cutoff.  It is not enough
+    // for the concentration the shipped default then showed: one
+    // resegmentation can hold a share of the list and still fill it with
+    // one sound, because a structure cap bounds *wordings of a
+    // resegmentation* and not the *repetition of a sound across the list*.
+    // The slot this tier adds is spent on exactly that: a word the list
+    // does not yet end in.  A clue the pool ranks inside the display
+    // window can then be reached on a criterion other than its structure's
+    // share — the criterion being that it introduces a sound the visible
+    // list has none of.
+    let wordings = wording_reserve_slots(top_n);
+    let mut worded = 0usize;
+    let mut worded_classes: HashSet<(Vec<usize>, String)> = picked
+        .iter()
+        .map(|&i| clue_wording_class(&clues[i]))
+        .collect();
+    if wordings > 0 {
+        for &i in &order {
+            if picked.len() == top_n || worded == wordings {
+                break;
+            }
+            if taken[i] {
+                continue;
+            }
+            if worded_classes.insert(clue_wording_class(&clues[i])) {
+                admit(
+                    i,
+                    &structures,
+                    &mut picked,
+                    &mut taken,
+                    &mut counts,
+                );
+                worded += 1;
+            }
         }
     }
 
@@ -4183,6 +4256,23 @@ fn structure_reserve_slots(top_n: usize) -> usize {
 /// [`STRUCTURE_FLOOR`]: it is a number of slots, not a weight fitted to a
 /// target, and it is the only knob the representation rule has.
 const STRUCTURE_RESERVE_DIVISOR: usize = 4;
+
+/// How many of `top_n`'s slots the *wording* tier of the representation
+/// reserve sets aside, once [`structure_reserve_slots`] has had its own.
+///
+/// It is a *remainder*, not a second budget: the wording tier may only use
+/// slots the structure tier did not take, and it is bounded by
+/// [`STRUCTURE_FLOOR`] because the point of the tier is to be able to
+/// reach as deep into a resegmentation's wordings as the display policy
+/// claims to care about breadth.  A tier smaller than the floor could
+/// never show a list in which the floor is met, so the two would be
+/// arguing; a tier larger than the floor would start to be the list.
+///
+/// The size therefore depends on nothing but `top_n`: at the shipped
+/// default it is one slot, and at `--top 50` three.
+fn wording_reserve_slots(top_n: usize) -> usize {
+    STRUCTURE_FLOOR.min(top_n.saturating_sub(structure_reserve_slots(top_n)))
+}
 
 /// How many members of one boundary structure `top_n` slots may hold,
 /// given how many structures the candidate pool offers.  With at least
