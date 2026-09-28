@@ -3612,3 +3612,112 @@ thirty-sixth time.
     complete product tree**, and (iv) the named search direction — a qualitatively different
     whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
     backward suffix heuristic), **never** phrase-specific hard-coding.
+
+33. **`git push origin <branch>` pushes the ref you *named*, not the commit you just made, and
+    `git ls-remote` then confirms the push of a branch you never edited — so both halves of the
+    verification agree and both are about the wrong thing.** The forty-first pass created
+    `recovery/local-only-held-2026-09-28` with `git branch` and then ran `git add` + `git commit`
+    **without checking the new branch out first**, so the commit landed on
+    `post-milestone-acceptance` — the branch that was actually checked out — and the recovery
+    branch stayed at its base. `git push origin recovery/local-only-held-2026-09-28` then
+    succeeded, and `git ls-remote` returned `07cf372`, which **equals the local recovery-branch
+    ref**, so the natural check "does remote == local?" passed. It was caught only because the
+    push had printed a *new branch* creation notice at a sha that was not the archive commit,
+    and the archive's own commit subject was visibly missing from the log. The general form is
+    rules 9, 10, 14, 17, 22, 28, 31 and 32 again, and it is the purest instance yet: **the
+    check could not fail.** "Remote matches local" and "remote contains what I just archived" are
+    different claims, and only the second one is the one that matters; the first is satisfied by
+    an empty push. The fix is procedural and costs nothing: **after `git branch`, either check the
+    branch out or commit with an explicit `git commit <branch> -m …`, and verify the push by
+    comparing the remote sha to the *archive's* sha — not to whatever the branch ref happens to
+    say.** Note also what the mistake would have cost here: the archive commit would have sat on
+    `post-milestone-acceptance`, carrying nine measurement sources and a `tests/probe_f5f6.rs`
+    onto the release-history branch, which rules 5 and 19 reserve for this log alone. The near
+    miss is the argument for the fix.
+
+### `coord-3e88` — forty-first pass, 2026-09-28T10:56Z–11:01Z
+
+**Reconciliation plus a real recovery: 9 blobs held by no remote ref, now durable on
+`recovery/local-only-held-2026-09-28` (`5b48fc3`), pushed, not merged.** No front opened, no
+agent launched or prompted, no item claimed, nothing integrated, no `src/` change,
+`post-milestone-acceptance` reset to its pre-pass tip and clean, `main` untouched at `0267ade`
+and never written to. The pause gate was read and confirmed closed for the thirty-seventh time,
+and the canonical-example instruction declined for the thirty-seventh time.
+
+  * **The fortieth pass's own prescription (a) is what found the gap, and it returned a
+    non-zero.** It said re-run rule 10 and expect **0**. It returned **11**. Both sanctioned
+    exclusion spellings were run — `set -- $(… '%(refname)')` with `--not "$@"`, and
+    `set -- $(… '^%(refname)')` — and **agree to the commit at 11**, so this is not rules 30/31.
+    No `^$(…)`, no `xargs` (rule 31), after 187 remote refs were fetched. The previous pass's 0
+    was not wrong when it was taken; the class grew, and the lesson is that a *negative* result
+    from a check that has been run many times is only a statement about the moment it was run.
+  * **Classification per rule 11, and it is what turned 11 commits into 9 files.** Five commits
+    are held by local-only branches (`scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`,
+    `phon-probe-d4e8b1`, `scratch/0f3a17-shortlist-probe`); two by `refs/stash`; four by
+    **`refs/remotes/origin/madgab-audit-d5a2c1` and `refs/remotes/origin/madgab-fuzzy-cost`,
+    which `git ls-remote` contradicts** — local `3f098bcf`/`b7b22b7`/`880d7bc`/`8b1a61f1`
+    against remote `36589f8`/`0f7f763`, and none of the four is an ancestor of its remote tip.
+    That is rule 11's "local-only refs wearing a remote-tracking name", confirmed a second time
+    and this time carrying unique content. The three `fuzzy-cost` commits carry **0** blobs the
+    remote lacks, so they are commits without content at risk and are recorded, not archived.
+  * **Per-commit `ls-tree -r` (rule 28), field 1 (rule 17), `target*` excluded by path
+    component (rule 9).** The path-component filter is what made this pass's number believable:
+    without it `scratch-3f8c62-landed` contributes **230** blobs, and **229 of the 230 are
+    under `target-base/`** — a committed Cargo build directory whose name begins `target-`, the
+    exact trap rule 9 was written about, recurring in a *commit* rather than a working tree.
+    After the filter: **9 unique blobs over 9 (commit, path) rows** — 6 `src/lib.rs`, 1
+    `src/approx.rs`, 1 `tests/probe_f5f6.rs`, 1 `docs/work/items/w-d5a2c1.md`.
+  * **Verified with a control, per rules 14 and 18, and the control is the reason the 9 is
+    believed.** Identity: `git hash-object` of all 9 archived files reproduces the 9 candidate
+    shas, **9/9 MATCH**. Negative control: `07cf372` and `6e1d0ce` — a pushed release-history
+    tip and a pushed recovery tip — each report **0** blobs absent from the remote set, so the
+    filter is demonstrated able to return zero. Re-tested against the remote set **after a second
+    `git fetch`** immediately before archiving; still 9.
+  * **Archived verbatim, verified, pushed, and closed by re-running the probe.**
+    `recovery/local-only-held-2026-09-28` = **`5b48fc3`**, confirmed by `git ls-remote`,
+    **not merged**. 9 files under `docs/work/local-only-held/files/` named
+    `<blob-prefix>--<path>`, plus `MANIFEST.tsv` and a `README.md` carrying the derivation, the
+    controls, the reproduction recipe and the fence note. Closure: after re-fetching, the remote
+    object set grew **5 454 → 5 482** and the probe returns **0** of the 9 unarchived.
+  * **One mistake made and corrected, recorded as new standing rule 33.** The archive commit was
+    first made on `post-milestone-acceptance` because the new branch had been created but not
+    checked out, so `git push` pushed an **unmodified** branch at `07cf372` and `git ls-remote`
+    confirmed it — "remote == local" passing while the archive was not there at all. Caught by
+    the push notice, fixed by `git branch -f` + `git reset --hard 07cf372` + re-push, confirmed
+    at `5b48fc3`. `post-milestone-acceptance` is verified back at its pre-pass tip `07cf372` and
+    the worktree is clean. Had it stood, nine measurement sources and a `tests/` file would have
+    gone onto the release-history branch that rules 5 and 19 reserve for this log alone.
+  * **Cheap checks, all clean.** Census re-derived: 92 `done`, 11 `superseded`, 5 `produced`,
+    1 `open` (the `TEMPLATE.md` placeholder), 1 `working` (this log), 0 `blocked`. 127 worktree
+    registrations, `git worktree prune -n` reports nothing stale. Worktree clean
+    (`git status --porcelain -uall` empty). `main` = `0267ade`, remote-only — `git rev-parse main`
+    still fails, so it cannot be written to even by accident. **Agents: no MadGab agent alive or
+    claimable** — the seven nonterminal entries host-wide (`9411`, `92d1`, `71e1`, `12f1`? no:
+    `9411`, `92d1`, `71e1`, `73f1`, `76a1`, `72a1`, `40a1`) are all other repositories and were
+    left running and untouched, exactly as a fresh pass should leave them; `a11d` remains `idle`
+    in `/tmp/cwd-7ze5eU`; `3a8f01`/`3a8f02` remain `stopped` on superseded items. Nothing was
+    prompted, stopped, merged, stashed, rebased or cleared.
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-seventh time and declined for the thirty-seventh time.** It restates the programme's
+    standing goal and asks for fronts, claims and agents;
+    [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) (`## Status: accepted and
+    paused`) forbids all three without an explicit human instruction, which has not been given.
+    Its *no-hard-coding* half is discharged on the merits and untouched here: no `src/`, `tests/`,
+    `web/`, `examples/` or `Cargo.toml` byte in **this repository's product tree** changed, and
+    **no canonical phrase appears anywhere in this pass's output** — the 9 candidate files are
+    named by path and blob sha, never by content. The archived copies are ZZ-instrumented
+    sources from paused fronts and are **not proposed for landing**; the fence note in the
+    archive README repeats that any future promotion must strip the phrase literals rather than
+    waive them.
+  * **Next useful action.** The gate question is unchanged and still only a human can answer it:
+    *is MadGab development being reopened?* A forty-second pass should (a) **re-run rule 10 once
+    and expect 0, not 11** — this pass closed the class it found, and a return to 0 is the
+    falsifiable claim; (b) apply **rule 33** to every push: verify the remote sha equals the
+    *archive's* sha, not merely the branch ref; and (c) if it wants a new fact, ask a **new
+    question about the accepted state**, which is the only thing that has produced one for seven
+    consecutive passes. If the gate answer is ever yes, the first work in order is (i) rule 29's
+    binding check before quoting any timing, (ii) `coord-1c8e`'s three measurement-infrastructure
+    corrections in their stated order, (iii) **cut the branch from `main`, which `coord-5e83`
+    showed is a complete product tree**, and (iv) the named search direction — a qualitatively
+    different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a
+    strong backward suffix heuristic), **never** phrase-specific hard-coding.
