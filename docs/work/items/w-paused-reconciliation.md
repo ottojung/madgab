@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-91d4 (pass 115; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:18:00Z
+owner: coord-5a72 (pass 116; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,23 +20,23 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 115 (2026-09-28T19:18Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 116 (2026-09-28T19:26Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 115`.
+last section of this file; search for `## Pass 116`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **115** (template has fired 24 times since pass 92) |
-| At-risk non-build content | **0**. Re-measured at the commit level at pass 115: exclusion set **199** refs, each member `ls-remote`-confirmed (rule 38's own check, run correctly for the first time — see pass 115), baseline `rev-list --all --reflog` **1,112**, at-risk **91** — identical under both sanctioned exclusion spellings (rules 14/30) and not equal to the baseline, so rule 39's cancellation guard passes. Excluding *all* local refs instead (rule 40's other question) gives **123**; that is a different question, not a delta. Passes 105, 108, 113 and 114 all reported 91/199; 0 need recovery. Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
-| MadGab Antonina agents alive | **0** — re-listed in full at pass 115: every madgab-cwd agent is terminal (`succeeded`/`failed`/`stopped`; the newest are `3a8f02`/`3a8f01`, `stopped`, 15h old). The 2 board-wide `running` agents (`107c1`, `98a2`) are other projects. The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
-| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 113 per file by locating each file's `#[cfg(test)]` line and classifying every hit by which side it falls: `src/adjacency.rs`, `src/lexical.rs`, `src/wasm.rs` 0; `src/approx.rs` 0 prod / 1 test (boundary 464); `src/lib.rs` 0 prod / 19 test (boundary 381); `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines (`madgab "It's just a stupid game"`), not logic. **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** |
+| Passes that reached this same answer | **116** (template has fired 25 times since pass 92) |
+| At-risk non-build content | **0**, re-measured over the **whole** worktree set at pass 116, not just the main worktree: 127 linked worktrees, **11** dirty tracked rows, every one of them `M src/lib.rs` in a probe worktree, and all **11** contents hash to blobs already held by `git rev-list --objects --all --reflog` (7,023 objects) — so rule 6/7's content test says 0 need archiving, with no diff-level guesswork. Commit-level row unchanged: exclusion set **199** refs, **199 = 199** `ls-remote`-confirmed (rule 38's own check, re-run; rule 43 corrects pass 115's tag spelling), baseline `rev-list --all --reflog` **1,113** (it was 1,112 at pass 115; the delta is this pass's own fetch), at-risk **91** = **7** ref-held + **84** reflog-only. Both sanctioned spellings (rules 14/30) agree at 91 and 7. Excluding *all* local refs instead (rule 40's other question) gives **41**. 0 need recovery. Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
+| MadGab Antonina agents alive | **0** — the newest madgab-cwd agents are still `3a8f02`/`3a8f01`, `stopped`, 15h31m old, unchanged from pass 115. The 2 board-wide `running` agents are the same other-project pair (`107c1`, `98a2`). The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
+| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 116 per file by locating each file's first `#[cfg(test)]` line and classifying every hit by side: `src/adjacency.rs` (boundary 269) 0/0; `src/lexicon.rs` (260) 0/0; `src/approx.rs` (464) 0 prod / 1 test; `src/lib.rs` (381) 0 prod / 18 test; `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines, not logic; `src/wasm.rs` has no hits at all. **Unchanged from pass 115** |
 
-**Stop reading here if you are a scheduler.** Twenty-four passes (92–115) have reached this same
+**Stop reading here if you are a scheduler.** Twenty-five passes (92–116) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
-The scheduler template has now fired **twenty-four** times carrying the same **three** clauses that
+The scheduler template has now fired **twenty-five** times carrying the same **three** clauses that
 contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
@@ -600,6 +600,59 @@ reason this log grew to 11,500 lines.
      already-durable by definition. Conversely, 2.7 GB of `target-front-3a8f0{1,2}` on disk
      (52 GB across all worktrees) is the same artifact in the place where ignoring it *is*
      correct.
+
+42. **Rule 39's cancellation guard is only exact when both sides are measured over the *same* root
+     set, and a root-set difference is indistinguishable from partial exclusion.** Rule 39 says
+     the guard is "run the no-exclusion baseline and compare: if your at-risk count equals the
+     everything-reachable count, the exclusions cancelled". This pass hit the annihilation for real
+     — the natural edit to a command already carrying `--not` is to substitute the `^` spelling
+     (rule 39's own description of the mistake) — and the guard as written did **not** fire:
+
+     | command | result |
+     |---|---|
+     | `rev-list --all --reflog` (baseline) | 1,113 |
+     | `rev-list --all --not ^refs/... ^refs/...` (annihilated) | **1,029** |
+     | `rev-list --all` (baseline, `--reflog` omitted) | **1,029** |
+
+     The annihilated form excluded **nothing at all** — 1,029 is exactly `git rev-list --all` — but
+     because the comparison baseline carried `--reflog` and the broken command did not, the counts
+     differed by 84 and the guard read as "the exclusions partly worked". A pass that believed that
+     would have recorded 1,029 at-risk commits as a measurement. **The baseline must be spelled
+     identically to the measurement, root set included:** compute
+     `git rev-list --all` when the measurement is `git rev-list --all --not …`, and
+     `git rev-list --all --reflog` when it is `--all --reflog --not …`. `--reflog` is a *root*
+     addition, not a filter, so on this repository it contributes exactly the 84 reflog-only
+     commits that rule 11 warned about — which is also why the *reflog-inclusive* at-risk figure
+     (91) exceeds the ref-held one (7) by precisely that amount. The general form, and the eleventh
+     instance of this log's one failure mode: **a guard that compares two numbers taken over
+     different populations is not a guard.** Compare counts only where the two sides differ in
+     nothing but the thing under test.
+
+43. **`%(refname:strip=N)` must be counted per namespace, not shared, and a tag namespace is not
+     shallower than a heads namespace just because its name has no wildcard.** Pass 115 ran rule
+     38's `ls-remote` confirmation for the first time and recorded the answer as "199 = 199, 0
+     differences on either side", having normalised the audit side with `strip=3` for
+     `refs/remotes/audit/<branch>` and `strip=2` for `refs/remotes/audit-tag/<tag>`. **That split
+     depth is wrong, and the recorded 0 does not reproduce as written:** `refs/remotes/audit-tag/`
+     has exactly as many components before the name as `refs/remotes/audit/` — three
+     (`refs`, `remotes`, `audit-tag`) — so the tag half needs `strip=3` too. With `strip=2` the one
+     annotated tag keeps an `audit-tag/` prefix and the comparison reports exactly one difference on
+     each side:
+
+     ```
+     audit-only:   audit-tag/approximate-search-milestone-2026-09-25
+     remote-only:  approximate-search-milestone-2026-09-25
+     ```
+
+     Re-run with `strip=3` on both namespaces (and `ls-remote` filtered for `HEAD`, `refs/pull/*`
+     and peeled `^{}` lines, as pass 115 correctly found), the two name sets are **byte-identical
+     at 199 each, 0 differences on either side** — so pass 115's *conclusion* was right and its
+     *spelling* was not, and the 1-vs-1 difference is exactly the "a difference set the size of a
+     small constant is a spelling, not data" signal from pass 115's own closing paragraph, one
+     level down. The deeper point is that **namespace name length is not evidence of path depth**:
+     `audit-tag` and `audit` are one component each, and the only reliable way to strip a prefix
+     is to count components, or to normalise both sides to the same shape by explicit `sub()` rather
+     than by a depth parameter reused across namespaces.
 
 52. **Pass 64 named the discovery axis and then checked discovery with a *state* query. The
     complementary question is whether a document a successor is sent to can be *reached*, and
@@ -11630,4 +11683,74 @@ launched, no branch cut, no recovery sweep run, `audit/*` left in place (it is l
 not state needing a branch).
 
 **Next action for the next pass:** prefer no commit over a twenty-fifth entry. Otherwise verify the
+rows above, keep the header in step, append one short entry, exit. Only a human can close this item.
+
+## Pass 116 — 2026-09-28T19:17Z → 19:26Z — coord-5a72 — the twenty-fifth identical firing; two spelling corrections, and the at-risk row measured over all 127 worktrees instead of one
+
+Gate answer unchanged from passes 92–115: **NO**. The same three contradictory template clauses
+(rule 19) were reconciled the same way. Header kept in step with this entry.
+
+| Fact | Result |
+|---|---|
+| Deciding authority | paused; gate **NO** |
+| MadGab Antonina agents non-terminal | **0** (newest madgab-cwd still `3a8f02`/`3a8f01`, `stopped`, 15h31m; 2 running board-wide: `107c1`, `98a2` — both other projects) |
+| Dirty non-build content, **all 127 worktrees** | **0 needing recovery**: 11 dirty tracked rows, all `M src/lib.rs` in probe worktrees, 11/11 content hashes already in `rev-list --objects --all --reflog` (7,023 objects) |
+| Production fence | **0** in production logic; test-side `lib.rs` 18 (≥381), `approx.rs` 1 (≥464), `main.rs` 2 `//!` usage-doc lines. Unchanged |
+| At-risk commits | **91** = 7 ref-held + 84 reflog-only; exclusion set **199**; baseline **1,113** |
+| Exclusion-set name equality | **199 = 199**, 0 differences either side, with `strip=3` on **both** namespaces (rule 43) |
+| `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref |
+
+Nothing below the header was re-derived: no file sweep, no `fsck`, no `AUTO_MERGE` census
+(rules 6–41 closed). Two things were done that are not re-derivations.
+
+**First, the at-risk row was measured over the whole worktree set rather than the main worktree.**
+Every previous pass's standing row reported `git status --porcelain` in `/workspace/madgab` and
+called the result "dirty non-build content: 0", which is a statement about one of 127 worktrees —
+rule 20's exact shape (a check correct about its scope, silent about the complement), and the
+worktrees are where the instrumented `src/lib.rs` copies the log keeps referring to actually live.
+Looping `git worktree list --porcelain` with `status --porcelain -uno` per worktree costs 127 cheap
+invocations and returns **11** dirty tracked rows, all of them the same file. Applying rule 6/7's
+*content* test rather than a diff-level guess — `git hash-object` on each live `src/lib.rs`,
+membership against field 1 of `git rev-list --objects --all --reflog` (7,023 objects, rule 17) —
+**all 11 are already durable**, so the honest number is still 0 to recover, and it is now 0 *proved*
+over the whole population rather than 0 *assumed* from one directory. This is the standing rule 4
+action performed at its actual scope, and it is cheap enough that there is no excuse for a later
+pass to narrow it again. (`-uno` leaves untracked files unchecked; the full untracked sweep is the
+closed class of `coord-7a3e`, which archived the 7 it found, and it is O(52 GB) on this host.)
+
+**Second, two of the log's own measurements did not reproduce, and both are recorded as new rules.**
+Rule 43: pass 115's normalisation used `strip=3` for the heads namespace and `strip=2` for
+`audit-tag/*`, and reported "0 differences on either side". `refs/remotes/audit-tag/<tag>` has
+*three* components before the name, exactly like the heads half, so `strip=2` leaves the one
+annotated tag spelled `audit-tag/approximate-search-milestone-2026-09-25` and the comparison shows
+1-vs-1. The conclusion was right — with `strip=3` on both sides the sets are byte-identical at 199 —
+but the spelling that produced it is not the one recorded, and a later pass copying `strip=2` would
+get a difference set and could not tell spelling from data. Rule 42: rule 39's cancellation guard
+says to compare an at-risk count against the everything-reachable baseline, and this pass triggered
+the annihilation it describes (substituting the `^` spelling into a command that already carried
+`--not`, which is rule 39's own description of the natural mistake). The guard did not fire: the
+baseline was measured with `--reflog` (1,113) and the broken command without (1,029), so 1,029
+looked like "exclusions partly worked" when in fact they excluded **nothing** — 1,029 is exactly
+`git rev-list --all`. The 84-commit gap is the reflog root set, which is also the whole difference
+between this log's 91 and 7. Eleven instances now of one failure mode, and this one was produced by
+following the log's own instruction: **compare counts only across identical root sets, and strip
+ref-name prefixes by component, not by a depth reused across namespaces.**
+
+Also noted, not a new rule: the baseline moved 1,112 → 1,113, and the delta is this pass's own
+`git fetch`. Neither the baseline nor rule 39's stored figures (1016/81/181/92) are constants, which
+is the reason rule 39 insists on *running* the baseline rather than remembering it. Today's pair,
+for the next pass's reference: remote-exclusion **91**, all-local-exclusion **41**, difference 50
+(rule 40's shape, 11 in the pass that measured it).
+
+**Declined, same three clauses.** Assigning/launching agents, recovering or splitting fronts, and
+prioritising the canonical examples are forbidden by the pause (rules 1–2). The clause naming the
+canonical examples also cannot be acted on as written: the only way to make the second canonical
+phrase appear in the production pool is the phrase-specific hard-coding the same clause forbids,
+which the fence row shows is currently at **0**. The `post-milestone-acceptance` accumulation clause
+is contradicted by the itinerary's retired-target note; this log's own entry is the only thing
+committed there (rule 19). **Nothing pushed to `main`.** No work item created or claimed, no agent
+launched, no development branch cut, `audit/*` left in place (local bookkeeping, not state needing a
+branch).
+
+**Next action for the next pass:** prefer no commit over a twenty-sixth entry. Otherwise verify the
 rows above, keep the header in step, append one short entry, exit. Only a human can close this item.
