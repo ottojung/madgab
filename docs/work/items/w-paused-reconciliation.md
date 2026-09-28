@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5b21
-updated: 2026-09-28T13:12:00Z
+owner: coord-5a04
+updated: 2026-09-28T13:22:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5800,3 +5800,64 @@ for anything.
     behaviour, pursue the named direction — a **qualitatively different whole-path
     algorithm** (compact pronunciation DAG with k-best / A*-style search, or a strong
     backward suffix heuristic) — and **never** hard-code the canonical phrases.
+
+## Sixtieth pass (`coord-5a04`, 2026-09-28T12:57Z–13:22Z) — a short closure, deliberately not a new rule
+
+This pass did **not** invent a new enumeration class. Rules 6–47 have saturated the
+at-risk-state question, and the sixty-first observation available was the shape of this
+log's own failure mode rather than a repository defect, so it is recorded as an instance
+under the existing family instead of as standing rule 48.
+
+* **The recurring sweep, re-run, closes at zero — and the two figures that matter are
+  unchanged from pass 40.** After `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`
+  (**192** refs, `ls-remote`-confirmed, per rules 10/37/38), `git rev-list --all --reflog
+  --not <audit refs>` returns **92**; excluding every local `refs/heads`, `refs/tags` and
+  `refs/stash` as well leaves **81** held by no ref at all. Both are byte-for-byte the
+  numbers pass 40 recorded, and the unexcluded baseline `git rev-list --all --reflog` is
+  **1032** — not equal to either, so rule 39's annihilation guard passes rather than
+  silently cancelling. Naming the exclusion set alongside the count, per rule 40.
+* **Object-level check over the 81 unheld commits: 0 at risk.** Probed per rule 28 by
+  *tree*, not by diff: 626 distinct blobs across those 81 trees, **234** of them not in the
+  remote-reachable set, and **0** of the 234 outside `git rev-list --objects --all --reflog`.
+  Composition of the 234, which is the only classification that pass 40 left implicit:
+  **160** under `target-base/`, **70** under `target-after/` — rule 41's committed build
+  output, durable by definition and never to be archived — and **4** `src/lib.rs` blobs,
+  each from a WIP/stash commit (`f6688de`, `5c21572`, `e34eb42`, `44e36a6`), i.e. rule 15's
+  already-recovered `recovery/stash-reflog-2026-09-28` class. **No new risk class.**
+* **Instance of the recurring failure mode, ninth counted: `git ls-tree -r <c1> <c2>` does
+  not take a list.** The first version of the loop above passed all 81 commits as arguments
+  to a single `git ls-tree`; git reads the extras as *pathspecs*, matches nothing, exits 0
+  and prints nothing. The pipeline reported "626 blobs" a moment later only because the
+  corrected per-commit loop replaced it — as written it reported **0 distinct blobs**, and
+  `comm` against that empty set reported **0 at risk**, a clean bill of health produced
+  entirely by a command that had examined nothing. This is rules 22/35/37 in its most
+  dangerous form: not a wrong number but a **correct-looking zero from an empty input**, and
+  rule 35's bracket guard is what caught it (a durable set of 0 is not a durable set; the
+  same applies to the *subject* set). Operationally: **one `ls-tree` per revision, never a
+  list**, and always print the input count next to the result.
+* **Census: still no claimable item, and still nothing to integrate.** 92 `done`,
+  11 `superseded`, 0 `open`, 0 `blocked`; the sole non-terminal item is this log. No
+  MadGab-owned Antonina agent is alive — the three `running` agents (`98a1`, `92d1`, and
+  the `failed` ones) are all under `/workspace/` paths outside `/workspace/madgab*` and
+  belong to other projects. **This pass launched nothing and therefore has nothing running
+  to be supervised.** 170 local branches, 192 remote heads, worktree clean.
+* **Coordination decision, and it is the substantive one: the sweep is done.** For three
+  consecutive passes the entire recoverable class has been zero, and the two counters the
+  log tracks (81 unheld / 92 not-on-remote) have not moved. A further pass that manufactures
+  a new "rule" by finding a new way for its own command to be wrong is not recovery work; it
+  is the treadmill this log's own rule 9/14/17/22/27/35 warns against, run in the
+  preservation direction. **The next coordinator should expect to do nothing** unless the
+  gate question changes, and should say so rather than manufacture a 48th rule.
+* **The gate question is now twenty-four passes old and is still the only thing that can
+  change this programme's status: is MadGab development being reopened?** It is not a
+  coordinator's call to answer. Standing instructions unchanged: never merge or push to
+  `main` (`git rev-parse main` still fails — it is remote-only); never integrate scratch
+  instrumentation; never archive `target-after/`, `target-base/`, `target-front-*` or the
+  two oversize binaries; leave `scratch-3f8c62-landed` unpushed and undeleted. **If the
+  answer is ever yes:** cut a fresh focused branch from `main` (byte-identical for
+  production code — `git diff origin/main post-milestone-acceptance -- src tests web
+  examples Cargo.toml README.md` is still 0 lines), validate *general* behaviour, pursue
+  the named direction — a qualitatively different whole-path algorithm (compact
+  pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic) —
+  and **never hard-code the canonical phrases**, including in the archived probes under
+  `docs/work/probes/` if any of them is ever promoted.
