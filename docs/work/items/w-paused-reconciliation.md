@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9d1a (pass 127; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T20:26:00Z
+owner: coord-3a5f (pass 128; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T20:27:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12283,3 +12283,57 @@ there and neither carries product code.
 repairs passes 125–126 deferred are both now made, so there is nothing left to repair here either.
 Prefer *no commit at all*. The remaining value is in retiring or fixing the scheduler template,
 which is a human task outside this repository. Only a human can close this item.
+
+## Pass 128 (coord-3a5f) — 2026-09-28T20:22Z–20:27Z
+
+The thirty-seventh identical firing. All five standing facts re-derived from the repository, not from
+this log. One durable repair: pass 127's population figure does not reproduce.
+
+| fact | result |
+|---|---|
+| Gate | **NO** — from `itinerary-madgab.md` `## Status: accepted and paused`, re-read at the top of this pass |
+| `main` | untouched at `0267ade` (`git ls-remote origin main`); no local `main` ref; HEAD `post-milestone-acceptance` at `34244ee` |
+| MadGab agents | **0 running in a MadGab cwd.** The host's one `running` agent (`94f6`, `/workspace/assemblyp1-94-refute-check`) is not MadGab; the `running`-only census must be filtered by cwd. The 2 non-terminal MadGab agents are still `3a8f01` / `3a8f02`, both `stopped` on superseded fronts, not resumed (rule 2) |
+| Work items | **0 `open` / `working`**, 1 `blocked` (this one), by the header-scoped census pass 127 introduced |
+| Production fence | **0** canonical phrases in the production region of all six files at the pass-120 `#[cfg(test)]` boundaries: `adjacency.rs` 269, `lexical.rs` 260, `approx.rs` 464, `lib.rs` 381 → prod 0 each; `main.rs` (2) and `wasm.rs` (0) have no test module, so their figures are whole-file doc lines |
+| At-risk commits | **91** = **84 reflog-only** + **7 ref-held**, against a **199**-ref fetched `audit/` exclusion set and a **1,128** `--reflog` baseline; both sanctioned spellings (rules 14/30) return 91; **0** of the 7 are ancestors of `origin/main` |
+
+**Repair: the non-build dirty population is 85, not 83.** Pass 127 recorded "0 of 83 hashed rows
+at risk". Re-measured with the rule-9 shell `case` filter (not the `grep -E` translation pass 127
+warned about) over all **127** worktrees at `-uall`, the population splits exactly
+**11 tracked `M` + 74 untracked = 85** — which is pass 118's corrected population, not 83. So 83
+was never the population; it is pass 127's count of a slightly narrower enumeration, and the
+verdict it supported was right while its stated denominator was wrong. Rule 25 exactly: a number can
+be attached to the wrong population and still be quoted safely for a year.
+
+The verdict itself is re-derived, not inherited. All 74 untracked rows were re-hashed with
+`git hash-object` against the **7,113**-entry reachable set (`rev-list --objects --all --reflog`,
+field 1 per rule 17): **72** are already durable, and the **2** that are not are again only
+`prof/madgab-baseline` and `prof/madgab-prof` in `madgab-approx-runtime` — 30 MB prebuilt ELF build
+output, excluded by rules 9/41 and regenerable from source. **0 need archiving**, on a population
+reproduced to the row.
+
+`comm` operand order, recorded because it is the second way this log has confused its own two sets
+(rule 22 was `sort`, this one is argument order): the 84/7 split comes from
+`comm -23 <at-risk> <--all>` — at-risk lines *absent* from the ref set. Run as
+`comm -13 <--all> <at-risk>` the same data returns **1,037**, the complement, which counts reachable
+commits rather than at-risk ones and is a finding about nothing. Bracket the result by the 91 (rule
+35) and by the 1,128 (rule 39): a partition figure larger than the set it partitions is a
+mis-ordered `comm`, not new risk.
+
+### Declined, same three clauses, thirty-seventh time
+
+(1) Recover/assign work, split fronts, launch or prompt Antonina agents: forbidden by the pause
+(rules 1–2), and there is nothing to recover — 0 uncommitted content at risk, 0 open items, 0
+running MadGab agents, and the only non-terminal MadGab agents are stopped superseded fronts whose
+work is already preserved. (2) Prioritise the canonical approximate-search examples without
+phrase-specific hard-coding: that *is* the paused research goal, self-contradicting while paused;
+the fence is at **0** and the documented limitation remains a live assertion whose flip to red is a
+human release decision (rule 25). (3) Accumulate on `post-milestone-acceptance`: the itinerary
+retired it as an automatic target (rule 19); this entry is the only thing committed here and it
+carries no product code.
+
+**Next action for the next pass:** no coordination action is available and no repair is queued — the
+two header repairs deferred at passes 125–126 and the one found at pass 128 are all now made.
+Prefer *no commit at all* over a 38th entry. The remaining value is in retiring or fixing the
+scheduler template, which is a human task outside this repository. Only a human can close this item.
