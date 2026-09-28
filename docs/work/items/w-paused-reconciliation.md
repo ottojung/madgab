@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9d1f
-updated: 2026-09-28T12:14:00Z
+owner: coord-3a1c
+updated: 2026-09-28T12:02:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -516,6 +516,48 @@ instruction.
     because nothing about the output looks wrong. **The guard is to state the ref count in the
     result and to confirm every member of the exclusion set is either an `ls-remote`-confirmed
     head or an explicitly named local-only scratch holder — never a bare `refs/remotes/*` glob.**
+
+39. **Rule 10's two sanctioned exclusion spellings annihilate each other when combined, and the
+    guard is a one-line comparison against the unexcluded baseline.** Rules 14 and 30 each
+    correct a *different* mis-spelling of the same command and bless two forms that are each
+    right in isolation: `--not` + a bare ref list, and the stateless `^<ref>` prefix. Copying
+    a command that already carries `--not` and substituting the `^` spelling for its ref list —
+    the natural edit, since both are described as "the correct spelling" — produces
+    `--all --reflog --not ^refs/... ^refs/...`. Each of those is a negation, so the pair is
+    the identity and **the exclusion set excludes nothing**. Measured on this repository:
+    that form returns **1016**, which is *exactly* the unexcluded `git rev-list --all --reflog`
+    count, while the correct figure is **81** and both correct forms return byte-identical
+    output sets (`comm -3` gives 0 lines). **The guard is to run the no-exclusion baseline and
+    compare:** if your "at-risk" count equals the "everything reachable" count, the exclusions
+    cancelled. This is cheaper than any other check in this log and it cannot be skipped by
+    forgetting a detail, because the baseline is the same object graph. The general form is
+    rule 14's for *composition* rather than repetition: **a check assembled from two
+    individually-correct parts can be wrong in a way neither part's own test can detect, so
+    cross-check the composed command, not just each fragment.**
+40. **An exclusion set is a question, and two legal choices answer two different ones — so the
+    number is meaningless unless the set is named with it.** Excluding all 375 local refs gives
+    **81** commits held by no ref and no reflog; excluding only the **181** `ls-remote`-confirmed
+    remote tips gives **92**. The **11**-commit difference is exactly the commits reachable only
+    from a stale local ref (5 in misleadingly-named `refs/remotes/origin/*`, 3 in local-only
+    `refs/heads/*`, 2 in `refs/stash` past `stash@{0}`, 1 in a detached worktree `HEAD`). Both
+    choices are defensible — 81 answers "held by nothing at all", 92 answers "not on the
+    remote" — and rule 38 is the reason the second is easy to get wrong. **State the exclusion
+    set in the same sentence as the count**, or a later pass cannot tell whether a difference
+    of 11 is a new discovery or a different question.
+41. **Rules 6–9 exclude `target*` on *disk*; a committed `target-*/` is in the object store,
+    survives `gc` today, and needs no rescue — but a faithful sweep will archive it anyway.**
+    `.gitignore` line 1 is `/target/`, which is **anchored**: `git check-ignore -v target-after/`
+    exits non-zero, so the directory is *not* ignored, and two paused fronts committed their
+    build trees — `33c409e` carries **332 files / 355,362,288 bytes** of `target-after/`, and
+    `514ed91` carries `target-base/` at **352,419,133 bytes**. All **70** at-risk blobs in the
+    population come from those two commits and every one is under `target-*`, so an unfiltered
+    recovery pass would push **355 MB** of stale `libmadgab.rlib` and record it as preserved
+    research. The general form: **a filter keyed on a path component only excludes a directory
+    that is ignored; it says nothing about a directory that was committed.** Extend the rule-9
+    filter to the *diff* as well as the filesystem, and treat build output inside a commit as
+    already-durable by definition. Conversely, 2.7 GB of `target-front-3a8f0{1,2}` on disk
+    (52 GB across all worktrees) is the same artifact in the place where ignoring it *is*
+    correct.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
