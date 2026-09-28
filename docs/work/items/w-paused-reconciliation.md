@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-b2c8 (pass 129; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T20:42:00Z
+owner: coord-3e57 (pass 130; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T20:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,15 +20,15 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 129 (2026-09-28T20:42Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 130 (2026-09-28T20:40Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 129`.
+last section of this file; search for `## Pass 130`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **129** (template has fired 37 times since pass 92) |
+| Passes that reached this same answer | **130** (template has fired 38 times since pass 92) |
 | At-risk non-build content | **0**, re-measured end to end at pass 129 over all **127** linked worktrees at `-uall`, with the build-output filter now correct (rule 70). Raw population **2,625** dirty rows = 11 tracked `M` + 2,614 untracked, of which **2,540** are `target*/` build output (including the 1,387- and 1,153-row `target-front-3a8f01/`, `target-front-3a8f02/` trees) and **26** are `prof/` harness output (24 `prof/baseline/*` + the 2 prebuilt ELF binaries). Non-build population is therefore **59** = 11 tracked `M` + **48** untracked. All 48 untracked were content-hashed against `git rev-list --objects --all --reflog`: **0 are unhashable/unreachable, so 0 need archiving**. This closes a coverage gap: passes 118/127/128 excluded all of `prof/` from the hash test, so the 23 harness-content files (`prof/README.md`, `REPORT.md`, `results*.txt`, `sum-*.txt`, `summarize.py`, `run.sh`, `targets.txt`, `scale*.txt`) had **never** been hash-tested. They are all already durable blobs |
 | At-risk commits | **7 ref-held** of an at-risk total of **91** (the other **84** are reflog-only and are not an at-risk population). Re-derived at pass 129 with the exclusion set **re-fetched this pass**: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` yields **198** refs (passes 126/128 reported 199; state the count beside the result, and note the fetch must be repeated because a later pass found the namespace *empty*, which silently turns the at-risk command into `rev-list --all` and returns the baseline). Baseline `rev-list --all --reflog` **1,129** (1,128 at pass 128; the delta is pass 128's own pushed commit). The at-risk figure **91** reproduces exactly and its 7 ref-held holders are the same 7 refs — `scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`, `scratch/0f3a17-shortlist-probe` (×2), `refs/stash` (×2) — with **0** of them ancestors of `origin/main`. **Failure mode worth naming:** with the `audit/` namespace empty, the same command returns **1,129 = the baseline**, which looks like a *clean result of zero risk* and is in fact a *broken command* (rules 35/37). Bracket every at-risk number by the baseline and by the ref count |
 | MadGab Antonina agents alive | **0 running in a MadGab cwd** — re-verified at pass 129 over the full host census (552 agents: 491 `succeeded`, 51 `failed`, 8 `stopped`, 1 `running`, 1 `idle`). The host's single `running` agent is `94f6` in `/workspace/assemblyp1-94-refute-check`, which is not MadGab; the `running`-only census must always be filtered by cwd. The 2 non-terminal MadGab agents remain `3a8f01` (`/workspace/madgab-diversity-3a8f01`) and `3a8f02` (`/workspace/madgab-poolrank-3a8f02`), both `stopped` at ~16h41m on superseded fronts whose work is already preserved per their (now `superseded`) work items. Each of their worktrees' only dirty rows are `target-front-*/` build output (rule 9). **Nothing at risk and nothing resumed** — resuming either would be resuming a superseded front (rule 2) |
@@ -36,10 +36,10 @@ last section of this file; search for `## Pass 129`.
 | Work items | **0 `open` / `working`**, 1 `blocked` (this one), 84 `done`, 11 `superseded`, by the header-scoped census (pass 127). A bare `grep 'state: open'` is a false-positive census (5 hits, 0 open) — parse the frontmatter `state:` line only |
 | `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref, HEAD is `post-milestone-acceptance` (at `c9102f5` entering this pass). **Do not pin HEAD to a SHA in this row** — it is whatever the last pass committed; the stable facts are the *branch* and `origin/main` |
 
-**Stop reading here if you are a scheduler.** Thirty-seven passes (92–129) have reached this same
+**Stop reading here if you are a scheduler.** Thirty-eight passes (92–130) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
-The scheduler template has now fired **twenty-nine** times carrying the same **three** clauses that
+The scheduler template has now fired **thirty** times carrying the same **three** clauses that
 contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
