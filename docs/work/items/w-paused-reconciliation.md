@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-b4d7 (pass 145; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T22:20:00Z
+owner: coord-9c11 (pass 146; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T22:35:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,26 +20,26 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 145 (2026-09-28T22:20Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 146 (2026-09-28T22:35Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 145`.
+last section of this file; search for `## Pass 146`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **145** (template has fired 53 times since pass 92) |
-| At-risk non-build content | **0**, re-confirmed at pass 145 (127 linked worktrees; the non-build dirty population is **35** rows = **34 hashable files + 1 directory row**; adding the 3 build directory rows that pass 144 also counted gives its **38**). All **34** files hash to blobs present in `rev-list --objects --all --reflog` (**7,221** object lines, **4,990** distinct first-field object ids) → **0 unreachable**, so **0 need archiving**. The one non-build directory row is `madgab-scratch/examples/`; the other three empty `hash-object` results pass 144 recorded are build-path collapses (`madgab-approx-runtime/prof/`, `madgab-diversity-3a8f01/target-front-3a8f01/`, `madgab-poolrank-3a8f02/target-front-3a8f02/`) and are excluded by rule 9 before the count, so **35 and 38 are the same 38 rows under two filters — always state which**. **An empty `hash-object` is a directory row, not a finding** (rule 138) and **must not be dropped to make `files + dirs = total` close**. This is the `git status --porcelain` **without** `--ignored` population, a legitimate but *different* population from the 2,625 rows earlier passes quote; quote which one you measured. Earlier wording follows, re-confirmed at pass 138 (25 non-`target`, non-`prof` untracked + 11 tracked `M` over 127 linked worktrees; all 25 re-hashed this pass against `git rev-list --objects --all --reflog` → **0 unreachable**, so **0 need archiving**). The dirty population is **2,625** rows = **2,541** `target*` build output + **48** `prof/` + **25** other untracked + 11 tracked `M` — passes 133–137's **2,540 / 49** split moved by one row (build output churn in a `prof/` worktree), so quote the partition, never a single bucket. Pass 129 reported "26 `prof/` rows, 48 untracked, 0 unreachable" — the conclusion (0 at risk) was right and the inputs were wrong, so the 23 `prof/` harness-content files were never hash-tested as pass 129 claimed; that gap is closed. The two prebuilt 30 MB ELF binaries `/workspace/madgab-approx-runtime/prof/madgab-prof` and `.../prof/madgab-baseline` are `cargo build` products of `madgab-approx-runtime` @ `0ed6ca2`, already reachable on `origin`, so they are reproducible and correctly excluded by rule 9. **Pass 138's own harness defect, same family as passes 127/133/136:** writing the worktree/path pair as `"$w :: $p"` (spaces around the separator) and reading it back with `IFS=' ' read -r w p` silently puts the literal `::` in the *path* field, so `hash-object` returns empty for all 25 rows and the check reports **25/25 unreachable** — a fabricated finding, not a real one. With the two fields split on `::` and trimmed (`xargs`) the same 25 rows hash to **0 unreachable**. **Record the pair as `worktree<TAB>path`, or split on `::` with no surrounding spaces; never `IFS=' '` on a ` :: ` record** |
-| At-risk commits | **91**, re-derived at pass 145 with the exclusion set **re-fetched this pass**: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' '+refs/tags/*:refs/remotes/audit-tag/*'` yields **199** refs, baseline `rev-list --all --reflog` **1,146** (1,145 at pass 144; the delta is pass 144's own pushed commit), and **0 of the 91 are ancestors of `origin/main`** (checked one commit at a time with `git merge-base --is-ancestor <c> origin/main` — a piped `xargs --stdin` form silently returns nothing and looks like a clean zero, so do not batch it). The "7 ref-held / 84 reflog-only" split **is** a commit-level split and the two sets are **disjoint and sum to exactly 91**: `git rev-list --all --not $REMOTE` = **7** (on no remote ref), `git rev-list --reflog --not --all` = **84** (reflog-only), `comm -12` = **0**, union = **91** — reproduced exactly at pass 145. All **20** `recovery/*` branches confirmed on `origin` again this pass (`git ls-remote origin 'refs/heads/recovery/*'` = 20). Pass 136's "correction" of this split was itself wrong; `91 − 7 = 84` is correct arithmetic. The one real defect to keep: **the numeral 7 names two different populations in this log** — (a) the 7 at-risk commits on no remote ref, and (b) the 7 *(commit, holder-ref)* pairs among the **5** of the 91 that a local `refs/heads`/`refs/tags` holds. **Quote which one you mean, and never subtract across the two.** Decision-relevant fact, unchanged for every pass: all 91 sit above the `--reflog` baseline, **0** are ancestors of `origin/main`, and the 5 held by a plain local branch are re-fetchable from the remote by name. **Bracket every at-risk number by the baseline and the ref count** — with the `audit/` namespace empty the same command returns the baseline, which looks like a clean zero-risk result and is in fact a broken command (rules 35/37) |
-| MadGab Antonina agents alive | **0 running in a MadGab cwd** — re-verified at pass 145 over the full host census (570 agents) filtered by cwd: 2 agents are host-`running` (`98d1` in `antonina-int-104-107-98`; `112a3` in `antonina-112-fix`), both other repositories, both **left running** for their own passes; `94d3`/`94c4` have since gone terminal, so the host-running set moved 4 → 2 without any MadGab action. The 2 non-terminal MadGab agents remain `3a8f01` and `3a8f02`, both `stopped` on superseded fronts whose work is already preserved per their (now `superseded`) work items — **nothing resumed** (rule 2) |
-| Production fence | **0** hard-coded canonical phrases in the production region of all six production files, **re-derived at pass 144** (nineteenth consecutive pass at 0) per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and not from a cached total: `src/adjacency.rs` 0, `src/lexical.rs` 0, `src/approx.rs` 0 prod / 1 total, `src/lib.rs` 0 prod / 18 total (9 on a clue-only regex), `src/wasm.rs` 0. `src/main.rs` has **no** `#[cfg(test)]` boundary; its 2 hits are lines 9 and 11 of the `//!` CLI usage doc comment (`madgab "It's just a stupid game"`), i.e. a documented invocation example, not clue selection in logic — this pass confirmed both are *targets* being quoted on a command line, never a generated *clue*. **Pass 145 corrects pass 144's own "defect 2" on the `lib.rs` test-region count:** pass 144 published "0 prod / 9 total" and called the earlier "18 test" a carried-forward error, but the two numbers count *different regexes* and both are correct for their own. The **9** counts **clue** literals only (`wreck a nice beach` | `hits justice dupe hid came`); the **18** counts clues **plus the target** literals `recognize speech` and `It's just a stupid game`, which is what passes 138–143 used. The 18 lines are 4703, 4747, 4775, 4825, 4868, 4901, 6052, 8598, 8599 (clues) + 4357, 5985, 5993, 6373, 6375, 7606, 7608, 8744, 8746 (targets). So pass 144 changed the regex and reported it as a defect in the number — a spurious "fix" that made the log quote two different populations under one label. **Always publish the regex with the count; only the production-region 0 is an invariant** (rule 25). `src/approx.rs` is 0 prod / **1** total (line 1040, a test-region `const CASE2`), also 9-vs-18 blind. **Fence still 0, twentieth consecutive pass** |
-| Work items | **0 `open` / 0 `working`**, 1 `blocked` (this one), **83 `done`**, **12 `superseded`** (**96** total), parsed from the frontmatter `state:` line only and **re-confirmed at pass 145** (1 / 83 / 12, unchanged) with the fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **Pass 144 reproduced pass 141's failure mode before falling back to the published form:** the naive `grep -rl 'state: open'` plus a cumulative-`NR` gawk produced a nonsense table of ~430 rows (one per file, because `c[]` was never reset and `ENDFILE` re-printed the whole accumulator once per file). The published fence-scoped form returns exactly **1 / 83 / 12** on the same inputs. **Use the published form, not a cumulative-`NR` variant** — the two differ only in whether per-file state is reset. No item file has been added since pass 133. Known census false positives, all confirmed still live: a repo-wide `grep -rlx 'work_item: true'` returns **97** because `docs/skills/work-items.md` carries the *example* header; a `state:` scan that is not fence-scoped reports `docs/environment-notes.md` as `state: failed` when that file has no frontmatter at all. **A file counts only if `work_item: true` appears inside its own leading `---` fence.** Reliable form: `awk 'FNR==1&&$0!="---"{nextfile} FNR>1&&$0=="---"{nextfile} FNR==1{next} /^work_item: /{wi=$2} /^state: /{st=$2} ENDFILE{if(wi=="true"&&st!="")print st; wi=""; st=""}' docs/work/items/*.md docs/*.md | sort | uniq -c` — it needs **gawk** for `nextfile`/`ENDFILE`; re-confirmed working on this host's GNU Awk 5.3.0 at pass 144 |
+| Passes that reached this same answer | **146** (template has fired 54 times since pass 92) |
+| At-risk non-build content | **0**, re-confirmed at pass 146 (127 linked worktrees; the non-build dirty population is **35** rows = **34 hashable files + 1 directory row**; adding the 3 build directory rows pass 144/145 also counted gives its **38** — same 38 rows under two filters, **always state which**). All **34** files hash to blobs present in `rev-list --objects --all --reflog` (**7,227** object lines, **7,227** distinct first-field object ids, **4,994** of which carry a path) → **0 unreachable**, so **0 need archiving**. The one non-build directory row is `madgab-scratch/examples/`; the other three empty `hash-object` results pass 144 recorded are build-path collapses (`madgab-approx-runtime/prof/`, `madgab-diversity-3a8f01/target-front-3a8f01/`, `madgab-poolrank-3a8f02/target-front-3a8f02/`) and are excluded by rule 9 before the count, so **35 and 38 are the same 38 rows under two filters — always state which**. **An empty `hash-object` is a directory row, not a finding** (rule 138) and **must not be dropped to make `files + dirs = total` close**. This is the `git status --porcelain` **without** `--ignored` population, a legitimate but *different* population from the 2,625 rows earlier passes quote; quote which one you measured. Earlier wording follows, re-confirmed at pass 138 (25 non-`target`, non-`prof` untracked + 11 tracked `M` over 127 linked worktrees; all 25 re-hashed this pass against `git rev-list --objects --all --reflog` → **0 unreachable**, so **0 need archiving**). The dirty population is **2,625** rows = **2,541** `target*` build output + **48** `prof/` + **25** other untracked + 11 tracked `M` — passes 133–137's **2,540 / 49** split moved by one row (build output churn in a `prof/` worktree), so quote the partition, never a single bucket. Pass 129 reported "26 `prof/` rows, 48 untracked, 0 unreachable" — the conclusion (0 at risk) was right and the inputs were wrong, so the 23 `prof/` harness-content files were never hash-tested as pass 129 claimed; that gap is closed. The two prebuilt 30 MB ELF binaries `/workspace/madgab-approx-runtime/prof/madgab-prof` and `.../prof/madgab-baseline` are `cargo build` products of `madgab-approx-runtime` @ `0ed6ca2`, already reachable on `origin`, so they are reproducible and correctly excluded by rule 9. **Pass 138's own harness defect, same family as passes 127/133/136:** writing the worktree/path pair as `"$w :: $p"` (spaces around the separator) and reading it back with `IFS=' ' read -r w p` silently puts the literal `::` in the *path* field, so `hash-object` returns empty for all 25 rows and the check reports **25/25 unreachable** — a fabricated finding, not a real one. With the two fields split on `::` and trimmed (`xargs`) the same 25 rows hash to **0 unreachable**. **Record the pair as `worktree<TAB>path`, or split on `::` with no surrounding spaces; never `IFS=' '` on a ` :: ` record** |
+| At-risk commits | **91**, re-derived at pass 146 with the exclusion set **re-fetched this pass**: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' '+refs/tags/*:refs/remotes/audit-tag/*'` yields **199** refs, baseline `rev-list --all --reflog` **1,147** (1,146 at pass 145; the delta is pass 145's own pushed commit), and **0 of the 91 are ancestors of `origin/main`** (checked one commit at a time with `git merge-base --is-ancestor <c> origin/main` — a piped `xargs --stdin` form silently returns nothing and looks like a clean zero, so do not batch it). The "7 ref-held / 84 reflog-only" split **is** a commit-level split and the two sets are **disjoint and sum to exactly 91**: `git rev-list --all --not $REMOTE` = **7** (on no remote ref), `git rev-list --reflog --not --all` = **84** (reflog-only), `comm -12` = **0**, union = **91** — reproduced exactly at pass 145. All **20** `recovery/*` branches confirmed on `origin` again this pass (`git ls-remote origin 'refs/heads/recovery/*'` = 20). Pass 136's "correction" of this split was itself wrong; `91 − 7 = 84` is correct arithmetic. The one real defect to keep: **the numeral 7 names two different populations in this log** — (a) the 7 at-risk commits on no remote ref, and (b) the 7 *(commit, holder-ref)* pairs among the **5** of the 91 that a local `refs/heads`/`refs/tags` holds. **Quote which one you mean, and never subtract across the two.** Decision-relevant fact, unchanged for every pass: all 91 sit above the `--reflog` baseline, **0** are ancestors of `origin/main`, and the 5 held by a plain local branch are re-fetchable from the remote by name. **Bracket every at-risk number by the baseline and the ref count** — with the `audit/` namespace empty the same command returns the baseline, which looks like a clean zero-risk result and is in fact a broken command (rules 35/37) |
+| MadGab Antonina agents alive | **0 running in a MadGab cwd** — re-verified at pass 146 over the full host census filtered by cwd: 2 agents are host-`running` (`74b1` in `antonina-74-review`; `112a3` in `antonina-112-fix`), both other repositories, both **left running** for their own passes; `98d1` has since gone terminal, so the host-running set moved 2 → 2 with one arrival and one departure and no MadGab action. The 2 non-terminal MadGab agents remain `3a8f01` and `3a8f02`, both `stopped` on superseded fronts whose work is already preserved per their (now `superseded`) work items — **nothing resumed** (rule 2) |
+| Production fence | **0** hard-coded canonical phrases in the production region of all six production files, **re-derived at pass 144** (nineteenth consecutive pass at 0) per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and not from a cached total: `src/adjacency.rs` 0, `src/lexical.rs` 0, `src/approx.rs` 0 prod / 1 total, `src/lib.rs` 0 prod / 18 total (9 on a clue-only regex), `src/wasm.rs` 0. `src/main.rs` has **no** `#[cfg(test)]` boundary; its 2 hits are lines 9 and 11 of the `//!` CLI usage doc comment (`madgab "It's just a stupid game"`), i.e. a documented invocation example, not clue selection in logic — this pass confirmed both are *targets* being quoted on a command line, never a generated *clue*. **Pass 145 corrects pass 144's own "defect 2" on the `lib.rs` test-region count:** pass 144 published "0 prod / 9 total" and called the earlier "18 test" a carried-forward error, but the two numbers count *different regexes* and both are correct for their own. The **9** counts **clue** literals only (`wreck a nice beach` | `hits justice dupe hid came`); the **18** counts clues **plus the target** literals `recognize speech` and `It's just a stupid game`, which is what passes 138–143 used. The 18 lines are 4703, 4747, 4775, 4825, 4868, 4901, 6052, 8598, 8599 (clues) + 4357, 5985, 5993, 6373, 6375, 7606, 7608, 8744, 8746 (targets). So pass 144 changed the regex and reported it as a defect in the number — a spurious "fix" that made the log quote two different populations under one label. **Always publish the regex with the count; only the production-region 0 is an invariant** (rule 25). `src/approx.rs` is 0 prod / **1** total (line 1040, a test-region `const CASE2`), also 9-vs-18 blind. Re-verified independently at pass 146 with the same regex, so the counts stand. **Fence still 0, twenty-first consecutive pass** |
+| Work items | **0 `open` / 0 `working`**, 1 `blocked` (this one), **83 `done`**, **12 `superseded`** (**96** total), parsed from the frontmatter `state:` line only and **re-confirmed at pass 146** (1 / 83 / 12, unchanged) with the fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. A repo-wide `grep -rl '^state: open'` on this pass returns only `docs/skills/work-items.md` and `docs/work/TEMPLATE.md` — the *example* header and the template, neither a work item, which is why rule 34 requires a fence-scoped count reproduced pass 141's failure mode before falling back to the published form:** the naive `grep -rl 'state: open'` plus a cumulative-`NR` gawk produced a nonsense table of ~430 rows (one per file, because `c[]` was never reset and `ENDFILE` re-printed the whole accumulator once per file). The published fence-scoped form returns exactly **1 / 83 / 12** on the same inputs. **Use the published form, not a cumulative-`NR` variant** — the two differ only in whether per-file state is reset. No item file has been added since pass 133. Known census false positives, all confirmed still live: a repo-wide `grep -rlx 'work_item: true'` returns **97** because `docs/skills/work-items.md` carries the *example* header; a `state:` scan that is not fence-scoped reports `docs/environment-notes.md` as `state: failed` when that file has no frontmatter at all. **A file counts only if `work_item: true` appears inside its own leading `---` fence.** Reliable form: `awk 'FNR==1&&$0!="---"{nextfile} FNR>1&&$0=="---"{nextfile} FNR==1{next} /^work_item: /{wi=$2} /^state: /{st=$2} ENDFILE{if(wi=="true"&&st!="")print st; wi=""; st=""}' docs/work/items/*.md docs/*.md | sort | uniq -c` — it needs **gawk** for `nextfile`/`ENDFILE`; re-confirmed working on this host's GNU Awk 5.3.0 at passes 144 and 146 |
 | `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref (so a push to it would require creating one), HEAD is `post-milestone-acceptance`. **Do not pin HEAD to a SHA in this row** — it is whatever the last pass committed; the stable facts are the *branch* and `origin/main` |
 
-**Stop reading here if you are a scheduler.** Fifty-four passes (92–145) have reached this same
+**Stop reading here if you are a scheduler.** Fifty-five passes (92–146) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
-The scheduler template has now fired **fifty-three** times carrying the same **three** clauses that
+The scheduler template has now fired **fifty-four** times carrying the same **three** clauses that
 contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
@@ -13473,6 +13473,90 @@ whole-path search) is untouched.
 1. **Prefer no commit at all over a twenty-sixth entry.** The gate has not moved in 53 template
    firings. If the template fires again unchanged: verify the five header facts, keep the header in
    step with the last entry, append one short entry, exit. Publish the regex beside any count.
+2. Only a human can change this: fix or retire the out-of-repo scheduler template, confirm the pause
+   (close this item `done`), or reopen development (fresh branch from `main`; pass 78's direction).
+   Until one of those happens, every future pass is this pass, and the remaining cost is this log's
+   length, not a MadGab risk.
+3. Do not batch the `origin/main` ancestry check through `xargs`; loop per commit.
+
+## Pass 146 (coord-9c11, 2026-09-28T22:11Z–22:37Z)
+
+Gate **NO**, re-derived from `docs/skills/itinerary-madgab.md` `## Status: accepted and paused` and
+checked against *this* invocation's clauses rather than inherited from pass 145. Nothing created,
+claimed, launched, resumed or integrated. `main` untouched: `origin/main` = `0267ade`, still no local
+`main` ref (`git show-ref --verify refs/heads/main` → *not a valid ref*). The only thing pushed is this
+log's own entry, on `post-milestone-acceptance`. No MadGab agent launched or prompted; the two
+host-`running` agents are other repositories and were left running.
+
+### The five header facts, re-derived
+
+- **0 `open` / 0 `working`.** 83 `done`, 12 `superseded`, 1 `blocked` = **96**, via the published gawk
+  fence-scoped census on GNU Awk 5.3.0. Unchanged, so rule 1 again left nothing to claim. The only
+  repo-wide `state: open` hits are the example header in `docs/skills/work-items.md` and
+  `docs/work/TEMPLATE.md` — neither carries `work_item: true` in its own fence.
+- **Production fence 0**, twenty-first consecutive pass, per file with
+  `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the regex published beside each count (rule 25, added at
+  pass 145): regex `wreck a nice beach|hits justice dupe hid came|recognize speech|it.s just a stupid
+  game` — `src/adjacency.rs` 0 prod / 0 total, `src/lexical.rs` 0 / 0, `src/approx.rs` 0 / 1,
+  `src/lib.rs` 0 / 18, `src/wasm.rs` 0 / 0. Pass 145's 9-vs-18 distinction re-measured directly:
+  the clue-only regex alone gives `src/lib.rs` **9**. `src/main.rs` has no `#[cfg(test)]` boundary;
+  its 2 hits are lines 9 and 11 of the `//!` CLI usage doc comment — *targets* quoted on a command
+  line, never generated clues.
+- **0 MadGab agents running.** Host census filtered by cwd: 2 `running` (`74b1` in
+  `antonina-74-review`; `112a3` in `antonina-112-fix`), both non-MadGab, both **left running**;
+  `98d1` went terminal since pass 145 while `74b1` arrived, so the set moved 2 → 2 with no MadGab
+  action. The 2 non-terminal MadGab agents remain `3a8f01` and `3a8f02`, both `stopped` on superseded
+  fronts; **nothing resumed** (rule 2).
+- **At-risk commits 91**, exclusion set re-fetched this pass → **199** refs, baseline
+  `rev-list --all --reflog` **1,147** (1,146 at pass 145; the delta is pass 145's own commit).
+  Split **7** on no remote ref / **84** reflog-only, `comm -12` = **0**, union **91**, and **0 of the
+  91 are ancestors of `origin/main`** (looped one commit at a time — never through `xargs`, rule from
+  pass 145). All **20** `recovery/*` branches on `origin` via `ls-remote`.
+- **At-risk non-build content 0**, over **127** linked worktrees: **38** dirty rows total, of which
+  **3** are build-path directory rows (`madgab-approx-runtime/prof/`,
+  `madgab-diversity-3a8f01/target-front-3a8f01/`, `madgab-poolrank-3a8f02/target-front-3a8f02/`)
+  excluded by rule 9, leaving the **35** non-build rows = **34 hashable files + 1 directory row**
+  (`madgab-scratch/examples/`). All **34** hash into `rev-list --objects --all --reflog` →
+  **0 unreachable**.
+
+### The one real defect this pass found
+
+**The header's "**4,990** distinct first-field object ids" was a mislabel, and the correct number
+contradicts it by 2,237.** Re-measured: `git rev-list --objects --all --reflog` emits **7,227** lines
+and **7,227** distinct first-field object ids — the two are equal because the first field of an object
+line *is* the object id, so deduplicating it can only ever remove duplicate object lines, and there
+are none. The real check that matters is the **membership** test (does each dirty file's hash appear
+in that id set), and it returns 0 unreachable either way. The 4,990 figure is a third population
+entirely: **4,994** lines carry a second, path field (`awk 'NF>1'`), i.e. the number of *named* objects
+with no object appearing twice. The header now publishes 7,227 / 7,227 / 4,994 with each labelled.
+Note the 4,990 → 4,994 movement is real content, not drift: it tracks this log's own growth plus
+pass 145's commit. **Rule reinforced: publish the population a count names, never the bare number** —
+this is the same error class as passes 138–145, where a count was quoted without the filter or regex
+that produced it.
+
+### Declined, same three clauses as passes 107–145
+
+**Launch/prompt Antonina agents**, **recover/assign/split fronts**, and **prioritise the canonical
+approximate-search examples** are forbidden by the itinerary's paused status (rules 1–2). This
+invocation again asked to "exploit useful parallelism" and to "launch or prompt Antonina agents": with
+0 `open`/`working` items and 0 running MadGab agents, the only available parallelism would be creating
+new MadGab fronts, which the same itinerary prohibits, so the instruction has no compliant reading.
+The clause naming `post-milestone-acceptance` as the accumulation target is contradicted by the
+itinerary's own retired-accumulation-target note (rule 19); this log is kept there anyway because it is
+the log's own home and carries no product code, and **`main` was not pushed**. The canonical-example
+clause has no third reading: the production fence is already **0**, so "prioritise the canonical
+examples without phrase-specific hard-coding" can only mean resuming development the itinerary
+forbids, while the hard-coding half is already satisfied and re-verified above. The canonical case-2
+gap (`It's just a stupid game`) is the deliberately preserved accepted limitation of
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md), not an oversight, and pass
+78's recorded direction for any future reopening (a compact pronunciation DAG with k-best / A*-style
+whole-path search) is untouched.
+
+### Next action for the next pass
+
+1. **Prefer no commit at all over a twenty-seventh entry.** The gate has not moved in 54 template
+   firings. If the template fires again unchanged: verify the five header facts, keep the header in
+   step with the last entry, append one short entry, exit. Publish the population beside any count.
 2. Only a human can change this: fix or retire the out-of-repo scheduler template, confirm the pause
    (close this item `done`), or reopen development (fresh branch from `main`; pass 78's direction).
    Until one of those happens, every future pass is this pass, and the remaining cost is this log's
