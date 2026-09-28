@@ -1,0 +1,136 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 491cc8b..07b2932 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -147,14 +147,13 @@ const SPAN_AXIS_KEEP: usize = 16;
+ const SPAN_BAND_KEEP: usize = 4;
+ /// Candidates the whole-span rarity pass keeps.
+ const SPAN_RARITY_KEEP: usize = 4;
+-/// The factor by which the cheap-end retention floor's cost thresholds
+-/// step outward, and the most of them it ever states.  The thresholds
+-/// are this factor raised to successive powers above the span's own
+-/// cheapest offered candidate, which makes them *cheap* in the only
+-/// sense that means anything for one span: near its own best match,
+-/// whatever absolute cost that is.
+-const SPAN_CHEAP_COST_FACTOR: f64 = 1.25;
+-const SPAN_CHEAP_FLOOR_STEPS: usize = 12;
++/// The number of equal-width cost bands the per-word budget is cut into,
++/// and — read the other way — the number of geometric cost tiers the
++/// cheap-end retention floor resolves a span's *own* cost range into.
++/// The two are one resolution stated twice: the axis already says what
++/// cost differences this rule treats as distinguishable, and the floor is
++/// stated on the same number of intervals of the same cost.
++const SPAN_COST_BANDS: usize = 4;
+ /// The wordings one segmentation may emit, profiles included.
+ const LEXICAL_COMBINATIONS_PER_SEGMENTATION: usize = 64;
+ /// The width every slot of the per-segmentation traversal is *opened* at,
+@@ -1038,13 +1037,16 @@ impl Generator {
+             .take(SPAN_SHORTLIST)
+             .collect();
+ 
+-        // The ladder the cheap-end floor is stated on: cost thresholds
+-        // stepping outward from the span's own cheapest offered
+-        // candidate by `SPAN_CHEAP_COST_FACTOR`.  It stops before the
+-        // span's dearest candidate, so this is a statement about the
+-        // cheap end and not a second way of saying "retain everything";
+-        // a span whose cheapest candidate is exact has no cheap end to
+-        // protect and states no floor.
++        // The cost tiers the cheap-end floor is stated on: the interior
++        // edges of `SPAN_COST_BANDS` geometric intervals of the span's
++        // own offered cost range, cheapest edge first.  This is a
++        // statement about the cheap end and not a second way of saying
++        // "retain everything" — the dearest candidate is above every
++        // edge by construction, so the dearest tier is never floored —
++        // and a span whose range is a single point states no floor at
++        // all.  The resolution is the rule's own: the cost axis cuts
++        // the budget into `SPAN_COST_BANDS` bands, and the floor cuts
++        // the span into the same number of cost tiers.
+         let cheapest = matches
+             .iter()
+             .map(|m| m.cost)
+@@ -1053,15 +1055,20 @@ impl Generator {
+             .iter()
+             .map(|m| m.cost)
+             .fold(f64::NEG_INFINITY, f64::max);
+-        let mut cheap_thresholds: Vec<f64> = Vec::new();
+-        let mut threshold = cheapest * SPAN_CHEAP_COST_FACTOR;
+-        for _ in 0..SPAN_CHEAP_FLOOR_STEPS {
+-            if threshold > dearest {
+-                break;
+-            }
+-            cheap_thresholds.push(threshold);
+-            threshold *= SPAN_CHEAP_COST_FACTOR;
+-        }
++        let tiers = if dearest > cheapest && cheapest > 0.0 {
++            let ratio = dearest / cheapest;
++            (1..SPAN_COST_BANDS)
++                .map(|j| {
++                    cheapest
++                        * ratio.powf(j as f64 / SPAN_COST_BANDS as f64)
++                })
++                .collect::<Vec<f64>>()
++        } else {
++            // A span whose costs do not spread, or whose cheapest
++            // candidate is exact, has no cheap end to protect: the
++            // reachability the floor defends is already unconditional.
++            Vec::new()
++        };
+ 
+         // What is left of the budget, apportioned over the cost bands in
+         // proportion to band population (highest average per-slot
+@@ -1132,7 +1139,8 @@ impl Generator {
+         // charges more slots than the global order it guards against
+         // would have charged, because that order's own picks satisfy
+         // every threshold of the ladder at once.
+-        for threshold in cheap_thresholds.clone() {
++        for threshold in &tiers {
++            let threshold = *threshold;
+             let want = global.iter().filter(|m| m.cost <= threshold).count();
+             let mut have =
+                 selected.iter().filter(|m| m.cost <= threshold).count();
+@@ -1143,18 +1151,36 @@ impl Generator {
+                 .iter()
+                 .filter(|m| m.cost > threshold)
+                 .collect();
+-            // Never release a cost tier's last representative.  The
+-            // tiers are the ladder's own intervals, so this is the
+-            // floor declining to buy cheap-end retention with the last
+-            // word of a tier that is entirely a dear one: a tier left
+-            // without a retained word is a tier whose every wording is
+-            // unreachable at every width, which is a worse outcome than
+-            // the tier the floor is protecting.
++            // The floor is a *cheap*-end floor, so it is funded from the
++            // cheap and middle tiers only.  The dearest tier is the one
++            // no cheap-end argument protects and the one the
++            // stratification exists to represent, so a floor that spends
++            // it would be changing the far end of the cost range on the
++            // cheap end's account.  Within what it may spend, it may
++            // never release the last representative of a cost band or of
++            // a cost tier: either one left without a retained word is a
++            // stretch of the cost range whose every wording is
++            // unreachable at every width, a worse outcome than the thin
++            // stretch the floor is protecting.
++            let band = |m: &approx::FuzzyMatch| {
++                ((m.cost / budget_scale) * 4.0).floor().clamp(0.0, 3.0)
++                    as usize
++            };
+             let tier = |m: &approx::FuzzyMatch| {
+-                cheap_thresholds.iter().filter(|t| m.cost >= **t).count()
++                tiers.iter().filter(|t| m.cost >= **t).count()
+             };
+             release.retain(|m| {
+-                selected.iter().filter(|o| tier(o) == tier(m)).count() > 1
++                tier(m) + 1 < tiers.len() + 1
++                    && selected
++                        .iter()
++                        .filter(|o| band(o) == band(m))
++                        .count()
++                        > 1
++                    && selected
++                        .iter()
++                        .filter(|o| tier(o) == tier(m))
++                        .count()
++                        > 1
+             });
+             release.sort_by(|a, b| {
+                 cmp_desc(a.cost, b.cost).then_with(|| {

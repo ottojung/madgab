@@ -1,0 +1,62 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 719efb0..81a0420 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -2125,6 +2125,15 @@ impl Generator {
+             // [`affordable_opening_width`] for the measured counts.
+             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+                 .min(widest);
++            // ---- zzprobe (scratch only): price alternative opening widths.
++            if let Ok(v) = std::env::var("ZZ_PROBE_WIDECAP") {
++                cap = if v == "widest" {
++                    widest
++                } else {
++                    v.parse().unwrap_or(cap).min(widest)
++                };
++            }
++            // ---- end zzprobe ----
+             let mut emitted = 0usize;
+             let mut popped = 0usize;
+             // The traversal runs in passes over the heap.  A walk is the
+@@ -2278,6 +2287,14 @@ impl Generator {
+                 replaying = true;
+             }
+             spent_pops += popped;
++            // ---- zzprobe (scratch only): per-segmentation accounting ----
++            if std::env::var("ZZ_PROBE_ACCT").is_ok() {
++                eprintln!(
++                    "ZZPROBE_ACCT idx={index} depth={depth} cap={cap} widest={widest} popped={popped} emitted={emitted} profile_emitted={profile_emitted} emit_allowance={emit_allowance} pop_limit={LEXICAL_HEAP_POP_LIMIT}"
++                );
++            }
++            // ---- end zzprobe ----
++
+ 
+             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+             //
+@@ -2345,7 +2362,26 @@ impl Generator {
+             }
+         }
+ 
++
+         completed.extend(recovered);
++        // ---- zzprobe (scratch only): global accounting ----
++        if std::env::var("ZZ_PROBE_ACCT").is_ok() {
++            eprintln!(
++                "ZZPROBE_TOTAL segmentations={} spent_emissions={spent_emissions}/{LEXICAL_GLOBAL_EMISSION_BUDGET} spent_pops={spent_pops}/{LEXICAL_GLOBAL_POP_BUDGET} adjacency_spend_left={adjacency_spend}/{ADJACENCY_GLOBAL_RESERVE} scheduled={} structures={}",
++                segmentations.len(),
++                schedule.len(),
++                {
++                    let mut s: Vec<&[(usize, usize)]> = segmentations
++                        .iter()
++                        .map(|(_, sg)| sg.spans.as_slice())
++                        .collect();
++                    s.sort();
++                    s.dedup();
++                    s.len()
++                }
++            );
++        }
++        // ---- end zzprobe ----
+         self.finish(
+             completed,
+             &target_ipa,

@@ -1,0 +1,259 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 8d797e1..a004d77 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -205,11 +205,48 @@ const ADJACENCY_GLOBAL_RESERVE: usize = 1_024;
+ /// segmentation and the caller's cap and the walk's reach are the same
+ /// number by construction.  See `docs/work/items/w-6f3a91.md`.
+ const ADJACENCY_PER_SLOT: usize = 2;
+-/// How many slots of a profile may be deep at once.  A `k`-deep profile
+-/// class has `C(depth, k)` members per sweep step, so beyond two the
+-/// classes outnumber the reserve and the sweep is not widened to
+-/// compensate.
+-const EMIT_PROFILE_MAX_DEEP: usize = 3;
++/// How many slots of a profile may be deep at once.
++///
++/// A `k`-deep profile class has `C(depth, k)` members per sweep step, so the
++/// *old* rule could not afford a deep class on a wide segmentation at all: the
++/// walk was depth-then-breadth and stopped at the reserve, so a class was only
++/// reached once every shallower class had been paid for in full, which made
++/// the class count — not the reserve — the thing that bounded the depth, and
++/// the count is a function of how many slots the segmentation has.
++///
++/// That reason expired with the class *order*.  [`coverage_tuples`] now pays
++/// for the whole of the one-deep classes first, so a reserve smaller than the
++/// number of slots still touches every slot as it always did, and then
++/// interleaves the deeper shapes round by round.  The deepest classes are
++/// funded from the reserve's *second* tuple onwards whatever the class count
++/// is, so what the cap bounds is the depth of a **funded** shape, and nothing
++/// else: it is the ceiling on how many slots a single profile representative
++/// may be off the traversal's best index in, and the class count no longer
++/// bounds it.  Nothing in the search spends per deep slot, so raising the cap
++/// costs no extra emission allowance and no extra pop — the same 16 tuples
++/// are offered, and the extra ones on a deep segmentation are the deepest
++/// classes that were already in the candidate set.
++const EMIT_PROFILE_MAX_DEEP: usize = 4;
++
++/// The per-slot rotation of a profile class's sweep.
++///
++/// A shape class's slots each sweep **their own** candidate list, at their own
++/// width and their own rotation of the phase.  The width is what makes a
++/// coordinate legal in its own slot at all, and the rotation is what makes the
++/// coordinates *independent*: with one shared index per class, two slots of a
++/// class can never hold two different alternatives, so every wording the
++/// reserve emits is a diagonal of its class's index rectangle rather than a
++/// point of it, and a resegmentation — which is deep in several slots at ranks
++/// unrelated to one another — is not late in the reserve's order but absent
++/// from it.
++///
++/// Only non-zero and distinct across the slot indices the search produces is
++/// required, which is what it is for every slot count a run of targets makes
++/// (no segmentation is five slots wide more than once and none is above ten).
++/// A rotation is a shift, so a run of phases still tiles each list; the
++/// offsets between a class's coordinates are what become a function of the
++/// phase, which is the point.
++const COVERAGE_SLOT_ROTATION: usize = 37;
+ 
+ /// The `k`-subsets of `0..len`, in lexicographic order.
+ fn slot_combinations(len: usize, k: usize) -> Vec<Vec<usize>> {
+@@ -368,16 +405,35 @@ fn gcd(mut a: usize, mut b: usize) -> usize {
+ /// the top two.  A dictionary word at rank 13 of a 160-wide slot was
+ /// unreachable in every cell of the search.
+ ///
+-/// The rule now walks slot subsets **breadth before depth** — one deep slot
+-/// at a time, so a reserve smaller than the number of slots still touches
+-/// every slot — and takes each deep slot at [`sweep_index`], i.e. at a
+-/// uniform stride over the part of its list the traversal cannot generate.
+-/// Every slot outside the subset keeps the traversal's own best index, so a
++/// The rule now walks slot subsets in an order that **interleaves the
++/// depths**: the whole of the one-deep classes first — so a reserve smaller
++/// than the number of slots still touches every slot, as it always did — and
++/// then, round by round, one class of every *deeper* shape in turn, with the
++/// classes of a depth in [`slot_combinations`] order.  A reserve too small to
++/// afford every class therefore pays for a spread of *depths* rather than for
++/// the whole of one of them, and the deepest classes are funded from the
++/// reserve's second tuple onwards instead of after every one-deep and
++/// two-deep class has been paid for in full.  (Depth-then-breadth, which this
++/// replaces, bought the every-slot guarantee by making the depth of a funded
++/// shape a function of how many shallower classes there were, and that is
++/// what confined a deep alternative to a class the reserve never reached.)
++///
++/// Every slot of a class draws its **own** coordinate, from its own list, at
++/// its own width and its own rotation of the phase ([`profile_tuple`]); the
++/// slots outside the class keep the traversal's own best index, so a
+ /// representative is the cheapest wording of that shape rather than a
+ /// general-purpose regression, and `build` still compares the tuple's total
+ /// substitution cost against `total_budget` additively, so the reserve is
+ /// bounded by the same bound as every other emission.
+ ///
++/// What the class order and the per-slot width buy together is the difference
++/// between sampling a *diagonal* of a class's index rectangle and sampling
++/// *points of* it.  A wording whose slots are all off the traversal's best
++/// index at ranks unrelated to one another — the shape every real
++/// resegmentation has — is a point of that rectangle and not a diagonal of
++/// it, so under the shared-index rule it is not late in the reserve's order:
++/// it is absent, exactly as a deep word is absent from the traversal's.
++///
+ /// `phase` is a counter the search advances once per segmentation, so the
+ /// sweeps of one run tile the lists between them.  It is a pure function of
+ /// the deterministic schedule, so the enumeration stays reproducible.
+@@ -393,46 +449,105 @@ fn coverage_tuples(
+     if reserve == 0 || depth == 0 {
+         return out;
+     }
+-    for deep in 1..=max_deep {
+-        for combo in slot_combinations(depth, deep) {
++    let by_depth: Vec<Vec<Vec<usize>>> = (1..=max_deep)
++        .map(|deep| slot_combinations(depth, deep))
++        .collect();
++    // The whole of the one-deep classes is walked first, so a reserve too
++    // small to afford every shape still touches every slot, as it always did.
++    // Every later round then offers one class of each *deeper* shape in turn,
++    // so a reserve that cannot afford all of them pays for a spread of depths
++    // rather than for the whole of one of them.  A draw's `nth` is its
++    // position in the reserve and its `per` is the reserve itself, so
++    // consecutive tuples of one segmentation still land on different indices
++    // of the same sweep and one class's sweep stays as dense over each of its
++    // slots' lists as it always was.
++    for combo in &by_depth[0] {
++        if out.len() >= reserve {
++            return out;
++        }
++        if let Some(tuple) =
++            profile_tuple(slot_widths, combo, out.len(), reserve, phase)
++        {
++            out.push(tuple);
++        }
++    }
++    let mut drawn: Vec<usize> = vec![0; by_depth.len()];
++    'rounds: loop {
++        if (1..by_depth.len()).all(|k| drawn[k] >= by_depth[k].len()) {
++            break 'rounds;
++        }
++        for k in 1..by_depth.len() {
+             if out.len() >= reserve {
+-                return out;
++                break 'rounds;
+             }
+-            // One *rate* serves the whole subset, but each member draws its
+-            // own index from it, so the subset's coordinates are at
+-            // unrelated ranks rather than one shared rank.  The index has to
+-            // be legal in every member, so each is taken modulo the span of
+-            // the subset's *narrowest* slot.
+-            let narrowest = combo
+-                .iter()
+-                .map(|&slot| slot_widths[slot])
+-                .min()
+-                .unwrap_or(0);
+-            let Some(_) = sweep_index(narrowest, reserve, out.len(), 0, phase)
+-            else {
++            let Some(combo) = by_depth[k].get(drawn[k]) else {
+                 continue;
+             };
+-            let mut tuple = vec![0usize; depth];
+-            let mut legal = true;
+-            for (member, &slot) in combo.iter().enumerate() {
+-                let Some(at) =
+-                    sweep_index(narrowest, reserve, out.len(), member, phase)
+-                else {
+-                    legal = false;
+-                    break;
+-                };
+-                tuple[slot] = at;
+-            }
+-            if !legal || combo.iter().any(|&slot| tuple[slot] >= slot_widths[slot])
++            if let Some(tuple) =
++                profile_tuple(slot_widths, combo, out.len(), reserve, phase)
+             {
+-                continue;
++                out.push(tuple);
+             }
+-            out.push(tuple);
++            drawn[k] += 1;
+         }
+     }
+     out
+ }
+ 
++/// One point of one shape class: the class's `nth` sweep, with the class's
++/// *first* slot on the sweep the shared-index rule gave it and every other
++/// slot of the class on **its own**, at its own width and its own rotation.
++///
++/// The first slot is the continuity clause, and it is what makes this a
++/// widening rather than a reshuffle.  The shared-index rule swept the class at
++/// the stride of its narrowest slot and wrote that one index into every member,
++/// so the index its first slot received was a function of the class's *widths*
++/// alone.  Keeping exactly that index for the first slot means no alternative
++/// the old rule could reach stops being reachable — the reserve is a superset
++/// of the coverage it had, one coordinate at a time — while the other slots
++/// stop being copies of it, which is what turns a diagonal into a point.
++///
++/// The class's remaining coordinates are each swept over *their own* list,
++/// which is the second half of the change and the half the cap alone cannot
++/// buy: the shared-index rule confined **every** coordinate of a class to its
++/// narrowest slot's list, so a class could not name a coordinate past that
++/// list's end at all, however deep it was and whatever the depth cap said.
++///
++/// `None` when any member slot is no wider than the traversal's opening width,
++/// which is the same "drop out rather than invent an index" rule
++/// [`sweep_index`] applies — and the reason a class is not partially emitted:
++/// a representative of a class is a wording of *that* shape, and a shape with
++/// one of its slots at the traversal's own best index is a different shape.
++fn profile_tuple(
++    slot_widths: &[usize],
++    combo: &[usize],
++    nth: usize,
++    reserve: usize,
++    phase: usize,
++) -> Option<Vec<usize>> {
++    let mut tuple = vec![0usize; slot_widths.len()];
++    // The stride the shared-index rule used for this class, kept for its
++    // first slot.  It has to be legal in that slot, so the class drops out
++    // when it is not.
++    let narrowest =
++        combo.iter().map(|&slot| slot_widths[slot]).min().unwrap_or(0);
++    let head = sweep_index(narrowest, reserve, nth, 0, phase)?;
++    if head >= slot_widths[combo[0]] {
++        return None;
++    }
++    tuple[combo[0]] = head;
++    for (member, &slot) in combo.iter().enumerate().skip(1) {
++        tuple[slot] = sweep_index(
++            slot_widths[slot],
++            reserve,
++            nth,
++            member,
++            phase.wrapping_add(slot.wrapping_mul(COVERAGE_SLOT_ROTATION)),
++        )?;
++    }
++    Some(tuple)
++}
++
+ impl Generator {
+     pub fn from_json(
+         json: &str,
+@@ -4290,16 +4405,15 @@ mod tests {
+                     for (slot, &i) in tuple.iter().enumerate() {
+                         assert!(i < widths[slot], "slot {slot} of {tuple:?}");
+                     }
+-                    // A subset's deep coordinates are at pairwise
+-                    // unrelated ranks, so a shape class can place a set of
+-                    // deep alternatives in different slots at coordinates
+-                    // that are not one shared rank; every other slot keeps
+-                    // the traversal's own best.
++                    // A subset's deep coordinates are not *forced* onto one
++                    // shared rank — see
++                    // `depth_profile_reserve_offers_pairings_not_only_diagonals`
++                    // for the property this replaced and why it is now
++                    // stated over the reserve rather than over one tuple.
++                    // A coincidence of two members' ranks is not a defect: the
++                    // coordinates index two different slots' lists, so equal
++                    // indices are two different words.
+                     let span = SPAN_SHORTLIST - LEXICAL_BRANCH_STAGE_0;
+-                    assert!(
+-                        deep.windows(2).all(|w| w[0] != w[1]),
+-                        "{tuple:?} re-used one rank for the whole class"
+-                    );
+                     assert!(
+                         deep.len() < span,
+                         "{tuple:?}: too few indices to pair the class"
