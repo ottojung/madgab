@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4a7e
-updated: 2026-09-28T09:07:00Z
+owner: coord-8f4a
+updated: 2026-09-28T09:18:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -150,6 +150,42 @@ instruction.
     against a second formulation before believing it, and must prefer the formulation that
     scales with the input (here, 182 remote refs). Never accept a bare count from a generated
     command line without one cheap independent recomputation.
+
+15. **`refs/stash` is one ref, not one per stash entry, and a reflog is not a set of refs.**
+    `git stash list` reports **six** entries. `refs/stash` is a *single* ref pointing at
+    `stash@{0}` only; entries 1–5 are reachable solely through `refs/stash`'s reflog. So they are
+    invisible to rule 10 **and** to rule 13 simultaneously: `--all` includes `refs/stash` (one
+    commit, not six), and `git fsck --unreachable` treats reflog entries as roots, so they are not
+    reported unreachable either. Both checks are individually correct and jointly blind. Measured
+    identically on all five: `--all=0`, `fsck-unreachable=0`, `rev-list --all --reflog=1`. One
+    `git stash drop`, `git stash clear`, or `git reflog expire refs/stash` destroys all five
+    irrecoverably. **`--all` is a list of ref *names*, not of ref *entries*.** The standing sweep
+    must therefore use the reflog-inclusive form: `git rev-list --all --reflog`. Recovered to
+    `recovery/stash-reflog-2026-09-28` by `coord-6c31`; archive a stash entry as
+    `git diff --binary <stash>^ <stash>` per rule 12, never `format-patch`.
+
+16. **A worktree's own administrative state is neither a ref nor a reflog entry, and
+    `--all` does not enumerate it.** Rule 11 records that `--all` includes each linked worktree's
+    `HEAD`. It does **not** include the per-worktree *pseudorefs and state directories* under
+    `.git/worktrees/<name>/`: `AUTO_MERGE`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`,
+    `BISECT_LOG`, and `rebase-merge/` / `rebase-apply/`. `AUTO_MERGE` in particular is a **tree**
+    object (git ≥ 2.38) recording the conflicted working state, and it is pruned as soon as the
+    in-progress operation is cleared. `git worktree list` shows only `HEAD` and `branch`, so it
+    cannot report this class either. The check is one loop over the state directories:
+    `for wt in .git/worktrees/*/; do ls "$wt" | grep -E 'AUTO_MERGE|MERGE_HEAD|rebase-|CHERRY_PICK|REVERT|BISECT'; done`.
+    On this repository it returns **5 hits in 4 worktrees**, and classifying them is what found
+    the at-risk state below.
+
+17. **When testing reachability, compare `awk '{print $1}'`, not `grep -x "$sha"`.**
+    `git rev-list --objects` prints `<sha> <path>` — two whitespace-separated fields — so
+    `grep -qx "$sha" file` matches **only** objects with no path (trees, and commits reached with
+    no name), and reports every named blob as unarchived. On first run this produced a confident
+    **297 "UNIQUE" findings across 4 `AUTO_MERGE` trees** — Cargo.toml, LICENSE, every source
+    file, as if all four worktrees held a divergent copy of the whole repository. With the
+    field-1 comparison all four trees report **0 unique of 57/56/91/93**. This is rules 9, 10, 11
+    and 14 for the *object* sweep: a check that looks stricter than it is, returning a number
+    large enough to look like a major discovery and wrong in the cheapest possible way. Any
+    content-hash membership test must fix the field before trusting it.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1382,5 +1418,92 @@ complete and correct while both missed it.
   `git fsck --unreachable` is **not** a sufficient at-risk inventory on their own. A twenty-second
   pass should add `--reflog` to the standing sweep and should not re-run rules 10, 13, the hash
   sweep or the fence. The remaining candidate classes are correspondingly few. **The human gate
+  question is unchanged and is still the only thing only a human can answer: is MadGab development
+  being reopened?**
+
+### `coord-8f4a` — twenty-second pass, 2026-09-28T09:12Z–09:18Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass followed `coord-6c31`'s instruction to stop re-running
+rules 10, 13, the hash sweep and the fence, and instead asked what class of object those checks
+were never asked about. Two answers, one of them a real at-risk finding.
+
+  * **Cheap checks, all clean and identical to the last pass.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only, no local `main` ref — `git rev-parse main` still fails),
+    `post-milestone-acceptance` = `dabfbd7`, equal to local `HEAD` and to
+    `origin/post-milestone-acceptance`: 0 ahead / 0 behind. Worktree clean. `refs/remotes/audit/*`
+    at **182** entries after the rule 10 fetch. Census re-derived: **87 `done`, 11 `superseded`,
+    1 `working`** (this log), the 1 `open` being the `TEMPLATE.md` placeholder, 0 `blocked`.
+    Agents: none alive for MadGab; `3a8f01`/`3a8f02` remain `stopped` on superseded items, left
+    stopped deliberately; the nonterminal agents host-wide are all other repositories and were
+    not touched.
+
+  * **`coord-6c31` announced standing rule 15 but never wrote it into the list.** Its own commit
+    message says "Recorded as standing rule 15", and its entry says "New standing rule 15, above" —
+    but the numbered list stopped at 14. The rule existed only as prose inside a pass entry, where
+    a future pass reading "above" would find rule 14. This is a durable-state defect of exactly
+    the kind this log exists to prevent, and it is now **written into the list as rule 15**, with
+    its measured evidence, rather than left to a cross-reference. Two new rules follow from this
+    pass, **16** (per-worktree state directories) and **17** (the `rev-list --objects` field bug).
+
+  * **Finding: `madgab-scorespread-measure` holds an unfinished interactive rebase, and its two
+    result commits are on no ref and no remote.** Rule 11 already flagged this worktree as the
+    holder of the reflog-only `ZZ_AXIS` commits; `coord-11b9` and `coord-2b74` archived that
+    content. What was never classified is the **state directory itself** (rule 16):
+    `.git/worktrees/madgab-scorespread-measure/rebase-merge/` with `interactive`, `end`, `done`,
+    `msgnum`, and a `git-rebase-todo` that still lists `fb6a9c6`. `orig-head` = `fb6a9c6`
+    (`refs/heads/tmp`), `onto` = `a8bfc27`, worktree `HEAD` = **`a7f08ea`**. The two commits
+    `a7f08ea` ← `69b5a07` are the rebase's *output*: `a7f08ea` is **not** an ancestor of `onto`
+    (the rebase never landed), `git ls-remote` returns **0** refs containing it, and
+    `git for-each-ref --contains a7f08ea` returns **nothing** — no branch, no tag, no
+    remote-tracking ref. The only thing holding them is `worktrees/madgab-scorespread-measure/HEAD`'s
+    two reflog entries, so `git worktree remove`, `git rebase --abort`, or a reflog expiry destroys
+    them. They are *not* at risk in content, though: both are already durable, and the archive
+    covers them by rule 7's reverse-application test —
+    `git show recovery/at-risk-refs-2026-09-28:docs/work/at-risk-patches/a7f08ea-*.patch` fed to
+    `git apply --check --reverse` **inside the live worktree** returns success, which is the
+    only spelling that works here (the recovery branch is not checked out in `/workspace/madgab`).
+    All of `a7f08ea`'s and `69b5a07`'s blobs are reachable under `--all --reflog`. So this is a
+    **classification, not a new recovery**: no new branch, no new patch, nothing re-archived. Left
+    in place deliberately — resuming or aborting that rebase would be resuming a superseded front,
+    and the content is already safe.
+
+  * **The other four hits are `AUTO_MERGE` trees and they carry nothing.** Rule 16's loop returns
+    five hits in four worktrees: `madgab-7b2d40-measure`, `madgab-adjacency`,
+    `madgab-audit-d5a2c1`, `madgab-baseline-1f6c40`, each with an `AUTO_MERGE` pseudoref. Each is
+    a **tree** object (`git cat-file -t` confirms, not a commit — easy to misread as work). With
+    the corrected rule 17 comparison, all four report **0 unique blobs of 57, 56, 91 and 93**: they
+    are leftover conflicted-merge snapshots of trees whose every blob is already reachable. No
+    `MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REVERT_HEAD` or `rebase-apply` anywhere; the 125 registered
+    worktrees carry no unmerged index entries. These are inert and are recorded as classified
+    rather than left for a later pass to re-derive as a gap.
+
+  * **The expensive mistake, recorded because it nearly consumed the pass.** The first
+    `AUTO_MERGE` sweep used `git rev-list --objects --all | grep -qx "$sha"`, and `grep -x` on
+    `"<sha> <path>"` matches nothing, so it reported **every** blob as unarchived: 297 "UNIQUE"
+    findings naming `Cargo.toml`, `LICENSE`, `src/lib.rs` and all four workflows, as though four
+    worktrees held divergent copies of the entire repository. Had that been believed, this pass
+    would have archived the whole tree four times onto a recovery branch. The correct form is
+    `git rev-list --objects --all | awk '{print $1}' | sort -u` (5,551 entries; 5,898 with
+    `--reflog`). This is rules 9, 10, 11 and 14 recurring for the *object* sweep, and it is the
+    third time a filter bug has produced a confident, wrong, alarming count on this repository.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  eighteenth time and declined for the eighteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits by content: this pass changed nothing
+  under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` — the only change is this
+  `docs/work/items/` file — so `coord-4d31`'s green fence result still holds without re-running
+  it. The pause and its documented limitation stand. If development is ever reopened, the named
+  direction is still a qualitatively different whole-path algorithm (compact pronunciation DAG
+  with k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+  hard-coding.
+
+  **On the escalation, now six passes in a row superseded by a coverage gap rather than
+  confirmed.** The pattern is unchanged: the passes that found something did so by interrogating
+  the *check*, not the repository. This pass's class cost four commands and the filter bug cost
+  one more. A twenty-third pass should add rules 16 and 17 to the standing sweep, should not
+  re-run rules 10, 13, 15, the hash sweep or the fence, and should note that the remaining
+  candidate classes are now few enough to enumerate rather than guess at. **The human gate
   question is unchanged and is still the only thing only a human can answer: is MadGab development
   being reopened?**
