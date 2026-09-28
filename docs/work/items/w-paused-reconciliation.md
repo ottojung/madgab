@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7c31 (pass 97; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:19:00Z
+owner: coord-a3e6 (pass 98; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:28:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10204,3 +10204,152 @@ documented standing reason not to.
    instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
    or closing this item `done` so the template stops selecting it, is worth more than a ninety-eighth
    declining pass.
+
+## Pass 98 — 2026-09-28 17:17Z → 17:29Z — coord-a3e6 — the sweep is re-measured rather than declined, and the durable half is confirmed at 0 with a control that fires
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut (nothing to archive); no agent launched, so nothing is left running for a
+successor. The prompt's two clauses are **declined again**, seventh pass running, on the same ground
+as passes 92–97: the itinerary's `## Status: accepted and paused` forbids scheduled orchestrators from
+creating MadGab work, claiming historical items, launching agents or resuming fronts without an
+explicit human reopening, and records `post-milestone-acceptance` as release history that is "no
+longer an automatic accumulation target". A recurring template is not that human. The
+no-hard-coding half is discharged by identity, not by assertion: the production fence against
+`origin/main` over `src tests web examples Cargo.toml README.md` is **0 lines**, so no canonical
+phrase can be hard-coded in production logic — there is no production delta to inspect.
+
+This pass differs from the last five in one respect, and it is the reason it is worth a log entry
+rather than a one-line no-op: **the standing sweep was re-run end to end, with controls, and it
+returns 0.** The prior five passes declined to re-run it on the grounds that its value is already 0
+and its control is already proven. That reasoning is circular — a check that has not been executed
+this pass has not been measured this pass, and the log's own recurring lesson (rules 9, 10, 14, 17,
+22, 27, 35, 37, 38) is that *a check which cannot fail returns a confident, wrong number*. Not
+running a check is the one failure mode none of those rules covers. So: run it, and spend the budget
+on the controls.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `3941765` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** total, **0** non-`target` |
+| recovery branches | **20** local, **20** remote, in agreement |
+| remote heads (`ls-remote --heads`) | **198**; audit ref set **199** (198 heads + 1 tag) |
+| MadGab Antonina agents alive | **0** |
+
+**No MadGab agent is alive.** The four `running` agents on this host — `94e5`, `98c1`, `a1b30d01`,
+`a1b30c01` — and the one `idle` agent `a11d` all have `cwd` outside `/workspace/madgab*` and belong
+to other projects (boards 94, 98, 74). Left alone per rule 1. As in pass 97, **this pass launched
+nothing**, so a fresh pass has no MadGab agent to inspect — the correct end state, not a gap.
+
+### 2. Rule 33's control, injected on the **exclusion** side (pass 96's rule-63 refinement)
+
+Per pass 96's next-action 4, the control is injected by **subtracting from the exclusion set**, not
+by appending to the subject set. Two controls, at two magnitudes:
+
+| probe | result |
+|---|---|
+| subject `reflog` objects, exclusion `ref-held` objects | **319** (the standing figure) |
+| same, but one commit dropped from the **exclusion** side (`grep -v '^0b766b9'`) | **320** — fires |
+| same, but the whole `refs/heads/recovery/*` namespace dropped from the exclusion (156 refs kept) | **6700** — fires hard |
+
+`stderr` empty on all three `comm` runs (rule 22). The probe can report non-zero at both a
+single-commit and a whole-namespace scale, so the 319 below is a measurement and not an output.
+
+### 3. The at-risk census, type-separated before any path filter (rule 62)
+
+| | |
+|---|---|
+| ref-held objects (`rev-list --objects --all`, field 1, `sort -u` both sides) | **6,576** |
+| reflog-held objects (`rev-list --objects --all --reflog`) | **6,895** |
+| reflog-only objects (`comm -13`, `stderr` 0 bytes) | **319** |
+| …by type (`git cat-file -t` each) | 82 commit / 166 tree / **71 blob** |
+| reflog-only **non-build** blobs | **1** — `docs/work/items/w-paused-reconciliation.md`, this log's own superseded draft (pass 84's known non-issue) |
+| **the standing value** | **0** |
+
+**82 reflog-only commits, 0 non-build unique content among them.** Checked on **trees**, not diffs
+(rule 28), against the preserved set = remote refs ∪ recovery branches:
+
+* preserved objects: **6,248** (remote-only) and **5,259** on the 20 recovery branches; the union is
+  **6,248**, i.e. every recovery-branch object is already on the remote — the archives are
+  redundant by construction, which is the correct state for a completed archive.
+* over all 82 class-A commits, unique file entries not in the preserved set: **231**, of which
+  **230 are under `target-*`/`target-base/`** build output (rule 41: durable by definition, and
+  `514ed91` alone carries 317 files / 352,419,133 bytes of it) and **exactly 1** is this log's own
+  prior draft, `3daf061` in `e860ad6`.
+
+So the durable half is confirmed, by execution rather than by inheritance: **0 at-risk non-build
+content**, and the single remaining non-build entry is the log's own superseded text.
+
+### 4. Rule 38/40's named class, re-measured — and it is now **empty** where it was not
+
+Prior passes recorded `refs/remotes/origin/*` entries that `ls-remote` does not confirm, one of which
+(`mp2`) pointed at a tip the real branch does not contain. Cross-checked this pass by name
+(`ls-remote --heads` vs `for-each-ref refs/remotes/origin`, prefixes stripped per rule 22):
+
+| | |
+|---|---|
+| `refs/remotes/origin/*` entries | **199** |
+| remote heads `ls-remote` confirms | **198** |
+| `refs/remotes/origin/*` names **`ls-remote` does not confirm** | **1** — `mp2` |
+| does `refs/remotes/origin/mp2`'s commit carry unique content? | **0 of 62** blobs, against the 199-ref remote set |
+| which refs actually hold that commit (`3b14482`) | 3 real local branches + their audit/origin twins — **`mp2` holds nothing of its own** |
+
+So the misleading-name class is down to a single alias whose content is fully preserved and whose
+commit is held by three genuine branches. **Nothing is at risk and no ref was deleted**: rule 38's
+concern was that an unverified `refs/remotes/*` entry makes the *exclusion set* too wide and hides
+commits. Checked directly, the answer today is that it hides nothing, because the commit it names is
+held elsewhere by name. That is a measurement, not an inference from the branch count.
+
+### 5. At-risk commits by holder, exclusion set named per rule 40
+
+Excluding only the **199** `ls-remote`-verified remote refs (heads + tag), from
+`rev-list --all --reflog` (baseline **1,090**): **89** commits. Cross-checked per rule 39 against the
+no-exclusion baseline — 89 ≠ 1090, so the exclusions did not cancel. Classified by
+`for-each-ref --contains` per rule 11:
+
+| holder class | count |
+|---|---|
+| **no ref holds them (reflog-only)** | **82** |
+| `refs/heads/` local-only branches | **5** — `scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`, `scratch/0f3a17-shortlist-probe` (×2) |
+| `refs/stash` | **2** |
+
+Excluding **all** local refs instead answers the other question rule 40 names: **82** held by
+nothing at all. The **7**-commit difference between 89 and 82 is exactly the 5 local-only branch tips
+and 2 stash commits — and each of the 7 was checked on its **tree** against the 199-ref remote set:
+six carry **0** unique blobs, and the seventh (`514ed91`, `scratch-3f8c62-landed`) carries 229
+unique blobs, **all 317 of its unique file entries under `target-base/`** = 352,419,133 bytes of
+committed Cargo build output. Per rule 41 that is already-durable-by-definition and correctly
+*not* archived; per rule 9 a pass that swept it in would push 352 MB of `libmadgab.rlib` onto a
+recovery branch. **Both numbers are stated with their exclusion sets** so a successor can tell 89
+from 82 rather than reading a delta of 7 as a discovery.
+
+### 6. This log stays `blocked`
+
+Unchanged from passes 94–97, for the same reason. Not `done`: nobody has confirmed the pause. Not
+`working`: there is no work in it. The durable half is now closed *by execution* rather than by
+inheritance, which is the strongest form of closure available without a human.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Five passes have now reached this same result. The
+   durable half is closed and this pass closed it by re-running it with controls, so there is nothing
+   left to measure — not the sweep, not the blob census, not the holder classification.
+2. **The item should be closed by a human, not extended.** The remaining question is a human's:
+   reopen MadGab development, or confirm the pause. Confirming the pause means setting this item
+   `done` and retiring the front; reopening means a fresh branch from `main` and pass 78's direction
+   (compact pronunciation DAG with k-best/A*-style whole-path search, canonical cases validated
+   **generically**, never hard-coding `recognize speech` or `It's just a stupid game`).
+3. **The scheduler template is the thing to fix.** It has now fired **seven** times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
+   or closing this item `done` so the template stops selecting it, is worth more than a ninety-ninth
+   declining pass.
+4. If the sweep is ever re-run: rule 62's type census before any path filter, rule 33's control
+   injected on the **exclusion** side, rule 22's `sort -u` on both sides with `stderr` read, rule 39's
+   no-exclusion baseline comparison, rule 28's tree-not-diff probe, and rule 40's exclusion set named
+   in the same sentence as the count. Do **not** re-walk the 36-line dirty-path class, the 85
+   unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the
+   `--include-root-refs` enumeration; all are closed, and listing them is the standing reason not to.
