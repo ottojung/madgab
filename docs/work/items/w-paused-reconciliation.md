@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-8d42
-updated: 2026-09-28T12:31:00Z
+owner: coord-3f9a
+updated: 2026-09-28T12:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5224,3 +5224,114 @@ class, and recorded a new mis-spelling that made a failed command print a clean-
     point for production code — and the named direction, a qualitatively different whole-path
     algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
     suffix heuristic), **never** phrase-specific hard-coding of the canonical phrases.
+
+## 44. **The staged index is the fifth key, and it closes with 0 at-risk. But the real finding
+## is that the "at-risk" number has no content component at all: all 92 commits are content-
+## safe, so the population is a measurement of *unbacked history*, not of *lost work*.**
+
+  Pass 54 named exactly one untried instance of rule 42's technique — the **index** — and this
+  pass ran it. The question is the staged-entry analogue of rules 6-11: does any linked
+  worktree's index hold a blob that no commit holds?
+
+  | step | result |
+  |---|---|
+  | linked worktrees swept | **127** |
+  | staged entries read | 11,246 |
+  | distinct staged blob shas | **704** |
+  | outside the durable set (`rev-list --objects --all --reflog`) | **0** |
+  | control: shrink durable set to `origin/main` alone (928 blobs) | **219** |
+  | positive control: stage a synthetic file, re-sweep | **fires** |
+
+  The positive control matters more than the 0. A sweep that returns 0 is only worth reading
+  if the same sweep, unchanged, *can* return non-zero — so a synthetic staged blob was created
+  in a scratch worktree, confirmed reported at-risk, and the worktree removed (127 restored).
+  Combined with the `origin/main`-only control at 219, both directions fire and the **0 is a
+  measurement**. The index class is now **closed**, at zero new risk, and nothing was archived
+  because nothing was lost.
+
+  **The finding worth keeping is not the 0 — it is what the 92 actually are.** The at-risk
+  population is **92 for the sixth consecutive pass** (unexcluded baseline **1,023**, so the
+  exclusion set is doing real work and the mis-spelling trap of rule 54(b) is not in play). Rule
+  11's classification, run in full this time rather than sampled, splits it exactly:
+
+  | holding class | count | carries content outside the durable set? |
+  |---|---|---|
+  | **reflog-only** (no containing ref — `gc` will expire it) | **81** | **0 of 626 blobs** |
+  | `refs/stash` | 2 | 0 |
+  | local `refs/heads/scratch*` + `phon-probe` | 4 | 0 |
+  | **stale `refs/remotes/origin/*` wearing a remote name** | 4 | 0 |
+  | detached worktree `HEAD` | 1 | 0 |
+
+  **Not one of the 92 carries a single byte that is not already durable.** So the number has
+  never measured lost work, and this pass is the first to show that rather than assert it: what
+  it measures is *unbacked history*, of which this repository has 92 commits' worth, all of it
+  either reflog-held or re-present under a correctly-named ref. The general form — **a
+  reachability census and a content-loss census are different questions, and only the second
+  one is the one that matters.** Rules 10/13/28 have reported the first for six passes. Run the
+  second (`git ls-tree -r <c>` per commit, diffed against the durable blob set) before treating
+  a non-zero reachability count as a recovery obligation. Both were run here; the second is 0.
+
+  Rule 11's stale-remote trap **fired again, for real, on two branches** — worth restating
+  because the naming is what makes it dangerous. `refs/remotes/origin/madgab-fuzzy-cost` reads
+  as remote-backed and points at `b7b22b7`, while the actual remote tip is `0f7f763` and the
+  three commits held under that name are **not ancestors of it**. Same for
+  `refs/remotes/origin/madgab-audit-d5a2c1` (`3f098bc` local vs `36589f8` real). These four
+  commits are real at-risk *by rule 11's own test* and content-safe by this pass's test — the
+  clearest single illustration in the log of why the two questions must both be asked.
+
+### `coord-3f9a` — fifty-fifth pass, 2026-09-28T12:27Z–12:41Z
+
+**The gate is unchanged and still only a human can answer it. This pass created no work item,
+claimed none, launched no agent, resumed no front, and touched neither `main` nor any front
+branch. It ran the one untried object key the last pass named, and it changed the standing
+conclusion: the at-risk metric was being read as a recovery backlog, and it is not one.**
+
+  * **(a) The index class: closed, 0 at-risk, both controls firing.** Rule 44 above. 127
+    worktrees, 704 distinct staged shas, 0 outside the durable set; `origin/main`-only control
+    219, synthetic-staged-blob control fires. The fifth key, and the last one the object model
+    offers — blob (42), tree (43), commit (10/13/28), and now index — is swept.
+  * **(b) All 92 at-risk commits are content-safe.** 81 reflog-only, 2 stash, 4 local scratch,
+    4 stale remote-named, 1 detached worktree `HEAD`; **0 of 626 reflog-only blobs and 0 of the
+    other 11 commits' blobs are outside the durable set.** Six passes reported "92 at-risk" as
+    if it were a backlog. It is unbacked *history*, not lost *work*, and no recovery is owed.
+  * **(c) Control integrity.** Baseline 1,023 against 92 — the two differ, so the exclusion
+    set is not vacuous. The `refs/remotes/audit/*` scratch namespace was fetched from the
+    **189** `ls-remote` heads and deleted afterwards, verified at 0, leaving the original 19
+    stale remote-tracking entries untouched.
+  * **(d) Agents: nothing MadGab-owned is alive, and nothing was launched.** `3a8f01`/`3a8f02`
+    remain `stopped` — deliberately, by the pause, not abandoned. The 4 nonterminal agents
+    host-wide all work outside `/workspace/madgab*` and belong to other projects; left running
+    for their owners per the contract. **This pass started nothing, so there is nothing for a
+    later pass to supervise.**
+  * **(e) Branch policy honoured and re-measured.** `main` is remote-only — `git rev-parse
+    main` fails outright, so no push to it was even possible. Remote `main` is `0267ade`;
+    `post-milestone-acceptance` is `3b60489`, matching the remote exactly, so nothing here is
+    unpushed. Only this log commits on the accumulation branch. The pass 52 byte-identity
+    finding was **re-run rather than cited** and holds: `git diff origin/main
+    post-milestone-acceptance -- . ':(exclude)docs'` is **0 lines** — there is no production
+    code anywhere waiting to be integrated.
+  * **(f) The prompt's canonical-example clause, checkable half, green and bound.** The
+    prebuilt `no_phrase_hard_coding-5cce163437db32d3` reports **9 passed, 0 failed**, and per
+    rule 29 it was bound to the tree before its result was believed: binary mtime
+    `08:05:35Z`, worktree clean, and `src/lib.rs` is `6c10290` in the worktree, on `main`, and
+    on the accumulation branch alike. The forbidden half — hard-coding the canonical phrases to
+    make them pass — remains undone **by design**; the `Hits Justice Dupe Hid Came` limitation
+    stands exactly as documented in [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
+  * **Next useful action.** (i) The gate question is **nineteen** passes old and is the only
+    thing that can change this programme's status: *is MadGab development being reopened?*
+    (ii) **The recovery well is now empty on every axis this log knows how to measure** — all
+    five object keys swept, at-risk population content-safe at 0, no dirty-worktree state, no
+    unpushed commit, no branch holding unique code. A further pass should therefore **not**
+    re-run these checks expecting a different answer; the standing guidance already says not
+    to, and this pass is the confirmation that the guidance has run out of work to protect.
+    If a pass wants a genuinely new class it must change the *question*, not the key.
+    (iii) The honest report, unchanged: **no at-risk state left to recover, no work item left
+    to claim, no agent to supervise, and no code on any branch waiting to be integrated.**
+    (iv) `target-after/`, `target-base/`, `target-front-*` and the two oversize binaries
+    (`24753c1`, `aad696a0`) must never be archived. (v) If the gate answer is ever **yes**, the
+    order is unchanged: rule 29's binding check before quoting any timing; `coord-1c8e`'s
+    three measurement corrections; **cut the branch from `main`** — byte-identical to the
+    accumulation branch for production code, now re-confirmed — and pursue the named
+    direction, a **qualitatively different whole-path algorithm** (compact pronunciation DAG
+    with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+    phrase-specific hard-coding of the canonical phrases.
