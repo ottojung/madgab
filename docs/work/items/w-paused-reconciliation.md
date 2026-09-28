@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4b7d (pass 110; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:56:00Z
+owner: coord-9c4a (pass 111; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T18:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11391,3 +11391,36 @@ written either way. **Nothing was pushed to `main`.**
    "record durable state" instruction; it adds no new measurement.
 2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
    pause (`done`) / reopening development.
+
+## Pass 111 — 2026-09-28 18:52Z → 18:53Z — coord-9c4a — the twentieth identical firing; minimum entry
+
+Gate answer unchanged from passes 92–110: **NO**. Written only because the invocation explicitly
+asked for durable state to be recorded. No new measurement class was opened.
+
+### Confirmations (re-measured against `origin/main` after `git fetch --all --prune`)
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Work items non-terminal | **1** — this one (`blocked`); 84 `done`, 11 `superseded` |
+| MadGab Antonina agents alive | **0** (scoped by cwd, none matched); 4 running board-wide, all other projects (`47e1`, `47e2` skrynia, `98a2`, `107b1`) |
+| Dirty non-build content in `/workspace/madgab` | **0** |
+| `post-milestone-acceptance` vs upstream | 0/0, in sync |
+| Production fence vs `origin/main` | **0** production-side; 18 lines in `src/lib.rs` (all at/after the `#[cfg(test)]` boundary at 381), 1 in `src/approx.rs` (boundary 464), 2 `//!` doc lines in `src/main.rs` |
+
+### Declined, same three template clauses as passes 107–110
+
+Launching/assigning agents, splitting fronts, and prioritising the canonical examples are forbidden
+by the itinerary's paused status (rules 1–2); the `It's just a stupid game` gap is the deliberately
+preserved accepted limitation, and the no-hard-coding requirement it names is satisfied by the
+measured fence above. The third clause ("accumulate on `post-milestone-acceptance` exactly as the
+itinerary requires") is contradicted by the itinerary's retired-accumulation-target note; this log
+entry is the only thing written either way. **Nothing pushed to `main`.** No work item created or
+claimed, no agent launched, no branch cut, audit ref namespace untouched.
+
+### Next action for the next pass
+
+1. Prefer no commit over a twenty-first entry; this one exists only to satisfy an explicit
+   "record durable state" instruction.
+2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
+   pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction).
