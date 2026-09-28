@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9c1f
-updated: 2026-09-28T09:41:00Z
+owner: coord-1c8e
+updated: 2026-09-28T09:47:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -2069,6 +2069,148 @@ likely to weigh.
     `canonical_case_two_is_absent_across_the_documented_public_knobs` sweeps — the 33 s test covers
     the enumeration of the case-2 search space, and its list is the closest thing in the repository
     to a specification of the remaining problem. Neither is development, so neither reopens
-    anything; both are the kind of fact that makes a human gate answerable. **And if the gate
-    answer is no, the correct outcome for every subsequent pass remains a single log line, because
-    the work this log exists to protect is already durable.**
+  anything; both are the kind of fact that makes a human gate answerable. **And if the gate
+  answer is no, the correct outcome for every subsequent pass remains a single log line, because
+  the work this log exists to protect is already durable.**
+
+26. **A number recorded as a coordinate must be re-measured, not re-cited, and a test that
+    asserts `x <= C` keeps passing when `C` is stale by a factor of three.** Rules 23–25 closed
+    *status*, *provenance* and *scope*. This pass closed **staleness**, and it found a
+    load-bearing instance on the accepted head itself. The two questions the twenty-seventh pass
+    named were both about what a reopening front would inherit, and both turned out to be
+    *already answered and already answered wrongly* in the tree:
+
+    * **The case-1 rank the predicate suite treats as canonical is 9, not 27.** Measured by
+      execution, not read from any document, with the prebuilt `target/release/madgab`:
+      `wreck a nice beach` for `recognize speech` is at **display rank 9** at every
+      `--top` from 25 to 100, and its **pool rank is 9** (via `--pool-rank`, which the binary
+      does implement: `[score 0.900, pool rank 9 of 16114]`). It is absent only at `--top <= 24`.
+      So the tripwire is **`--top 25`**, not `27`. `tests/cli_milestone_predicate.rs:70` pins
+      `CASE1_RANK: usize = 27` and asserts `rank <= CASE1_RANK`; the true rank is 9, so the
+      assertion passes with **18 ranks of slack** and cannot detect a regression until the clue
+      has been pushed to rank 27 — three times worse than the real standing coordinate. The same
+      file's doc comment ("display rank 27 of 50", "not present at any `--top` below 27") is
+      false on the accepted head, and `tests/pool_rank_reporting.rs:65`'s `CASE1_DISPLAY_RANK: usize
+      = 27` and its `18 289` pool-size table row are stale the same way (measured pool: 16 114).
+      `tests/display_ordering_attribution.rs:47` and `tests/worst_word_axis.rs:194` already record
+      the corrected `pool rank 8 = display 9` and say so in a comment — so **the tree contains
+      both coordinates and the stale one is in the file the milestone is written about.** The
+      accepted-state document is the one that is right: it says "roughly pool rank 8–9".
+
+    * **The case-2 absence test sweeps 4 of the 9 documented public flags, and its own name
+      promises the other 5.** `canonical_case_two_is_absent_across_the_documented_public_knobs`
+      enumerates only `--top`, `--per-word-budget` and `--total-budget` (plus `--approximate`).
+      `src/main.rs`'s `USAGE` documents **`--max-rarity`, `--beam`, `--min-word-len`,
+      `--pool-rank`** as well. So "across the documented public knobs" is a **false scope claim
+      on the one test that certifies the accepted limitation.** This pass swept the four missing
+      flags and the conclusion **survives** — the case-2 clue is absent under `--beam 128`,
+      `--min-word-len 2`, `--pool-rank` and `--max-rarity` from 5 000 to 1 000 000, and `hid` is
+      emitted in no form at any of them. That strengthens the accepted state; it does not rescue
+      the test's name.
+
+    * **`--max-rarity` is a second, undocumented tripwire, and it is a hard error, not a
+      degradation.** At `--max-rarity <= 4000` the binary **exits 1** with `no clue coverings
+      found` for `recognize speech` (boundary between 4 300 and 4 400), and for
+      `It's just a stupid game` at `<= 1500` (boundary 1 500→2 000). A front that treats these
+      flags as continuous quality dials will find a cliff. Neither cliff involves the milestone,
+      and neither was swept by any test: `canonical_case_two_is_absent_across_the_documented_
+      public_knobs` never passes `--max-rarity`, so on a value where the binary **fails to
+      produce output at all** it would not even reach its own `assert!` on the exit status.
+
+    The general form, and it is the fourth instance of one pattern: **a check that cannot fail
+    is a check that has stopped testing anything.** Rule 14's `rank <= 27` is a one-sided bound
+    on a number that moved; rule 25's 1.8 s was true of the wrong set; rule 24's citation chain
+    had drifted at hop two; rule 12's patch read correctly and did not apply. A rank recorded as
+    a *coordinate* is the most durable-looking kind of number in this repository — it is an
+    integer in a `const` — and it was the one that rotted. Corollary for a future pass: when a
+    front needs a standing coordinate, **measure it with the binary and write the measured
+    value**, and prefer an `assert_eq!` on a one-sided-bound-plus-slack test so a stale constant
+    fails loudly instead of silently widening.
+
+### `coord-1c8e` — twenty-eighth pass, 2026-09-28T09:42Z–09:47Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass took both questions the twenty-seventh pass left open
+and answered them by execution rather than by citation, which is how **new standing rule 26**
+above came to exist: the case-1 standing rank is **9, not 27**, and the case-2 certifying test
+sweeps **4 of the 9** documented public flags while its name promises all of them.
+
+  * **Cheap checks, all clean and identical to the last three passes.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `e641daa`, equal to local `HEAD`, 0 ahead / 0 behind. All five `recovery/*` branches present
+    on the remote and matching their local refs — `2408c25`, `6b21857`, `cc666db`, `a91f71d`,
+    `a1d7425` — so all fifteen archived patches remain reconstructible. Worktree clean
+    (`git status --porcelain -uall` empty). Census re-derived with the rule 10 parser: **87 `done`,
+    11 `superseded`, 1 `open`** (the `TEMPLATE.md` placeholder, not claimable), **1 `working`**
+    (this log), 0 `blocked`. Agents: **no MadGab agent alive or claimable** — `3a8f01`/`3a8f02`
+    remain `stopped` on superseded items, left stopped deliberately; the running agents host-wide
+    (`52f1`, `71b1`, `76a1`, `94c2`, `72a1`, `47b1a001`) are all other repositories and were not
+    touched. Nothing was compiled and no Cargo lock was contended: every run used the
+    `target/release/madgab` and test binaries already built at 08:05–08:06.
+
+  * **Measurement 1 — the case-1 tripwire is `--top 25`, and the predicate suite is slack by 18
+    ranks.** Sweeping `--top` ∈ {10,12,15,20,21,22,23,24,25,27,30,50,100} against
+    `wreck a nice beach` for `recognize speech`: **absent at every value ≤ 24, display rank 9 at
+    every value ≥ 25.** `--pool-rank` confirms the coordinate directly — row 9 reads
+    `[score 0.900, pool rank 9 of 16114]` — so display 9 and pool 9 coincide here, and the
+    documented `27` is wrong on *both* readings, not a display-vs-pool confusion (which is the
+    ambiguity `src/main.rs:50-62` warns about and the one `tests/pool_rank_reporting.rs` exists
+    to resolve). `tests/cli_milestone_predicate.rs:70` asserts `rank <= 27`; measured 9.
+    `tests/display_ordering_attribution.rs:47` asserts `Some(8)` (0-based ⇒ display 9) with the
+    comment `"(was 26 = 27 at base)"` and `tests/worst_word_axis.rs:194` asserts `canon_pool == 8`
+    with `", 27 before it"`. **The corrected coordinate is already in the tree in two files, and
+    the stale one is in the file the milestone predicate is written in.** Not corrected here:
+    editing `tests/` is a behaviour change to the release suite and the values are load-bearing
+    for the case-1 guard; per rule 23's corollary, attribute and constant changes to the release
+    suite are a human release decision while paused. It is recorded, precisely, so a reopening
+    front can fix it in one line instead of rediscovering it.
+
+  * **Measurement 2 — the case-2 certifying test's scope claim is false, and the extra coverage
+    only confirms the accepted limitation.** `USAGE` in `src/main.rs:26` documents nine
+    non-`--help` flags; the test enumerates `--approximate`, `--top`, `--per-word-budget`,
+    `--total-budget` only. The four unswept flags were run against case 2 here:
+    `--beam 128`, `--min-word-len 2`, `--pool-rank`, and `--max-rarity` at 5 000 / 20 000 / 50 000
+    / 200 000 / 1 000 000. **The case-2 clue is absent in all of them, and `hid` appears in no
+    printed row of any of them.** The accepted state's limitation is therefore *stronger* than the
+    test states. The test's **name** is the defect, not its conclusion.
+
+  * **Measurement 3 — `--max-rarity` is a cliff, not a dial, and it is unswept.** At
+    `--max-rarity 4 000` the binary **exits 1** (`no clue coverings found`) for `recognize speech`;
+    4 300 also fails, 4 400 succeeds. For case 2 the boundary is 1 500 → 2 000. So the knob has a
+    hard floor per target, and because the certifying test never passes `--max-rarity`, a value
+    that makes the binary produce **no output at all** would bypass the test's own exit-status
+    `assert!` and report "case 2 absent" for a reason that has nothing to do with the milestone.
+    That is a false-negative path in the accepted record, found by sweeping the flags the test
+    does not name.
+
+  * **Nothing was edited, for the reasons rule 23's corollary and this pass's own findings
+    give.** The two stale constants are in `tests/`, the two `#[ignore]`s stay exactly as they are,
+    and no production file was touched — the only file written is this one, so
+    `coord-4d31`'s and `coord-9c1f`'s green fence results still hold by content and
+    `ALLOWLIST_CAPS` is unchanged.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    twenty-fourth time and declined for the twenty-fourth time.** It restates the programme's
+    standing goal, and reopening requires an explicit human instruction, which has not been
+    given. Its *no-hard-coding* half remains discharged on the merits, now by execution five
+    times over. And this pass strengthened it from the other side: the standing rank is 9 because
+    a **general** scoring/ordering axis moved it, not because a phrase was special-cased — which
+    is the evidence a reopening front needs that the correct direction is still a general one. If
+    development is ever reopened, the named direction is unchanged — a qualitatively different
+    whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic), **never** phrase-specific hard-coding.
+
+  * **On the escalation, now eleven passes in a row superseded by a coverage gap rather than
+    confirmed — and this is the first one whose finding is a *defect on the accepted head*, not
+    a fact about a document or a measurement.** Rules 6–22 closed preservation, rule 23 status,
+    rule 24 provenance, rule 25 scope, and this pass **staleness** — and it found a one-sided
+    assertion with 18 ranks of slack and a test whose name overstates its own coverage by five
+    flags, both live on `main` today. The remaining unasked question is unchanged and still the
+    only one a human can answer: **is MadGab development being reopened?** If yes, rule 26's
+    three findings are the first work, in this order: (1) correct `CASE1_RANK` to the measured 9
+    and `CASE1_DISPLAY_RANK`/pool-size to match, so the case-1 guard regains its teeth; (2) add
+    the four unswept documented flags to the case-2 sweep, or rename the test to the four it
+    actually covers; (3) record the `--max-rarity` floors so a future front does not read them as
+    a smooth dial. None of the three is the search-side work the limitation needs; they are the
+    measurement-infrastructure corrections that would otherwise make the first search-side
+    measurement untrustworthy.
