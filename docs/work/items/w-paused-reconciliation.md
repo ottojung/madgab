@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6e2a (pass 112; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:00:00Z
+owner: coord-3a5e (pass 113; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:06:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,31 +20,31 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 109 (2026-09-28T18:41Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 113 (2026-09-28T19:06Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 109`.
+last section of this file; search for `## Pass 113`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **109** (template has fired 18 times since pass 92) |
+| Passes that reached this same answer | **113** (template has fired 22 times since pass 92) |
 | At-risk non-build content | **0**. Re-measured at the commit level at pass 108: exclusion set **199** refs, baseline `rev-list --all` **1,020** (`--reflog` **1,104**), at-risk **7** — and all 7 are previously classified and ref-held (see `## Pass 108`). Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
-| MadGab Antonina agents alive | **0** — re-listed in full at pass 109: the 3 running agents are other projects (`98a2`, `107b1`, `a1b30c01`) |
-| Production fence vs `origin/main` | **0** lines — no hard-coded canonical phrases in production logic (and **0** in `src/` outside test code, rule 69). **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** — 21 lines total in `src/**` (18 `lib.rs` + 1 `approx.rs`, all inside `mod tests`; 2 in `main.rs` `//!` usage docs). **Re-measured independently at pass 108 and again at pass 109, unchanged** |
+| MadGab Antonina agents alive | **0** — re-listed in full at pass 113: the 3 running agents are other projects (`107c1`, `47e2` skrynia, `98a2`). The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
+| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 113 per file by locating each file's `#[cfg(test)]` line and classifying every hit by which side it falls: `src/adjacency.rs`, `src/lexical.rs`, `src/wasm.rs` 0; `src/approx.rs` 0 prod / 1 test (boundary 464); `src/lib.rs` 0 prod / 19 test (boundary 381); `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines (`madgab "It's just a stupid game"`), not logic. **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** |
 
-**Stop reading here if you are a scheduler.** Eighteen passes (92–109) have reached this same
+**Stop reading here if you are a scheduler.** Twenty-two passes (92–113) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
-was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing. The
-scheduler template has now fired **eighteen** times carrying the same **three** clauses that
-contradict the itinerary it points at (see `## Pass 109` §3). Fixing or retiring the template — a
-human task, outside this repository — is worth more than any further declining pass.
+was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
+The scheduler template has now fired **twenty-two** times carrying the same **three** clauses that
+contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
+template — a human task, outside this repository — is worth more than any further declining pass.
 
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
 pass is short:** verify these five facts, decline the scheduler template's three contradictory clauses
 (rule 19), append one concise entry, exit. Do not re-derive anything below; the closed classes are
 listed in each pass's "Next action for the next pass", item 4, and re-walking them is the standing
-reason this log grew to 10,643 lines.
+reason this log grew to 11,500 lines.
 
 ## Standing rules for a scheduled pass while this document exists
 
@@ -11482,3 +11482,63 @@ have been about to claim a file that documents the protocol.
    state read, and stop.
 2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
    pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction).
+
+## Pass 113 — 2026-09-28T19:03Z → 19:06Z — coord-3a5e — the twenty-second identical firing; the five facts re-verified, and the header this scheduler reads first was three passes stale
+
+Gate answer unchanged from passes 92–112: **NO**. The invocation again carried the same three
+clauses that contradict the itinerary it points at, so the same reconciliation as passes 107–112
+applies (rule 19). No new measurement class was opened, and no closed class was re-walked.
+
+### Confirmations (re-measured after `git fetch --all --prune`)
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Non-terminal work items | **1** — this one (`blocked`); 84 `done`, 11 `superseded`. Read **per file** over `docs/work/items/*.md` plus `docs/continuation-approximate-search.md`, not as a flattened `grep -h '^state:'` (pass 112's finding) |
+| MadGab Antonina agents non-terminal | **0** (cwd-scoped over the full agent list; the 2 `stopped` madgab agents `3a8f01`/`3a8f02` are 15h old and terminal) |
+| Dirty non-build content in `/workspace/madgab` | **0** — `git status --porcelain` is empty outright, so the `target-*` component filter (rule 9) was not even needed |
+| `post-milestone-acceptance` vs upstream | 0/0, in sync; `origin/main` unchanged at `0267ade` |
+| Production fence vs `origin/main` | **0** production *logic* lines; 19 test-side (18 `src/lib.rs` ≥ boundary 381, 1 `src/approx.rs` ≥ 464); 2 `//!` usage-doc lines in `src/main.rs`, confirmed by reading them (lines 9 and 11, `madgab "It's just a stupid game"`) — documentation of the CLI's argument syntax, not a hard-coded clue |
+
+The fence was re-derived per file rather than copied: for each `src/` file on `origin/main` the
+`#[cfg(test)]` line was located first and every canonical-phrase hit classified by side. `src/main.rs`
+has no `#[cfg(test)]`, so an earlier scoping that reported it as "2 production hits" is only correct
+if `//!` documentation is counted as production; the standing row now says "0 in production **logic**"
+and names the two doc lines explicitly, so the next pass cannot misread a count whose definition
+depends on an unstated convention (rules 14, 25).
+
+### One genuinely new fact: the log's own header was three passes stale
+
+Every pass from 107 to 112 appended its entry at the bottom of this file and none of them updated
+the `## Current gate status` block at the top — the block a scheduler is told to read *first* and to
+stop at. It still read "as of pass 109", "Passes that reached this same answer: **109**", "search
+for `## Pass 109`", "Eighteen passes (92–109)", "fired **eighteen** times", and the line count
+"10,643". So the authoritative summary was three passes behind the last entry, and its pointer sent a
+reader to a stale section. The accumulated effect is exactly the failure the header warns about: a
+scheduler that trusts the top of the file gets an undercount of how often this has been declined.
+
+Corrected here to 113 / twenty-two / `## Pass 113`, with the two fact rows whose wording depended on
+unstated conventions rewritten to carry their scope inline (agents roster, production fence). The
+at-risk row is unchanged — it is a pass-108 measurement and was not re-walked, per its own
+closed-class note.
+
+### Declined, same three template clauses as passes 107–112
+
+Assigning or launching agents, recovering or splitting fronts, and prioritising the canonical
+approximate-search examples are forbidden by the itinerary's paused status (rules 1–2). The
+`It's just a stupid game` gap is the deliberately preserved accepted limitation, and the
+no-hard-coding requirement that clause names is already satisfied by the fence measured above, so
+"prioritise it" would mean either a phrase-specific hard-code or a violation of the pause — not a
+third option. The third clause ("accumulate on `post-milestone-acceptance` exactly as the itinerary
+requires") is contradicted by the itinerary's retired-accumulation-target note. **Nothing pushed to
+`main`**, and nothing was pushed to `post-milestone-acceptance` either beyond this log's own entry.
+No work item created or claimed, no agent launched, no branch cut, no recovery sweep run (rules
+12–41 closed), the `audit/*` ref namespace untouched, no long-running agent left waiting on.
+
+### Next action for the next pass
+
+1. Prefer **no commit** over a twenty-third entry. If the template fires again unchanged, verify the
+   five facts above, keep the header in step with the last entry, append one short entry, exit.
+2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
+   pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction). Until
+   one of those happens, every future pass is this pass.
