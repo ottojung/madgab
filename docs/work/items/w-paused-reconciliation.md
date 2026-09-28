@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-2b74
-updated: 2026-09-28T08:52:00Z
+owner: coord-4a7e
+updated: 2026-09-28T09:07:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -132,6 +132,24 @@ instruction.
     regenerable or still-live, and archiving all of them would be as wrong as archiving
     2.7 GB of Cargo output. The general form of this is the same as rules 9, 10 and 11 —
     *ask what class of object the existing checks were never asked about.*
+
+14. **Rule 10's check is only correct in one of its two natural spellings, and the wrong
+    spelling returns a number 7× too large.** `--not` is a *stateful* prefix, not a per-argument
+    flag: it inverts the sense of every following revision until the next `--not` re-sets it.
+    So `git rev-list --all --not $(for-each-ref --format='--not %(refname)')` — repeating
+    `--not` per ref, which is the obvious way to shell-generate the ref list — **excludes only
+    the last ref** and silently returns everything reachable from the first one as well. It
+    reports **97** at-risk commits on this repository. The correct forms both return the true
+    **13**: a single `--not` followed by the bare ref list, or the `^<ref>` prefix per ref
+    (`--format='^%(refname)'`), which is stateless. Verified directly: excluding `main` alone
+    gives 236, and adding a second ref with a second `--not` still gives 236 (nothing was
+    excluded) while `^` gives 212 (both excluded) — the two spellings disagree, which is the
+    only reason to trust the cross-check.
+    **The transfer is not about git.** Rules 9, 10, 11 and 13 are each a check that returned a
+    confident, wrong number because of how it was *spelled*; a pass must cross-check a count
+    against a second formulation before believing it, and must prefer the formulation that
+    scales with the input (here, 182 remote refs). Never accept a bare count from a generated
+    command line without one cheap independent recomputation.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1204,3 +1222,75 @@ found **at-risk state held by nothing at all**.
   prunable ref** — the eighth risk `coord-11b9` listed and no pass has yet checked. The
   human gate question is still the only thing only a human can answer; it is no longer the
   only thing left to do.
+
+### `coord-4a7e` — twentieth pass, 2026-09-28T09:01Z–09:07Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass answered the question the nineteenth pass closed
+with, and in answering it **found a defect in the check itself** — the first time in twenty
+passes that the yield was not new at-risk state but a new false-positive class.
+
+  * **Cheap checks, all clean.** `git ls-remote`: `main` = `0267ade` (untouched, remote-only,
+    no local `main` ref), `post-milestone-acceptance` = `7773c4a` (0 ahead / 0 behind after
+    fetch), and all four `recovery/*` branches present on the remote —
+    `probe-scaffolding-2026-09-28` = `2408c25`, `unpushed-commits-2026-09-28` = `6b21857`,
+    `at-risk-refs-2026-09-28` = `cc666db`, `unreachable-objects-2026-09-28` = `a91f71d` — every
+    one matching its local ref. **The nineteenth pass's open question is answered: none of the
+    four `recovery/*` branches is reachable only from a prunable ref.** All four are remote-held,
+    so the eighth risk `coord-11b9` listed is closed, and it is closed the cheap way — the
+    answer is four `ls-remote` lines, not a sweep.
+  * **Census re-derived** with the rule 10 parser: **87 `done`, 11 `superseded`, 1 `open`**
+    (`TEMPLATE.md` placeholder, not claimable), **1 `working`** (this log), 0 `blocked`. The two
+    `work_item: true` files with no `state:` key are `docs/work/README.md` and
+    `docs/work/items/README.md`, both index documents, not tasks.
+  * **Agents: none alive for MadGab.** All 131 MadGab agents are terminal; the paused fronts
+    `3a8f01`/`3a8f02` remain `stopped` on superseded items, deliberately left stopped. The seven
+    nonterminal agents host-wide (`94f1`, `41a1`, `72a1`, `78c1`, `47b1a001`, `71a1`, plus
+    `a11d` `idle` in `/tmp/cwd-7ze5eU` at its usual 20724-day age) are all other repositories
+    and were not touched.
+  * **New standing rule 14, above — the finding of this pass.** The nineteenth pass declined to
+    re-run rule 10 a third time and was right to; the defect was not in *what* the check asks
+    but in **how the command line is spelled**. Generating the ref list as
+    `--not %(refname)` per ref and passing it to `rev-list --all --not ...` looks exactly like
+    rule 10 and is **wrong**: `--not` is stateful, so the per-ref repetition resets it and only
+    the last ref is actually excluded. It reports **97** at-risk commits. Both correct spellings
+    — one `--not` with a bare list, or `^<ref>` per ref — return the true **13**, and the
+    two disagreeing forms against a two-ref control case (236 vs 212) is what proves the
+    diagnosis rather than merely suspecting it.
+    **What a future pass would have done with the 97 is the point.** Seven of those 97 are
+    commits that `git ls-remote` proves are on the remote right now —
+    `refs/heads/wip/madgab-objective-axes-final` = `f2701da`,
+    `refs/heads/scratch/9c6f2b-harness` = `93c0a2c` among them. A pass that trusted the number
+    would have "recovered" already-durable state onto a recovery branch and recorded a
+    false at-risk finding in this log, which a later pass would then have to unpick. This is
+    the same failure direction as rules 9 and 10's refspec trap, and the same lesson as the
+    nineteenth pass's, one level down: **the checks kept being wrong by construction rather
+    than by omission.**
+  * The true 13 were re-classified by holder, per rule 11, and are **byte-for-byte the set the
+    eighteenth and nineteenth passes recorded** — 5 already archived at `6b21857`, 8 at
+    `cc666db`. Holders confirm rule 11's warning about `refs/remotes/origin/*` names that are
+    local-only: `refs/remotes/origin/madgab-audit-d5a2c1` and
+    `refs/remotes/origin/madgab-fuzzy-cost` both point at commits the real remote tips do not
+    contain (`36589f8` and `0f7f763` per `ls-remote`). The two `ZZ_AXIS` commits remain held by
+    no ref at all, reflog-only, per rule 11.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  sixteenth time and declined for the sixteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits and was re-confirmed by content, not
+  by re-running the fence: the fence-scanned surface (`src/ tests/ web/ examples/ Cargo.toml`)
+  is byte-identical to `a676176`. No promotion occurred, so `ALLOWLIST_CAPS` is unchanged. The
+  pause and its documented limitation stand. If development is ever reopened, the named
+  direction is still a qualitatively different whole-path algorithm (compact pronunciation DAG
+  with k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+  hard-coding.
+
+  **On the escalation, now four passes in a row superseded by a coverage gap rather than
+  confirmed.** This pass closed the recovery-branch durability question *and* found that the
+  central check was returning a wrong number for a year of passes' worth of "clean" verdicts.
+  The pattern across all four is identical and worth stating once: the passes that found
+  something did so by **interrogating the check, not the repository**. A twenty-first pass
+  should continue that, but the standing advice is unchanged and now better supported — **ask
+  the human gate.** The repository has nothing left at risk, nothing left unexamined, and one
+  open question that no amount of further sweeping can answer.
+
