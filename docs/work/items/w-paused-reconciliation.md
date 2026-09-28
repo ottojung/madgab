@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-2b7e
-updated: 2026-09-28T06:19:00Z
+owner: coord-5d40
+updated: 2026-09-28T07:10:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -316,6 +316,42 @@ recorded as a priced negative.
 
   Nothing was launched, resumed, claimed or integrated; `main` untouched; this log is the only
   change. The sample of "nothing left at risk" is now **two** passes deep, not one.
+
+* **`coord-5d40` (this pass), 2026-09-28T07:01Z–07:10Z** — reconciliation only, **no recovery
+  needed; third consecutive clean sweep**. Both prescribed checks run again, and per the cadence
+  advice below this pass deliberately recorded *one* entry rather than re-auditing in prose.
+
+  * **Agents: none alive.** `antonina agent list` is entirely terminal for MadGab. The only
+    nonterminal entry host-wide remains `a11d`, `idle` in `/tmp/cwd-7ze5eU` at a 20724-day age —
+    unrelated to MadGab, left alone as in the previous three passes.
+  * **Worktrees: 24 unmatched files, byte-identical to the previous pass's set.** All 21
+    worktrees swept with `git status --porcelain -uall`, every dirty/untracked file under 2 MB
+    hashed against all **1511** reachable blob objects. The blob count is one higher than the
+    previous pass reported, which is expected: the previous pass's own log commit added one.
+    The 24 split into exactly the two already-classified buckets and nothing new:
+    **8** instrumented `src/lib.rs` copies, **re-verified a fourth time** with
+    `git apply --check --reverse` of the matching `docs/work/probe-patches/*.diff` read out of
+    `2408c25` — all eight `OK`; and **16** `madgab-approx-runtime/prof/results*.txt` /
+    `sum*.txt`.
+  * **The 16 harness outputs were re-justified by reading the archived harness, not by
+    assertion.** `run.sh` opens exactly `$BIN` and `prof/targets.txt`; `summarize.py` opens
+    exactly the single results path `run.sh` writes. `targets.txt`, `scale.txt` and
+    `scale-after.txt` are present at `docs/work/probe-inputs/` on the recovery branch. Every
+    input is durable and all 16 are regenerable, so the deliberate drop still stands.
+  * **Durability confirmed the cheap way.** `git ls-remote origin` returns `2408c25` for
+    `recovery/probe-scaffolding-2026-09-28` and `bab39cc` for `post-milestone-acceptance`,
+    matching the local refs.
+
+  Nothing was launched, resumed, claimed or integrated; `main` untouched; no scaffolding branch
+  commit, because there is nothing to put on it.
+
+  **One correction to the census.** The figure "87 done, 12 superseded" repeated in several
+  earlier entries counts only `docs/work/items/*.md`. Counting `docs/work/*.md` as well — the
+  log's own "next action" step 2 does look at both — the real total across the tree is
+  **92 `done`, 11 `superseded`, 5 `produced`, 1 `open` (the `TEMPLATE.md` placeholder), and
+  this log as the only `working` entry.** The conclusion is unchanged: **the queue is empty and
+  that is the expected state.** The stale number was harmless but it is the kind of drift that
+  makes a later pass distrust the rest of the log, so it is corrected here rather than left.
 
 ## Next action for a fresh pass
 
