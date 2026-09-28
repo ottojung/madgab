@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9a3c
-updated: 2026-09-28T06:17:00Z
+owner: coord-2b7e
+updated: 2026-09-28T06:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -51,6 +51,17 @@ instruction.
    without noticing that `run.sh` ends in `done < prof/targets.txt`; the harness was
    therefore inert. Archiving the script is not evidence that the measurement can be
    repeated — grep the archived script for every path it opens and check each one.
+9. **Exclude build output by path *component*, not by prefix.** The two paused fronts each carry
+   a Cargo target directory under a name that does **not** begin with `target/`:
+   `target-front-3a8f01/` and `target-front-3a8f02/`, 2.7 GB between them. A sweep that skips
+   `target/` but not `target-*` reports those artifacts as unarchived live state and inflates a
+   24-file result to 1453 — which is exactly what the `coord-2b7e` pass did on its first
+   attempt. Filter `git status --porcelain` paths with
+   `case "/$p/" in */target/*|*/target-*/*) continue;; esac`. **Sanity-check the count against
+   the previous pass before concluding anything has been lost**: the four passes before this
+   one each found a real gap, so a sudden jump in unmatched files is far more likely to be a
+   broken filter than a discovery, and archiving 2.7 GB of Cargo output would have wasted the
+   pass and dirtied the recovery branch.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -258,9 +269,53 @@ recorded as a priced negative.
   and the honest result is that the programme is fully durable. Per the standing rule above,
   a clean pass records no scaffolding and opens no front. Nothing was launched, resumed, claimed
   or integrated; `main` untouched; this log is the only change, and it adds no new commit beyond
-  itself. A future pass should not repeat the whole sweep uncritically — but it should still
-  repeat it, because the last three passes each found something and the sample of "nothing left"
-  is still only one pass deep.
+   itself. A future pass should not repeat the whole sweep uncritically — but it should still
+   repeat it, because the last three passes each found something and the sample of "nothing left"
+   is still only one pass deep.
+
+* **`coord-2b7e` (this pass), 2026-09-28T06:17Z–06:19Z** — reconciliation only, **no recovery
+  needed, second consecutive clean sweep**. Both prescribed checks run again.
+
+  * Agents: `antonina agent list` remains entirely terminal for MadGab. The single nonterminal
+    entry host-wide is `a11d`, `idle` in `/tmp/cwd-7ze5eU` with a 20724-day age — unrelated to
+    MadGab and left alone, as in the previous pass.
+  * Worktrees: the `-uall` sweep walked all 21 worktrees and hashed every dirty and untracked
+    file under 2 MB against all **1510** reachable blob objects. Result: **24** unmatched files,
+    byte-for-byte the same set the previous pass reported, and they fall into the same two
+    already-classified buckets.
+  * **8** instrumented `src/lib.rs` copies — re-verified **individually a third time** with
+    `git apply --check --reverse` against `docs/work/probe-patches/*.diff` read out of
+    `2408c25`. All eight reported `OK`. Standing rule 7 confirmed by direct test for the third
+    consecutive pass, not inherited.
+  * **16** `madgab-approx-runtime/prof/results*.txt` and `sum*.txt` — the harness was re-read
+    end to end once more. `run.sh` opens exactly two things, `$BIN` and `prof/targets.txt`;
+    `summarize.py` opens exactly one, the results path `run.sh` writes. `targets.txt`,
+    `scale.txt` and `scale-after.txt` were confirmed **content-identical** to the live copies by
+    `git hash-object`, and `README.md`/`REPORT.md` likewise against their archived copies. The
+    24-file `prof/baseline/` directory is present in the tree at
+    `docs/work/probe-output/approx-runtime-prof-baseline/`. Every input is durable and every one
+    of the 16 is regenerable, so the deliberate drop stands.
+
+  Two corrections of the record this pass, neither of them a code or state change:
+
+  * **`recovery/probe-scaffolding-2026-09-28` is confirmed pushed.** `git branch -a` shows the
+    branch with no `remotes/origin/` tracking entry, which reads like local-only state and would
+    alarm the next pass. It is not local-only: `git ls-remote origin` returns
+    `2408c256b8b8e3b33f8812fa18ed44b658953c5a` for `refs/heads/recovery/probe-scaffolding-2026-09-28`,
+    identical to the local ref. The local remote-tracking ref is simply absent because no fetch
+    has been run in this worktree. **Verify durability with `git ls-remote`, not with
+    `git branch -a`.**
+  * **New standing rule 9, below.** This pass's first sweep reported **1453** unmatched files
+    and was wrong; the filter it used skipped paths beginning `target/` but not
+    `target-front-3a8f01/` and `target-front-3a8f02/`, so 1429 Cargo build artifacts leaked
+    into the result. Only `git status --porcelain` paths containing a `target*` **path
+    component** are build output. The corrected filter, matching on
+    `case "/$p/" in */target/*|*/target-*/*)`, returns 24. A pass that reads the first number
+    without reading the second would conclude the programme had lost gigabytes of state and
+    could easily have archived it.
+
+  Nothing was launched, resumed, claimed or integrated; `main` untouched; this log is the only
+  change. The sample of "nothing left at risk" is now **two** passes deep, not one.
 
 ## Next action for a fresh pass
 
@@ -281,4 +336,14 @@ unarchived.
 
 If both checks are clean, **there is no work to do** — confirm the pause, record nothing
 further to avoid commit noise, and exit. Do not open a front.
+
+**Cadence advice for the scheduler.** `coord-9a3c` and `coord-2b7e` are now two consecutive
+clean passes over identical durable state, and the last four passes before them each ran in
+under twenty minutes because the sweep is cheap. Continued sweeps at the current cadence are
+now low-value: they are confirming rather than discovering, and the one thing they *cannot*
+establish — whether a human will ever reopen development — is not answerable from the
+repository. Keep the cadence, but a pass that finds a third clean sweep may reasonably record
+a single line and exit rather than re-verifying the eight patches a fourth time. What a fresh
+pass should stop doing unconditionally is re-running the sweep *narrowed to whatever the last
+pass looked for*, which is the failure mode of rules 6 through 9 taken together.
 
