@@ -4777,6 +4777,61 @@ mod tests {
         assert_eq!(got[0], best, "best candidate must lead the retained set");
     }
 
+    /// The beam's admission gate is a portfolio, not a value floor.
+    ///
+    /// `prune_partials` keeps a bounded portfolio: representatives from
+    /// each structural (word-count, cost-band, rhythm-band) cell, then the
+    /// rest filled round-robin from the independent axis rankings. Nothing
+    /// in the keep path compares a candidate's combined score against a
+    /// floor, and the consequence is the property this pins:
+    /// **the retained set is not the top `k` by combined score** — a
+    /// discarded candidate can carry a combined value above the minimum of
+    /// the retained set.
+    ///
+    /// This is the load-bearing fact for anyone reading the beam as a
+    /// quality threshold. A value floor cannot reproduce the keep rule, and
+    /// the quantity that moves the rule is the budget `k`, not a score: at
+    /// a budget equal to the population nothing is dropped at all, which is
+    /// what makes the discard above a budget artefact rather than an
+    /// unrelated filter.
+    ///
+    /// Measured non-vacuity, by mutation, stated honestly: disabling the
+    /// cell protection *and* reducing the fill to the `combined` order
+    /// alone turns this test **red**; reducing the fill to the `combined`
+    /// order alone leaves it **green**, because the cell protection on its
+    /// own already admits candidates below the top `k`. So the property
+    /// proven here is "not a value floor", and it does not by itself
+    /// isolate the round-robin from the cell protection.
+    #[test]
+    fn beam_retention_is_a_portfolio_and_not_a_value_floor() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let boundaries = [3usize, 6, 9];
+        let n = 64;
+
+        let combined = |p: &Partial| p.metrics(&boundaries, 4, 12, true).combined;
+
+        let pool = candidate_pool(&target, n);
+        let kept = prune_partials(pool.clone(), 8, &boundaries, 4, 12);
+        assert_eq!(kept.len(), 8, "a budget of 8 must return exactly 8");
+
+        let kept_min = kept.iter().map(combined).fold(f64::INFINITY, f64::min);
+        let survivors: Vec<String> = kept.iter().map(|p| p.key.clone()).collect();
+        let beaten = pool
+            .iter()
+            .filter(|p| !survivors.contains(&p.key))
+            .filter(|p| combined(p) > kept_min)
+            .count();
+        assert!(
+            beaten > 0,
+            "the retained set must not be the top k by combined score: \
+             no discarded candidate beat the retained minimum {kept_min}"
+        );
+
+        // The same pool at a budget of its own size drops nothing, so the
+        // discard above is the budget and not an unrelated filter.
+        let all = prune_partials(pool, n, &boundaries, 4, 12);
+        assert_eq!(all.len(), n, "a budget equal to the population keeps all");
+    }
     /// P2 regression: the incremental aggregates on `Partial` must stay
     /// bit-identical to folding the whole word vector, so scores are
     /// unchanged by the refactor.
