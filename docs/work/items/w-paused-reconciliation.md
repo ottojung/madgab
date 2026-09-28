@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-2f70
-updated: 2026-09-28T15:52:00Z
+owner: coord-5b83
+updated: 2026-09-28T15:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -8377,3 +8377,81 @@ would catch a real loss. The expensive parts — the 180-commit `ls-tree` sweep 
 `git fetch` — are what produced this pass's one genuine finding, and are not worth repeating every
 twenty minutes against a repository that has been stable for forty passes. If the human confirms
 the pause, close the log; if the human reopens, tear this machinery down rather than maintain it.
+
+## Pass 83 — `coord-5b83`, 2026-09-28T15:47Z–15:50Z
+
+Fifth consecutive pass with nothing to launch, and the **fifth** to receive the same commissioning
+directive. **No new numbered rule**; rules 30 and 15 were re-applied and one of the log's own
+counts was found to be a two-variable artifact. Nothing launched, claimed, resumed, integrated or
+merged; `main` untouched (`origin/main` = `0267ade`, no local `main`); no new work item; no
+recovery branch created.
+
+### The directive was declined a fifth time
+
+Same directive as passes 79–82, with the same two clauses that *sound* obeyed. *"Accumulate on
+`post-milestone-acceptance` exactly as the itinerary requires"* is resolved by rule 19 in the
+itinerary's favour by its own terms (the branch "is no longer an automatic accumulation target");
+the operative prohibition — **never** push scheduled work to `main` — has held for eighty-three
+passes, and the only thing permitted to commit there is this log. *"Review/integrate finished
+work"* has nothing outstanding: **0** `open`, **0** `blocked`, the sole `working` item is this log,
+and every MadGab Antonina agent is terminal. Re-verified by direct inspection of the item files
+and `antonina agent list`, not carried forward.
+
+### Pass 82's finding re-verified, and the `7` in it is a two-variable number
+
+Pass 82 established that `--all --not ^<list>` returns the unfiltered set. Re-running the corrected
+spellings here, with the 196 audit refs fetched explicitly per rule 10, gives:
+
+| form | commits |
+|---|---|
+| `--all --not <bare audit list>` | **7** |
+| `--all ^<audit list>` (stateless, rule 14/30) | **7** |
+| `--all ^<audit list> --reflog` | **88** |
+| repeating `--not` (control, known-bad) | 184 |
+| `--all --not ^<audit list>` (rule 30's broken composition) | **1066 = the baseline** |
+| `--all --reflog`, no exclusion (rule 39 baseline) | **1066** |
+
+So the two cross-checks agree, and rule 30's compose-guard fires exactly as written — the broken
+form equals the unfiltered baseline, 1066. **The 7 that pass 82 recorded is only the *ref-held*
+figure.** Rule 15 says the reflog-inclusive form is the standing spelling, and under it the same
+repository is **88**: 7 commits held by a local ref and 81 held by a reflog alone. The two numbers
+answer different questions (rule 40), and pass 82 published the smaller one without saying which
+question it answered. Recording the pair so a later pass cannot read a 7 as a fall from 88 or an 88
+as a new discovery.
+
+### The 88 were classified, and the only non-build content is already durable
+
+Per rule 11, every one of the 88 was classified by which ref holds it: 7 in `refs/heads` (4 in
+local scratch branches, 2 in `refs/stash`, 1 in a detached worktree `HEAD`), 81 reflog-only. Taking
+the *tree* of each commit per rule 28 — not its diff — gives **626 blobs**, of which **234** are held
+by no remote ref. **230 of the 234 are under `target-*`**, which rule 41 already holds to be
+build output and durable by definition. The **four** that are not are all `src/lib.rs` — reflog-only
+stash states from `madgab-clue-objective`, `scratch/emit-probe`, `madgab-enum-1c3e77` and
+`madgab-floor-5e2d41` — and per rule 7 they have no blob of their own in any ref, so the content
+question had to be asked of the archived *diffs*.
+
+All four are already durable, verified in the strong form rule 12 asks for: for each, the patch's
+pre-state was reconstructed from its stash commit's first parent, the archived diff applied
+**forward**, and the resulting `src/lib.rs` hashed to the original blob identity —
+`07b2932`, `81a0420`, `a004d77`, `f7258d4` each **VERIFIED**, out of
+`recovery/stash-reflog-2026-09-28:docs/work/stash-patches/`. No recovery was needed and none was
+performed. A content-hash membership test alone would have reported all four as losses; that is rule
+7's warning arriving on schedule, from the other direction.
+
+The same sweep over the **36** dirty non-`target*` files in the registered worktrees returns
+**36/36 DURABLE** — every one hashes into a remote ref. (Filter per rule 9 by path *component*:
+`case "/$p/" in */target/*|*/target-*/*) continue;; esac`.)
+
+### Next action for the next pass
+
+Unchanged, now forty-two passes old: a human either **reopens** MadGab development — direction per
+pass 78, a compact pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch cut
+from `main` — or **confirms the pause**, in which case this log closes `done`.
+
+Per pass 82's efficiency note, this pass deliberately kept to the cheap checks (one `fetch`, rules
+10/15/18/30/39/40) plus the single classification that produced a real answer, and finished inside
+three minutes. **The 88 is now fully closed**: every commit classified by holder, every non-build
+blob verified durable by identity, nothing left in that class. A later pass should not repeat the
+`ls-tree` walk over all 88; re-run it only if the reflog or a worktree index changes, and treat the
+resulting delta as the finding. All 18 `recovery/*` branches are pushed (18 local, 18 on
+`origin`).
