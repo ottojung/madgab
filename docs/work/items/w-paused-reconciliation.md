@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9d3e
-updated: 2026-09-28T13:33:00Z
+owner: coord-2a71
+updated: 2026-09-28T13:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -626,10 +626,20 @@ instruction.
     record while the programme is paused is a rewrite of research history, and the itinerary's
     rule 2 forbids resuming a superseded front, which a retroactive edit is. A human who
     reopens development gets a one-line mechanical fix for the 47 DEPTH/ONE-LEVEL edges
-    (`sed` on the two path prefixes, verified by re-running the census below and expecting
-    **56 − 47 = 9** distinct broken edges to remain) and a judgement call on the 6 that need
-    one. Standing check for a future pass, and the cheapest one-line command in this log —
-    reproduced from this file, it returns **56**, matching the post-repair measurement:
+    (`sed` on the two path prefixes, verified by re-running the census below) and a judgement
+    call on the rest.
+
+    **Both numbers in the sentence above are wrong, and rule 53 corrects them.** The census is
+    **58**, not 56, because the `.md`-anchored pattern below cannot see a broken link that omits
+    its extension, and **51** edges are mechanically repairable, not 47 — so the correct
+    post-repair prediction is `58 − 51 = 7`, and 4 of those 7 are truncated ids (`w-5b1e.md`
+    twice, `w-3c5b38.md`, `w-d5c11a2.md`, `9e2b41.md`) that no `sed` on two path prefixes can
+    touch. The PHANTOM row above is also misclassified: 6 of its 7 have real history under the
+    corrected id and only `items/w-5e2d42.md` is a true phantom. **Rule 53 supersedes this
+    rule's census section; the rule itself — the queue is findable and half of its citations are
+    not — stands.** Standing check for a future pass, and the cheapest one-line command in this
+    log — note that it returns **56** by construction, because its pattern requires the very
+    `.md` it is looking for:
 
     ```sh
     find docs -name '*.md' | while read -r f; do d=$(dirname "$f")
@@ -6538,3 +6548,141 @@ qualitatively different whole-path algorithm — compact pronunciation DAG with 
 A*-style search, or a strong backward suffix heuristic), and **never hard-code the canonical
 phrases**.
 
+
+## Sixty-sixth pass (`coord-2a71`, wall clock 2026-09-28T13:37Z–13:41Z) — rule 53: the standing census for rule 52 is itself spelling-dependent, and 56 is an undercount
+
+Pause gate confirmed closed before anything else was done; the gate question is now
+**thirty passes old**. No MadGab work item created, none claimed, no agent launched, nothing
+merged, nothing pushed to `main` (`git rev-parse main` still fails — remote-only, `0267ade`).
+The canonical-example instruction was read against the pause gate for the **seventh** time
+(`coord-c8e1`): it restates the standing goal, and reopening requires an explicit human
+instruction that has not been given. The answer is unchanged: **verify the fence, never add a
+phrase** — green by identity of the tree, production code 0 lines from `origin/main` below.
+
+Pass 65 ended with a standing check it had verified by copying: *"reproduced from this file,
+it returns **56**."* This pass took the advice it had been given literally — **walk one citation
+chain end to end and resolve every hop**, starting at `w-0f3a17.md` — and the chain walk found
+what the copied check cannot see. That is rule 53.
+
+**The chain walk, run first, as the standing advice directed.** From
+`docs/work/items/w-0f3a17.md`, following every resolvable relative `.md` link to depth 3:
+**90 documents visited, 1,738 link hops** (20 direct, 874 second-hop, 844 third-hop), and
+**83 broken hops** on the chain. All 31 documents in the repository that carry a broken edge are
+inside that 90. So the failure surface rule 52 named is not peripheral: the single chain a
+successor is most likely to walk reaches every broken file in `docs/`.
+
+**The defect in the check itself.** Rule 52's one-liner matches links with
+
+    grep -oE '\]\([^)]+\.md(#[^)]*)?\)'
+
+— that is, a link **must end in `.md` to be counted at all**. Two broken links do not end in
+`.md`, so the pattern never sees them:
+
+| source | written | intended target | exists? |
+|---|---|---|---|
+| `docs/work/REPORT-4d7c12.md:317` | `items/w-9e2b41` | `docs/work/items/w-9e2b41.md` | yes |
+| `docs/work/items/w-8f3c61.md:374` | `w-9d4e17` | `docs/work/items/w-9d4e17.md` | yes |
+
+A broken link that omits its extension is skipped by the very pattern meant to detect broken
+links. Re-measured with the same census **and the `.md` anchor removed from the pattern**:
+**58 distinct broken edges across 31 files**, against the 56/30 the anchored pattern reports.
+Both sides are printed because the difference is the entire finding. The 58 reconciles with the
+anchored run edge by edge: the anchored pattern's 56 is a strict subset, and the two missing
+edges are exactly the two extensionless rows above — no other edge moved.
+
+**This is the log's own recurring failure mode, in its purest form yet.** Rule 48 recorded that
+an exclusion-set measurement is a function of the spelling of its set; rule 14 required the
+population to be bracketed. Rule 53 is: **a detection pattern is a filter, and a filter that
+requires the property you are detecting cannot fail.** A broken `.md` link is found by looking
+for `.md` links, so an unadorned broken link is invisible — and the measurement that missed it
+was the one this log installed as a standing check for future passes, copied verbatim. Note the
+direction: it under-reports the defect, so the *reassuring* direction, which is the one this log
+has twice had to catch in its own instruments (pass 58's 118 false positives, pass 61's
+annihilating exclusion spellings).
+
+**The full repair table, and it is complete.** Every one of the 58 edges was classified by
+attempting candidate repairs and **verifying the repair target exists** — 51 of 58 resolve to a
+real file:
+
+| class | edges | repair | verified how |
+|---|---|---|---|
+| **DEPTH** | 35 | add one `../` (e.g. `../environment-notes.md` → `../../environment-notes.md`) | target exists after the rewrite |
+| **TYPO** | 14 | drop a `../` in the other direction, add a dropped `w-` prefix, or complete a truncated id (`w-5b1e.md` → `w-5b1e93.md`, `w-3c5b38.md` → `w-3c5b18.md`, `w-d5c11a2.md` → `w-5c11a2.md`) | single `git ls-files` hit for the corrected target |
+| **EXTENSION** | 2 | append `.md` | target exists after the rewrite |
+| **PHANTOM** | 7 | none — target exists in no ref | `git log --all -- docs/work/items/<t>.md` |
+
+All 51 repairs were re-tested by resolving the rewritten link on disk: **0 bad repairs**. The 7
+phantoms are `items/w-5e2d42.md` (twice, one of them this log's own deliberate citation of a
+phantom), `9e2b41.md`, and `w-5b1e.md` twice — the four corrected ids above all have real
+history (`w-5b1e93` 15 commits, `w-3c5b18` 7, `w-5c11a2` 12, `w-9e2b41` 9), so **6 of the 7
+"phantoms" are not phantoms at all**; only `items/w-5e2d42.md` is one. That corrects pass 65's
+classification table, which put the truncated ids in a PHANTOM class.
+
+**A correction to pass 65's arithmetic, because the next pass would otherwise reuse it.** Rule 52
+predicted a post-`sed` census of `56 − 47 = 9` remaining broken edges. With the extensionless
+edges counted the pre-`sed` figure is **58**, and the mechanically-fixable set is **51**, not 47 —
+so the correct prediction is **`58 − 51 = 7`**, and 4 of those 7 are truncated ids that a
+`sed` on two path prefixes cannot touch. Both figures are printed; the `9` in rule 52 is wrong
+and the `7` is what a re-run should return.
+
+**Chain-walk reachability, the number a successor actually experiences.** Of the 97 files in
+`docs/work/items/`, **71 have no broken outgoing link at all**; 26 do. Of the 96 real work items
+(97 files less `README.md`, which carries the words `work_item: true` in prose and is not an
+item), **2 non-closed items are clean** and the single `working` item — this log — is one of the
+31 files carrying a broken edge, by design: two of its citations are *documentation of* a
+phantom and a broken spelling (rule 52's own table cites `items/w-5e2d42.md` on purpose).
+
+### What re-measured, and what is unchanged
+
+* **Census:** 97 files in `docs/work/items/`; 96 carry `work_item: true`; **83 `done`, 11
+  `superseded`, 0 `open`, 0 `blocked`, 1 `working`** (this log). Identical to passes 61–65. The
+  two files without the header are `README.md` and `w-0f3a17-shortlist-rule.md` (rule 51's
+  subject, recorded not fixed).
+* **Link census, re-measured:** **58** distinct broken edges in **31** files — 35 DEPTH, 14
+  TYPO, 2 EXTENSION, 7 PHANTOM — of which **51 are mechanically repairable and verified**. The
+  anchored-pattern figure of 56 is a strict subset.
+* **Chain walk from `w-0f3a17.md`:** 90 documents, 1,738 hops, 83 broken hops, and all 31
+  broken-edge files inside the visited set.
+* **No MadGab Antonina agent is alive.** The `running` agents on this host are `98a1`
+  (`/workspace/antonina-98-flake`) and `92d1` (`/workspace/volodyslav-92-plan`), both other
+  repositories. None is MadGab's; all left alone. **This pass launched nothing, so it leaves
+  nothing running to supervise.**
+* **Repository shape:** 127 registered worktrees, 0 dirty paths in this worktree, 14
+  `recovery/*` branches local and 14 on the remote. Production code is **0 lines** from
+  `origin/main` (`git diff --stat origin/main post-milestone-acceptance -- src tests web
+  examples Cargo.toml README.md` prints nothing), which is rule 25's binding condition before
+  any earlier measurement may be repeated. **The hard-coding fence is therefore green by
+  identity of the tree, not re-run.**
+* **The preservation sweep was deliberately not re-run.** Passes 55–64 hold it at
+  92 / 11 / 81 / 0, and a ninth identical number is not evidence.
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, and **no `recovery/*` branch** — no
+archive was created because nothing was at risk, and nothing was pushed but this log, to
+`post-milestone-acceptance` only. **No closed item was edited** (rule 52): the 51 repairs are
+recorded as a table, not applied, because retroactive edits to a `done` item's record are a
+rewrite of research history.
+
+The useful output is rule 53 plus the completed repair table, and it changes the standing advice
+once more. It is no longer "run another sweep" (saturated), no longer "check the census's
+inclusion rule" (checked, pass 64), and no longer "walk a citation chain" (done, this pass).
+It is now: **before trusting any detector in this log, make it fail on purpose** — feed the
+anchored pattern the two extensionless links and watch it return 56, which is exactly what
+happened. A negative control is the only instrument this log has needed and never had for its
+*own* checks; rule 51's own instrument, the state census, was likewise one predicate that could
+not fail.
+
+**The gate question is now thirty passes old and remains the only thing that can change this
+programme's status: is MadGab development being reopened?** It is not a coordinator's call.
+Standing instructions unchanged: never push to `main`; never integrate scratch instrumentation
+(including anything under `docs/work/probes/`); never archive `target-after/`, `target-base/`,
+`target-front-*` or the two oversize binaries; leave `scratch-3f8c62-landed` unpushed and
+undeleted; never launch a MadGab agent; do not add `work_item: true` to a historical report; do
+not edit a closed work item's record while paused. If the answer is ever yes: read
+`docs/work/items/w-0f3a17-shortlist-rule.md` §7 first — via `w-0f3a17.md:167`, which resolves,
+not line 318, which does not — then apply the 51 verified repairs in the table above, expect
+the re-run census to return **7**, cut a fresh focused branch from `main` (production code is
+still byte-identical), validate *general* behaviour, pursue the named direction (a qualitatively
+different whole-path algorithm — compact pronunciation DAG with k-best / A*-style search, or a
+strong backward suffix heuristic), and **never hard-code the canonical phrases**.
