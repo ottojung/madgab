@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5e19
-updated: 2026-09-28T06:00:00Z
+owner: coord-9a3c
+updated: 2026-09-28T06:17:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -233,6 +233,34 @@ recorded as a priced negative.
   unchanged (87 done, 12 superseded, 0 open, 0 blocked; this log the only `working` entry).
   No agent launched, no front resumed, no item claimed, nothing integrated, `main`
   untouched.
+
+* **`coord-9a3c` (this pass), 2026-09-28T06:11Z–06:17Z** — reconciliation only, **no recovery
+  needed**. Both prescribed checks run again, and this is the first pass whose sweep came back
+  clean. `antonina agent list` is still entirely terminal — no `running`, `idle`-but-live or
+  queued agent anywhere; the only `idle` entry is `a11d` in a 20724-day-old `/tmp` workdir,
+  unrelated to MadGab. The full `-uall` sweep walked all 21 worktrees, hashed every dirty and
+  untracked file (< 2 MB, Cargo `target/` excluded) against all **1509** reachable blob objects,
+  and returned **24** unmatched files — which classify into exactly two already-known buckets
+  and nothing else:
+
+  * **8** instrumented `src/lib.rs` copies, **re-verified one at a time** with
+    `git apply --check --reverse` of the matching `docs/work/probe-patches/*.diff` read out of
+    the recovery branch. All eight reported `OK`. Standing rule 7 is now confirmed by direct
+    test for the second consecutive pass rather than inherited.
+  * **16** `madgab-approx-runtime/prof/results*.txt` and `sum*.txt` — all of them harness
+    **outputs**, not inputs. Per standing rule 8 the archived harness was re-read end to end:
+    `run.sh` reads only `prof/targets.txt` (archived at `2408c25`) and `$BIN`; `summarize.py`
+    reads only the `results.txt` path `run.sh` writes. Every input is durable and every one of
+    these 16 is regenerable, so the deliberate drop still stands and is now justified by reading
+    the harness rather than by assertion.
+
+  So unlike the three passes before this one, **there was no new gap of a new kind to find**,
+  and the honest result is that the programme is fully durable. Per the standing rule above,
+  a clean pass records no scaffolding and opens no front. Nothing was launched, resumed, claimed
+  or integrated; `main` untouched; this log is the only change, and it adds no new commit beyond
+  itself. A future pass should not repeat the whole sweep uncritically — but it should still
+  repeat it, because the last three passes each found something and the sample of "nothing left"
+  is still only one pass deep.
 
 ## Next action for a fresh pass
 
