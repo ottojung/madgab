@@ -64,3 +64,30 @@ sources reference the case-2 target. They live under `docs/`, which
 ("examples", 1)`. This is a record of past measurements, not production coupling. **If any
 of it is ever promoted into `src/`, `web/` or `examples/`, its phrase literals must be
 removed as part of that promotion, not waived.**
+
+## Fourth pass — the `prof/` harness input manifests
+
+| archived copy | live worktree path | why the third pass missed it |
+|---|---|---|
+| `../probe-inputs/targets.txt` | `/workspace/madgab-approx-runtime/prof/targets.txt` | the third pass archived the harness *and* the baseline output, but not the file `run.sh` reads. `run.sh` ends in `done < prof/targets.txt`, so the archived harness is still inert without it |
+| `../probe-inputs/scale.txt` | `/workspace/madgab-approx-runtime/prof/scale.txt` | the scale-series phrase list; the third pass described the baseline directory as "the `scale.txt` baseline column rests on" and archived the column without the row label |
+| `../probe-inputs/scale-after.txt` | `/workspace/madgab-approx-runtime/prof/scale-after.txt` | same series, post-change run |
+
+These are small and were skipped by the enumeration rules standing rules 6 and 7 are
+written against: they are neither source, nor raw output, nor an unarchived `src/` file —
+they are harness *inputs*. The sweep that found them is the prescribed one (hash every
+dirty and untracked file against every reachable blob); what changed is that the count of
+unaccounted-for live files went to the ones that are neither build artifacts nor the
+deliberately-dropped `results-*`/`sum-*` set.
+
+Hashes at archiving time, for the standing hash-compare check:
+
+```
+32a5d09605b99e048a429dbcd5afd03d300e632d  targets.txt
+380d7f1f365660fcae848b35ffea0e137fe1f550  scale.txt
+83522d546d8d90964728a04b3a531c5e3554074d  scale-after.txt
+```
+
+`targets.txt` and `scale.txt` are lists of target phrases, so the hard-coding fence above
+applies to them exactly as it does to the probe sources: they stay under `docs/`, and
+their phrase literals must be stripped as part of any promotion, never waived.

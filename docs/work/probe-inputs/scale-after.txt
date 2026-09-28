@@ -1,0 +1,84 @@
+### target=x phrase=recognize speech
+PROFSTAT n=14 lattice_positions=14 lattice_entries=10751
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4496	1
+PROF	10_gen_approx_total	2.3615	1
+PROF	31_beam_extend_fuzzy	0.2293	510181
+PROF	32_beam_overflow_prune	1.7239	6905
+PROF	90_partial_metrics	1.1709	1020603
+PROF	60_lexical_heap_enum	0.1299	1
+PROF	70_finish	0.0720	1
+### target=x phrase=recognize speech today
+PROFSTAT n=19 lattice_positions=19 lattice_entries=15130
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4391	1
+PROF	10_gen_approx_total	4.5412	1
+PROF	31_beam_extend_fuzzy	0.4109	740055
+PROF	32_beam_overflow_prune	3.4259	10679
+PROF	90_partial_metrics	2.5273	1474459
+PROF	60_lexical_heap_enum	0.2273	1
+PROF	70_finish	0.0948	1
+### target=x phrase=recognize speech today clearly
+PROFSTAT n=25 lattice_positions=25 lattice_entries=20792
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4079	1
+PROF	10_gen_approx_total	8.6845	1
+PROF	31_beam_extend_fuzzy	0.7249	1024223
+PROF	32_beam_overflow_prune	6.7868	14971
+PROF	90_partial_metrics	5.3499	2038579
+PROF	60_lexical_heap_enum	0.4100	1
+PROF	70_finish	0.1347	1
+### target=x phrase=recognize speech today in a clear way
+PROFSTAT n=29 lattice_positions=29 lattice_entries=24123
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4098	1
+PROF	10_gen_approx_total	13.5054	1
+PROF	31_beam_extend_fuzzy	0.9409	1161498
+PROF	32_beam_overflow_prune	10.5859	17220
+PROF	90_partial_metrics	8.8240	2309581
+PROF	60_lexical_heap_enum	0.8496	1
+PROF	70_finish	0.1772	1
+### target=x phrase=recognize speech today in a very clear way
+PROFSTAT n=33 lattice_positions=33 lattice_entries=28126
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4128	1
+PROF	10_gen_approx_total	18.6050	1
+PROF	31_beam_extend_fuzzy	1.1589	1353443
+PROF	32_beam_overflow_prune	14.8198	20080
+PROF	90_partial_metrics	12.7375	2691994
+PROF	60_lexical_heap_enum	1.2361	1
+PROF	70_finish	0.2290	1
+### target=x phrase=recognize speech today in a very clear and simple way
+PROFSTAT n=42 lattice_positions=42 lattice_entries=36128
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4500	1
+PROF	10_gen_approx_total	30.4224	1
+PROF	31_beam_extend_fuzzy	1.8266	1669859
+PROF	32_beam_overflow_prune	24.6493	25139
+PROF	90_partial_metrics	21.7003	3317222
+PROF	60_lexical_heap_enum	1.9370	1
+PROF	70_finish	0.2963	1
+### target=x phrase=recognize speech today in a very clear and very simple way
+PROFSTAT n=46 lattice_positions=46 lattice_entries=40328
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4646	1
+PROF	10_gen_approx_total	37.5702	1
+PROF	31_beam_extend_fuzzy	2.1856	1879741
+PROF	32_beam_overflow_prune	30.4540	28274
+PROF	90_partial_metrics	27.0332	3735257
+PROF	60_lexical_heap_enum	2.5911	1
+PROF	70_finish	0.3113	1
