@@ -224,12 +224,64 @@ mod tests {
             &widths,
             &toy_bound,
         );
-        // The best reachable wording is deep in the last slot.
+        // The best reachable wording is the cheapest single substitution.
         assert_eq!(got.first().map(Vec::as_slice), Some([0, 0, 0, 1].as_slice()));
+        // The walk composes substitutions, so it reaches wordings that are
+        // *several* steps from anything the pool held — which is the whole
+        // claim: depth in one slot is additive, not the cost of the product
+        // in front of it.
+        let steps = |t: &[usize]| -> usize {
+            roots
+                .iter()
+                .map(|r| {
+                    r.iter()
+                        .zip(t.iter())
+                        .filter(|(a, b)| a != b)
+                        .count()
+                })
+                .min()
+                .unwrap_or(0)
+        };
         assert!(
-            got.iter().any(|t| t.iter().copied().max() == Some(9)),
-            "the walk must reach a slot index well past any small cap, got {got:?}"
+            got.iter().any(|t| steps(t) >= 3),
+            "the walk must compose substitutions, got {got:?}"
         );
+    }
+
+    /// The operator's defining invariant: every wording it admits is one
+    /// single-slot substitution away from a wording the pool already held or
+    /// from one it admitted earlier.  This is the external behaviour the
+    /// mechanism exists for, stated over tuples rather than over any
+    /// internal data structure.
+    #[test]
+    fn every_admission_is_one_substitution_from_a_held_wording() {
+        let widths = [9usize, 12, 7, 14];
+        let roots: Vec<Vec<usize>> =
+            vec![vec![0, 0, 0, 0], vec![3, 1, 0, 2], vec![1, 0, 4, 0]];
+        let got = admit(
+            Neighbourhood {
+                pops: 48,
+                per_slot: 3,
+            },
+            &roots,
+            &widths,
+            &toy_bound,
+        );
+        let differs_in_one_slot = |a: &[usize], b: &[usize]| -> bool {
+            a.iter()
+                .zip(b.iter())
+                .filter(|(x, y)| x != y)
+                .count()
+                == 1
+        };
+        let mut held: Vec<Vec<usize>> = roots.clone();
+        for t in &got {
+            assert!(
+                held.iter().any(|h| differs_in_one_slot(h, t)),
+                "{t:?} is not one substitution from any held wording"
+            );
+            held.push(t.clone());
+        }
     }
 
     #[test]

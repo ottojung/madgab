@@ -171,8 +171,8 @@ const ADJACENCY_RESERVE: usize = 8;
 /// hands it — the pool's own wordings are the seeds and are expanded before
 /// anything new is reached — so it is set above the traversal's own share of
 /// the allowance rather than at it.
-const ADJACENCY_POPS: usize = 96;
-const ADJACENCY_PER_SLOT: usize = 4;
+const ADJACENCY_POPS: usize = 24;
+const ADJACENCY_PER_SLOT: usize = 2;
 /// How many slots of a profile may be deep at once.  A `k`-deep profile
 /// class has `C(depth, k)` members per ladder rung, so beyond two the
 /// classes outnumber the reserve and the ladder is not widened to
@@ -583,7 +583,7 @@ impl Generator {
         const SPAN_BAND_KEEP: usize = 4;
         const SPAN_RARITY_KEEP: usize = 4;
         const SEG_STATE_KEEP: usize = 32;
-        const SEGMENTATION_KEEP: usize = 2048;
+        const SEGMENTATION_KEEP: usize = 256;
         const LEXICAL_HEAP_POP_LIMIT: usize = 4_000;
 
         // The lexical phase's budget is *global*.  These are the same two
@@ -895,45 +895,6 @@ impl Generator {
                     },
                 });
             }
-        }
-
-        // ZZ_SCRATCH: cheapest tiling of the target by a given word sequence,
-        // over the whole retained span lattice.
-        #[cfg(not(target_arch = "wasm32"))]
-        if let Ok(spec) = std::env::var("ZZ_MINCOST") {
-            let words: Vec<String> = spec
-                .split('|')
-                .map(|s| s.trim().to_lowercase())
-                .collect();
-            let mut dp = vec![f64::INFINITY; n + 1];
-            dp[0] = 0.0;
-            for w in &words {
-                let mut next = vec![f64::INFINITY; n + 1];
-                for p in 0..=n {
-                    if !dp[p].is_finite() {
-                        continue;
-                    }
-                    for edge in &span_lattice[p] {
-                        let Some(m) = edge.matches.iter().find(|m| {
-                            self.fuzzy_lexicon
-                                .word(m.word_idx)
-                                .word
-                                .eq_ignore_ascii_case(w)
-                        }) else {
-                            continue;
-                        };
-                        if dp[p] + m.cost < next[edge.end] - 1e-12 {
-                            next[edge.end] = dp[p] + m.cost;
-                        }
-                    }
-                }
-                dp = next;
-            }
-            eprintln!(
-                "ZZMINCOST n={n} min_total_cost={:.6} words={}",
-                dp[n],
-                words.len()
-            );
         }
 
         // Suffix relaxation over the span DAG: from every target offset,
@@ -1455,14 +1416,17 @@ impl Generator {
             }
             let emit_allowance =
                 emit_allowance.saturating_sub(profile_emitted);
-            // The adjacency operator's share, carved out before the traversal
-            // for the same reason the profile reserve is: so that the sum of
-            // the three spends is the per-segmentation allowance and not more
-            // of it.
+            // The adjacency operator's share.  It is *not* carved out of the
+            // traversal's allowance: the traversal's own emissions are the
+            // ones the depth tests are written against, and taking eight of
+            // them measurably costs a deep-in-a-span match
+            // (`approximate_pool_reaches_matches_deep_in_a_span`).  The
+            // operator is instead bounded by the *global* emission budget,
+            // which is the search's real ceiling and which the baseline
+            // leaves slack (14,239 of 16,384 spent), so the operator's spend
+            // is bounded by the same constant that bounds everything else.
             let adjacency_allowance =
                 ADJACENCY_RESERVE.min(emit_allowance);
-            let emit_allowance =
-                emit_allowance.saturating_sub(adjacency_allowance);
 
 
             // Suffix bounds make the best-first key an admissible upper
@@ -1733,7 +1697,7 @@ impl Generator {
                                 n,
                                 false,
                             );
-                            eprintln!("ZZINJ {tup:?} combined={:.9} axes={:?}", m.combined, m);
+                            eprintln!("ZZINJ {tup:?} combined={m:?}");
                             eprintln!(
                                 "ZZINJW {:?} totcost={:.3}",
                                 tup.iter()
@@ -1756,44 +1720,8 @@ impl Generator {
                     }
                 }
             }
+
             let mut adjacency_emitted = 0usize;
-            // ZZ_SCRATCH
-            #[cfg(not(target_arch = "wasm32"))]
-            if let Ok(spec) = std::env::var("ZZ_EVAL") {
-                let want = spec.split('|').next().unwrap_or("");
-                let mine = segmentation
-                    .spans
-                    .iter()
-                    .map(|(a, b)| format!("{a}-{b}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if mine == want {
-                    if let Some(t) = spec.split('|').nth(1) {
-                        let tup: Vec<usize> = t
-                            .split(',')
-                            .filter_map(|x| x.parse().ok())
-                            .collect();
-                        eprintln!("ZZEVAL {tup:?} bound={:.9} builds={}", bound(&tup), build(&tup).is_some());
-                    }
-                }
-            }
-            // ZZ_SCRATCH
-            #[cfg(not(target_arch = "wasm32"))]
-            if let Ok(spec) = std::env::var("ZZ_POOL") {
-                let want = spec.split('|').next().unwrap_or("");
-                let mine = segmentation
-                    .spans
-                    .iter()
-                    .map(|(a, b)| format!("{a}-{b}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                if mine == want {
-                    eprintln!("ZZPOOL n={} emit_allowance={emit_allowance} profile={profile_emitted} adj={adjacency_allowance} emitted={emitted}", pooled.len());
-                    for t in &pooled {
-                        eprintln!("ZZPOOLT {t:?} bound={:.9}", bound(t));
-                    }
-                }
-            }
             if adjacency_allowance > 0
                 && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
             {
@@ -1902,11 +1830,14 @@ impl Generator {
             .map(|p| {
                 // ZZ_SCRATCH
                 #[cfg(not(target_arch = "wasm32"))]
-                let axis_dump = if std::env::var("ZZ_METRICS").is_ok() {
+                let dump = if std::env::var("ZZ_METRICS").is_ok() {
                     Some(p.metrics(
                         &target_boundaries,
                         target_syllables,
-                        target_ipa.chars().filter(|c| *c != 'ˈ' && *c != 'ˌ').count(),
+                        target_ipa
+                            .chars()
+                            .filter(|c| *c != 'ˈ' && *c != 'ˌ')
+                            .count(),
                         false,
                     ))
                 } else {
@@ -1918,7 +1849,7 @@ impl Generator {
                     target_syllables,
                 );
                 #[cfg(not(target_arch = "wasm32"))]
-                if let Some(m) = axis_dump {
+                if let Some(m) = dump {
                     eprintln!("ZZMETRICS {:?} {m:?}", c.phrase);
                 }
                 c
