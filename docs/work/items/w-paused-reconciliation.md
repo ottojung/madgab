@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-b7f9
-updated: 2026-09-28T05:37:00Z
+owner: coord-c4d2
+updated: 2026-09-28T05:44:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -25,9 +25,17 @@ instruction.
 3. Accumulate durable state on `post-milestone-acceptance`. **Never push to `main`.**
 4. The one genuinely useful recurring action is **at-risk state recovery**: finding work
    that exists only in a prunable worktree or only as an uncommitted diff, and making it
-   durable. Pass `coord-a1c4` (below) and this pass both did exactly that and nothing else.
+   durable. Passes `coord-a1c4`, `coord-b7f9` and `coord-c4d2` (below) each did exactly that
+   and nothing else.
 5. Prefer a dedicated `recovery/*` branch for archived scaffolding rather than adding
    scratch probes to the release-history branch.
+6. **Recovery passes are not automatically complete.** An archive pass can be *partly*
+   right: `coord-b7f9` verified its 29 files by walking dirty worktrees, but its enumeration
+   rules silently skipped whole classes of file (see the `coord-c4d2` entry below). When
+   checking a *new* recovery archive, verify by **basename and content hash against the
+   live worktree**, not by "was this path archived at all" — two different programs in this
+   repo share the basename `examples/zz_5e2d42_spans.rs`, and two different files share
+   `src/probe.rs`.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -80,6 +88,29 @@ sit under `docs/`, which `tests/no_phrase_hard_coding.rs` does not scan — that
 documentation of past measurements, not production coupling. **If any of it is ever promoted,
 its phrase literals must be removed as part of that promotion, not waived.**
 
+## Second recovery pass (`coord-c4d2`)
+
+`recovery/probe-scaffolding-2026-09-28` = **`3ce5262`**, pushed, not merged. Adds:
+
+* `docs/work/probe-artifacts/` — four probe sources plus the two `prof/` markdown write-ups.
+* `docs/work/probe-output/c1d3a7-m-head200.txt` — head of the 4.0 MB `ZZMETRICS` dump.
+* `docs/work/probe-artifacts/README.md` — provenance per file, plus the standing fence note.
+
+**The lesson from this pass is recorded as standing rule 6 above.** `51ebdd1` was not wrong
+so much as *partly* right: it walked the dirty worktrees correctly but applied three
+enumeration rules that each dropped files — skip a basename already archived, skip untracked
+directories other than `examples/`, skip raw output rather than source. Four sources and two
+write-ups survived all three rules. The two most interesting losses were **same-basename,
+different-content**: `floor-5e2d42-probe`'s `zz_5e2d42_spans.rs` (`661d335e`) is a different
+program from the archived base-side copy (`15f4a6c5`), and `probe-0f3a17`'s `src/probe.rs`
+(`d78cc4c7`) is a different 71-line slot-recorder from the archived `madgab-axis-558697` copy
+(`6549c937`). A future pass must hash-compare, not path-compare.
+
+Deliberately **not** archived: `target-front-3a8f01/` (1.4 GB) and `target-front-3a8f02/`
+(1.3 GB), which are Cargo `target/` directories from the two paused fronts, and the 58 MB
+`prof/` binaries and `results-*.txt`/`sum-*.txt` (~2 MB), which the two kept markdown files
+already summarise.
+
 ## The preserved limitation (do not re-litigate)
 
 Approximate mode generates `wreck a nice beach` for `recognize speech`. It does **not**
@@ -99,14 +130,22 @@ recorded as a priced negative.
   in-flight fronts durable, left both agents running at the time.
 * **`coord-a1c4`, 2026-09-28T05:16Z–05:20Z** — reconciliation only. Recovered the untracked
   361-line test to `7c97a97`. Recorded in `w-3a8f01`.
-* **`coord-b7f9` (this pass), 2026-09-28T05:26Z–05:38Z** — reconciliation only. Census as
+* **`coord-b7f9`, 2026-09-28T05:26Z–05:38Z** — reconciliation only. Census as
   above; recovered the `ZZ_INJECT` hook to `90d691e` and the 29 at-risk scaffolding files to
   `51ebdd1`. No agent launched, no item claimed, nothing integrated, `main` untouched.
+* **`coord-c4d2` (this pass), 2026-09-28T05:36Z–05:45Z** — reconciliation only. Re-ran the two
+  prescribed checks: no live Antonina agent (`antonina agent list` is entirely terminal), and
+  the dirty-worktree sweep **did** find unarchived state — the six files and one output head
+  now at `3ce5262`. Census unchanged (87 done, 12 superseded, 0 open, 0 blocked, and the
+  `w-paused-reconciliation` log itself as the only `working` entry). No agent launched, no
+  front resumed, nothing integrated, `main` untouched.
 
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
-for anything alive, and `git worktree list` for a worktree with an uncommitted `src/` or an
-untracked `examples/`/`tests/` file not already covered by `SOURCES.tsv`. If both are
-clean, **there is no work to do** — confirm the pause, record nothing further to avoid
-commit noise, and exit. Do not open a front.
+for anything alive, and every worktree's `git status --porcelain` for uncommitted `src/` or
+untracked `examples/`/`tests/`/`src/` files **and untracked directories** not already
+covered. Verify coverage by **content hash against the live file**, not by path or basename
+(standing rule 6 — two same-basename/different-content pairs have already been lost this
+way). If both checks are clean, **there is no work to do** — confirm the pause, record
+nothing further to avoid commit noise, and exit. Do not open a front.
