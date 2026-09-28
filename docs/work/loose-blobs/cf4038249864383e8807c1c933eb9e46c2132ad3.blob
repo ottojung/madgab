@@ -1,0 +1,575 @@
+---
+work_item: true
+id: w-5e2d41
+state: open
+priority: high
+owner: front B (agent-5e2d422, measurement-only pass 2026-09-27: fence re-confirmed and attributed; the pool-content guard is **not** reachable by a cheap-end retention floor, and the 16,384-emission budget is **not** the binding constraint either)
+branch: madgab-floorrev-5e2d42
+worktree: /workspace/madgab-floorrev-5e2d42
+updated: 2026-09-27T09:40:00Z
+---
+
+# w-5e2d41 — is a cheap-end retention floor sufficient to keep `hid` in the pool?
+
+Front: measurement, evidence and specification only. `src/lib.rs` is read-only
+in this worktree. Nothing is re-pinned, no baseline is changed, and the two
+surfaces this item is adjacent to — the shortlist fill ([w-5e2d41](w-5e2d41.md)
+proper, agent-5e2d411) and the reserve sweep (w-c3f81a) — are **not touched**.
+
+Recommendation: **the dichotomy the item offers is false in both directions**,
+and that is the finding. A cheap-end retention floor is **not** sufficient, and
+the global 16,384-emission budget is **not** the binding constraint. The
+constraint that actually decides the guard is the per-slot opening width
+`affordable_opening_width(d, 4_000)` — 5 for six slots, 7 for five — plus the
+depth-profile reserve's 16 strided draws per segmentation. The guard is
+nevertheless **reachable by a rule on which shortlist candidates are retained**
+(w-5e2d41 surface), because the decisive reserve draw is bit-identical on the
+two heads and the only difference is one word's membership of one span's
+shortlist. Details and arithmetic in §3 and §4.
+
+## 0. Provenance of every number here
+
+| | |
+|---|---|
+| head | `a8a8f70` (w-7b40d2, the stratified fill + its slot-accounting fix) |
+| base | `3e821c3` (the base of that branch) |
+| worktree | `/workspace/madgab-floorrev-5e2d42`, `src/lib.rs` untouched throughout |
+| base worktree (fence only) | `/workspace/floor-5e2d42-base`, detached at `3e821c3` |
+| instrumented probes | `/workspace/floor-5e2d42-probe` (at `a8a8f70`) and `/workspace/floor-5e2d42-baseprobe` (at `3e821c3`), branches `scratch/5e2d42-probe`, `scratch/5e2d42-probe-base` |
+| target dirs | `/workspace/target-5e2d42`, `-base`, `-probe`, `-probebase` (separate, other fronts building concurrently) |
+| release profile | `--release`, `SearchMode::approximate { per_word_budget: 0.5, total_budget: 1.5 }`, `top_n: 50`, corpus `CORPUS_JSON` — i.e. exactly `madgab --approximate --top 50` |
+
+`git diff --stat 3e821c3 a8a8f70 -- tests/emit_coverage.rs
+tests/corpus_integration.rs` is **empty**: the two fence files are the *same
+tree* on both heads, so every difference in §1 is a behaviour difference and
+not a fixture difference. (`tests/span_shortlist_bands.rs` exists only on the
+head; it is not part of either fence.)
+
+The instrumentation is a patch, not a source edit: it is stored as
+[`../w-5e2d42-measurement-probe.patch`](../w-5e2d42-measurement-probe.patch)
+with its driver example [`../w-5e2d42-probe-example.rs`](../w-5e2d42-probe-example.rs),
+so the next pass can reproduce every line below without a scratch worktree:
+
+```sh
+git apply docs/work/w-5e2d42-measurement-probe.patch      # onto either head
+cp docs/work/w-5e2d42-probe-example.rs examples/zz_5e2d42_spans.rs
+MADGAB_WATCH_TARGET="It's just a stupid game" \
+MADGAB_WATCH="hits,justice,dupe,hid,came" \
+  cargo run --release --example zz_5e2d42_spans
+```
+
+The patch selects its subject by the two environment variables above and names
+no phrase in `src/`, so it is phrase-free in the same sense the production rule
+is.
+
+## 1. The fence, re-confirmed independently
+
+`cargo test --release --test emit_coverage -- --test-threads=1` and
+`--test corpus_integration -- --test-threads=1`, run whole-suite and then
+**one test at a time** (`--exact`), on the same two worktrees.
+
+| test | base `3e821c3` | head `a8a8f70` |
+|---|---|---|
+| `a_lattice_alignment_can_be_absent_from_the_production_pool` | **ok** | **FAILED** |
+| `a_short_multi_syllable_proposal_set_is_not_one_word_count_class` | ok | ok |
+| `the_other_canonical_resegmentation_is_still_proposed` | ok | ok |
+| `the_production_pool_is_much_wider_than_the_printed_list` | ok | ok |
+| `approximate_pool_reaches_matches_deep_in_a_span` | ok | **ok** |
+| `approximate_pool_reaches_alternatives_past_the_opening_slot_width` | ok | **ok** |
+| `approximate_pool_reaches_resegmentations_deeper_than_one_walk` | ok | **ok** |
+| `approximate_finds_classic_madgab_resegmentation` (the pre-existing blocker) | FAILED | FAILED |
+| `approximate_output_is_locked` | ok | ok |
+
+Suite totals: `emit_coverage` **4 passed / 0 failed** on base, **3 / 1** on
+head; `corpus_integration` **12 / 1** on both, the one failure being the
+pre-existing `approximate_finds_classic_madgab_resegmentation`, i.e. the
+pristine baseline on both.
+
+**It is not test ordering and it is not host flakiness.** Three independent
+reasons, all measured:
+
+* **Isolation.** Run alone with `--exact`, the failing test still fails
+  (`0 passed; 1 failed; 3 filtered out`, 3.03 s) and the other three still
+  pass alone on both heads. No shared-state or ordering path exists.
+* **Repetition.** The whole head suite was run three times end to end: the same
+  single test fails each time, with the identical message
+  (`the word "hid" is absent from the pool entirely, so the pool assertion
+  above is vacuous for it`) and identical wall clock (10.90 s / 8.76 s / 9.38 s).
+* **Determinism is the repository's own claim.** `tests/approx_determinism.rs`
+  is green on both heads, and the pool sizes are exactly reproducible:
+  case 2 pool **18,936** on base and **18,933** on head, every run.
+
+So: **`a_lattice_alignment_can_be_absent_from_the_production_pool` is the one
+guard `a8a8f70` turns red, and all three `approximate_pool_reaches_*` guards
+stay green.** The fill did not cost the pool-reach properties. That is the
+matrix the next pass needs.
+
+### 1.1 One correction to the predecessor's reading of the same failure
+
+[w-7b40d2](w-7b40d2.md) §6 reports the five canonical words as "all five still
+in the shortlist of the span each lands on". Measured per span, that is true
+for four and false for one, and the exception is the whole story:
+
+| word | pool wordings, base | pool wordings, head |
+|---|---|---|
+| `hits` | 19 | 18 |
+| `justice` | 10,032 | 10,029 |
+| `dupe` | 25 | 23 |
+| **`hid`** | **2** | **0** |
+| `came` | 135 | 135 |
+
+(canonical case-2 pool: 18,936 → 18,933 clues.)
+
+`hid` is the only word whose pool presence changes qualitatively, from 2
+wordings to 0. And `hid` is **not** in the shortlist of every span it is
+offered on at `a8a8f70` — at the public API boundary,
+`Generator::span_shortlists`, target `It's just a stupid game`:
+
+| word | span | offered | cost | cost-rank | in shortlist at `a8a8f70` |
+|---|---|---|---|---|---|
+| `hid` | `[0,2)` | 256 | 0.3500000000 | 117 | **no** |
+| `hid` | `[2,4)` | 256 | 0.3615549442 | 63 | yes |
+| `hid` | `[3,4)` | 256 | 0.4000000000 | 218 | no |
+| `hid` | `[13,15)` | 256 | 0.3695198142 | 105 | yes |
+| `hid` | `[14,15)` | 256 | 0.4000000000 | 218 | no |
+| `hits` | `[0,3)` / `[0,4)` / `[1,3)` | 256 / 98 / 256 | 0.2 / 0.4 / 0.4 | 9 / 15 / 141 | yes (all three) |
+| `justice` | 13 spans, `[1,10)`…`[5,10)` | 1…63 | 0.0–0.4 | 1–21 | yes (all 13) |
+| `dupe` | `[9,13)`…`[11,14)` | 38…256 | 0.15–0.4 | 4–120 | yes (all 6) |
+| `came` | `[14,19)`…`[17,19)` | 35…256 | 0.2–0.4642 | 10–154 | yes (all 5) |
+
+So the sentence that matters is narrower than "all five are in the shortlist":
+**every canonical word is retained on the spans that carry it into a retained
+segmentation; `hid` is not retained on `[0,2)`, and that one span is where its
+last pool wordings went.**
+
+## 2. Which span each word lands on, and where it is lost
+
+### 2.1 The canonical five-word alignment is absent from the pool on **both** heads
+
+Worth stating because it re-scopes the fence: the test's *first* assertion —
+that the alignment `["hits","justice","dupe","hid","came"]` is not in the
+production pool — **passes on base too**. What `a8a8f70` breaks is the
+*second* assertion, that each of the five words is individually present. The
+red guard is a statement about one **word**, not about the five-word
+combination.
+
+Enumerating every span chain that could carry the alignment (it must start at
+0, assign one span per word in order, and end at 19; 8 such chains exist, all
+of them using only spans on which all five words are retained), from the
+instrumented DP:
+
+| candidate chain | base `3e821c3` | head `a8a8f70` |
+|---|---|---|
+| `[(0,3),(3,8),(8,13),(13,15),(15,19)]` | completed at rank 300, cut by `SEGMENTATION_KEEP` | completed at rank 300, cut by `SEGMENTATION_KEEP` |
+| `[(0,3),(3,9),(9,13),(13,15),(15,19)]` | completed at rank 284, cut by `SEGMENTATION_KEEP` | completed at rank 284, cut by `SEGMENTATION_KEEP` |
+| `[(0,3),(3,10),(10,13),(13,15),(15,19)]` | **retained** (rank 151) | **retained** (rank 151) |
+| `[(0,3),(3,11),(11,13),(13,15),(15,19)]` | **retained** (rank 187) | **retained** (rank 187) |
+| `[(0,3),(3,12),(12,13),…]` | impossible (`dupe` not offered on `[12,13)`) | same |
+| the three `[(0,4),…]` variants | never completed | never completed |
+
+So the alignment **is** a retained segmentation on both heads, at the same rank
+and the same position in the emission schedule. It is not the DP's fault and it
+is not `SEGMENTATION_KEEP`'s.
+
+### 2.2 The three candidate mechanisms, decided one at a time
+
+**(a) A `min_cost` tightening that prunes the path — NO.** The structural DP
+prunes a path in two places: `min_cost(path) + min_cost(edge) > total_budget`,
+and the admissible `span_bound(edge.end, …) < incumbent`. Instrumented counts
+over every path that touches a canonical word, both heads:
+
+| event | base | head |
+|---|---|---|
+| `PRUNE-COST` (min_cost over `total_budget`, or `max_words`) | 284 | 294 |
+| **`PRUNE-BOUND` (admissible bound under the incumbent)** | **0** | **0** |
+
+Zero on both. And the extremum that would have moved is bit-identical: the
+retained `min_cost` of the span that carries `hid` in the decisive structure,
+`[13,15)`, is **0.1012336003** on base and on head, and the width is 160 on
+both. The retained `SEGMENTATION_KEEP` ranks are the same list on both heads
+(71, 122, 126, 135 for the four `hid`-bearing chains). The fill changed
+*which* 160 are retained, not the bound the DP prunes with, and the DP pruned
+this path zero times on both.
+
+**(b) A change of branch composition — NO, for the word.** The 6-slot structure
+that actually emitted `hid` on base,
+`[(0,2),(2,3),(3,10),(10,13),(13,15),(15,19)]`, is retained on both heads at
+the **same** `SEGMENTATION_KEEP` rank (126), funded at the **same** schedule
+position (126), with the **same** widths `[160,160,7,160,160,93]`, the **same**
+opening cap (5), the **same** per-segmentation allowance (64) and the **same**
+reserve draw count (16 of 16). Branch composition is identical where it
+matters.
+
+**(c) A shortfall of the global emission budget — NO.** Measured at the decisive
+structure, from the `FUND` line: `budget_left = 7,312` of 16,384 — **44.6 % of
+the global emission budget was still unspent** when `hid`'s wording was emitted
+on base. The budget is exhausted only at **schedule position 240 of 256**, long
+after. Pop budget at exhaustion: 175,957 of 1,024,000 (**17.2 %**). Both heads:
+`spent_em = 16384/16384`, `BUDGET-EXHAUSTED at sched pos 240`. Nothing about
+the 16,384 is what removed `hid`.
+
+### 2.3 The actual mechanism, named
+
+The traversal cannot reach `hid` at all, and neither can the reserve by
+accident. The five words' positions in their slots, in the two retained
+alignments (head, from the `SLOT` lines; `cap` is the opening width the walk is
+allowed to read):
+
+| structure | sched | cap | `hits` | `justice` | `dupe` | `hid` | `came` |
+|---|---|---|---|---|---|---|---|
+| `[(0,3),(3,10),(10,13),(13,15),(15,19)]` | 151 | 7 | 7 | 0 | 13 | **119** | 11 |
+| `[(0,3),(3,11),(11,13),(13,15),(15,19)]` | 187 | 7 | 7 | 0 | 22 | **119** | 11 |
+
+`cap = affordable_opening_width(5, 4_000) = 7` (because
+`1+7+7²+7³+7⁴ = 2,801 ≤ 4,000 < 4,681 = 1+8+…+8⁴`). Four of the five indices
+are ≥ 7, so the prefix walk can never emit this alignment on either head. The
+stage-widening path (`next_branch_stage`, 7→28→112→160) is the designed escape,
+and it is **dead on this target**: instrumented `STAGE-DRAIN` events, whole
+run, both heads: **0**. A stage only widens after the walk *drains* the heap,
+and these walks never drain — they stop on the per-segmentation allowance, which
+the depth-profile reserve has already taken 14–16 of, leaving 48–50 of 64, and
+the walk fills exactly that (`EMITTED … emitted=50 profile=14`, `emitted=48
+profile=16`).
+
+**The consumer that spends the slot `hid` needs is the depth-profile reserve** —
+`coverage_tuples` with `EMIT_PROFILE_RESERVE = 16` and
+`EMIT_PROFILE_MAX_DEEP = 3`, drawn once per segmentation at the head of that
+segmentation's allowance. It is the only mechanism in the search that reads a
+slot index past the opening cap. All sixteen of its draws at the decisive
+structure, both heads:
+
+| draw | base `3e821c3` | head `a8a8f70` |
+|---|---|---|
+| 1 | **`[136,0,0,0,0,0]` → slot 0 = `hid`** | **`[136,0,0,0,0,0]` → slot 0 = *not* `hid`** |
+| 2 | `[0,146,0,0,0,0]` | `[0,146,0,0,0,0]` |
+| 3 | `[0,0,0,10,0,0]` → `justice`, `dupe` | `[0,0,0,10,0,0]` → `justice`, `dupe` |
+| 4–10 | identical | identical |
+| 11 | `[0,87,0,0,100,0]` | `[0,86,0,0,93,0]` |
+| 12–16 | identical | identical |
+
+Draw 1 is **bit-identical** on the two heads. On base, slot 0 of that
+structure — span `[0,2)` — held `hid` at rank **136 of 160**; on head it does
+not hold `hid` at all, and rank 136 is some other word. **That single cell is
+the whole difference.** The other base wording containing `hid` used slot 4
+(span `[13,15)`), where `hid` sits at rank 99 on base and rank 123 on head; that
+one *is* additionally sensitive to the reserve's sampled pick (draw 11 moved
+87→86 and 100→93, because the sampled draw is chosen by the admissible `bound`,
+which the fill changes), but it is not needed: one retained occurrence is
+enough for the guard.
+
+## 3. Is a cheap-end retention floor sufficient? — **No, and it is already vacuous**
+
+The floor the item proposes is the shape w-7b40d2 §6.2 argues for: *retain at
+least as many candidates at or below each cheap cost threshold as the global
+`quality` order would have retained, then apportion the rest.* Measured at the
+public API boundary on the head, per span of the canonical target, with the
+same 1.5×-of-cheapest threshold w-0f3a17 and w-7b40d2 use
+(`Generator::span_shortlists` vs `span_candidates`, `per_word_budget = 0.5`):
+
+**On all 108 spans of `It's just a stupid game`, `cheap1.5x_retained ==
+cheap1.5x_offered`. Zero spans drop a candidate inside their own 1.5×-of-minimum
+band.** That is w-7b40d2's 623 → 0, restated per span, and it means the floor
+is **already satisfied everywhere on this head** — a rule that only constrains
+the cheap end cannot change anything here, because the cheap end is already
+complete. It is not that the floor is too weak; on this head it has no work to
+do.
+
+And it could not reach `hid` even if it did, by arithmetic. On the span that
+matters, `[0,2)`:
+
+* the span's `min_cost` is **0.0000000000**;
+* `hid` is offered at cost **0.3500000000**;
+* so the cheap-end *ratio* `0.35 / 0.0` is **not finite**: a multiplicative
+  floor of any multiple `k` retains exactly the `⌊k · 0⌋ = 0`-band, i.e. the
+  single zero-cost candidate, and `hid` is outside every `k`. The 1.5× band of
+  this span is **1 of 256** offered candidates and `hid` is not in it.
+
+The floor family is therefore wrong in *form* for this guard. What `hid` needs
+is a floor on a **band that is not the cheapest one**, or an absolute/rank
+floor — retaining some candidates at cost ≈ 0.35 in a span whose minimum is
+0.0. Note this is the same shape as w-7b40d2 §6.2's own arithmetic on
+`taco cat` `[6,8)`, where the counterexample bound the *thickest* band, not the
+cheapest: `[0,2)` is the extreme case, a span whose floor sits at zero, so the
+"cheap end" is a single word and everything else is unconstrained by it.
+
+**So: FLOOR-SUFFICIENT is false, and the negative answer is the deliverable.**
+It is recorded plainly rather than made to pass.
+
+## 4. Is the 16,384-emission budget the binding constraint? — **No**
+
+Measured, not argued:
+
+* at the structure that emits `hid`, **7,312 of 16,384 emissions (55.4 % spent)
+  are unspent**; the ceiling is reached only at schedule position **240 of 256**;
+* the pop ceiling, the one that actually bounds wall clock, is at **17.2 %**
+  (175,957 of 1,024,000) — `LEXICAL_GLOBAL_POP_BUDGET` is not close to binding;
+* the per-structure depth account shows the real shape: **256 structures, 256
+  schedules, one structure each**, `structure_depth_ceiling` giving each
+  `LEXICAL_COMBINATIONS_PER_SEGMENTATION = 64`, of which the reserve takes
+  14–16 and the traversal spends the remaining 48–50 and stops. The traversal
+  is **allowance-bound, not budget-bound**;
+* the traversal is also **width-bound**: `STAGE-DRAIN` fires 0 times in the
+  whole run on both heads, so no widening from 5/7 towards 160 ever begins, and
+  raising any global ceiling would not reach a slot index of 119.
+
+The number that decides it: **7,312 unspent emissions of 16,384 at the point of
+loss** — a 1.86× headroom against the very budget the item offers as the
+explanation. **BUDGET-BINDING is false as well.**
+
+### 4.1 The property a successor would need instead, with arithmetic
+
+If a successor wants a *general* statement that makes the pool-content guard
+hold without naming a word, the honest candidate is **not** a cheap-end floor
+and **not** a bigger global budget. It is a statement about the *pair*
+(shortlist contents, reserve draws):
+
+> For every span and every candidate `c` the shortlist retains, `c` must be
+> reachable at the traversal's opening width **or** at an index the reserve
+> sweep is guaranteed to draw — and a 16-draw systematic sample of a
+> `160·160·7·160·160·93 = 4.266·10¹¹`-cell product grid is a cover of each
+> *slot*, never of the *tuple*, so no property of the form "every retained
+> candidate is drawn" exists at this budget.
+
+The arithmetic that makes the pair necessary and the two halves individually
+insufficient:
+
+* **Width half.** For a `d`-slot structure the walk reads indices
+  `0..min(cap, width)` with `cap = affordable_opening_width(d, 4_000)`, i.e.
+  `1 + cap + … + cap^{d-1} ≤ 4_000`. Measured: `cap = 10` at `d ≤ 4`, `7` at
+  `d = 5`, `5` at `d = 6`. A candidate at rank `r` in a slot is unreachable
+  unless `r < cap`; the canonical alignment needs `r = 7, 0, 13, 119, 11`, so
+  it is unreachable at `d = 5` and no budget change alters that — only
+  `cap`, `SPAN_SHORTLIST` (the shortlist *width*, 160) or the stage-widening
+  trigger can.
+* **Sweep half.** The reserve's coverage argument
+  (`sweep_index`, `w-c3f81a`) is that one sweep *tiles each slot's list*:
+  `stride = span.div_ceil(per)` with a rotated start. That is a per-slot
+  statement. It says nothing about a 5- or 6-dimensional tuple, and the
+  measured draws show it: 15 of the 16 draws at the decisive structure are
+  identical across the two heads while the *contents* at one index differ, and
+  one draw moved (87→86, 100→93) purely because the sampled candidate is
+  picked by the admissible `bound`, which the fill perturbs.
+* Consequently the only rule that can restore this guard, given a fixed sweep
+  and a fixed `cap`, is a rule on **which candidates a span retains and at what
+  rank** — which is the w-5e2d41 surface — and it must be stated as a *rank*
+  or *band* floor, not a cheap-end ratio (§3).
+
+**Clean yes/no for the coordinator's split-or-merge question: the consumer is
+reachable by a rule on which shortlist candidates are retained — the
+**w-5e2d41** surface (agent-5e2d411) — and not only by a rule on the reserve
+sweep placement (w-c3f81a).** The decisive reserve draw `[136,0,0,0,0,0]` at
+schedule position 126 is *bit-identical* on the two heads; only the shortlist
+of span `[0,2)` changed under it. w-c3f81a's surface is therefore **not** on
+the critical path for this guard, and a successor should not spend a front on
+it for this fence. (It *is* on the critical path for the **second** base
+wording, via draw 11 and the 99→123 rank shift — recorded, not needed.)
+
+## 5. Scope and hygiene
+
+* **No `src/` edit reaches any branch.** `src/lib.rs` in this worktree is
+  byte-identical to `a8a8f70` (`git status` clean except the two files added
+  below). The instrumentation exists only in `/workspace/floor-5e2d42-probe`
+  and `/workspace/floor-5e2d42-baseprobe`, and is published as a **patch
+  file** under `docs/work/`, not as a source change.
+* No re-pinning, no baseline change, no `#[cfg(test)]` counter, no `ZZ_*`
+  instrumentation in the production tree, no environment knob introduced.
+* `cargo fmt`, `cargo clippy` and doctests **cannot run on this host** (see
+  [../environment-notes.md](../environment-notes.md)) and are not claimed. Only
+  `cargo test --release --test <name>` was used as verification.
+* Files added by this front: `docs/work/items/w-5e2d41.md` (this record),
+  `docs/work/w-5e2d42-measurement-probe.patch`,
+  `docs/work/w-5e2d42-probe-example.rs`.
+* No third front was opened. Neither w-5e2d41's implementation front nor
+  w-c3f81a was touched.
+
+## 6. One-line verdict
+
+**NEITHER — the deciding numbers are `hid` at cost 0.3500000000 against a span
+`min_cost` of 0.0000000000 on `[0,2)` (a 1.5× cheap-end floor is already
+satisfied on 108 of 108 spans, so it is vacuous), and 7,312 of 16,384 emissions
+unspent at the point of loss (1.86× headroom), with the traversal stopped by
+`affordable_opening_width(5, 4_000) = 7` against a needed rank of 119.**
+
+---
+
+# Front A (agent-5e2d411) — implementation attempt, priced negative
+
+Branch `madgab-floor-5e2d41`, worktree `/workspace/madgab-floor-5e2d41`, base
+`a8a8f70`. **No `src/` line reaches this branch**: `src/lib.rs` is byte-identical
+to `a8a8f70` (`git diff a8a8f70 -- src/` is empty). The floor was implemented,
+measured and then abandoned on front B's refutation, which my own measurements
+had already independently reproduced. The implementation survives only as
+commits `f2fb62e` (WIP snapshot, pushed for durability) and `8a1aea2` (its
+revert), so the work is auditable and lands nothing.
+
+Recommendation: **HOLD**. The floor is not merely insufficient for this guard,
+it is *vacuous at the threshold the item names* and it is *not free* where it
+does bind.
+
+## A1. What I measured first, on `a8a8f70`, before editing anything
+
+`Generator::span_candidates` / `span_shortlists` at `per_word_budget = 0.5`,
+twelve real targets, 1.5×-of-span-cheapest criterion, same as w-7b40d2 §1/§4:
+
+| | base `3e821c3` (w-7b40d2) | `a8a8f70`, reproduced here |
+|---|---|---|
+| span edges | 939 | **939** |
+| cheap candidates within 1.5× of their span cheapest | 7,056 | **7,051** |
+| of those, dropped at every width | 623 (8.8 %) | **0** |
+| worst per-span share | 24 of 56 (43 %) | **0 of 1** |
+| unrepresented non-empty cost bands (3,234 surveyed) | 1 | **0** |
+| unrepresented bands within 1.5× of cheapest (1,371 surveyed) | 2 | **0** |
+
+Both canonical rank-50 cutoffs, `--top 50`, pool API, unchanged at
+**0.918796440893** (`recognize speech`) and **0.915121574454**
+(`It's just a stupid game`). The red fence reproduced exactly:
+`emit_coverage` **3 passed / 1 failed**, the one failure
+`a_lattice_alignment_can_be_absent_from_the_production_pool` on the word
+`"hid"`.
+
+## A2. The floor is vacuous at 1.5×, and the item's own threshold is 1.5×
+
+Sweeping the multiplier outward over all 885 multi-candidate spans, counting
+spans whose cheap set is *not fully retained* and the total shortfall:
+
+| multiplier of span cheapest | spans unsaturated (of 885) | total shortfall |
+|---|---|---|
+| **1.5×** | **0** | **0** |
+| 2.0× | 84 | 5,379 |
+| 2.25× | 89 | 6,371 |
+| 3.375× | 165 | 12,785 |
+| 8.0× | 269 | 23,004 |
+
+A floor at the threshold w-0f3a17 and w-7b40d2 both use has **no work to do on
+this head**: 0 spans unsaturated, 0 candidates short. This is front B's §3
+finding, reached independently by sweep rather than by case analysis, and it is
+the reason no implementation of the floor as specified can move this fence: a
+constraint that is already satisfied everywhere cannot change any output.
+
+## A3. Why no cost-ordered rule reaches the needed rank — the arithmetic
+
+A rank-based reading of the same failure, which is the part that decides what a
+successor must do. The canonical five-word alignment needs slot-0 indices
+`7, 0, 13, 119, 11`; on the base head its `hid` sits at **rank 136** of slot 0
+and on `a8a8f70` it is not in slot 0 at all. The traversal for a `d`-slot
+structure reads indices `0..min(cap, width)` with
+`cap = affordable_opening_width(d, 4_000)`, i.e. `1 + cap + … + cap^{d-1} ≤ 4_000`,
+which measures `cap = 10` at `d ≤ 4`, **`7` at `d = 5`**, `5` at `d = 6`.
+
+So the needed rank **119** (and the base rank 136) is **17× and 19× past the
+opening width of 7** at the five-slot structure where the alignment is emitted.
+Three consequences, each measured rather than argued:
+
+* **A global budget change cannot reach it.** Raising the emission ceiling
+  changes how *many* tuples are drawn, not how deep into a slot the traversal
+  looks; front B measures 7,312 of 16,384 emissions unspent at the point of loss.
+* **A cost-ordered retention rule cannot reach it either, and this is the part
+  specific to my front.** Cost ordering is exactly the ordering under which the
+  cheap end saturates first: at 1.5× the cheap set is *already* complete
+  (A2), so a cost rule can only permute which cheap words occupy ranks `0..6`,
+  and `hid` is not one of them — on span `[0,2)` the span minimum is 0.0 and
+  `hid` sits at cost 0.35, so **no finite multiple of the minimum reaches it**,
+  and it is outside every cheap band of that span. Any rule of the form
+  "retain more of the cheap end" therefore either (a) is satisfied already, or
+  (b) reorders words none of which is the one missing.
+* **What is needed is a rank or non-cheapest-band property, not a cost-ratio
+  one** — a guarantee about *which* candidates occupy the first `cap` ranks of
+  each slot, stated over coverage or structural distinctness rather than over
+  cost.
+
+## A4. The floor is not free: binding it costs band representation
+
+This is my front's own contribution and it is a second, independent reason not
+to land the floor. The floor's demand has to be *funded*: the list is 160 wide,
+so retaining more cheap-end candidates means releasing dearer ones. I
+implemented the funding three ways and measured the cost of each.
+
+The cheap end is retained by the apportionment *for free*, because the integral
+apportionment exhausts a **thin** band before a thick one — which is precisely
+why criterion 2 is 0 without any floor. The floor therefore only ever binds on
+**mid-cost, thick** bands, and it is funded from the **dear** end. Measured
+consequences of letting it bind, with a derived 4-tier ladder:
+
+* **Unconstrained funding drains the top of the cost range.** On span `(8,10)`
+  of `It's just a stupid game` the retained maximum cost fell to **0.400000**
+  against an offered maximum of **0.499816**, emptying the test's cost band 3
+  of 4 (27 offered, 0 retained) — `every_non_empty_cost_band_contributes_to_the_span_shortlist`
+  goes **red**, i.e. the floor *breaks the predecessor's own guard*. Across the
+  3,234-band survey: 1–3 unrepresented bands for every binding depth tried.
+* **Protecting band and tier last-representatives, and refusing to fund from
+  the dearest tier at all, restores 0 unrepresented** and keeps criterion 2 at 0
+  — and then the floor is nearly free but also nearly **inert**: the fence stays
+  **red**, exactly as A2 predicts.
+
+## A5. The parameter-free limit of the floor family is the global fill
+
+A structural reason the depth of the ladder cannot simply be "made large".
+State the floor as w-7b40d2 §6.2 does — at *each* cheap cost threshold, retain
+at least as many candidates at or below it as the global `quality` order would —
+and let the threshold set be every candidate cost. Then at the dearest retained
+cost of the global order the demand is `|global| = min(160, offered)`, which on
+any span offering more than 160 candidates is **the entire list**. So the
+parameter-free member of this family **is** the global `quality` fill: it
+reproduces w-7b40d2's pre-stratification state and re-opens the 623. The family
+therefore has **no** parameter-free member that is both a strict constraint and
+compatible with stratification, and the width of the "cheap" restriction is a
+real trade knob, not a free parameter.
+
+I measured where that knob sits against the fence, and record it as a **negative
+with a caveat attached rather than as a setting**: ladders of 1.5×4, 1.4×8,
+1.3×10 and 1.2×14 leave `emit_coverage` red; 1.25×12 and 1.1×20 turn it green.
+The second group was found **by scanning the depth against the fence**. That is
+fitting a constant to the fence even with the constant documented, and it is not
+landed. It is recorded here only so the coordinator can see the shape of the
+trade and does not re-derive it.
+
+For completeness, the safe derived form was implemented rather than left as an
+assertion: the ladder resolved into as many geometric cost tiers as the rule's
+own cost axis has bands (`SPAN_COST_BANDS = 4`, the same resolution the axis
+already uses to say what cost differences are distinguishable), funded only from
+the cheap and middle tiers, never releasing a band or tier's last
+representative. Under it the shortlist is genuinely re-selected and not a no-op
+— **90,829 retained entries over the twelve targets on both heads, identical
+width, 9,862 → 9,864 distinct words** — criterion 2 stays at **0 dropped**, the
+band surveys stay at **0 unrepresented**, both canonical cutoffs are unmoved,
+and `emit_coverage` is **still 3 passed / 1 failed**. That is the whole result
+in one line: a correct, derived, cheap-end floor re-selects the list without
+narrowing it and does not turn the guard green.
+
+## A6. Successor rule, one line
+
+> Replace the cheap-end **cost-ratio** floor with a **rank/band floor on the
+> traversal's opening width**: for every span, the first
+> `cap = affordable_opening_width(d, 4_000)` candidates of each slot must span
+> the span's own candidate set in *coverage* or *structural distinctness* — not
+> in cost — so a word needed at rank 119 is either inside the opening width or
+> provably not needed there.
+
+## A7. Verification on this branch (src identical to `a8a8f70`)
+
+`CARGO_TARGET_DIR=/workspace/target-5e2d41`, release, single-threaded
+(`corpus_integration` at `--test-threads=2`, per the host note in
+[w-7b40d2](w-7b40d2.md) §7):
+
+| suite | result |
+|---|---|
+| `--test span_shortlist_bands` | **3 passed, 0 failed** |
+| `--test emit_coverage` | **3 passed, 1 failed** — `a_lattice_alignment_can_be_absent_from_the_production_pool` (`"hid"`) |
+| `--test corpus_integration` | **12 passed, 1 failed** — the pre-existing `approximate_finds_classic_madgab_resegmentation`; all three `approximate_pool_reaches_*` green and **not re-pinned**; `approximate_output_is_locked` green and **never re-baselined** |
+| `--test approx_determinism` | 4 passed, 0 failed |
+| `--test exact_determinism` | 1 passed, 0 failed |
+| `--test no_phrase_hard_coding` | 9 passed, 0 failed |
+
+No re-pinning, no baseline change, no environment knob, no cap or walk change,
+no coverage-reserve tuple placement touched. `cargo fmt` and `cargo clippy`
+cannot run on this host ([../environment-notes.md](../environment-notes.md)) and
+are not claimed. The measurement probe (`examples/zz_crit2.rs`,
+`examples/zz_dbg.rs`) was **untracked and has been deleted**; nothing from it
+can land.
+
+## A8. Verdict
+
+**HOLD** — the cheap-end retention floor is vacuous at the item's own 1.5×
+threshold (0 of 885 spans unsaturated), is unreachable for the missing word by
+the `0.35 / 0.0` arithmetic, and costs band representation wherever it does
+bind; the successor is the rank-floor of A6, not a deeper cost ladder.

@@ -1,0 +1,124 @@
+---
+work_item: true
+id: w-2c9d41
+state: done
+priority: normal
+<<<<<<< HEAD
+owner: coord-7d41 (reconciliation pass 2026-09-27T19:56Z-20:08Z: RECOVERY. agent-2c9d411 existed since ~19:24Z with prompt_count 0 and no output.log - created and never prompted, exactly the failure the 18:40Z pass found on w-9b4a15. It was PROMPTED at 20:01Z and is now RUNNING (prompts=1, alive) in /workspace/madgab-obstruction-2c9d41 [madgab-obstruction-2c9d41] at 9fd245e, left running for a later pass. Docs-only, cannot conflict with the scoring front. No integration candidate this pass, no source change, main untouched) / prior owner coord-1934 (reconciliation pass 2026-09-27T19:21Z-19:40Z)
+updated: 2026-09-27T20:08:00Z
+=======
+owner: coord-1934 (reconciliation pass 2026-09-27T19:21Z-19:40Z)
+updated: 2026-09-27T20:05:00Z
+>>>>>>> 95ffdc9 (w-2c9d41: consolidate the case-2 obstruction map - 13 cited priced coordinates, seven recorded conflicts, three remaining shapes)
+branch: madgab-obstruction-2c9d41
+worktree: /workspace/madgab-obstruction-2c9d41
+opened_by: coord-1934 (reconciliation pass 2026-09-27T19:21Z)
+source_item: REPORT-5d9c04 §8 (integrated 2026-09-27T19:27Z at dd94988), which hands the measurement on
+base: dd94988 (post-milestone-acceptance, pushed)
+---
+
+# Consolidate the case-2 obstruction map: one document that says which coordinates are closed, by what measurement
+
+## Goal
+
+Produce `docs/work/OBSTRUCTION-MAP.md`: a single, cited, read-only roll-up of every coordinate that
+has been priced against the canonical case-2 example (`It's just a stupid game` ->
+`Hits Justice Dupe Hid Came`), what each one's measurement was, and therefore which shapes of fix are
+still unpriced. No production change, no new measurement of an already-priced coordinate, no new
+probe.
+
+## Why
+
+`REPORT-5d9c04` §8, integrated at `dd94988`, closes the stage-4 cut on two independent axes
+(the admitted **set**: refuted by arithmetic, `cap/(2n)`; the **order**:
+[../REPORT-1c7d40.md](../REPORT-1c7d40.md) §3) and hands the third on - the **width**, already
+priced negative by [w-9e2b41](w-9e2b41.md) as a per-slot marginal against a jointly charged
+linear budget. A fresh pass that has not read all of this will re-open a closed coordinate, which
+is the specific failure this repository's records keep warning about (`w-1c7d40` "do not re-run
+it", `w-7b40d2` / `w-5b1e93` superseded so they stop inviting duplicate fronts, `w-0f3a17`
+DO-NOT-RE-TAKE). One durable map removes that failure mode for the next several passes.
+
+## What this front must do
+
+1. Read, at least, `docs/work/REPORT-1c7d40.md` (§3, §4, §7.2), `REPORT-5d9c04.md` (§3, §6,
+   §8), `REPORT-3a8c05.md` (§3, §5), `REPORT-4d7c12.md`, `REPORT-9e2b41` (see
+   [w-9e2b41.md](w-9e2b41.md) and [w-9e2b41-measurement.md](w-9e2b41-measurement.md)),
+   `REPORT-1c7d40`'s predecessors as listed in the w-1c7d40 item, and
+   [../environment-notes.md](../environment-notes.md).
+2. Emit one table, one row per coordinate, with: the coordinate in words, the report and section
+   that priced it, the decisive number(s), whether it is CLOSED or still open, and the constraint
+   that closed it. Cover at minimum: per-slot order (`w-1c7d40`), per-slot admitted set
+   (`w-5d9c04`), per-slot width / opening width (`w-9e2b41`), fill strategy (`w-7b40d2`),
+   emission bound (`w-5b1e93`), coverage reserve and tuple placement (`w-c3f81a`, `w-5e2d41`),
+   floor (`w-5e2d41`, `w-5e2d42`), depth cap and shortlist width (`w-9c6f2b`, `w-c1d3a7` if they
+   bear on it), the objective/ranking surface (`w-3a8c05`, and the in-flight `w-9b4a15`).
+3. State the **remaining unpriced shapes** explicitly, in a short list, so a future coordinator can
+   pick one without re-reading every report. If your reading finds that the list is empty, say so
+   and say what the honest next move is (a general search-quality item rather than another
+   case-2 reach attempt). That is a legitimate and useful conclusion.
+4. Note the one standing blocker, `approximate_finds_classic_madgab_resegmentation` (case 2, red
+   at base, not to be re-pinned), and the standing green fact: `wreck a nice beach` is produced
+   for `recognize speech` at pool rank 27, displayed 26/50.
+
+## Constraints
+
+* **Docs-only.** No edit to `src/`, `tests/`, `examples/`, no `Cargo.toml`, no baseline, no probe,
+  no new measurement run. You may read reports; you may not re-run a priced coordinate.
+* **No re-derivation.** Cite the number, do not recompute it. If a report contradicts another,
+  record the conflict and both numbers rather than picking a winner.
+* Release-mode test runs are not required and should not be run: this front produces no code.
+* **No self-merge.** Push `madgab-obstruction-2c9d41` and stop. `main` and
+  `post-milestone-acceptance` are untouched by this front.
+
+## Independence
+
+* `w-9b4a15` (front `agent-9b4a152`) owns the **scoring** surface and edits `src/lib.rs`. This
+  front edits no source at all, so the two cannot conflict.
+* This front must not decide any coordinate's verdict; it only records what has already been
+  decided, and cites.
+
+## Completion criteria
+
+1. `docs/work/OBSTRUCTION-MAP.md` exists, is cited, and has a row for every coordinate listed in
+   obligation 2 with a decisive number for each.
+2. The remaining-unpriced-shapes section exists and is either a concrete list or an explicit,
+   argued "nothing remains" statement.
+3. No file outside `docs/` is modified on the branch: `git diff --stat <base>..HEAD` shows only
+   `docs/`.
+4. The item's Handoff / notes section records the branch, what was produced, and the next action.
+
+## Handoff / notes
+
+* Opened 2026-09-27T19:40Z by the 19:21Z reconciliation pass, immediately after
+  `REPORT-5d9c04`'s HOLD was integrated at `dd94988` and its §8 named the obstruction handoff.
+* **Objective state at open:** the accumulation branch is at `dd94988`, in sync with
+  `origin/post-milestone-acceptance`. Case 1 is green (`wreck a nice beach` for `recognize
+  speech`, pool rank 27/50); case 2 canonical reach is 0 of ~18.9k under every rule priced so far.
+* **Front delivered 2026-09-27, branch `madgab-obstruction-2c9d41`, base `dd94988`.** Produced
+  `docs/work/OBSTRUCTION-MAP.md`: a 13-row cited table (per-slot order, admitted set, width, fill
+  strategy, emission bound, coverage reserve / tuple placement, floor, depth cap, shortlist width,
+  objective / ranking, adjacency, lattice coverage, full-width traversal), each row carrying the
+  pricing report and section, the decisive numbers, CLOSED-or-open, and the constraint that closed
+  it; a **conflicts-recorded** subsection keeping seven source disagreements with both numbers
+  (notably `hid` at 99 vs 119 vs 136, and `7/0/3/85/7` vs `7/0/13/99/11`); the standing blocker note
+  (`approximate_finds_classic_madgab_resegmentation`, red at base, not to be re-pinned) and the
+  standing green fact (pool rank 27, displayed 26/50).
+* **Remaining-unpriced-shapes conclusion:** the list is *short but not empty* - three shapes, none of
+  which is a re-specification of a priced row: (1) a cut that is not a function of any single scalar
+  per-candidate property, i.e. a rank/band or structural-distinctness admission over the first `cap`
+  ranks of each slot (the successor rule both `w-5e2d41` fronts named independently); (2)
+  joint-coordinate coverage in the reserve sweep, deliberately not opened by `w-c3f81a` and so
+  priced nowhere; (3) a per-slot width vector argued from a criterion the pop budget does not already
+  fix (58,106 jointly affordable allocations at depth 4 make the split a choice, not a derivation),
+  with the standing warning that any such implementation pays 22.8x in resident frontier and OOMs.
+  If all three fail, the document argues the honest next move is a general search-quality item plus
+  landing `w-9b4a15`'s `SHAPE` -> `PARSIMONY` head fix, **not** another case-2 reach attempt -
+  `REPORT-3a8c05` §3's weight-free bound of rank 1,127 puts the top-50 display out of reach of any
+  monotone objective, so reach is the only thing a search-side coordinate can move.
+* **Constraints honoured:** docs-only, no `src/`/`tests/`/`examples/`/`Cargo.toml` edit, no baseline
+  change, no new probe, no re-running of any priced coordinate, no re-derivation (numbers are cited
+  and conflicts are recorded rather than reconciled). No release test run was needed or performed.
+  No self-merge: `main` and `post-milestone-acceptance` untouched.
+* **Next action for a later pass:** review `OBSTRUCTION-MAP.md` when the front is terminal and
+  integrate it onto `post-milestone-acceptance`; then take the next coordinate from its
+  remaining-shapes list as a fresh work item rather than from a report's §7.2 by reflex.

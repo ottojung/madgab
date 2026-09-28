@@ -1,0 +1,625 @@
+//! Integration tests against the real shipped corpus.
+//!
+//! These complement the unit tests in src/lib.rs by exercising the
+//! full corpus and a few known Mad Gab / oronym regressions.
+
+use std::collections::{HashMap, HashSet};
+
+use madgab::lexical::is_closed_class;
+use madgab::{Generator, GeneratorConfig, SearchMode};
+use open_english_pronouncing_dictionary::CORPUS_JSON;
+
+fn gen_unfiltered() -> Generator {
+    Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            max_rarity: None,
+            ..GeneratorConfig::default()
+        },
+    )
+    .expect("corpus should parse")
+}
+
+#[test]
+fn canonical_words_have_expected_narrow_ipa() {
+    let g = gen_unfiltered();
+    let c = g.corpus();
+    let checks: &[(&str, &str)] = &[
+        ("stupid", "stup"),
+        ("hid", "hɪd"),
+        ("hits", "hɪts"),
+        ("justice", "dʒʌs"),
+        ("love", "lʌv"),
+        ("just", "dʒ"),
+        ("chair", "tʃ"),
+        ("game", "eɪ"),
+        ("came", "eɪ"),
+        ("dupe", "dup"),
+        ("a", "ə"),
+        ("the", "ðə"),
+    ];
+    for (word, expected) in checks {
+        let ipa = c
+            .preferred_ipa(word)
+            .unwrap_or_else(|| panic!("corpus must know {:?}", word));
+        let stripped: String = ipa
+            .chars()
+            .filter(|&ch| ch != 'ˈ' && ch != 'ˌ')
+            .collect();
+        let stripped = stripped.replace('g', "ɡ");
+        assert!(
+            stripped.contains(expected),
+            "expected {:?} in preferred IPA of {:?}, got {:?}",
+            expected,
+            word,
+            ipa,
+        );
+    }
+}
+
+#[test]
+fn known_madgab_pair_is_searchable() {
+    let g = gen_unfiltered();
+    let c = g.corpus();
+    for w in [
+        "it's", "just", "a", "stupid", "game", "hits", "justice", "dupe", "hid",
+        "came",
+    ] {
+        assert!(
+            c.preferred_ipa(w).is_some(),
+            "corpus missing canonical Mad Gab word {:?}",
+            w,
+        );
+    }
+}
+
+#[test]
+fn generates_for_a_real_phrase() {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            top_n: 5,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    let clues = g.generate("I love you");
+    assert!(!clues.is_empty(), "expected at least one clue for 'I love you'");
+    for c in &clues {
+        assert!(!c.phrase.is_empty());
+        assert!(
+            c.score.is_finite() && (0.0..=1.0).contains(&c.score),
+            "score out of [0,1]: {}",
+            c.score
+        );
+    }
+}
+
+#[test]
+fn approximate_mode_runs_end_to_end() {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 10,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    let clues = g.generate("I love you");
+    assert!(!clues.is_empty(), "approximate mode found no clues");
+    for c in &clues {
+        assert!(!c.words.is_empty());
+    }
+}
+
+fn approximate_proposals(target: &str) -> Vec<String> {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 50,
+            beam_width: 64,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    g.generate(target)
+        .into_iter()
+        .map(|c| c.phrase.to_lowercase())
+        .collect()
+}
+
+#[test]
+fn approximate_finds_classic_madgab_resegmentation() {
+    let proposals = approximate_proposals("It's just a stupid game");
+    assert!(
+        proposals.iter().any(|p| p == "hits justice dupe hid came"),
+        "canonical clue missing from top 50; got: {:?}",
+        &proposals[..proposals.len().min(12)]
+    );
+}
+
+#[test]
+fn approximate_finds_recognize_speech_resegmentation() {
+    let proposals = approximate_proposals("recognize speech");
+    assert!(
+        proposals.iter().any(|p| p == "wreck a nice beach"),
+        "canonical clue missing from top 50; got: {:?}",
+        &proposals[..proposals.len().min(12)]
+    );
+}
+
+/// A Mad Gab answer has to be readable, and the aggregate property that
+/// makes it readable is that it is built from *content* words.  This is
+/// the corpus-level counterpart to `proposal_list_covers_distinct_
+/// resegmentations`: the same two properties, measured over real
+/// proposals from real targets rather than over a synthetic pool.
+///
+/// It is deliberately two targets, sharing one `Generator` (the corpus
+/// load is ~0.5s and each approximate search is seconds), and it asserts
+/// on proportions and on structural spread rather than on any
+/// particular clue, so it keeps holding as the ranking changes.
+#[test]
+fn approximate_proposals_are_predominantly_content_words() {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 20,
+            beam_width: 64,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+
+    for target in ["I love you", "a whole lot of trouble"] {
+        let clues = g.generate(target);
+        assert!(!clues.is_empty(), "no proposals for {target:?}");
+
+        let content_share: f64 = clues
+            .iter()
+            .map(|c| {
+                let closed = c
+                    .words
+                    .iter()
+                    .filter(|w| is_closed_class(&w.word))
+                    .count();
+                1.0 - closed as f64 / c.words.len().max(1) as f64
+            })
+            .sum::<f64>()
+            / clues.len() as f64;
+        assert!(
+            content_share > 0.75,
+            "{target:?}: only {content_share:.3} of the words in the visible \
+             proposals are content words; proposals were {:?}",
+            clues
+                .iter()
+                .map(|c| c.phrase.as_str())
+                .collect::<Vec<_>>()
+        );
+
+        // The axis must not have collapsed the list onto one
+        // resegmentation: it is a tie-breaker between structures, not a
+        // reason to prefer a single one.
+        let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
+        for c in &clues {
+            *counts.entry(clue_boundaries(c)).or_default() += 1;
+        }
+        let dominant = counts.values().copied().max().unwrap_or(0);
+        assert!(
+            counts.len() >= 3,
+            "{target:?}: visible proposals span only {} resegmentation(s): {:?}",
+            counts.len(),
+            clues
+                .iter()
+                .map(|c| c.phrase.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            dominant as f64 / clues.len() as f64 <= 0.5,
+            "{target:?}: one resegmentation occupies {dominant} of {} \
+             proposals; the content-word axis collapsed the diversity",
+            clues.len()
+        );
+    }
+}
+
+/// The candidate pool deep enough to show wordings that only a wide slot
+/// search finds.
+///
+/// `top_n` here is deliberately far larger than the pool any of these
+/// targets produces (the largest is under 20 000), so what comes back is
+/// the whole enumeration rather than a selected prefix of it: the point is
+/// the pool, not the visible list, and a word that only a deep match
+/// supplies can sit thousands of ranks down.
+fn approximate_pool(target: &str) -> Vec<String> {
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 20_000,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+    g.generate(target)
+        .into_iter()
+        .map(|c| c.phrase.to_lowercase())
+        .collect()
+}
+
+/// A slot's candidate list is a property of the traversal, not a uniform
+/// pre-filter: a word that sits deep in one span's match list must still be
+/// reachable, because the enumeration opens a slot wider once the traversal
+/// has run out of nodes at the narrow width and still wants wordings.
+///
+/// The observable form of that is a *wording the narrow search never
+/// produces*.  Each entry below was measured absent from the pool of the
+/// binary built from the parent commit — which truncates every slot to a
+/// fixed width — and present in this one's; the deep word is named in the
+/// position it actually occupies, because that is the only thing that
+/// distinguishes them.  Note what this is *not* asserting: that a deep word
+/// is missing from the narrow pool.  For these targets it is not — the
+/// narrow search reaches the same rare final words, and what it cannot
+/// reach is the particular combination.  So the guard is on the wording,
+/// not on the vocabulary.
+///
+/// The wordings are re-measured against the current parent, which includes
+/// the reserved depth-profile spend: that reserve changes every pool, and an
+/// earlier trio chosen against a tree without it stopped discriminating
+/// (two of the three are now produced by the narrow search too).  A wording
+/// in this list is therefore a statement about the *merged* behaviour of the
+/// two mechanisms, not about this front alone.
+///
+/// All four targets are ordinary English phrases, not the acceptance
+/// examples, and nothing in `src/` knows them; see
+/// [w-9d4e17](../../docs/work/items/w-9d4e17.md) for the measurement.
+#[test]
+fn approximate_pool_reaches_matches_deep_in_a_span() {
+    for (target, wording) in [
+        // First-slot matches from past the head of that span's list.
+        ("I love you", "ask lovey"),
+        ("big spender", "began edgar"),
+        // A second-slot match, behind a first-slot match the narrow search
+        // does produce ("plague" is in both pools).
+        ("play games with me now", "bay games meow"),
+        // A final word the narrow search does not propose for this target.
+        ("taco cat", "taco net"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p == wording),
+            "{target}: {wording:?} missing, so a match deep in a span's match \
+             list was not reached; pool had {} clues, e.g. {:?}",
+            pool.len(),
+            &pool[..pool.len().min(8)]
+        );
+    }
+}
+
+/// The general property this front owns: **a dictionary word that is a real
+/// alternative of one span of the target is reachable in the approximate
+/// pool, however deep in that span's candidate list it ranks.**
+///
+/// The traversal opens a slot at a fixed width and widens it only when it
+/// drains, and it orders by an admissible bound, so it spends its allowance
+/// where every slot is at its own *best* alternative.  A word that is a
+/// genuine alternative but not the best one is therefore not late in that
+/// order — it is absent, and no budget reaches it, because the count of
+/// better-bound tuples in front of it grows with the product of the other
+/// slots' widths.  The coverage reserve is what makes those indices
+/// reachable.
+///
+/// Two observations, deliberately at different strengths.
+///
+/// The first is a *witness-free* count: the number of distinct words the
+/// pool draws on.  A pool confined to the head of every span's candidate
+/// list can only ever contain the common core, so this is a direct reading
+/// of the property with nothing named.  Measured on this head against the
+/// parent, over the intersection of five runs each (the pool at a very large
+/// `top_n` is not perfectly stable run to run, so a single run is not a
+/// basis for a witness): 593 -> 1580, 615 -> 1442, 476 -> 1526.
+///
+/// The second names individual words, and is the one that would fail on the
+/// parent.  Each is an ordinary dictionary word that fits an *unaligned*
+/// span of its target — the middle of a run of consonants the target's own
+/// word boundaries do not isolate — and each was measured absent from the
+/// parent's pool for that target and present in this one's.  They are
+/// ordinary English phrases, not either acceptance example, and nothing in
+/// `src/` knows them.  Words rather than whole wordings, because a word is
+/// the stable observable here and an exact four-word phrasing is not.
+#[test]
+fn approximate_pool_reaches_alternatives_past_the_opening_slot_width() {
+    for (target, floor) in [
+        ("the cat sat on the mat", 1_000usize),
+        ("a whole lot of trouble", 1_000),
+        ("when the rain finally stopped", 1_000),
+    ] {
+        let pool = approximate_pool(target);
+        let distinct: std::collections::HashSet<&str> =
+            pool.iter().flat_map(|p| p.split(' ')).collect();
+        assert!(
+            distinct.len() >= floor,
+            "{target}: the pool draws on only {} distinct words, so it is \
+             still confined to the head of each span's candidate list",
+            distinct.len()
+        );
+    }
+
+    for (target, word) in [
+        ("taco cat", "taught"),
+        ("a whole lot of trouble", "touched"),
+        ("when the rain finally stopped", "wince"),
+        ("the cat sat on the mat", "tickets"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p.split(' ').any(|w| w == word)),
+            "{target}: {word:?} missing from a pool of {} clues, so a real \
+             alternative below the traversal's opening slot width was not \
+             reached",
+            pool.len()
+        );
+    }
+}
+
+/// A resegmentation with more slots than a *uniform* opening width can walk
+/// to a leaf of must still contribute wordings to the pool.
+///
+/// The lexical traversal is a best-first walk over the product of its
+/// slots' candidate lists, so it reaches its first wording only after it
+/// has expanded the whole subtree above the all-cheapest leaf: at opening
+/// width `w` over `d` slots that is `1 + w + ... + w^(d-1)` nodes.  With
+/// one width for every segmentation that series is a function of the
+/// target's shape alone, and past a handful of slots it exceeds the
+/// per-segmentation pop limit — so those segmentations are not *poorly*
+/// funded, they are funded with a budget that cannot be spent at all: the
+/// walk exhausts the pop limit having emitted nothing.  Measured on the
+/// default release path at `w = 10` and a 4 000-pop limit, 27 of 256
+/// retained segmentations emit no wording at all on one four-word target
+/// and 109 on a six-word one.
+///
+/// So the opening width is derived from the pop limit and the slot count
+/// (see `affordable_opening_width` in `src/lib.rs`), and the property this
+/// asserts is the external consequence: wordings of seven-slot
+/// resegmentations of an ordinary target that the uniform width cannot
+/// reach at all.  Each wording below was measured **absent from the
+/// parent's pool** for this target and present in this one's; the target
+/// and the wordings are ordinary English, not either acceptance example,
+/// and nothing in `src/` knows them.
+///
+/// The honest limit of the claim: what is asserted is *reach*, not
+/// quality — these are low-scoring wordings of a resegmentation the
+/// ordinary beam does not want, and the win they witness is that the walk
+/// spends its pops on wordings at all.  The number of *distinct* deep
+/// resegventions in the pool does fall slightly (47 to 32 of six slots or
+/// more for this target), because the same pops now go to fewer, funded
+/// structures; see `docs/work/items/w-1c3e77.md`.
+#[test]
+fn approximate_pool_reaches_resegmentations_deeper_than_one_walk() {
+    for (target, wording) in [
+        ("she sells sea shells", "see if a law thus ish l.'s"),
+        ("she sells sea shells", "see ish a law this ish l.'s"),
+        ("she sells sea shells", "see ish air law this ish l.'s"),
+    ] {
+        let pool = approximate_pool(target);
+        assert!(
+            pool.iter().any(|p| p == wording),
+            "{target}: {wording:?} missing, so a resegmentation deeper than \
+             one uniform-width walk covers contributed no wording at all; \
+             pool had {} clues, e.g. {:?}",
+            pool.len(),
+            &pool[..pool.len().min(8)]
+        );
+    }
+}
+
+/// A clue's resegmentation, as the search aligned it.
+///
+/// This reads [\"madgab::Clue::cuts\"] rather than re-deriving offsets
+/// by summing the clue words' own IPA lengths.  The two disagree under
+/// an approximate alignment — a clue word consumes a run of the target's
+/// phonemes, not its own transcription — so re-deriving reports one
+/// resegmentation as many, and this test was measuring the diversity
+/// policy's *belief* about the list rather than the list.
+fn clue_boundaries(c: &madgab::Clue) -> Vec<usize> {
+    c.cuts[..c.cuts.len().saturating_sub(1)].to_vec()
+}
+
+/// Structural diversity on a real search: the visible list may not be
+/// one resegmentation.  This is the half of the selection policy that
+/// the synthetic unit tests in `src/lib.rs` cannot check, because they
+/// need a real candidate pool.  (Those carry the other half: a
+/// near-equal alternative in a shown structure is visible, while a much
+/// worse sibling is not.)
+#[test]
+fn approximate_list_is_not_one_resegmentation() {
+    // Deliberately not only the two acceptance phrases: this is a
+    // general property of the policy, so it is checked on a spread.
+    for target in [
+        "recognize speech",
+        "It's just a stupid game",
+        "taco cat",
+        "sign on",
+        "big spender",
+    ] {
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: 50,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let clues = g.generate(target);
+        assert!(clues.len() >= 10, "{target}: only {} clues", clues.len());
+
+        // The list is presented in descending score order, so it opens
+        // with the best wordings the search found.
+        for pair in clues.windows(2) {
+            assert!(
+                pair[0].score >= pair[1].score,
+                "{target}: list is not in score order: {} then {}",
+                pair[0].score,
+                pair[1].score
+            );
+        }
+
+        let mut shown: HashMap<Vec<usize>, usize> = HashMap::new();
+        for c in &clues {
+            *shown.entry(clue_boundaries(c)).or_default() += 1;
+        }
+        let largest = shown.values().copied().max().unwrap();
+        assert!(
+            largest * 2 <= clues.len(),
+            "{target}: one structure holds {largest} of {} slots ({shown:?})",
+            clues.len()
+        );
+    }
+}
+
+/// The visible list represents the resegmentations the search
+/// *enumerated*, not only the ones whose own score reaches the visible
+/// cutoff.
+///
+/// The synthetic unit tests in `src/lib.rs` check the reserve's arithmetic
+/// on a pool built to make the point; this is the same property on a real
+/// search, where the population the reserve draws from is the enumeration
+/// itself and is two orders of magnitude larger than the list.  Measured on
+/// six real targets at `--top 50`, the pool holds 63-336 distinct
+/// resegmentations and the base's visible list showed 4-11 of them, because
+/// nothing in the selection rule ever spent a slot on a resegmentation
+/// whose best candidate fell outside the cutoff: the slots went to the head
+/// of the score order, where a few structures own almost all of it.
+///
+/// The bound asserted is the policy's own, one slot in four, expressed
+/// here as a number of slots so the test states the property rather than
+/// the constant.  Neither target is an acceptance phrase.
+#[test]
+fn approximate_list_represents_enumerated_resegmentations() {
+    const TOP_N: usize = 50;
+    for target in ["the cat sat on the mat", "she sells sea shells"] {
+        let g = Generator::from_json(
+            CORPUS_JSON,
+            GeneratorConfig {
+                mode: SearchMode::approximate(),
+                top_n: TOP_N,
+                beam_width: 64,
+                ..GeneratorConfig::default()
+            },
+        )
+        .unwrap();
+        let clues = g.generate(target);
+        assert_eq!(clues.len(), TOP_N, "{target}: short list");
+
+        let shown: HashSet<Vec<usize>> = clues.iter().map(clue_boundaries).collect();
+        let required = TOP_N / 4;
+        assert!(
+            shown.len() >= required,
+            "{target}: the visible list represents only {} of the \
+             resegmentations the search enumerated; the representation \
+             reserve owes at least {required}",
+            shown.len()
+        );
+    }
+}
+
+/// Behaviour lock for the optimized approximate search.
+///
+/// [w-7fa26c](../../docs/work/items/w-7fa26c.md) made the approximate
+/// search ~1.3-2.1x faster and every optimization in it is required to be
+/// behaviour-preserving.  These expected lists are the exact,
+/// full-precision ranked proposals the pre-optimization binary produced;
+/// a refactor that changes any score or the order of the proposals fails
+/// here.  Scores are printed to six decimals, which is far tighter than
+/// any scoring change is allowed to be.
+///
+/// The values have been re-baselined twice on
+/// `post-milestone-acceptance`, because scoring and selection fronts
+/// (the closed-class clue-quality axis, the ordered selection rule, and
+/// the resegmentation-offset fix in [w-04f83f]) landed after the perf
+/// work was measured and intentionally change approximate output.  The
+/// lock protects the tree as integrated from here on; it does not claim
+/// any of those changes was behaviour-preserving, which their own work
+/// items recorded.
+///
+/// The re-baseline in w-04f83f is a *selection* change only: no score
+/// moved, and the same candidates are in the pool.  The visible list
+/// differs because the diversity policy's share cap started working —
+/// it can now tell that several of the previous entries are wordings of
+/// one resegmentation — so the slots they gave up went to the best
+/// candidates of other resegurations.
+#[test]
+fn approximate_output_is_locked() {
+    // Re-locked by w-9c6f2b, which reads the similarity axis per word
+    // (mean edit cost of a word on a one-unit-per-word scale) instead of
+    // dividing a candidate's total cost by a constant.  This target's
+<<<<<<< HEAD
+    // clues are three words, so their similarity term is now
+    // `SIMILARITY * (1 - cost/3)` rather than `SIMILARITY * (1 - cost/4)`:
+    // every score falls by `SIMILARITY * cost / 12`, which is 0.0023 to
+    // 0.0024 across this list.
+    //
+    // What actually changed, so a reviewer does not have to re-derive it:
+    // **five of the ten phrases are different.**  The two leading phrases
+    // and the scores of the retained ones are unchanged, but the two
+    // middle entries give way: `i.'s a view`, `eye a view`, `how ill
+    // view`, `now ill view` and `i.'s of new` are gone, and `isle uhh
+    // view`, `i'll uhh view`, `a ill view`, `isle of too` and `eye ill
+    // view` are new.  That churn is a consequence of the three-word clue
+    // length -- the steeper fall reorders candidates that were within
+    // 0.003 of each other -- and is neither a regression nor an
+    // improvement claim: the same change leaves a four-word clue's
+    // similarity term bit-identical, which is why the canonical
+    // `recognize speech` case is unmoved.  Full before/after table and the
+    // canonical measurements are in `docs/work/items/w-9c6f2b.md`.
+=======
+    // clue is three words, so its similarity term is now
+    // `SIMILARITY * (1 - cost/3)` rather than `SIMILARITY * (1 - cost/4)`:
+    // every score falls by `SIMILARITY * cost / 12`, which is 0.0023 to
+    // 0.0024 across this list, and the two mid-list entries that the
+    // slightly steeper fall pushes below their neighbours change places.
+    // The top of the list, its order, and every phrase in it are
+    // unchanged.  Before/after table in
+    // `docs/work/items/w-9c6f2b.md`.
+>>>>>>> 069dd48 (w-9c6f2b: re-lock approximate_output_is_locked on the per-word similarity axis)
+    const CASES: &[(&str, &[&str])] = &[
+        (
+            "I love you",
+            &[
+                "0.936034 isle a view",
+                "0.935302 aisle a view",
+                "0.933655 isle uhh view",
+                "0.933646 i'll uhh view",
+                "0.922661 isle of new",
+                "0.922223 a ill view",
+                "0.921929 aisle of new",
+                "0.921298 eye ill view",
+                "0.920450 isle of too",
+                "0.920124 yeah ill view",
+            ],
+        ),
+    ];
+
+    let g = Generator::from_json(
+        CORPUS_JSON,
+        GeneratorConfig {
+            mode: SearchMode::approximate(),
+            top_n: 10,
+            ..GeneratorConfig::default()
+        },
+    )
+    .unwrap();
+
+    for (target, expected) in CASES {
+        let got: Vec<String> = g
+            .generate(target)
+            .iter()
+            .map(|c| format!("{:.6} {}", c.score, c.phrase))
+            .collect();
+        assert_eq!(&got, expected, "approximate output changed for {target:?}");
+    }
+}

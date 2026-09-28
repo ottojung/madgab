@@ -1,0 +1,220 @@
+---
+work_item: true
+id: w-3f6a21
+<<<<<<< HEAD
+state: working
+priority: high
+owner: coord-5a19 (reconciliation pass 2026-09-27T22:21Z-22:29Z: opened and claimed from w-a1f3d2's one-line successor rule and w-4b1e07's standing goal; front agent-3f6a21 launched in /workspace/madgab-pairscore-3f6a21 and left running)
+updated: 2026-09-27T22:29:00Z
+=======
+state: done
+priority: high
+owner: front agent-3f6a21 (HOLD, priced negative; report docs/work/REPORT-3f6a21.md) (reconciliation pass 2026-09-27T22:21Z-22:29Z: opened and claimed from w-a1f3d2's one-line successor rule and w-4b1e07's standing goal; front agent-3f6a21 launched in /workspace/madgab-pairscore-3f6a21 and left running)
+updated: 2026-09-27T23:55:00Z
+>>>>>>> madgab-pairscore-3f6a21
+branch: madgab-pairscore-3f6a21
+worktree: /workspace/madgab-pairscore-3f6a21
+opened_by: coord-5a19 (reconciliation pass 2026-09-27T22:21Z-22:29Z)
+source_item: w-a1f3d2 (successor rule, priced-negative opening front) / w-4b1e07 (standing goal) / w-2c9d41 OBSTRUCTION-MAP.md § remaining-unpriced-shapes
+base: 9a572c4 (post-milestone-acceptance, pushed)
+---
+
+# Price and, if it survives, implement the adjacent-slot (boundary-move-as-one-event) substitution charge
+
+## Goal
+
+The substitution cost charges a resegmentation that moves a word boundary
+**per slot**, so a reading that splits one target word across two clue words
+is charged twice. Give the scorer a general way to see such a pair of
+adjacent slots as **one** event — either by scoring the concatenated clue IPA
+against the target IPA, or by admitting a cost for an adjacent slot pair
+bounded by that pair's own phonetic distance — and measure whether the
+canonical case-2 clue moves into the visible band as a consequence.
+
+This is a **score** front, not another reach front. Reach is closed by
+measurement (see below); this is the one live surface that can change what the
+already-enumerated lattice is *worth*.
+
+## Context
+
+- `w-a1f3d2` (HOLD, `docs/work/items/w-a1f3d2.md`) ends with the successor
+  rule this item implements, and names the ranks a retention floor would need
+  (slot 0 → 7, slot 2 → 13, slot 3 → 99, slot 4 → 11 against `cap` 7).
+  It also records the decisive priced negative: the canonical tuple's own
+  minimum sub-lattice costs **2.83x** the uniform-7 opening, so a
+  boundary/width/fill change alone does not put it in the emitted set.
+- `w-2f1c03` priced joint-coordinate reserve coverage NEGATIVE (reach-null by
+  5-6 orders of magnitude), so shape 2 of `OBSTRUCTION-MAP.md` §3 is closed.
+- Measured on this base: case 1 (`wreck a nice beach` for `recognize speech`)
+  is green at pool rank 27, score `0.9199502875`, in the printed set. Case 2
+  (`hits justice dupe hid came`) is **not in the pool**; the word `hid` is
+  pruned from the retained shortlist for its target span.
+- Standing goal: [../skills/itinerary-madgab.md](../skills/itinerary-madgab.md).
+  This item serves it; it is not a licence to hard-code either sentence.
+
+## Obligations
+
+1. **Reproduce before editing.** On this base, record for both canonical
+   targets: whether the clue is in the pool, its pool rank and score if so,
+   and the visible-top-50 redundancy count. Give the wall clock.
+2. **Decompose the case-2 gap into a reach part and a score part**, with
+   numbers, at the library boundary. State how much of the gap is the pruned
+   shortlist and how much is the per-slot charge, and say which of the two a
+   pair-charge could plausibly move.
+3. **Price at least two general forms** of the pair/whole-word charge, and
+   report exactly one of INTEGRATE or HOLD for the better one:
+   - (a) score the concatenated clue IPA of an adjacent slot pair against the
+     target IPA of the corresponding span;
+   - (b) a bounded cross-slot term derived from the pair's own phonetic
+     distance, with a stated derivation of its bound (no free constant; the
+     `slot_is_affordable` / `funded_slot_depth` precedents are the style).
+4. If HOLD, the negative must be measured (which fences turn red, which
+   canonical rank moves, the wall clock) and the successor rule stated in one
+   line, as `w-a1f3d2` did.
+5. General mechanism only: no literal from either canonical sentence, clue or
+   word may appear in `src/`. `cargo test --release --test
+   no_phrase_hard_coding` stays green, and `git grep -i -E
+   "wreck|beach|recognize|justice|stupid|dupe|came|hid"` over `src/` returns
+   nothing outside `#[cfg(test)]` fixtures, CLI usage examples and ordinary
+   English in comments.
+6. **No silent re-baselining.** `approximate_output_is_locked` must not be
+   re-pinned to make a change land, and neither may the literals in
+   `approximate_pool_reaches_resegmentations_deeper_than_one_walk` or
+   `approximate_pool_reaches_matches_deep_in_a_span`. A weight- or
+   score-dependent lock that goes red is a finding to report, not a baseline
+   to relax; the re-derivation decision belongs to the coordinator.
+7. Suite green at the base: `--lib`, `--test corpus_integration`,
+   `--test emit_coverage`, `--test approx_determinism`, `--test exact_determinism`,
+   `--test no_phrase_hard_coding`. `cargo fmt`, `cargo clippy` and doctests
+   **cannot run on this host** — do not report them as satisfied (see
+   [../../environment-notes.md](../../environment-notes.md)).
+8. Give the worktree its **own** `CARGO_TARGET_DIR`. `w-a1f3d2` recorded a
+   phantom test failure from sharing one target directory across two worktrees
+   of this package.
+9. Work on this branch only. Do not merge, rebase or push to
+   `post-milestone-acceptance` or `main`; do not self-merge. Commit focused
+   work, push the branch, and write the report and this item's handoff.
+
+## Completion criteria
+
+- Obligation 3 answered with INTEGRATE or HOLD and the measurements behind it.
+- If INTEGRATE: the change is general, small, and covered by a regression test
+  at the library or executable boundary that states the mechanism, not the
+  canonical pair; both canonical tests' pass/fail state before and after is
+  written down.
+- Durable handoff in this item: commits, validation actually run, blockers, and
+  the next action. The branch is pushed.
+
+## Handoff / notes
+
+Opened by coord-5a19 at 22:29Z. The two fence-classification fronts
+(`w-e086cc` agent e086cc, `w-4d1e93` agent 4d1e93) were left running and
+unsteeered; this front does not share their surface (they vary the shipped
+objective weight vector and re-derive the output lock; this one changes the
+shape of the substitution charge). Host load was 5.5 on 32 cores, so a third
+concurrent probe front was affordable. Nothing integrated on
+`post-milestone-acceptance` by this pass; `main` untouched.
+<<<<<<< HEAD
+=======
+
+---
+
+## Handoff — front agent-3f6a21, 2026-09-27T23:55Z
+
+**Verdict: HOLD.** Full report: [`../REPORT-3f6a21.md`](../REPORT-3f6a21.md).
+
+This copy of the item is on the front's own branch because the item was
+opened on `post-milestone-acceptance` at `ccac920`, *after* this branch's
+base `9a572c4`. `main` and `post-milestone-acceptance` were not merged,
+rebased or pushed to by this front; `main` untouched.
+
+### Commits on `madgab-pairscore-3f6a21`
+
+| sha | what |
+| --- | --- |
+| `495064f` | INTERIM: the work item copied onto this branch and the interim measurement banked in the commit message. No `src/`, no `tests/`. |
+| branch tip | the report, this handoff, and the `docs/REPORT-3f6a21.md` pointer |
+
+`git diff 9a572c4 --stat -- src tests` is **empty**. The branch carries
+documentation and no production line.
+
+### Obligations
+
+| # | status |
+| --- | --- |
+| 1 reproduce before editing | **done** — both canonical targets, pool membership, rank, score, top-1, 50th, visible top-50 redundancy, wall clock 1681 ms / 1704 ms |
+| 2 decompose the case-2 gap into reach + score | **done** — reach part **0.000000** (no word is pruned: all five canonical words are retained in the slot shortlists, the tuple's total cost 1.11952 is inside `total_budget` 1.5, and forcing it through `into_clue` scores it `0.8207695329`); score part **0.0943520416**, 15.02× the width of the whole top-50 band, of which only `0.04910175` (52.0%) is on the axis a substitution charge reads |
+| 3 price two general forms, report one verdict | **done** — (a) concatenated clue IPA vs concatenated target: discount `0.000000` on the canonical pair *and* on the whole clue; (b) bounded cross-slot term: its only derivation without a free constant *is* (a) and is `0.000000`, and its most generous possible bound (a full `GAP_COST` per boundary, 0.80) still leaves `0.05926521` short. Verdict **HOLD** |
+| 4 priced negative + one-line successor rule | **done** — no production line landed, so no fence went red; the negative and the successor rule are in the report |
+| 5 general mechanism only, no phrase hard-coding | **done** — `no_phrase_hard_coding` 9/9; the `git grep` returns 49 pre-existing hits, all in `#[cfg(test)]` fixtures, CLI usage examples or ordinary English comments |
+| 6 no silent re-baselining | **done** — nothing re-pinned; `approximate_output_is_locked` and both `approximate_pool_reaches_*` literals untouched, and the pre-existing `corpus_integration` failure is reported, not relaxed |
+| 7 suite green at the base | **done** — see below; `cargo fmt`, `cargo clippy` and doctests **cannot run on this host** and are **not** claimed |
+| 8 own `CARGO_TARGET_DIR` | **done** — this worktree and the probe worktree each had their own; nothing was shared |
+| 9 branch only, commit, push, report, handoff | **done** |
+
+### Validation actually run
+
+| command | result |
+| --- | --- |
+| `cargo build --release` | Finished, 26.81 s, no warnings shown |
+| `madgab --approximate --top 50 "recognize speech"` | `wreck a nice beach` at rank 27, score `0.9199502875`, wall 1681 ms |
+| `madgab --approximate --top 50 "It's just a stupid game"` | canonical **absent**, top-1 `it said thus test oop day` `0.9214042124`, 50th `0.9151215745`, wall 1704 ms |
+| `cargo test --release --lib` | **75 passed / 0 failed / 12 ignored** |
+| `cargo test --release --test corpus_integration -- --test-threads=2` | **12 passed / 1 failed** — the pre-existing `approximate_finds_classic_madgab_resegmentation` |
+| `cargo test --release --test emit_coverage -- --test-threads=2` | **4 passed** |
+| `cargo test --release --test approx_determinism -- --test-threads=2` | **4 passed** |
+| `cargo test --release --test exact_determinism -- --test-threads=2` | **1 passed** |
+| `cargo test --release --test no_phrase_hard_coding -- --test-threads=2` | **9 passed** |
+| `git diff 9a572c4 --stat -- src tests` | **empty** |
+
+### Blockers and what was NOT reached
+
+1. **UNREACHED — the pool-wide distribution of form (a)'s discount.** Three
+   sweep invocations hit shell timeouts (400 s, 420 s, and one 30-minute
+   burn) because `phonetics::distance` is recomputed per character pair
+   inside the DP. Memoisation and a 200-clue sample were added but the run
+   was cut by the coordinator steer before re-execution. **~44 minutes of the
+   front's ~75 lost to this.** Consequence: the structural argument shows
+   the discount is **≥ 0** in general but does **not** by itself show it is 0
+   in general. "Form (a) is the identity" is established for the canonical
+   clue, not pool-wide. That is enough to refuse the charge for *this* fence
+   and **not** enough to retire it for pool quality.
+2. **No candidate existed, so no fence was re-run against a change.** The
+   suite table is the base baseline, not a post-change result. This is not a
+   green fence for a candidate; there is no candidate.
+3. **No regression test, deliberately.** The item requires one only `if
+   INTEGRATE`. A test asserting a mechanism that measured to be the identity
+   asserts nothing, and one naming the canonical pair is forbidden.
+4. **No weight vector was run**, on instruction: agent-e086cc closed the
+   weight lever and the placement lever this week.
+
+### One correction to this item's Context, on this base
+
+The Context says "the word `hid` is pruned from the retained shortlist for
+its target span". That is **false on `9a572c4`**: `hid` is retained in 100
+slot shortlists across the run at a minimum cost of `0.350000`, and in the
+canonical structure's slot 3 at `0.369520`. All five canonical words are
+retained. The reach part of the case-2 gap on this base is **zero**, so the
+predecessor fronts' "reach is closed" framing should be read as "reach is
+*sufficient* here" — the tuple is payable and still loses on score.
+
+### Next action
+
+Do not open a fifth reach front for this fence, and do not re-open the
+substitution-charge shape on the strength of the premise alone — the premise
+is refuted for the canonical pair by direct measurement. Open a **novelty
+and familiarity** front instead: `0.04525029` of the canonical clue's
+`0.0943520416` deficit is on those two axes, where the green case-1 clue is
+already at 1.0 and 0.6206 and the canonical tuple's sibling reads 0.6667 and
+0.3987. If anyone still wants the pair charge, run the bounded sweep first
+(memoised confusion table, ≤ 200 clues, one target) to establish whether the
+discount is 0 pool-wide or only at the canonical pair — the answer decides
+whether it is worth anything for pool quality.
+
+Measurement instrumentation lived only in a throwaway worktree
+`/workspace/3f6a21-probe` on the un-pushed branch `scratch/3f6a21-probe`,
+with its own target directory. That worktree and branch were **deleted** at
+the end of the front. Nothing from it reaches this branch: no `#[cfg(test)]`
+counter, no `ZZ_*` symbol, no environment knob, no probe binary under
+`examples/`, no probe test file under `tests/`.
+>>>>>>> madgab-pairscore-3f6a21

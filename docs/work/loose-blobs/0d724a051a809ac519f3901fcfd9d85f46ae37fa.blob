@@ -1,0 +1,378 @@
+---
+work_item: true
+id: w-9e2b41
+state: working
+priority: high
+<<<<<<< HEAD
+owner: coord-08f4 (reconciliation pass 2026-09-27T08:47Z-08:49Z: RECOVERY. The read-only front agent-0f3a173 FAILED at 08:52Z (exit 1, a crashed probe statement) with NO commits of its own, so its surface was recovered rather than abandoned: a replacement front agent-0f3a174 was launched 08:54Z in /workspace/madgab-rederive-0f3a17 [madgab-rederive-0f3a17] from de0fb30, read-only w.r.t. src/lib.rs, and left running. Its lost finding was recovered from the agent log and is recorded below as the joint-affordability constraint, then steered into agent-9e2b410 (prompts 2, taken), because it invalidates any per-slot width table stated as independent marginals. agent-9e2b410 is alive with a 517-insertion in-flight src/lib.rs; its worktree was snapshotted to wip/w-9e2b41-inflight-c0ff01 (739dd75, pushed) as a durability net only, not a review. Nothing integrated, no source change on the accumulation branch, main untouched) / prior owner coord-7a1e (reconciliation pass 2026-09-27T08:26Z-08:39Z: claimed at 534a39c on post-milestone-acceptance. Implementation front agent-9e2b410 in /workspace/madgab-width-9e2b41 [madgab-width-9e2b41] owns the per-slot depth-aware width rule (src/lib.rs editable in its own worktree only). Independent read-only front agent-0f3a173 in /workspace/madgab-lattice-0f3a17 [madgab-lattice-0f3a17] owns settling the 237-of-240 vs miss-by-one conflict and re-deriving the affordable width correctly in traversal-index units per depth. Both launched 08:39Z and left running; neither integrated)
+updated: 2026-09-27T08:49:00Z
+=======
+owner: w-9e2b41-front
+updated: 2026-09-27T09:40:00Z
+>>>>>>> madgab-width-9e2b41
+branch: madgab-width-9e2b41
+worktree: /workspace/madgab-width-9e2b41
+opened_by: coord-7a1e (reconciliation pass 2026-09-27T08:26Z-08:36Z, on post-milestone-acceptance)
+source_item: w-0f3a17 (three terminal fronts; the width/admission rule is the remaining upstream mechanism)
+---
+
+## Goal
+
+Replace the uniform per-slot enumeration cap in the approximate traversal with a **per-slot,
+depth-aware width allocation** derived from the actual emission budget, so that shallow slots
+(the depth-1 slot first) can afford more per-slot width than deep slots, instead of every slot
+being clamped to the same figure.
+
+The motive is measured, not hypothetical. Canonical case 2
+(`It's just a stupid game` -> `Hits Justice Dupe Hid Came`, depth 5) is **one index** outside the
+current cap: the depth-1 word sits at traversal index `7`, the cap is
+`LEXICAL_BRANCH_STAGE_0 = 7`, and the walk's test is `index < cap`, so `7 < 7` is false. Full
+enumerability of the same five slots would need width `100` (the depth-4 slot's word is at index
+`99`), i.e. roughly **14x** the number the current derivation produces. The per-slot floors across
+the six admission passes are `7/0/3/85/7`; no re-specification of admission can beat them, so the
+only remaining upstream mechanism is the width rule itself.
+
+## Why the current derivation cannot simply be corrected
+
+Two independent findings say the number is not a tuning mistake but a category error:
+
+1. **It is a budget figure used as an enumeration cap.** `affordable_opening_width` divides the
+   per-segmentation allowance by the cost of *pushing one candidate*; the traversal then uses the
+   result as a per-slot *list prefix length*. Those are different quantities, and the equality
+   between them is what caps the clue out.
+2. **The table the derivation rests on is wrong.** At depth 5 slot 1 the affordable width is
+   **10** (3,998 <= 4,000), not 7, so the row is 9/10/10/10/list - monotone - while the recorded
+   9/7 *decreases*; the depth-6 last-slot cost is 3,906, not 2,801; and the accompanying test's own
+   `assert_eq!(previous, 160)` refutes the "93" in its own doc comment. See
+   [../REPORT-4b1e07.md](../REPORT-4b1e07.md) (HOLD, at `b620934`).
+
+So the front must **re-derive** the width in the right units rather than patch a constant.
+
+## Hard constraint discovered by the previous front: traversal-index units
+
+The walk does **not** index the shortlist. `slots[k]` is `edge.matches` **re-sorted by
+`SlotAlt::contribution(word_count)`** (familiarity/shape/closed-class divided by slot count,
+`WORD_NOVELTY / word_count`, ties by word), and `cap` bounds *that* list. Because
+`contribution` divides by the slot count, **a wider slot is a differently-ordered list, not a
+longer prefix** - measured movements: `it` 143 -> 0, `wreck` 32 -> 1, `came` 7 -> 11, `hid` 85 -> 99.
+Any width rule must be stated and validated in traversal-index units, per depth, and must not be
+argued in shortlist-index units. `cap` is a bound on the third of four distinct per-slot orders
+(admission, shortlist, traversal, per-pass); the shortlist order is not what stands in the way.
+
+## Completion criteria
+
+1. A general, non-hard-coded width allocation rule is implemented in `src/lib.rs`, keyed on
+   measurable properties (slot position, segmentation depth, pool size, measured per-slot push
+   cost) - **not** on any clue, sentence, or word list.
+2. The two canonical examples are produced in the approximate proposal set by the executable on
+   this head, or the front delivers a **priced negative with arithmetic** naming the exact
+   remaining shortfall. Membership in the proposal set is the criterion; an arbitrary exact rank is
+   not.
+3. The rule is validated in **traversal-index units per depth**, with the derivation printed and
+   reproducible, and it does not contradict any of the numbers in `w-0f3a17` / `w-5b1e93` that it
+   does not itself refute.
+4. Criterion-5 fence green: all three `approximate_pool_reaches_*` guards pass (this is the fence
+   that made `b49f892` un-integrable; do not narrow the pool).
+5. `no_phrase_hard_coding` fence green.
+6. Regression tests express the external property (a segmentation's per-slot budget is allocated in
+   proportion to its measured cost, and the allocation is monotone/decreasing in depth in traversal
+   units) without baking in a phrase.
+7. Nothing is integrated by the front itself; the front pushes its branch and reports, and the
+   coordinator integrates after independent review.
+
+## Notes and traps this repository has already paid for
+
+- Do **not** re-litigate the refuted mechanisms listed in `w-0f3a17` (emission order, the depth/width
+  family, budget envelope, the share cap, the reserve, the aggregation form). Read its
+  "Already refuted" section first.
+- The `EMIT_PROFILE_MAX_DEEP = 3` reserve limit caps the reserve at three non-zero coordinates while
+  the canonical tuple needs four; the emission budget is already ~81% spent. A wider enumeration
+  makes emission, not enumeration, the next binding wall, so measure emissions too.
+- `MADGAB_TRACE_PHRASES` does **not** exist on this head (no `env::var` in `src/`); do not cite it.
+- Keep probe binaries out of `examples/`; use a scratch branch for instrumentation.
+- Watch for a self-referential property test: a test that compares a bound against a scorer reading
+  the same shared axis cannot detect a change to that normaliser. State the independent
+  re-derivation in the test.
+- The unresolved disagreement between `agent-0f3a171` (tuple absent from 237 of 240 candidate lists,
+  width exhausted at `cap - 1`, "width is not the dial") and `agent-0f3a172` (tuple one index
+  outside the cap at depth 1, width 8/12/14/100 suffices) is **not** settled. Reproduce both from
+  the scratch probes and settle it by re-derivation; do not restate either side.
+
+## Handoff / notes
+
+Opened 2026-09-27T08:37Z by coordinator `coord-7a1e` from the three terminal `w-0f3a17` fronts.
+No owner yet. Expected first action: claim, create a worktree from `post-milestone-acceptance`, and
+**reproduce the depth-1 miss (index 7 vs cap 7) on the current head before changing anything.**
+
+<<<<<<< HEAD
+<<<<<<< HEAD
+## Recovered finding from the failed front agent-0f3a173 (08:52Z, never committed by it)
+
+The front died mid-measurement with no durable output. The one thing it had established, before
+dying, invalidates the *form* of any width table and is therefore the item's central constraint
+from here on.
+
+**The per-slot "affordable width" table is a per-slot MARGINAL, not a jointly affordable
+allocation.** It is derived by holding every other slot at the uniform baseline
+`affordable_opening_width` `b` and widening one slot, but the lattice is a **product** over slots:
+the internal node count is `N(w) = 1 + sum over k of prod_{j<k} w_j`, not a sum over slots.
+Widening every slot to its own marginal simultaneously therefore overruns the pop budget badly:
+
+| depth | baseline `b` | per-slot marginal row | joint `N` | `pop_limit` | overrun |
+| --- | --- | --- | --- | --- | --- |
+| 3 | 10 | 160/160/160 | 25,761 | 4,000 | 6.4x |
+| 4 | 10 | 36/36/38/160 | 50,581 | 4,000 | 12.6x |
+| 5 | 7 | 9/10/10/10/160 | 10,000 | 4,000 | **2.5x** |
+| 6 | 5 | 5/5/5/5/5/160 | 3,906 | 4,000 | within |
+| 7 | 3 | 10/11/11/11/11/14/160 | 2,210,791 | 4,000 | 552.7x |
+
+The depth-5 row is the one that matters: 9/10/10/10/160 is the row the prior fronts quoted, and it
+is 2.5x over budget. **A width allocation is admissible only if it satisfies the joint product
+constraint, and an implementation that widens all slots to their marginals is inadmissible
+regardless of what it does to the canonical case.** This is the same class of defect already
+priced in [w-5b1e93](w-5b1e.md) (an inadmissible traversal bound) and it is the fence any width
+change must clear.
+
+Unrecovered from that front: the abandoned `MADGAB_PROBE_ONLY=187` rank measurement for the
+canonical tuple, which the replacement front re-runs.
+
+### Handoff after this pass
+
+Live fronts, left running, none integrated:
+
+| agent | cwd / branch | owns |
+| --- | --- | --- |
+| `agent-9e2b410` | `/workspace/madgab-width-9e2b41` / `madgab-width-9e2b41` | the per-slot depth-aware width rule; steered with the joint-affordability constraint, the durability requirement, and the `tests/zz_probe.rs` residue fence |
+| `agent-0f3a174` | `/workspace/madgab-rederive-0f3a17` / `madgab-rederive-0f3a17` | read-only recovery: re-derive the joint constraint from `src/lib.rs`, settle 237-of-240 vs miss-by-one, and measure the canonical per-slot ranks on the current head |
+| `agent-7b40d21` | `/workspace/madgab-fillstrat-7b40d2` / `madgab-fillstrat-7b40d2` | the cost-stratified shortlist fill ([w-7b40d2](w-7b40d2.md)); at the red fence, steered to publish the negative rather than re-pin |
+| `agent-c3f81a` | `/workspace/madgab-reserve-c3f81a` / `madgab-reserve-c3f81a` | the coverage reserve's tuple placement ([w-c3f81a](w-c3f81a.md)), `EMIT_PROFILE_MAX_DEEP` |
+
+Precondition for review on any of them is a **pushed** commit on its own branch. Review the diff,
+not the log: the three `approximate_pool_reaches_*` guards must be green and **not** re-pinned,
+`approximate_output_is_locked` must not be re-baselined, no `zz*` residue may land, no probe binary
+may be committed under `examples/`, no phrase-specific case, and canonical case 1 must still print
+`wreck a nice beach`. Integrate onto `post-milestone-acceptance` only, never `main`.
+=======
+---
+
+## Pass 2026-09-27T09:58Z — the recovered measurement front: the width table is not jointly affordable, and the 237-of-240 conflict is settled
+
+Front `agent-0f3a173` (read-only, no `src/lib.rs` edit in the integration
+worktree; base `de0fb30`, branch `madgab-rederive-0f3a17`, integration worktree
+`/workspace/madgab-rederive-0f3a17`, **docs-only commit**). The front died exit 1
+mid-measurement with no commits; this pass recovers and completes it. Probe
+worktree `/workspace/madgab-rdp-0f3a17` on `scratch/rederive-0f3a17-probe`,
+**not pushed**, own `CARGO_TARGET_DIR=/workspace/target-rdp-0f3a17`. Full
+arithmetic, per-target table and the exact commands:
+**[w-9e2b41-measurement.md](w-9e2b41-measurement.md)**.
+
+Pristine reference reproduced first: case 2 pool **18,936** / rank-50
+**0.915121574454**, case 1 pool **18,270** / **0.918796440893**, both exact.
+`--lib` 66/0, `no_phrase_hard_coding` 9/9, `corpus_integration` 12 passed / 1
+failed (the pre-existing `approximate_finds_classic_madgab_resegmentation`), all
+three `approximate_pool_reaches_*` guards and `approximate_output_is_locked`
+green.
+
+**1. The per-slot width table is NOT jointly affordable — re-derived and
+extended.** The traversal charges the **node count** (`popped` is incremented
+before the leaf branch, so leaves are charged), against `LEXICAL_HEAP_POP_LIMIT`
+= **4,000**, in parallel with **64 emissions per segmentation** and
+**16,384** globally. There is no `first_leaf_frontier` and no `pops_left` on this
+head; the only frontier is the replay list `expanded`. The correct joint
+constraint for a width vector `w` is `A(w) = 1 + w_0 + w_0 w_1 + ... +
+w_0...w_{d-2} <= 4,000` to emit anything, and `T(w) = A(w) + w_0...w_{d-1} <=
+4,000` to *enumerate* it. Neither is a per-slot quantity. Reproduced exactly: the
+depth-5 marginal row **9/10/10/10/160** costs `A = 10,000`, **2.50x** the limit;
+the depth-7 row **10/11/11/11/11/14/160** costs **2,210,791**. **Extended: the
+row is infeasible at depth 3 (6.44x) and depth 4 (12.65x) as well, and at depth
+7 by 552.70x** — it is infeasible precisely where it is doing something, and
+legal only where every marginal happens to equal the baseline. The second
+extension is the load-bearing one: **"the last slot is charged against nothing"
+is an artefact of counting only the first leaf**; under `T` the *jointly legal*
+greedy row still costs **89x to 149x the pop limit at every depth from 3 on**. A
+rule justified by `A` bounds the walk's first leaf, which is not a property the
+loop has. The legal method is to **commit**: solve slot `k` against the committed
+prefix rather than the baseline, giving `joint_greedy`, legal at all seven depths
+(`A` = 161 / 3,841 / 3,997 / 3,601 / 3,906 / 3,641 / 3,280 for d = 2..8). Also
+recorded: `cap` is a **scalar** today, used as `0..slots[k].len().min(cap)` for
+every slot, so a per-slot width is a structural change, not a correction.
+
+**2. The 237-of-240 conflict is settled, and there was no conflict.** Canonical
+case 2, the 240 retained segmentations of `It's just a stupid game`: exactly
+**3** carry the whole five-word wording as five consecutive slots, at traversal
+indices **7/0/13/99/11** (d=5), **7/0/22/99/11** (d=5) and **78/0/10/99/19**
+(d=6, slots 1-5). `agent-0f3a171`'s "3, at 7/0/22/99/11" and `agent-0f3a172`'s
+"7/0/13/99/11" are **the same three rows**; `22` and `13` are the third
+coordinate on two different depth-5 carriers of the same target. **The depth-1
+miss-by-one is confirmed from my own run: index 7 against cap 7, and the walk's
+test is `i < cap`, so `7 < 7` is false.** The 237 decomposes as **232 failures
+where every wording word is a real candidate and only the segmentation's
+boundaries differ, 1 where no wording word is on any slot at all, 3 carriers**.
+So `agent-0f3a171`'s *count* stands and its *inference* ("no width and no
+emission allowance can reach it", "not a width defect at all") is **false for 236
+of its 237**. The clue **is** in the lattice.
+
+**3. The binding slot is slot 3, not the depth-1 slot.** At depth 5, cap 7, the
+coordinates are `7/0/13/99/11`: **four of five are outside the cap**, and the
+binding one is index **99**, min width **100** — ~14x the derived 7. A front that
+stopped at the depth-1 miss would under-price the mechanism by 14x. The
+record's `3 / 2 / 10 / 99 / 11` matches none of the four per-slot orders and
+none of my three rows, and should be struck.
+
+**4. Priced negative, with arithmetic.** The cheapest width vector that can
+*contain* a wording is exactly `(i_k + 1)`, so the tuple's own joint cost is
+`A(i+1)`, not a free parameter. For the canonical depth-5 carrier:
+min widths **8/1/14/100/12**, `A` = **11,329 = 2.83x the pop limit**, `T` =
+157,057 = 39.3x. Binding coordinate slot 3 (min width 100, prefix product
+**11,200**). Of **95** carrier segmentations over eight real (target, wording)
+pairs, **74 are affordable and 21 are not, and all three canonical carriers are
+unaffordable** — the canonical case is uniquely priced out. Meanwhile that very
+segmentation spends **391 pops of 4,000 (9.8%)** and **50 emissions of 64
+(78%)**: it stops on emissions with 3,609 pops unspent. Across 15 real targets
+the traversal spends **0.9-43.6%** of the pop budget and **75-89%** of the
+emission allowance.
+
+**Consequence for this item, and a recommendation.** A per-slot vector is the
+only way to reach index 7 at depth 1 while leaving the deep slots narrow, and a
+**legal, jointly-affordable** vector is worth landing as an improvement in its own
+right (`joint_greedy` above is the derivation, and it is a strict improvement on
+the marginal method it replaces). But **criterion 2 cannot be met by the width
+rule at depth 5**: the tuple's own minimum sub-lattice costs 2.83x the pop limit
+*before any competing tuple is considered*, and `A` additionally ignores that the
+walk is best-first and spends its 64 wordings on the cost-best corner. The
+shortfall is the **product** `8 x 1 x 14 x 100` over four slots against a linear
+budget, not a constant. The remaining mechanism is a **placement** mechanism that
+spends emissions and pops on a deep tuple rather than widening a product — which
+is what `w-c3f81a` and `w-7b40d2` are already open for, and which this
+measurement now prices.
+
+No production width change is attempted here; that is `agent-9e2b410`'s. `cargo
+fmt`, `cargo clippy` and doctests cannot run on this host and are not claimed.
+>>>>>>> madgab-rederive-0f3a17
+=======
+## Front pass 2026-09-27 (w-9e2b41, `madgab-width-9e2b41`) — priced negative
+
+Full derivation, measurements and gate: [../REPORT-9e2b41.md](../REPORT-9e2b41.md).
+**Not done** — left open for the successor front. Numbers below are published so
+the parallel re-derivation front (0f3a174) can be compared against them.
+
+### Step 1, reproduced before any change, at `534a39c`
+
+Traversal indices, not shortlist indices:
+
+| depth | uniform `cap` | indices of the tuple's words |
+|---|---|---|
+| 4 | 10 | 10 / 0 / 16 / 7 |
+| 5 | 7 | **7 / 0 / 13 / 99 / 11** |
+| 6 | 5 | 6 / 0 / 32 / — / — / 5 |
+
+* **Confirmed, narrowly:** the depth-1 word is at traversal index **7** against
+  `affordable_opening_width(5, 4 000) = 7`, and the walk tests `index < cap`, so
+  it is excluded by exactly one index. agent-0f3a172 is right about the first
+  slot.
+* **Refuted as a description of the tuple:** three of the five slots are far
+  outside cap 7 (one by 6 indices, one by 92). This item's own `7/0/3/85/7` is
+  in *shortlist* units; the units the walk indexes are `7/0/13/99/11`. The
+  `237-of-240` versus miss-by-one conflict is therefore resolved in the
+  direction both sides were half right about: the miss-by-one is real, and it is
+  not the binding exclusion.
+
+### The charged quantity, and the joint-arithmetic check
+
+The loop charges **`popped`**, the actual expand count, against
+`LEXICAL_HEAP_POP_LIMIT`. There is no `pops_left` and no per-slot charge. Its
+only model of `popped` is the truncated lattice, so the charged quantity is the
+**product of the per-slot prefix widths**,
+`F(c) = 1 + c_0 + c_0·c_1 + … + c_0·…·c_{d-2}` (`c_{d-1}` absent), charged
+**jointly, once, for the whole vector**.
+
+This reproduces agent-0f3a173's three rows exactly: `d=5` `9/10/10/10/160` →
+**10 000**; `d=7` `10/11/11/11/11/14/160` → **2 210 791**; `d=4` `36/36/38/160`
+→ **50 581**, all against 4 000. **The two independent derivations agree on the
+quantity.** The marginal table is inadmissible for the reason 0f3a173 gives: the
+lattice is a product, so per-slot marginals do not stack. Pinned by
+`per_slot_marginals_do_not_stack_into_a_jointly_affordable_allocation`.
+
+### The priced negative
+
+Per-slot cost is the measured marginal push multiplier `M_k = Π_{j<k} c_j`. `F`
+is monotone in every component, so for an index tuple `t` the **minimum frontier
+over every allocation that admits `t`** is `F(t + 1)` — a property of the tuple
+and the limit, not of the rule, so no rule of any shape beats it.
+
+```text
+canonical depth-5 tuple    t = (7, 0, 13, 99, 11)
+minimum admitting caps        (8, 1, 14, 100, 12)
+F = 1 + 8 + 8 + 112 + 11 200 = 11 329
+pop limit                                     4 000
+shortfall                        7 329 pops = 2.83 x
+```
+
+**And the deeper reason it is not a tuning mistake:** `F` is a product, so the
+allowance fixes `c_0·…·c_{d-2}` and **not the factors**. At depth 4 with a
+160-wide last slot there are **58 106** distinct jointly affordable allocations —
+`[1,40,7,7,160]`, `[2,28,7,7,160]`, `[3,22,7,7,160]`, `[8,8,7,7,160]` all fit
+`F ≤ 4 000` and buy very different enumerations for the same pops. **The pop
+budget has no opinion about the per-slot split**, so a per-slot width presented
+as *derived* from the allowance is a choice presented as arithmetic.
+
+Not a theoretical observation: making the derived rule *forget* the per-slot
+cost is **behaviourally equivalent on every tested shape**, because the joint
+repair washes it out. Reported, not hidden. Picking among the affordable family
+needs a second, non-pop criterion, and the emission ceiling is not one — it
+saturates at 16 384/16 384 and is already ~81% spent per segmentation.
+
+### Why the rule was measured and then reverted
+
+Wired in, per-slot ceilings driving the expand loop with a per-slot widening
+ladder, on the fence:
+
+| configuration | result |
+|---|---|
+| baseline `534a39c` | 12 passed / 1 failed; 3 pool-reach guards green |
+| all slots per-slot | **2 of 3 pool-reach guards red** |
+| only slot 0 above the floor | **SIGKILL (OOM)** |
+| per-slot ladder | SIGKILL (OOM) |
+
+The OOM is arithmetic. The traversal's live cost is the **frontier** `F`, because
+`F` is exactly the number of `seen`/`heap` entries a pass allocates. The rule
+opens `[160, 7, 7, 7, 93]` at the canonical depth-5 shape, `F = 64 001`, against
+the uniform-7 `F = 2 801` — **22.8×** the resident heap, × 256 segmentations.
+Widening the cheapest slot is not free in the units that matter.
+
+**So: admissible, correct, and unusable.** The branch lands the derivation, the
+arithmetic and the tests, and changes **zero production lines**.
+
+### Arithmetic corrections confirmed here (do not propagate the old numbers)
+
+* depth 5, slot 1 affords **10**, not 7 (`3 998 ≤ 4 000`); the printed `9 / 7`
+  decreases and contradicts the monotonicity its own test asserts. Correct
+  reading: `9 / 10 / 10 / 10 / 160`, cost 2 801.
+* the **depth-6** last-slot cost is **3 906**
+  (`1+5+25+125+625+3125`), not 2 801 carried over.
+* `assert_eq!(previous, 160)` refutes the `93` in that test's doc comment; `93`
+  is a *measured* list width and does not belong in a 160-wide table.
+
+### Gate
+
+`corpus_integration` **12 passed / 1 failed** (the expected pre-existing
+`approximate_finds_classic_madgab_resegmentation`, not re-pinned, no guard
+literal touched); `--lib` **72 passed / 0 failed**; `no_phrase_hard_coding`
+**9 passed / 0 failed**. `tests/` byte-identical to `534a39c`,
+`approximate_output_is_locked` not re-baselined, canonical case 1 green.
+Mutation-verified: 11 mutations, 10 caught, the survivor reported in §7 of the
+report and here.
+
+> Host note: `corpus_integration` is **SIGKILLed on this host at default test
+> parallelism** — pristine `534a39c` does it too. Use `-- --test-threads=2`.
+
+### Successor
+
+The width mechanism is **closed as a pop-budget question**. The remaining lever
+is the **shape** of the coverage reserve, not its width: the reserve samples from
+the *corner* (index 0 outside the profile), which is the one region the
+traversal already covers densely, and `EMIT_PROFILE_MAX_DEEP = 3` caps it at
+three non-zero coordinates while the canonical tuple needs four. A non-corner
+profile sample is the one place the emission budget can still buy depth the
+prefix walk cannot.
+>>>>>>> madgab-width-9e2b41

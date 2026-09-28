@@ -1,0 +1,512 @@
+---
+work_item: true
+id: w-0f3a17
+state: working
+priority: high
+<<<<<<< HEAD
+owner: coord-0c1d (reconciliation pass 2026-09-27T08:17Z-08:22Z, claimed on post-milestone-acceptance at 8d491c1; front agent-0f3a171 in /workspace/madgab-lattice-0f3a17 [madgab-lattice-0f3a17] delivered a pushed priced negative on the width mechanism at ebf5e7d plus a docs-only wind-down note at a4716bd, and is TERMINAL (succeeded, 2 prompts) with a HOLD recommendation, not done; front agent-0f3a172 in /workspace/madgab-shortlist-0f3a17 [scratch/0f3a17-shortlist] owns the shortlist-contents question, read-only, and was steered to make its write-up durable; independent reviewer agent-4b1e070 in /workspace/madgab-review-lattice [madgab-review-lattice-4b1e07] is reviewing ebf5e7d as landed and was left running. This pass integrated only the docs record (ebf5e7d plus a4716bd) into post-milestone-acceptance; the src half of ebf5e7d (LEXICAL_HEAP_POP_LIMIT moved to module scope, value unchanged, plus one new general test) is deliberately NOT integrated and is held pending the reviewer's non-vacuity finding. Nothing else integrated, main untouched)
+updated: 2026-09-27T08:22:00Z
+branch: madgab-lattice-0f3a17
+worktree: /workspace/madgab-lattice-0f3a17
+=======
+owner: null
+updated: 2026-09-27T09:40:00Z
+branch: scratch/0f3a17-shortlist
+worktree: /workspace/madgab-shortlist-0f3a17
+>>>>>>> 7042ee1 (w-0f3a17: the per-slot index a later pass cannot cheaply recompute, and the depth-1 priced negative)
+opened_by: coord-3f77 (reconciliation pass 2026-09-27T07:57Z-08:01Z, on post-milestone-acceptance at 8475cdd)
+supersedes_mechanism: w-5b1e93 (emission order, priced negative on 4f76b16)
+review_in_flight: madgab-review-lattice-4b1e07 (agent-4b1e070, over adf1672..ebf5e7d)
+coordination_fence_2026_09_27T08_20Z: cargo test --release --test corpus_integration at ebf5e7d = 12 passed, 1 failed, the only failure being approximate_finds_classic_madgab_resegmentation (red on the pristine adf1672 base too); all three approximate_pool_reaches_* guards green, so ebf5e7d is not the b49f892-style pool-narrowing head.
+---
+
+# The canonical clue is outside the enumerated lattice, not late in its order
+
+## Goal
+
+Make the per-segmentation lexical traversal **enumerate** wordings that are
+deep in a single slot, so that `Hits Justice Dupe Hid Came` can be reached
+for `It's just a stupid game` at all. General mechanism, general benefit; no
+phrase-specific case, no hard-coding of either canonical sentence, clue or
+word.
+
+## Why this item exists
+
+This is the successor front named by the priced negative in
+[w-5b1e93](w-5b1e93.md) § "Pass 2026-09-27T08:00Z". Nine passes of steering
+on emission **order** ended with arithmetic: over 14 real targets, the number
+of wordings of a segmentation standing in front of a deep-in-one-slot wording
+is 14,411 to 934,472 under the exact score — 323x to 14,601x the
+per-segmentation allowance of 64 and 1.3x to 57x the whole 16,384 emission
+budget. Reordering within the enumerated product cannot fix that, and a
+jointly admissible Pareto bound makes it *worse* on 6 of the 14.
+
+Two measured facts from the same front say the real gap is upstream of order:
+
+- **`LEXICAL_BRANCH_STAGE_0` is not the production opening width.**
+  `affordable_opening_width` returns **7** at depth 5.
+- Therefore the canonical alignment's per-slot indices — **3 / 2 / 10 / 99 /
+  11** against the 160-wide shortlist — have their 10, 99 and 11 **never
+  pushed**. The clue is not late in the enumeration; it is **outside the
+  enumerated lattice**.
+
+So the question this item opens is: *which* candidates enter the lattice at
+all — the per-slot shortlist width, `affordable_opening_width`'s derivation,
+and the tuples the coverage reserve spends its budget on — not the order in
+which the traversal emits them.
+
+## Completion criteria
+
+1. `approximate_finds_classic_madgab_resegmentation` passes on
+   `post-milestone-acceptance` on its own merits, with the canonical clue
+   present in the generated proposal set. The itinerary's
+   [primary milestone](../../skills/itinerary-madgab.md) is then reachable.
+2. The lattice is derived from the budgets the loop already respects, in the
+   spirit of the existing `slot_is_affordable` precedent, and the item
+   records **what each new limit still bounds**. A constant that replaces a
+   constant is not a completion.
+3. The clue must be provably **in** the lattice before any ordering work is
+   attempted: a table over at least ten real targets showing how many of each
+   target's per-slot deep tuples are enumerated at the current width versus
+   the priced one, plus a regression test at an appropriate API or executable
+   boundary stating the mechanism generally (a deep-in-one-slot tuple is
+   enumerated at bounded cost), not the canonical pair.
+4. No phrase-specific hard-coding; `cargo test --release --test
+   no_phrase_hard_coding` stays green; `git grep -i -E "wreck|beach|recognize|
+   justice|stupid|dupe|came|hid"` over `src/` returns nothing outside
+   `#[cfg(test)]` fixtures, CLI usage examples and ordinary English in
+   comments.
+5. Suite green: `--lib`, `--test corpus_integration`, `--test emit_coverage`,
+   `--test approx_determinism`, `--test exact_determinism`, `--test
+   no_phrase_hard_coding`. `cargo fmt`, `cargo clippy` and doctests **cannot
+   run on this host**; do not report them as satisfied (see
+   [../../environment-notes.md](../../environment-notes.md)).
+6. No silent re-baselining of `approximate_output_is_locked`, and no
+   re-pinning of the literals in
+   `approximate_pool_reaches_resegmentations_deeper_than_one_walk` or
+   `approximate_pool_reaches_matches_deep_in_a_span`. Those two guards are
+   green at `707fb2a`; they are not a baseline to relax.
+7. Wall clock does not regress against case 1 **1.280 s** and case 2
+   **1.347 s** at `--top 50`.
+8. Landed on a focused branch, committed **and pushed**, integrated into
+   `post-milestone-acceptance`, never `main`.
+
+## Already refuted — do not re-litigate
+
+* **Emission order** and every uniform width raise
+  ([w-5b1e93](w-5b1e93.md), [w-7b41d2](w-7b41d2.md), [w-b3e91a](w-b3e91a.md)).
+  The width curve on the current integrated head, measured:
+
+  ```text
+  fanout=10   2309ms  pool 12358
+  fanout=16   2900ms  pool  9017
+  fanout=32   4871ms  pool  6994
+  fanout=64   7858ms  pool  5890
+  fanout=160 17238ms  pool  5366
+  fanout=160 emit=256   16884ms  pool 10889
+  fanout=160 emit=4096  17644ms  pool 26993
+  ```
+
+  A **uniform** widening shrinks the pool because the per-segmentation pop
+  limit binds. This item is explicitly not that: it asks how the width is
+  *derived* and which tuples it admits, not for a bigger constant.
+* **`axes::*` reweighting** ([w-04f83f](w-04f83f.md)) and any repair of the
+  score's length handling ([w-7e1a04](w-7e1a04.md)).
+* **A closed-class / clue-quality axis** ([w-9c2d51](w-9c2d51.md)),
+  [w-2e5b93](w-2e5b93.md).
+* **Reallocating the emission ceiling** ([w-b3e91a](w-b3e91a.md)): saturated at
+  16,384/16,384.
+
+## Suggested shape of the work
+
+1. **Quantify the lattice gap first.** For at least ten real targets, report
+   per slot the tuple indices the traversal actually pushes, the width
+   `affordable_opening_width` returns and why, and how many of the reserve's
+   own deep tuples fall outside it. This prices the fix on a
+   `scratch/` branch, in its own worktree, with its own `CARGO_TARGET_DIR`,
+   before any `src/lib.rs` change.
+2. **Derive the width from the budget the loop already respects**, so that a
+   slot pays for its own depth rather than being charged the worst case that
+   all slots are deep at once. `slot_is_affordable` is the in-tree precedent
+   and the shape to follow.
+3. **Decide the shortlist contents** as a separate question from the width:
+   if a needed tuple is not in the per-slot shortlist at any width, no width
+   reaches it, and the shortlist's own selection rule is the bug.
+4. Only after the lattice demonstrably contains the clue, revisit order. The
+   negative in [w-5b1e93](w-5b1e93.md) stands until that changes.
+
+## Constraints and traps this repository has already paid for
+
+* Reference values, release, `--top 50`, defaults, on the public
+  `Generator::generate_pool`: case 2 pool **18,936** / rank-50 cutoff
+  **0.915121574454**; case 1 pool **18,270** / **0.918796440893**
+  ([w-474813](w-474813.md)). Reproduce the pristine pool count and the
+  pre-existing rank-50 cutoff before believing any number from a probe.
+* `CARGO_TARGET_DIR` must not be shared between a worktree and any probe
+  worktree, or a mutated probe build is picked up and pre-existing tests fail
+  on a clean tree. Name the target dir in every number.
+* No `ZZ_*`/`zz_*` probe instrumentation, no survey dump tests and no
+  temporary `#[cfg(test)]` counters may reach the accumulation branch. Probes
+  belong on a separate `scratch/` branch in their own worktree.
+* `cargo` reuses stale binaries across `git bisect`; force a rebuild.
+* **Never use `git checkout <file>` for a mutation red-check.** Red-checks go
+  in a scratch worktree on a scratch branch.
+* Commit **and push** before spending further turns measuring, and check
+  `git branch --contains <head>` before treating a branch as safe.
+* A priced negative is an acceptable outcome, but only as a **commit plus a
+  written update to this item** with its arithmetic.
+
+## Handoff / notes
+
+Opened 2026-09-27T08:00Z by reconciliation pass coord-3f77 from
+`post-milestone-acceptance` at `8475cdd`, on the priced negative in
+[w-5b1e93](w-5b1e93.md). That item is now `blocked` on a general fix for two
+red pool-reach guards, and its branch `madgab-emitbound-5b1e93` at `4f76b16`
+is the durable copy of a genuine bound-admissibility defect repair that a
+concurrent reviewer ([w-6d2af3](w-6d2af3.md), agent `6d2af301`) is still
+assessing. A front on this item should start from the measurement in step 1
+and should not contend on `src/lib.rs` until that reviewer has reported.
+
+---
+
+<<<<<<< HEAD
+# Pass 2026-09-27T09:40Z — the width front is a priced negative
+=======
+Measurement only, no `src/lib.rs` change. Full write-up with the per-target
+table and the rule as specified:
+[w-0f3a17-shortlist-rule.md](w-0f3a17-shortlist-rule.md). Probe branch
+`scratch/0f3a17-shortlist-probe` (`b4a3009`) in its own worktree
+`/workspace/madgab-sl-0f3a17-probe`, own
+`CARGO_TARGET_DIR=/workspace/target-0f3a17-slprobe`; committed **locally and
+deliberately not pushed**, because it carries `#[cfg(test)]` dump
+instrumentation.
+>>>>>>> 7042ee1 (w-0f3a17: the per-slot index a later pass cannot cheaply recompute, and the depth-1 priced negative)
+
+Branch `madgab-lattice-0f3a17`, off `post-milestone-acceptance` at `adf1672`.
+Committed and pushed. **Recommendation: HOLD** (see the end of this pass).
+
+## 0. Reference numbers reproduced before any probe was believed
+
+Built in a detached worktree at `adf1672` with its own
+`CARGO_TARGET_DIR=/workspace/ref-target`, on the public
+`Generator::generate_pool` / `generate_with_pool`, release, defaults,
+`--top 50`:
+
+| target | pool | rank-50 cutoff |
+|---|---|---|
+| `It's just a stupid game` (case 2) | **18,936** | **0.915121574454** |
+| `recognize speech` (case 1) | **18,270** | **0.918796440893** |
+
+Both exact. The cutoff is `generate_pool(target)[49].score`; the *selected*
+`generate` list's 50th entry is a different number (0.912970544846 /
+0.913250211242) because `select_diverse` reorders, and the two must not be
+confused in later passes.
+
+## 1. The lattice gap, quantified (completion criterion 3, first half)
+
+Probed on `scratch/lattice-probe-0f3a17` in `/workspace/probe-0f3a17`, its own
+`CARGO_TARGET_DIR=/workspace/probe-target`. Instrumentation only observes: the
+probe reproduces 18,936 and 18,270 exactly, and its pop totals
+(175,957 / 195,370 / 446,341) agree with the independent accounting recorded
+on [w-b3e91a](w-b3e91a.md) ("175,957-212,108 of 1,024,000"), so it is not
+perturbing the search. No probe reached this branch.
+
+For each of 15 real targets: the deepest per-slot index the traversal actually
+**pushed**, the first-stage width `affordable_opening_width(d, 4_000)`
+returns, the widest shortlist present, and how many of the coverage reserve's
+own deep tuples land outside that width. "d (n)" is slot count d over n
+segmentations, one entry per depth in the order the depths appear.
+
+| target | segs | depths (segs) | first-stage cap | deepest index pushed | widest shortlist | reserve deep tuples | of those outside the cap | pops used / 1,024,000 |
+|---|---|---|---|---|---|---|---|---|
+| It's just a stupid game | 240 | 4 (38), 5 (96), 6 (106) | 10/7/5 | 9/6/4 | 160/160/160 | 2,895 | 2,895 (100%) | 17.2% |
+| recognize speech | 241 | 2 (5), 3 (44), 4 (64), 5 (64), 6 (32), 7 (28), 8 (4) | 10/10/10/7/5/3/3 | 39/9/9/6/4/2/2 | 160 each | 3,005 | 3,003 (100%) | 19.1% |
+| she sells sea shells | 241 | 2 (2), 3 (30), 4 (89), 5 (104), 6 (11), 7 (5) | 10/10/10/7/5/3 | 55/9/9/6/4/2 | 56/160/160/160/160/160 | 3,069 | 3,068 (100%) | 12.8% |
+| the cat sat on the mat | 240 | 3 (1), 4 (40), 5 (95), 6 (104) | 10/10/7/5 | 9/9/6/4 | 98/160/160/160 | 3,362 | 3,362 (100%) | 27.3% |
+| taco cat | 126 | 2 (6), 3 (21), 4 (35), 5 (35), 6 (21), 7 (7), 8 (1) | 10/10/10/7/5/3/3 | 159/9/9/6/4/2/2 | 160 each | 1,552 | 1,550 (100%) | 6.6% |
+| sign on | 32 | 1 (1), 2 (5), 3 (10), 4 (10), 5 (5), 6 (1) | 10/10/10/10/7/5 | 33/9/9/9/6/4 | 34/160/160/160/160/160 | 322 | 321 (100%) | 0.9% |
+| big spender | 237 | 2 (6), 3 (25), 4 (53), 5 (64), 6 (53), 7 (28), 8 (8) | 10/10/10/7/5/3/3 | 159/9/9/6/4/2/2 | 160 each | 2,988 | 2,986 (100%) | 33.8% |
+| I love you | 63 | 2 (6), 3 (15), 4 (20), 5 (15), 6 (6), 7 (1) | 10/10/10/7/5/3 | 39/9/9/6/4/2 | 160 each | 739 | 738 (100%) | 3.8% |
+| a whole lot of trouble | 240 | 3 (3), 4 (53), 5 (87), 6 (97) | 10/10/7/5 | 9/9/6/4 | 109/160/160/160 | 2,735 | 2,735 (100%) | 43.6% |
+| Coors light | 124 | 2 (6), 3 (20), 4 (34), 5 (35), 6 (21), 7 (7), 8 (1) | 10/10/10/7/5/3/3 | 159/9/9/6/4/2/2 | 160 each | 1,453 | 1,451 (100%) | 6.7% |
+| hit the ground running | 240 | 3 (16), 4 (94), 5 (108), 6 (22) | 10/10/7/5 | 39/9/6/4 | 160 each | 2,871 | 2,871 (100%) | 24.8% |
+| he who laughs last | 241 | 2 (1), 3 (23), 4 (86), 5 (104), 6 (27) | 10/10/10/7/5 | 12/9/9/6/4 | 13/160/160/160/160 | 2,920 | 2,919 (100%) | 21.0% |
+| one man wolf | 240 | 2 (5), 3 (29), 4 (70), 5 (60), 6 (50), 7 (22), 8 (4) | 10/10/10/7/5/3/3 | 159/9/9/6/4/2/2 | 160 each | 2,609 | 2,606 (100%) | 17.3% |
+| the early bird | 120 | 2 (3), 3 (18), 4 (35), 5 (35), 6 (21), 7 (7), 8 (1) | 10/10/10/7/5/3/3 | 9/9/9/6/4/2/2 | 160 each | 1,468 | 1,468 (100%) | 5.7% |
+| let it be | 63 | 2 (6), 3 (15), 4 (20), 5 (15), 6 (6), 7 (1) | 10/10/10/7/5/3 | 159/9/9/6/4/2 | 160 each | 723 | 721 (100%) | 5.0% |
+
+2,688 segmentations, 15 targets. Three things fall out, and all three are
+general:
+
+1. **At every depth ≥ 3 the deepest index the traversal pushes is exactly
+   `cap - 1`** — 9 at cap 10, 6 at cap 7, 4 at cap 5, 2 at cap 3, on every
+   target, at every depth. Not one of the 2,688 segmentations pushed an
+   index at or above its opening width while a wider list was present
+   (2,677 of them had a 160-wide list). The only depths where a deeper index
+   is reached are `d ≤ 2`, and there it is reached by the *widening ladder*
+   (`next_branch_stage`), which fires 3-5 stages — `d = 2` on `one man wolf`
+   reaches index 159 of 160. So the mechanism this item asks for already
+   works at depth 2 and is inert at depth 3 and above.
+2. **100% of the coverage reserve's own deep tuples fall outside the
+   traversal's cap**, at every depth ≥ 3 (the 0-3 exceptions are all `d ≤ 2`,
+   where the ladder has widened). The reserve is therefore doing *all* of the
+   deep-tuple work, and the traversal contributes none.
+3. **The traversal is not short of pops.** It spends 0.9-43.6% of
+   `LEXICAL_GLOBAL_POP_BUDGET` (2,513,868 pops over all 15 targets) while
+   emitting 139,101 wordings — 52 per segmentation against an allowance of
+   `LEXICAL_COMBINATIONS_PER_SEGMENTATION` = 64, i.e. **81% of every
+   segmentation's emission allowance and 5-35% of its pop limit**. The
+   traversal is emission-bound, not pop-bound.
+
+<<<<<<< HEAD
+Point 3 is the load-bearing one, and it is what makes the width the wrong
+lever.
+
+## 2. The clue's own position in the lattice, measured
+=======
+### The per-slot index, and the priced negative at depth 1
+
+Added at the request of coordination pass coord-0c1d. First, the hazard:
+**there are four per-slot orders, not one**, and they disagree by up to 143
+positions. (1) admission order, which nothing reads; (2) shortlist order,
+`sort_by(cmp_desc(quality))`, the order the truncation and the structural DP
+see; (3) **traversal order**, `slots[k]` = `edge.matches` re-sorted by
+`SlotAlt::contribution(word_count)` — familiarity, shape and closed class
+divided by the slot count, `WORD_NOVELTY / word_count`, ties by word string —
+and this is the one the walk indexes, `0..slots[k].len().min(cap)`; (4) the
+six per-pass orders. `cap` bounds (3), not (2). Any later pass quoting "the
+per-slot index" without naming the order is quoting an ill-defined number,
+and `3 / 2 / 10 / 99 / 11` matches none of the four.
+
+**Case 1, `recognize speech` -> `wreck a nice beach`** (depth 4, `cap = 10`):
+traversal indices **1 / 0 / 0 / 2**, all four pushed, depth-1 `wreck` at
+index 1 with shortlist index 32 and cost rank 0. Case 1 needs nothing.
+
+**Case 2, `It's just a stupid game` -> `hits justice dupe hid came`**
+(depth 5, `cap = 7`): traversal indices **7 / 0 / 13 / 99 / 11** against
+shortlist indices 22 / 0 / 64 / 85 / 7.
+
+**Priced negative, depth 1, with arithmetic.** The depth-1 needed tuple is
+`hits`. Its rank under each of the six admission passes' own orderings is
+**7** (cost), 72 (familiarity), 72 (rarity), 22 (quality); the cost pass is
+the best of the six, so the **floor over all six is 7**. The walk reads
+`0..min(len, cap)`, i.e. the test is `index < cap` = `7 < 7` = false. So
+**no change to any of the six admission passes can admit `hits` at depth 1
+within the production opening width; it misses by exactly one index.** The
+same arithmetic holds for the whole clue — floors 7 / 0 / 3 / 85 / 7 against
+`cap = 7` — so **not one of the five canonical tuples** can be brought
+inside the opening width by re-specifying the admission rule. What admits
+them is a width: `cap = 8` reaches `hits` (7), `12` also reaches `came`
+(11), `14` also `dupe` (13), and **`100` is the first width at which the
+canonical wording is fully enumerable** (`hid` at 99), against the derived
+opening width of 7. **The width the clue needs is ~14x the width the budget
+derives, and the shortlist is not what stands in the way.**
+
+**One correction the sibling front needs.** Because `contribution` divides
+the familiarity / shape / closed-class terms by the slot count, the traversal
+order depends on the segmentation's depth: a wider slot is not further down
+the same list, it is a differently-ordered list (measured disagreements:
+`it` 143 -> 0, `wreck` 32 -> 1, `came` 7 -> 11, `hid` 85 -> 99). A widening
+ladder argued in "shortlist index" units is arguing in the wrong units, and a
+width derivation must be stated and re-derived in traversal-index units per
+depth.
+
+### Verification on `scratch/0f3a17-shortlist` at `adf1672`
+
+`--lib` 61/0; `--test emit_coverage` 4/0; `--test approx_determinism` 4/0;
+`--test exact_determinism` 1/0; `--test no_phrase_hard_coding` 9/0;
+`--test corpus_integration` 12 passed / **1 failed** —
+`approximate_finds_classic_madgab_resegmentation`, this item's own goal,
+pre-existing red at this base. The probe branch's `--lib` is 65/0, so the
+instrumentation is inert. `cargo fmt`, `cargo clippy` and doctests cannot run
+on this host and are not claimed.
+>>>>>>> 7042ee1 (w-0f3a17: the per-slot index a later pass cannot cheaply recompute, and the depth-1 priced negative)
+
+The probe dumped every retained segmentation's per-slot candidate lists for
+the canonical target and searched them for the five clue words as a
+consecutive run of slots. **Exactly 3 of 240 segmentations contain the clue at
+all**, and the indices are:
+
+| segmentation | slot widths | clue indices (5 of `d`) |
+|---|---|---|
+| `d = 5` | 160 / 2 / 160 / 160 / 93 | **7 / 0 / 22 / 99 / 11** |
+| `d = 5` | 160 / 7 / 160 / 160 / 93 | 7 / 0 / 13 / 99 / 11 |
+| `d = 6` (slots 1-5) | 160 / 160 / 7 / 160 / 160 / 93 | 78 / 0 / 10 / 99 / 19 |
+
+So the item's `3 / 2 / 10 / 99 / 11` is the same tuple read against a different
+shortlist order; the measured shape is **four non-zero coordinates, two of
+them (22, 99) far outside `cap = 7`**. With `cap = 7` the traversal pushes
+indices 0-6, so 3 of the 5 coordinates are in the lattice and 2 are not, and
+the reserve cannot supply the missing pair either: its shape classes keep
+index 0 in every slot outside the deep subset, so with
+`EMIT_PROFILE_MAX_DEEP = 3` the best it can ever emit is *three* non-zero
+coordinates. **The clue is outside the reserve's lattice too, at any width** —
+so this is not a width defect at all.
+
+## 3. The per-slot derivation, done exactly, and what it buys
+
+`affordable_opening_width` returns the largest `w` with
+`1 + w + ... + w^(d-1) <= pop_limit`, which is the count of *internal* nodes
+a walk expands to reach its first leaf when **every** slot is `w` wide at
+once. The item's step 2 asks for the same series evaluated with one slot
+widened and the rest held at the baseline, so a slot pays for its own depth
+instead of the worst case. Held to the same 4,000-pop budget:
+
+| depth | baseline | per-slot derived width (160-wide lists) | internal nodes at that width |
+|---|---|---|---|
+| 5 | 7 | **9 / 7 / 10 / 10 / 93** | 3,601 / 2,801 / 3,977 / 3,830 / 2,801 |
+| 6 | 5 | **5 / 5 / 5 / 5 / 5 / 93** | 3,906 each, 2,801 for the last |
+
+Two general facts, both now asserted in
+`tests::the_opening_width_is_charged_the_all_slots_deep_worst_case`:
+
+* a slot's depth is charged against the product of the slots **before** it,
+  so the affordable width of a slot is non-decreasing in its position; and
+* the **last** slot's depth is charged against *nothing*, because it is only
+  read once the walk is at the last internal level — so the last slot can
+  always be opened to its whole list width at the same internal-node cost as
+  one alternative.
+
+And the price of that, at `d = 5`: the derived widths are 9, 7, 10, 10, 93
+against the shipped uniform 7. The clue needs 22 and 99 in slots 2 and 3. So
+the per-slot derivation is **2-3 indices wider in three slots and still leaves
+both deep coordinates unpushed**. It is a constant replacing a constant, which
+criterion 2 explicitly refuses to count, and this pass declines to claim it.
+
+The general reason is point 3 above: the width is derived from the *pop*
+budget, and the traversal's binding constraint is its *emission* allowance.
+The walk is best-first, so it spends its 64 wordings on the cost-best corner
+and stops; a deep-in-one-slot tuple's bound is below all of them, so no width
+at all brings it into the walk. Widening a slot cannot help, which is why the
+widening ladder fires zero times at `d ≥ 3` on all 15 targets.
+
+## 4. What is therefore still open, and where
+
+The gate is `LEXICAL_COMBINATIONS_PER_SEGMENTATION` = 64 wordings per
+segmentation, spent in descending-bound order, with
+`LEXICAL_GLOBAL_EMISSION_BUDGET` saturated at 16,384/16,384 and
+`LEXICAL_GLOBAL_POP_BUDGET` at 5-44%. Any mechanism that *places* a
+deep-in-one-slot tuple into the lattice has to spend **emissions** on it, and
+the only spend in the tree that does is the coverage reserve (16/segmentation,
+corner-only shapes, at most 3 non-zero coordinates) and the adjacency operator
+(8/segmentation, one slot at a time, retaining the best
+`ADJACENCY_PER_SLOT` = 2 children per slot — so a rank-99 index is admitted
+only if it is top-2 by bound in its own slot, which measurement says it is
+not). This item's front is the width; the width is not the gate. The successor
+front is **the coverage reserve's shape rule**, and it is a different question
+from the one this item opened.
+
+## 5. Changes on this branch
+
+* `src/lib.rs`: `LEXICAL_HEAP_POP_LIMIT` moved from a `const` inside
+  `generate_approximate` to module scope, **value unchanged (4,000)**, so the
+  bound `affordable_opening_width` derives from can be named and asserted on
+  outside the function that spends it. No behaviour change: pool 18,936 /
+  18,270 and both rank-50 cutoffs are unchanged.
+* `src/lib.rs`: new test
+  `the_opening_width_is_charged_the_all_slots_deep_worst_case` — the
+  mechanism, stated generally: the opening width is the largest `w` whose
+  all-slots-deep internal-node series fits the pop limit; a slot's own depth
+  is charged against the slots before it; the last slot's depth is charged
+  against nothing. It names no phrase, no clue and no word.
+
+`approximate_output_is_locked`,
+`approximate_pool_reaches_resegmentations_deeper_than_one_walk` and
+`approximate_pool_reaches_matches_deep_in_a_span` are **untouched**; no
+literal was re-pinned. No `src/` behaviour changed, so no pool or cutoff moved.
+
+## 6. Validation (this host)
+
+* `cargo test --release --lib` — **62 passed, 0 failed** (61 before, +1 new).
+* `cargo test --release --test corpus_integration` — **12 passed, 1 failed**:
+  `approximate_finds_classic_madgab_resegmentation`, which is **red on the
+  pristine `adf1672` base as well** (verified in `/workspace/ref-0f3a17` with
+  its own target dir) and is completion criterion 1, i.e. the item's own
+  subject. Not caused by this pass.
+* `--test emit_coverage` 4/4, `--test approx_determinism` 4/4,
+  `--test exact_determinism` 1/1, `--test no_phrase_hard_coding` 9/9 — all
+  green.
+* `git grep -i -E "wreck|beach|recognize|justice|stupid|dupe|came|hid"` over
+  the added lines: nothing.
+* **`cargo fmt`, `cargo clippy` and doctests cannot run on this host** (no
+  `rustfmt`, no `clippy`, no `rustdoc` — see
+  [../../environment-notes.md](../../environment-notes.md)) and are **not**
+  claimed.
+
+## 7. Wall clock
+
+Whole-process, release, `--approximate --top 50`, three runs each, on this
+host. The reference 1.280 s / 1.347 s was measured on a faster host; these are
+host-relative and only the before/after pair is comparable.
+
+| target | before (adf1672) | after (this branch) |
+|---|---|---|
+| It's just a stupid game | 1,613 / 1,551 / 1,584 ms | 1,494 / 1,451 / 1,415 ms |
+| recognize speech | 1,649 / 1,592 / 1,685 ms | 1,347 / 1,325 / 1,358 ms |
+
+No regression; the small improvement is noise on an unchanged search path
+(no `src/` behaviour changed).
+
+## 8. Recommendation
+
+**HOLD.** The branch is a measurement plus one general regression test and a
+module-scope move of an existing constant. It does not deliver criterion 1
+and does not claim criterion 2. It should be integrated as the record of the
+negative and as the durable arithmetic behind it (the new test will fail
+loudly if anyone changes the width derivation in a way that invalidates this
+pass's numbers), and the *mechanism* should be re-opened on a new front
+against the coverage reserve's shape rule rather than against the width.
+
+---
+
+# Pass 2026-09-27T08:27Z (coord-0c1d steer) — wind-down
+
+`ebf5e7d` stands as this front's last word. The successor mechanism — the
+**shortlist admission rule** — belongs to sibling front `agent-0f3a172`
+(branch `scratch/0f3a17-shortlist-probe`), and this front does not start,
+duplicate or anticipate it. No `src/` edit follows this section; the only
+commit after the reviewed `ebf5e7d` is this docs-only note, so that commit
+remains the review target.
+
+## The one line the next coordinator needs
+
+**Under the current shortlist admission rule the canonical clue is not
+reachable at any width; it becomes reachable only if that rule changes.**
+
+The width is therefore not a missing dial. The two facts behind the sentence,
+both measured and both reproduced on pristine `adf1672` before any probe was
+believed:
+
+* the traversal's per-slot width is exhausted at `cap - 1` on every one of
+  2,688 real segmentations at depth ≥ 3, so widening it is not what excludes
+  the tuple; and
+* the tuple is absent from **all but 3 of 240** of the canonical target's
+  segmentations' candidate lists (indices `7 / 0 / 22 / 99 / 11` against
+  widths `160 / 2 / 160 / 160 / 93`), so for 237 of them no width and no
+  emission allowance can reach it — the words are not in the lattice at all.
+
+## Measured numbers the successor front must not contradict
+
+These are on `ebf5e7d` and are reproducible from the scratch probe
+(`/workspace/probe-0f3a17`, `scratch/lattice-probe-0f3a17`,
+`CARGO_TARGET_DIR=/workspace/probe-target`). If the sibling front's
+measurement disagrees with one of them, one of the two is wrong and the
+discrepancy is the finding — it should not be reconciled by restating either.
+
+| # | number | where it comes from |
+|---|---|---|
+| 1 | case 2 pool **18,936** / rank-50 **0.915121574454**; case 1 **18,270** / **0.918796440893** | pristine `adf1672`, own target dir, public `generate_pool`. Any successor run that reports a different pool has changed the search, not measured it. |
+| 2 | the canonical target's 240 retained segmentations contain the five clue words in **exactly 3**, at `7/0/22/99/11` (d=5, widths `160/2/160/160/93`), `7/0/13/99/11` (d=5, widths `160/7/160/160/93`) and `78/0/10/99/19` (d=6 slots 1-5, widths `160/160/7/160/160/93`) | full dump of every segmentation's per-slot candidate lists |
+| 3 | the traversal's deepest pushed index is exactly `cap - 1` at every depth ≥ 3, on all 15 targets, 0 of 2,688 segmentations reaching `cap` | per-slot push instrumentation |
+| 4 | **100%** of the coverage reserve's deep tuples fall outside `cap` at depth ≥ 3 (2,895/2,895, 3,362/3,362, 3,362 …) | same probe |
+| 5 | pops used are **0.9–43.6%** of `LEXICAL_GLOBAL_POP_BUDGET` while the traversal emits **52 wordings per segmentation** against an allowance of 64 | same probe; corroborated by w-b3e91a's independent 175,957–212,108 accounting |
+| 6 | the per-slot derivation from the same 4,000-pop budget gives **9 / 7 / 10 / 10 / 93** at d=5 against the uniform 7 | exact evaluation of the internal-node series |
+| 7 | the reserve's shape classes keep index 0 outside the deep subset and `EMIT_PROFILE_MAX_DEEP = 3`, so it can emit **at most three** non-zero coordinates, while the tuple needs **four** | `coverage_tuples`, read against #2 |
+
+#7 is the constraint that decides the successor front's shape: whatever the
+admission rule becomes, a rule that can only place up to three non-zero
+coordinates cannot produce this tuple, and one that can place four must still
+do it inside the emission budget that #5 shows is 81% spent.
+
+Front status: **terminal, HOLD**. Not marked done; that is the coordinator's
+call.

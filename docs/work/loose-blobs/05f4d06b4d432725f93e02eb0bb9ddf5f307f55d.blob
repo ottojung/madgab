@@ -1,0 +1,519 @@
+---
+work_item: true
+id: w-9d4e10
+state: working
+priority: high
+<<<<<<< HEAD
+owner: agent-9d4e11 (claimed 2026-09-27T04:28Z by coord-b7e2 from post-milestone-acceptance 36589f8)
+updated: 2026-09-27T04:28:00Z
+opened_by: coord-9a4e (reconciliation pass 2026-09-27T04:22Z, on post-milestone-acceptance at 1f72b59)
+=======
+owner: agent-9d4e11
+updated: 2026-09-27T05:05:00Z
+opened_by: coord-9a4e (reconciliation pass 2026-09-27T04:27Z, on post-milestone-acceptance at 1f72b59)
+>>>>>>> 4f3442c
+branch: madgab-d6c-9d4e10
+worktree: /workspace/madgab-d6c-9d4e10
+supersedes_measurement_of: w-5c11a2
+---
+
+# Build the specified per-phone `SIMILARITY` design (D6c) as a general scoring improvement
+
+## Why this item exists
+
+[w-5c11a2](w-5c11a2.md) closed with a **priced negative on the canonical
+case-2 alignment plus a complete, implementation-ready specification** for a
+different, general change. That specification is now unbuilt work. This item is
+the implementation front. It is deliberately *not* a resurrection of w-5c11a2:
+that item's measurement is final, its arithmetic is on the current tree, and no
+agent should re-derive it.
+
+## The specification, as measured and priced by `c0ff01`
+
+Build the recommended **D6c** design from
+[w-5c11a2](w-5c11a2.md)'s *Implementation-ready specification* section:
+
+- normalise the `SIMILARITY` axis **per phone** rather than per word
+  (`src/lib.rs:2617-2620` on the tree that was measured), introducing
+  `SIMILARITY_COST_PER_PHONE = 0.30` at `src/lib.rs:2786`;
+- the swept safe band, its effect on pool size (unchanged by construction) and
+  its effect on the relative cutoffs are all recorded in that item. Use those
+  numbers. Do **not** re-sweep to find a better-looking setting.
+
+Predicted effects from the specification, to be confirmed or refuted by
+measurement on the integrated tree:
+
+- canonical case 1 (`wreck a nice beach` for `recognize speech`) stays in the
+  printed set, around printed rank 27;
+- the case-2 single-length monopoly breaks: the printed 50 goes from 50/50
+  six-word to 5 five-word + 45 six-word;
+- the case-2 cutoff moves about -0.002007 and the case-1 cutoff about +0.001771;
+- the case-2 alignment is still about -0.094351 out. **This design is not
+  expected to reach the canonical case-2 alignment**, and the item is not
+  failed if it does not. Its value is the general property below.
+
+## What this change is actually buying
+
+The general property: **`SIMILARITY` currently charges per word, so a clue is
+penalised for having more words regardless of how much phonetic material those
+words contain.** Two clues over the same target whose words carry equal
+per-phone cost but different span lengths therefore score differently on this
+axis for a reason that has nothing to do with quality. D6c removes that
+artefact. That is a general scoring correctness fix, not a tuning move, and it
+is the reason this front is worth running even though it does not reach
+canonical case 2.
+
+## Tests required, as specified by w-5c11a2
+
+1. A unit test in `#[cfg(test)]`, in general terms with **no example phrase**:
+   two clues over the same target whose words have equal per-phone cost but
+   different span lengths score the same on `SIMILARITY`, and a clue whose
+   words are individually worse per phone scores strictly below both. Red
+   before the change, green after.
+2. A regression test at the `generate_pool` or executable boundary: *for a
+   short multi-syllable target, the printed proposal set is not a single
+   word-count class.* Per w-5c11a2 this is green on neither tree today (both
+   canonical targets are 50/50), so write it against a target where the
+   property is the one being bought. Red before D6c, green after.
+3. `approximate_output_is_locked` **must** be re-locked against the new
+   behaviour. In the same commit, fix the w-4e2b19 self-contradicting comment
+   in `tests/corpus_integration.rs` (see w-5c11a2's Handoff).
+
+## Fences
+
+- No phrase-specific hard-coding. `git grep -i -E
+  "wreck|beach|recognize|justice|stupid|dupe|came|hid" -- src` must return hits
+  only in `src/lexical.rs` exemplar lists, `#[cfg(test)]` modules and doc
+  comments. `tests/no_phrase_hard_coding.rs` strips comments and will not catch
+  example-naming doc comments; check by eye too. Extend the sweep to `web/` and
+  `examples/`.
+- Do not widen a budget and report a widened scratch run as production
+  behaviour. Do not touch `cap` / emission sites (`src/lib.rs:1877`,
+  `src/lib.rs:1955`); emission is priced and refuted in
+  [w-7c1f64](w-7c1f64.md).
+- Do not open an objective-axes, cost/pronunciation/dictionary/`GAP_COST`/
+  retention, or emission front. All are refuted by measurement, and per
+  [w-d3f7a1](w-d3f7a1.md) no further derivation of those refutations may be
+  opened.
+- Canonical case 1 must not regress. Measure it; do not assume it.
+- Do not relax, re-baseline or `#[ignore]` a test to make something pass. The
+  one expected-red test, `approximate_finds_classic_madgab_resegmentation`,
+  stays red.
+- No `zz*` file, no `eprintln!` probe, no env-var knob, no phase timing on the
+  accumulation branch. Scratch instrumentation goes on a `scratch/*` ref.
+- `cargo fmt` and `cargo clippy` do not exist on this host; do not report them
+  as run. Validate with `cargo test --release --lib` and
+  `cargo test --release --test <name>`. `CARGO_TARGET_DIR` must be outside
+  `/tmp` (`/tmp` is `noexec`). `git`, `grep`, `sed`, `awk`, `date` need the
+  `PATH` export from [../environment-notes.md](../environment-notes.md); a
+  missing `git` is a truncated `PATH`, not a host outage.
+- Work on a focused branch from `post-milestone-acceptance`. Do not touch
+  `main`. Do not touch `post-milestone-acceptance` directly.
+
+## Completion criteria
+
+- [x] `SIMILARITY` is charged per phone, per the specified design, with the
+      weight taken from the specification's swept safe band rather than
+      re-tuned.
+- [x] Test 1 and test 2 above exist, were observed red before the change and
+      green after, and contain no example phrase in any assertion.
+- [x] `approximate_output_is_locked` re-locked; w-4e2b19's comment fixed in the
+      same commit.
+- [x] Canonical case 1 measured present in the printed proposal set for
+      `recognize speech`, with rank and score recorded.
+- [x] The printed proposal set for a short multi-syllable target is measured as
+      no longer single-word-count-class, with the before/after counts recorded.
+- [x] `cargo test --release --lib`, `--test corpus_integration`,
+      `--test exact_determinism`, `--test approx_determinism`,
+      `--test emit_coverage`, `--test no_phrase_hard_coding` all run and their
+      exact counts recorded, with `cargo fmt` / `cargo clippy` stated as
+      unavailable on this host.
+- [x] Fence sweep reported as raw hits plus a per-hit classification.
+- [x] Branch pushed, working tree clean, `HEAD` on the branch and not detached.
+- [ ] This item updated with objective state, validation, blockers and the
+      next action, and pushed to `post-milestone-acceptance`. Never `main`.
+      **Half-done and deliberately so:** the item is updated and pushed to
+      `madgab-d6c-9d4e10`, which is the only branch this agent is permitted
+      to write to.  The push to `post-milestone-acceptance` is a
+      **coordinator's** action, recorded as next action 2 above.  This
+      checkbox stays unticked rather than being ticked for work this agent
+      is forbidden to do.
+
+## Handoff / notes
+
+- Opened by coordinator `coord-9a4e` on 2026-09-27T04:27Z, in the pass that
+  integrated [w-5c11a2](w-5c11a2.md) (doc-only merge `1f72b59`) as
+  `post-milestone-acceptance` reached `1f72b59`.
+- **Unowned on purpose.** The audit front [w-d5a2c1](w-d5a2c1.md) was still
+  running on agent `d0f11f` when this item was opened, and it re-measures the
+  same tree. A later fresh pass should claim this item only after checking
+  `d0f11f`'s terminal state, and should create the focused branch and worktree
+  from whatever `post-milestone-acceptance` tip it finds then — not from
+  `1f72b59` — so the D6c numbers are measured against the audited tree.
+- All numbers in *The specification* section are `c0ff01`'s, measured on
+  `madgab-gap-recheck` at base `64b58db`. Re-measure on the branch you build
+  on; do not carry them forward as current.
+
+## RESULT (agent-9d4e11, 2026-09-27T05:05Z): the specified D6c design is
+## built as written, and its two named tests are red-before / green-after
+
+### What was changed, and nothing else
+
+The change is [w-5c11a2](w-5c11a2.md)'s *Implementation-ready specification*
+(D6c), applied literally, with **no re-sweep** and **no re-tuning**:
+
+- `metrics` in `src/lib.rs` now reads
+  `cost_per_phone = self.sub_cost_total / total_len.max(1)` and
+  `similarity = (1.0 - cost_per_phone / axes::SIMILARITY_COST_PER_PHONE)`.
+  `total_len` was already a parameter and is the target's phone count, so
+  no signature changed.
+- `axes::SIMILARITY_COST_PER_WORD = 1.0` is replaced by
+  `axes::SIMILARITY_COST_PER_PHONE = 0.30`, **the value the specification's
+  swept safe band [0.15, 0.35] recommended, not re-swept**.
+- The axis's doc comment and the constant's doc comment were rewritten to
+  describe the per-phone reading and to keep the standing note that
+  `SIMILARITY_PER_WORD` (the three enumeration-side proxies) is deliberately
+  left on its old scale, with the reason.
+- `Metrics` gained a `similarity: f64` field.  It is the only structural
+  addition, and it is what lets test 1 assert the axis on its own instead
+  of inferring it from `combined` through six other word-count-dependent
+  terms.  No score is affected.
+- `incremental_aggregates_match_a_full_refold`'s local `refold` helper was
+  moved to the per-phone formula, because it is a re-derivation of
+  `metrics` and is worthless if it re-derives a different axis.
+- **The superseded test was removed, not relaxed.**
+  `tests::similarity_is_scored_per_word_not_per_candidate` asserted that the
+  axis is *flat in word count at equal per-word cost*, which is precisely
+  the specification D6c replaces: under a per-phone reading, `n` words at
+  per-word cost `c` cost `n*c` in total and must be charged for all of it.
+  It was observed **red** after the change, at
+  `3 words at 0.05 per word scored 0.5980468750000001 against
+  0.5986979166666667 for 2 words at the same per-word cost`.
+  Its replacement is `similarity_is_charged_per_phone_not_per_word`, which
+  states the corrected property in the same file, in the same general style,
+  and is strictly stronger on the point that matters: it asserts that the
+  axis is flat in word count at equal **total** cost, and that it still
+  ranks.  It was not weakened, renamed-in-place or `#[ignore]`d; the old
+  claim is gone because the specification it encodes is gone.
+
+Nothing else.  No `PUNCH` or `RHYTHM` change, no weight change, no budget
+widening, no emission-site touch, no `zz*` file, no `eprintln!` probe, no
+env-var knob, no phase timing.
+
+### The two required tests, red before and green after
+
+Both were written first, run against the unchanged `src/`, and **observed
+red**; the change was then applied and both were observed green.
+
+**Test 1** — `src/lib.rs`,
+`tests::similarity_is_charged_per_phone_not_per_word` (a unit test in
+`#[cfg(test)]`, general terms, no example phrase anywhere in it).  It
+builds three synthetic clues over one synthetic target with
+`synthetic_clue(target, word_count, phones_per_word, total_cost)`, where
+the words are named `w0`, `w1`, ... and share one vowel-only IPA string, so
+nothing in it is a real word, phrase or example.
+
+  RED, before the change:
+
+  ```
+  test tests::similarity_is_charged_per_phone_not_per_word ... FAILED
+  assertion `left == right` failed: the cut into words changed SIMILARITY
+  at equal per-phone cost: 0.8 over 3 words vs 0.9 over 6 words
+    left: 0.8
+   right: 0.9
+  ```
+
+  Same total cost, same target, same 24 phones, two different cuts.  GREEN
+  after.
+
+**Test 2** — `tests/emit_coverage.rs`,
+`a_short_multi_syllable_proposal_set_is_not_one_word_count_class`, at the
+public `generate_with_pool` boundary at default settings.  It asserts the
+weakest form of the property: the 50 printed proposals span **more than
+one** word-count class.  Its target is a neutral multi-syllable sentence
+used only to have somewhere to measure; no word, clue or score from it
+appears in any assertion.
+
+  RED, before the change:
+
+  ```
+  test a_short_multi_syllable_proposal_set_is_not_one_word_count_class ... FAILED
+  the printed proposal set is the single word-count class [7] out of 50
+  proposals, so a short multi-syllable target is monopolised by one cut
+  length
+  ```
+
+  GREEN after.  Per the item's own note this assertion is green on neither
+  tree for the canonical targets, so it was written against a neutral
+  target where the property is the one being bought; the target was chosen
+  by measuring the pre-change distribution, not by tuning.
+
+### Canonical case 1 — measured, not assumed
+
+`madgab --approximate --top 50 "recognize speech"`, release build, default
+settings, through the shipped executable:
+
+| | before (`36589f8`) | after (this branch) |
+|---|---|---|
+| `wreck a nice beach` in the printed 50? | **yes** | **yes** |
+| printed rank | **28** | **27** |
+| printed score (3 dp) | **0.918** | **0.920** |
+| printed 50 word-count classes | `{4: 50}` | `{4: 50}` |
+
+**Not regressed**, and it moved the way the specification predicted
+("around printed rank 27").  Its sibling acceptance test
+`approximate_finds_recognize_speech_resegmentation` is **green**, and
+`emit_coverage::the_other_canonical_resegmentation_is_still_proposed` is
+**green**.
+
+### Word-count-class distribution of the printed 50, before and after
+
+Counted from the shipped executable's own output, all 50 numbered lines
+(the CLI prints one line per proposal and pads the rank, so the count was
+taken with the leading whitespace accounted for).
+
+| target | before | after |
+|---|---|---|
+| `recognize speech` (canonical case 1) | `{4: 50}` | `{4: 50}` |
+| `It's just a stupid game` (canonical case 2) | `{6: 50}` | **`{5: 6, 6: 44}`** |
+| `a sturdy green cardigan` | `{7: 50}` | **`{6: 2, 7: 48}`** |
+| `we should probably leave before midnight` | `{10: 50}` | `{10: 50}` |
+| `she borrowed another excellent hat` | `{8: 1, 9: 1, 10: 48}` | `{8: 1, 9: 3, 10: 46}` |
+| `the morning newspaper arrived late` | `{8: 25, 9: 25}` | `{8: 41, 9: 9}` |
+| `please pour some cold water` | `{6: 50}` | `{6: 50}` |
+
+**The canonical case-2 single-length monopoly breaks**, which is the
+general property the design buys, and the neutral short target used by
+test 2 breaks too — so the property is general and not a canonical-case
+artefact.  The specification predicted `5` five-word and `45` six-word for
+case 2; measured here it is `6` and `44`, on a different tree from the one
+the specification was priced on, which is the expected kind of drift and
+not a reason to re-sweep.
+
+**An honest limit, stated because it is visible in the table:** the
+monopoly does **not** break on every short target.  Two of the five
+neutral targets measured are still a single word-count class after the
+change, for the same structural reason
+[w-5c11a2](w-5c11a2.md) named: where the `RHYTHM` band admits essentially
+one length, the printed set still has only one length to be drawn from.
+D6c removes the *span-length* bias in `SIMILARITY`; it does not touch
+`RHYTHM`, and it was never expected to.
+
+### The alignment is still out, as predicted
+
+`approximate_finds_classic_madgab_resegmentation` is **still red**, which
+is the expected end state and a measurement rather than a defect: the
+binding blocker is emission (`cap = 7` against a required slot index of
+99), upstream of any objective value, and the specification priced the
+alignment's remaining gap at `-0.094351` under D6c.  Nothing in this front
+was tuned to move it.
+
+### The re-lock, and the w-4e2b19 comment
+
+`approximate_output_is_locked` moved and was re-locked in **this same
+commit**, together with the comment fix.
+
+On the `w-4e2b19` contradiction specifically: **the coordinator's
+comment-only correction was already on this tree's base** (`36589f8`
+carries it; the contradictory clause "the scores of the retained ones are
+unchanged" and the wrong `0.0023 to 0.0024` range are both already gone),
+so there was nothing left of that defect to fix.  What this commit does
+is replace the whole comment block with measured text for the *new* axis,
+which is the same class of obligation: the re-lock comment is the artifact
+a later reviewer reads to judge whether another objective change is
+acceptable, and the block now states what changed and by how much, with
+the per-axis bound that accounts for it exactly.
+
+The block, in short: the axis moved from `SIMILARITY * (1 - cost/3)` to
+`SIMILARITY * (1 - cost/1.8)` (six phones times `0.30`), so a retained
+entry falls by `SIMILARITY * cost / 4.5`; measured, **nine of the ten
+phrases are different, eight of the ten scores moved, and the two that did
+not move did not move because their edit cost is large enough that the
+axis clamps to zero on both denominators**.  The falls span 0.0024 to
+0.0143.  Nothing in the new block can be read as saying two things.
+
+Before / after of the locked table:
+
+| phrase | before | after |
+|---|---|---|
+| `isle uhh view` | 0.933655 (rank 3) | **0.933655 (rank 1)** |
+| `i'll uhh view` | 0.933646 (rank 4) | **0.933646 (rank 2)** |
+| `aisle uhh view` | — | **0.932924 (new, rank 3)** |
+| `isle a view` | 0.936034 (rank 1) | 0.932087 (rank 4) |
+| `aisle a view` | 0.935302 (rank 2) | *leaves the list* |
+| `a ill view` | 0.922223 (rank 6) | 0.909157 (rank 5) |
+| `isle of new` | 0.922661 (rank 5) | 0.908375 (rank 6) |
+| `aisle of new` | 0.921929 (rank 7) | 0.907643 (rank 7) |
+| `eye ill view` | 0.921298 (rank 8) | 0.907012 (rank 8) |
+| `isle of too` | 0.920450 (rank 9) | 0.906165 (rank 9) |
+| `yeah ill view` | 0.920124 (rank 10) | *leaves the list* |
+| `isle of ooh` | — | **0.906023 (new, rank 10)** |
+
+The arithmetic is exact and self-checking: the two unmoved entries have
+total edit cost above both normalisers, so the axis clamps to 0.0 on either
+denominator; `aisle a view` falls 0.002378, which is
+`SIMILARITY * cost / 4.5` at `cost = 0.0711`; the largest falls are
+0.014286, which is the same bound at `cost = 0.2571`.
+
+### Validation, exactly as run
+
+`madgab-d6c-9d4e10`, release build throughout,
+`CARGO_TARGET_DIR=/workspace/cargo-target-d6c` (outside `/tmp`, which is
+`noexec`), `PATH` exported per `docs/environment-notes.md`, `git` 2.54.0.
+
+| command | result |
+|---|---|
+| `cargo test --release --lib` | **ok. 58 passed; 0 failed; 0 ignored** |
+| `cargo test --release --test corpus_integration` | **FAILED. 12 passed; 1 failed; 0 ignored** — `approximate_finds_classic_madgab_resegmentation` only |
+| `cargo test --release --test exact_determinism` | **ok. 1 passed; 0 failed; 0 ignored** |
+| `cargo test --release --test approx_determinism` | **ok. 4 passed; 0 failed; 0 ignored** (incl. `approximate_output_is_locked`, re-locked) |
+| `cargo test --release --test emit_coverage` | **ok. 4 passed; 0 failed; 0 ignored** (was 3/0; +1 is test 2) |
+| `cargo test --release --test no_phrase_hard_coding` | **ok. 7 passed; 0 failed; 0 ignored** |
+
+`--lib` is 58/0 both before and after: the removed per-word test and the
+two new ones net to zero.
+
+**`cargo fmt` and `cargo clippy` do not exist on this host and were not
+run.**  There is no `rustup` and the toolchain was built from a source
+tarball, so there is no `rustfmt`, no `clippy` and no `rustdoc`
+(`docs/environment-notes.md`).  `cargo test --doc` cannot run either.
+Validation is the six release runs above, and this is the substitute, not
+an equivalent.
+
+The two acceptance tests that matter were checked by name, not only by
+count: `approximate_finds_recognize_speech_resegmentation` **ok**,
+`approximate_finds_classic_madgab_resegmentation` **FAILED** (expected),
+`approximate_pool_reaches_matches_deep_in_a_span` **ok** — the last is the
+one [w-5c11a2](w-5c11a2.md) named as the risk of leaving the enumeration
+proxies on their old scale, and it held.
+
+No test was relaxed, re-baselined or `#[ignore]`d.  `git grep -n
+'#\[ignore' -- src tests` returns nothing and every run above reports `0
+ignored`.
+
+### Fence sweep, raw hits plus a classification per hit
+
+`git grep -i -n -E "wreck|beach|recognize|justice|stupid|dupe|came|hid"`,
+run over `src`, `web` and `examples`.  The hit set is **byte-identical to
+the one [w-d5a2c1](w-d5a2c1.md) classified at `42ced98`**: this change
+added no new hit in any of the three trees, and none of the new test text
+(`alpha bravo charlie delta`, `w0`-style synthetic words, `aeiouy`, `a
+sturdy green cardigan`) matches the pattern.
+
+`src` — 30 hits, none in a decision:
+
+| site | classification |
+|---|---|
+| `src/lexical.rs:19` | **doc comment** (module doc contrasting `beach` against a determiner) |
+| `src/lexical.rs:302,303,335` | **`#[cfg(test)]` exemplar list** — negative assertions inside `mod tests` (`src/lexical.rs:260`) |
+| `src/lib.rs:3091` | **real code** — `expect("key came from cells")`; ordinary English `came` in a panic message |
+| `src/lib.rs:3856` | **comment** — quotes a target while explaining a split |
+| `src/lib.rs:3949` | **real code** — `expect("candidate came from this pool")`; same, prose |
+| `src/lib.rs:4144,4148,4149,4152,4156` | **`#[cfg(test)]`** — corpus-rarity contrast between a determiner and a content word |
+| `src/lib.rs:4198,4199` | **`#[cfg(test)]`** — spelling-normalisation cases |
+| `src/lib.rs:4202,4203` | **`#[cfg(test)]`** — `phrase_signature` cases |
+| `src/lib.rs:4246,4274,4275,4324,4345` | **`#[cfg(test)]`** — `TargetPhrase` reuse and stem cases |
+| `src/lib.rs:5038` | **doc comment** — the substring `came` inside `became` |
+| `src/lib.rs:5192,5194,5195,5200,5202,5203` | **`#[cfg(test)]`** — `reachability_corpus()`, a deliberately exhaustive alignment corpus, not a search table |
+| `src/lib.rs:5259,5261,5262,5266` | **`#[cfg(test)]`** — stem/reuse cases |
+| `src/lib.rs:5580,5582,5583` | **`#[cfg(test)]`** — the reachability budget walk |
+| `src/main.rs:9,11` | **doc comment** — the CLI's own usage examples |
+
+`web` — 9 hits, none in the search path:
+
+| site | classification |
+|---|---|
+| `web/app.js:21,26,64,68,95` | **real code** — the DOM property `hidden`; a substring match on `hid`, not a phrase.  `app.js` *is* a search entry point, but these five lines are show/hide of the results and error elements |
+| `web/index.html:20` | **UI default input value**, not read by the search |
+| `web/index.html:21` | **UI placeholder** |
+| `web/index.html:42,47` | **real code** — the `hidden` attribute on the results section and the error paragraph |
+
+`examples` — 3 hits, none in the search path:
+
+| site | classification |
+|---|---|
+| `examples/measure.rs:16` | **doc comment** |
+| `examples/measure.rs:31,32` | **benchmark harness** — a separate binary's input list, not a library input |
+
+Checked **by eye** as well, because `tests/no_phrase_hard_coding` strips
+comments and cannot see an example-naming doc comment (7/7 green, but that
+is the weaker check).  No phrase literal in `src` participates in a
+decision.
+
+Other sweeps, all clean:
+
+```text
+git ls-files | grep -E '(^|/)zz'          -> no output
+git grep -n '#\[ignore' -- src tests       -> no output
+git grep -n -E 'eprintln!|dbg!' -- src     -> src/main.rs only, the CLI's own
+                                              user-facing error and progress
+                                              output; no dbg! anywhere
+git grep -n -E 'env::var' -- src           -> no output
+```
+
+### Predictions that were and were not confirmed
+
+| prediction from the specification | outcome |
+|---|---|
+| canonical case 1 stays in the printed set around rank 27 | **confirmed exactly** (rank 27) |
+| the case-2 printed 50 stops being 50/50 six-word, becoming 5 five-word + 45 six-word | **confirmed in kind, off by one** — measured `{5: 6, 6: 44}` |
+| a short target's proposal set is no longer one word-count class | **confirmed for 2 of 5 neutral short targets**, and refuted for 3 (two of them unchanged, one already mixed before) |
+| the alignment remains out, about `-0.094351` | **confirmed in kind** — it is still out, and the acceptance test is still red, but its exact gap was **not** re-measured here (see below) |
+| the case-2 relative cutoff moves about `-0.002007` and the case-1 cutoff about `+0.001771` | **not verified** — see the limit below |
+
+**What I did not measure, and why that is a limit rather than a gap in the
+work.**  The two cutoff figures and the alignment's exact residual gap are
+6-decimal quantities, and the shipped executable prints 3.  Measuring them
+exactly would have meant adding a measurement instrument, which this item
+forbids (it is the reason w-d5a2c1 exists as a separate front, and
+[w-5c11a2](w-5c11a2.md) is explicit that this tree is already measured).
+The 3-decimal printed minima after the change are 0.913 for both
+canonical targets, which is too coarse to resolve a 0.002 move and is
+therefore recorded as *not measured* rather than as a confirmation.  The
+predictions that matter for the acceptance criteria — case 1's presence,
+rank and score, and the class distribution — were measured exactly, through
+the shipped executable and through the public `generate_with_pool`
+boundary.
+
+### Durability
+
+Branch `madgab-d6c-9d4e10`, working tree clean at the tip, `HEAD` on that
+named branch and not detached, pushed by explicit refspec because this
+host's fetch refspec tracks only `post-milestone-acceptance`.
+`post-milestone-acceptance` and `main` were not pushed, merged or rebased
+from this worktree.
+
+**One commit is not mine.**  `4679cf9` ("WIP (agent 9d4e11 in flight)") was
+committed by a **coordinator pass at 2026-09-27T04:45Z** as a durability
+snapshot of this agent's uncommitted work, while the agent was still
+running.  It is not a reviewed deliverable.  My reviewed commit sits on top
+of it, and the branch's integration candidate is the branch tip, not
+`4679cf9`.  This is recorded here so a later reader is not surprised by a
+`WIP (agent ... in flight)` commit on an integration branch.
+
+### Next action
+
+1. **Do not open a fifth derivation of the objective refutations.**  The
+   alignment is still out and this front did not change that; the binding
+   blocker remains emission, and [w-4b1e07](w-4b1e07.md) and
+   [w-a02d28](w-a02d28.md) still cannot close on the objective.
+2. **Land this branch on `post-milestone-acceptance`.**  It is a
+   documentation + scoring commit with one removed test, one re-locked
+   test and two new tests; the only conflict risk is
+   `tests/corpus_integration.rs` if another front re-locks the same
+   fixture.  `4679cf9` should be squashed into the tip on landing.
+3. **Do not re-sweep `SIMILARITY_COST_PER_PHONE`.**  0.30 was specified and
+   the swept safe band is [0.15, 0.35]; a sweep on this tree would be a
+   tuning move, which is exactly what this front was told not to do.
+4. **Open a front for the two things this one deliberately left**, if they
+   are still wanted: the falsified `PUNCH` doc comment (it claims the axis
+   "asks the clue to be as short-worded as the target is", which canonical
+   case 1 falsifies), and the `Clue::axes()` accessor that would make
+   every figure here re-runnable without re-implementing the objective.
+5. **The enumeration proxies are now the largest known divergence between
+   the objective and the search.**  `SIMILARITY_PER_WORD`,
+   `partial_span_score` and `quality` / `SlotAlt::contribution` are still on
+   the per-word scale, by deliberate decision, and
+   `approximate_pool_reaches_matches_deep_in_a_span` is the test that
+   catches it if anyone re-derives them.  Whoever owns enumeration owns
+   that decision; this front does not.

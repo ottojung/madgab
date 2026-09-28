@@ -1,0 +1,437 @@
+---
+work_item: true
+id: w-1c3e77
+state: blocked
+priority: high
+<<<<<<< HEAD
+owner: agent-4d3ab7 (terminal) / coord-3e91 (review+integration)
+updated: 2026-09-26T22:54:00Z
+=======
+owner: coord-7a4e/agent-1c3e77
+updated: 2026-09-26T23:05:00Z
+>>>>>>> madgab-review-1c3e77
+branch: madgab-enum-depth4
+worktree: /workspace/madgab-enum-depth4
+---
+
+# The current head cannot express a four-deep pairing in the coverage
+# reserve: re-open the enumeration front on today's tree
+
+## Goal
+
+Make the approximate mode enumerate `hits justice dupe hid came` for
+`It's just a stupid game` as a result of general traversal behaviour, never a
+phrase-specific hard-code.
+
+This is a **re-opening on the current head** of the enumeration territory
+[w-2f7a10](w-2f7a10.md) owns, prompted by two facts that are new since that
+item's last note.
+
+## Why this is a new item
+
+1. **[w-d4a90b](w-d4a90b.md) localised the loss to enumeration, not the
+   objective.** On `f5b9eaa` the phrase is absent from the **entire** pool
+   (missing from all 17 827 candidates at `--top 50`, all 13 498 at CLI default
+   `top_n` 10), so it has **no rank**. It is nevertheless admissible under the
+   shipped budgets (per-word costs `0.2 / 0.0 / 0.15 / 0.3695 / 0.4`, total
+   `1.11951981` <= `1.5`, exactly one complete lattice alignment) and scoreable
+   at `0.79990129077367222`, i.e. `0.09785131568084526` below the worst visible
+   proposal at `--top 50`. So it is dropped **before the pool is formed**: no
+   score, admission, share-cap or cutoff change can surface it.
+
+2. **The reviewed reserve-shape fix that raises the deep cap is still not
+   integrated, and the constant on the current head still forbids the shape.**
+   `src/lib.rs:212` on `post-milestone-acceptance` is
+   `const EMIT_PROFILE_MAX_DEEP: usize = 3;` while `coverage_tuples`
+   (`src/lib.rs:384`) walks slot subsets breadth-before-depth and emits
+   subsets of size `1..=max_deep`. The change that raised the cap to 4 and made
+   each member of a shape class draw its own coordinate exists, was reviewed
+   for generality, and was deliberately **held** pending a breadth measurement
+   (commits `a58a49b` and the continuity clause `3b14482` on
+   `madgab-pairing-2f7a10`, report `REPORT-2f7a11.md`). The **sweep** half of
+   that work *was* integrated (`e123dbb`, per-member coprime sweep rates at
+   `sweep_index`, `src/lib.rs:302`); the **depth-cap** half was not.
+
+So the concrete question this front owns is narrow and answerable: **on the
+current head, is `EMIT_PROFILE_MAX_DEEP = 3` the binding reason the requested
+wording is never offered as a tuple, and is raising it justified by its own
+arithmetic rather than by the phrase?** The independent arm
+[w-5d2a91](w-5d2a91.md) re-derives the depth measurement so the implementer is
+not the only source of it.
+
+## Hypotheses, in order
+
+1. **Depth cap.** Count how many of the requested wording's coordinates are
+   simultaneously off the traversal's best index in its own slot's ranked list
+   on **this** head (the older figures were 7 / 0 / 13 / 99 / 11 per slot, i.e.
+   four deep, on a three-axis-old tree). If it is four, the reserve on this head
+   cannot express the tuple at any phase, and the 17:47Z pass already measured
+   that raising the cap 3 -> 5 with nothing else changed moved canonical
+   members 47 -> 47, because the *order* was the gate then. Re-measure that
+   arithmetic: the order has since changed (`profile_tuple`, interleaved
+   depths, `COVERAGE_SLOT_ROTATION`), so the old refutation may not hold.
+2. **Per-structure retention.** The structure `[3, 10, 13, 15, 19]` is
+   populated; check whether `SEGMENTATION_KEEP` or the pool's per-structure cap
+   is what bounds it, and whether an under-represented structure is crowded
+   out by structures with more members.
+3. **The cost bound.** `build` compares each tuple's total substitution cost
+   against `total_budget` additively. The requested tuple costs
+   `1.11951981` of `1.5`, so this is expected to be refuted — measure it rather
+   than assume it.
+
+A refutation of hypothesis 1 is an acceptable and useful result; record it and
+route on the next gate.
+
+## Scope and collision boundary
+
+This front owns the traversal's **tuple space** on the current head:
+`coverage_tuples`, `profile_tuple`, `sweep_index`, `sweep_rate`,
+`EMIT_PROFILE_MAX_DEEP`, `EMIT_PROFILE_RESERVE`,
+`LEXICAL_COMBINATIONS_PER_SEGMENTATION`, the per-slot candidate lists, the
+emission-budget accounting in `build`, and per-structure retention in the pool.
+It may read `axes::*` and `select_diverse` to diagnose but must not change them.
+
+Forbidden: sweeping or re-tuning `axes::*` weights or any `boundary_novelty`
+form ([w-3f9c02](w-3f9c02.md)), `src/adjacency.rs` and `ADJACENCY_*`, changing
+`select_diverse`'s admission order or the share cap / `STRUCTURE_FLOOR`
+([w-8a1d47](w-8a1d47.md)), relaxing or re-baselining **either** acceptance
+test, and any phrase-specific case in `src/` or `tests/`. `approximate_output_is_locked`
+may be re-baselined only with a record of which structures moved, and only as a
+consequence of this item's own change. Do not merge any `scratch/*` branch
+(including `scratch/2f7a10-base`, `scratch/2f7a10-verify`,
+`scratch/2f7a10-tip-verify`, `scratch/9f1c05-aggform`) and do not touch another
+front's worktree.
+
+## Completion criteria
+
+1. **Diagnosis first, by line.** On the current head, the function, line and
+   rejecting quantity where the requested tuple is never offered; the count of
+   tuples `coverage_tuples` does offer for that structure across a run, and the
+   count it would need. Measured on the **default** approximate path with a
+   release build.
+2. **A landed, general fix** if a fix is warranted, argued from the mechanism
+   and never from either phrase: no special case for any word, substring or
+   word sequence of either acceptance example, in `src/` or `tests/`. If the
+   depth cap is the gate, say **what it now bounds**, with arithmetic, and
+   derive any extra spend from the emission/pop budget the search already
+   respects rather than raising an unrelated constant. If the held
+   `a58a49b` / `3b14482` change is the right one, re-measure its breadth cost
+   on the current head and say whether it is restored or only explained.
+3. **A regression test** expressing the general property — a *pairing* of deep
+   alternatives in different slots is reachable in the approximate pool, not
+   merely each alternative alone — naming neither acceptance phrase, and
+   **shown red on the base it claims to fix**.
+4. **Membership on the default release path**: the count of pool candidates
+   containing the requested wording goes from 0 to non-zero, with the same
+   count reported for six real targets that contain neither acceptance example,
+   so the change is shown not to be specific to one input.
+5. `approximate_finds_recognize_speech_resegmentation` and
+   `approximate_pool_reaches_alternatives_past_the_opening_slot_width` stay
+   green — they are guards, not targets. Re-measure `recognize speech` after
+   any pool-changing fix rather than only before it.
+6. `cargo test --release --lib`, `--test corpus_integration`,
+   `--test exact_determinism`, `--test approx_determinism` and
+   `--test no_phrase_hard_coding` reported. `cargo fmt`, `cargo clippy` and
+   doctests do not exist on this host ([../../environment-notes.md](../../environment-notes.md));
+   do not claim them.
+7. Wall clock on `--approximate --top 50` not regressed, measured **interleaved
+   against the base in the same session** — [w-7b2d40](w-7b2d40.md)'s
+   1.77-2.51 s column is host noise and [w-d4a90b](w-d4a90b.md)'s ~2.2-2.5 s
+   is a third session.
+
+## Handoff / notes
+
+Opened 2026-09-26T22:00Z by coordinator `coord-7a4e` from
+`post-milestone-acceptance` at `8f14014`, on the evidence of
+[w-d4a90b](w-d4a90b.md) (`REPORT-d4a90b.md` on
+`origin/madgab-postpunch-measure`, `2860b57`) and the current head's
+`EMIT_PROFILE_MAX_DEEP = 3`. Fork **from the current accumulation head**; a
+front forked from `8ad2d53` would revert PUNCH (`6a93c2a`).
+
+The independent measurement arm for this item is [w-5d2a91](w-5d2a91.md); it is
+measurement-only and does not contend on `src/`. Coordinate on numbers, not on
+code.
+
+This item, [w-2f7a10](w-2f7a10.md), [w-4b1e07](w-4b1e07.md) and
+[w-a02d28](w-a02d28.md) fold-close together, and only on
+`approximate_finds_classic_madgab_resegmentation` passing on
+`post-milestone-acceptance` with its assertion unmodified and no
+phrase-specific case in `src/`.
+
+Host notes: `git` is configured to sign commits and `gpg` is absent, so use
+`git -c commit.gpgsign=false commit`. `/tmp` is `noexec`; build under
+`/workspace` or `/tmp/opencode`. Verify durability with `git ls-remote origin`,
+not with a local remote-tracking ref. `main` must never be pushed to or merged
+into; `main` is `c0ecd7c` on `origin` and is the line not to cross.
+
+### Claimed 2026-09-26T22:15Z (coord-7a4e), agent `1c3e77` running
+
+Claimed and pushed from `post-milestone-acceptance` at `33cb6cb`; the branch
+`madgab-enum-1c3e77` and worktree `/workspace/madgab-1c3e77` were created from
+that same head, so the front does not revert PUNCH. Agent `1c3e77` is `running`
+and is meant to be left running.
+
+The brief it was given reproduces criterion 1 first (measure the per-slot
+widths, per-slot ranks and the count of *simultaneously* deep coordinates on
+this head, then the tuples `coverage_tuples` actually offers), and states the
+gate order: depth cap, then per-structure retention, then the additive cost
+bound — with the first two already refuted by arithmetic on older trees and the
+third refuted by a measured total cost of `1.11951981` against a `1.5` budget,
+so all three are re-measured rather than assumed. It was told explicitly that a
+refutation of the depth cap is an acceptable and useful result, that the older
+"cap 3 -> 5 changed nothing" refutation predates the order change and is not
+evidence against re-testing, and that the held `a58a49b` / `3b14482` change is
+available to re-measure but not to merge wholesale.
+
+It was also told that the independent arm `5d2a91` is taking the same numbers,
+that it must not touch that worktree, and that it must not treat its own
+instrumented run as proof. Its fence, its guards, its validation suites and the
+durability instruction (`git -c commit.gpgsign=false commit`, push as you go,
+no `ZZ_*`/`zz_*`/`MADGAB_*` scaffolding on the branch) are in the prompt, and
+they are the same constraints this item's body already records.
+
+`9f1c05` was steered in the same pass with the `d4a90b` finding and the request
+to state explicitly that an aggregation form cannot surface a wording that is
+never enumerated, so its verdict is not misread as a milestone route. It is
+running and left running.
+
+Nothing has been integrated on this pass and `main` is `c0ecd7c`, untouched.
+
+## Front report: agent `1c3e77`, resumed on `madgab-enum-depth4` at `03fdf52`
+
+Branch `madgab-enum-depth4`, one commit: **`784deaa`**. Nothing is
+integrated by this front; `post-milestone-acceptance` and `main` are
+untouched.
+
+### Objective state: NOT met, and shown not reachable by enumeration
+
+**`approximate_finds_classic_madgab_resegmentation` does not pass on this
+branch.** Its assertion is unmodified. It was red on `03fdf52` and is red
+on `784deaa` for the same reason: the wording is never enumerated.
+
+Reported separately, as the coordinator asked:
+
+* **ENUMERATED — no.** `hits justice dupe hid came` is still absent from
+  the pool on the default release path, before and after `784deaa`.
+* **RANKED — no, and unreachable by this class of fix.** On the base, with
+  the wording *force-emitted* into the pool by a probe (not landed), the
+  real final scorer gave it **`0.799901`** and it sat at **rank 9 997 of
+  17 826** pool candidates, with 48 candidates of its own structure
+  `[3, 10, 13, 15]` and that structure's best at rank 3 376. The visible
+  cutoff for `--top 50` is `0.898`. `select_diverse` fills its 50 slots
+  from the head of the score order, so a candidate at rank 9 997 cannot be
+  shown whatever the search enumerates. **The test is therefore a
+  visibility assertion, not a pool-membership assertion**, and no change
+  to search, segmentation, index-space construction, retention, budget or
+  emission can turn it green. Unblocking it requires changing something
+  this front is forbidden to touch — see "Unblocking condition" below.
+
+### What the log established before the change (do not re-measure)
+
+On the head `03fdf52`, release, default path, target
+`It's just a stupid game` (IPA length 19):
+
+* the target's structure is spans `(0,3) (3,10) (10,13) (13,15) (15,19)`,
+  retained at segmentation rank 151 of 256, per-slot candidate-list widths
+  `[160, 7, 160, 160, 93]`;
+* ranks of the requested words in each slot's contribution-sorted list are
+  **22 / 0 / 64 / 85 / 7**, costs `0.2 / 0.0 / 0.15 / 0.3695 / 0.4`,
+  total `1.1195` of a `1.5` budget — so four coordinates are off the
+  corner *simultaneously*, and one of them (7) is below
+  `LEXICAL_BRANCH_STAGE_0`, which is the width the coverage reserve's
+  sweep floor is tied to;
+* the per-slot **budget-derived depth equals the list width in every one
+  of the 256 retained segmentations** (slack 0.5–1.4 of a 1.5 budget), so
+  the affordability model the brief names cannot truncate anything at the
+  shipped budgets. That is why the landed half of this front is inert at
+  default budgets and is documented as such;
+* opening every slot at the full `160` and raising the pop limit to
+  200 000 (measured on the base, not landed) does **not** put the wording
+  in the pool: with a best-first walk on the final score, the count of
+  better-bound tuples in front of a four-deep point in a 160·160·160·93
+  product is astronomically larger than any per-segmentation budget. This
+  is the "no score-monotone enumeration reaches it" arithmetic the
+  coordinator has accepted.
+
+### What landed on `784deaa`, and why it is general
+
+Two changes, both in the lexical phase's affordability model, both derived
+from budgets the search already respects. Neither mentions any word,
+clue or substring of either acceptance example.
+
+1. **Per-slot affordability, read one candidate at a time**
+   (`slot_is_affordable`, `src/lib.rs`). A candidate is pushed only if
+   `committed(prefix) + min(later slots) + cost(candidate) <= total_budget`
+   — exactly the tail of the additive sum `build` already applied at the
+   leaf, decided where it can still save work. Nothing `build` would have
+   kept is rejected. Measured discarded fraction at the shipped budgets:
+   **669 of 15 875** built wordings on one target, **87 of 13 640** on
+   another, so it is nearly inert by default and binds when a caller
+   tightens `total_budget`. Stated in the code as a bound, not claimed as
+   a win.
+
+2. **The traversal's opening width, derived rather than uniform**
+   (`affordable_opening_width`, `src/lib.rs`). A best-first walk over `d`
+   slots reaches its first wording only after `1 + w + ... + w^(d-1)` pops.
+   At `w = 10` and a 4 000-pop limit: `d = 4` needs 1 111 and reaches its
+   first wording; `d = 5` needs 11 111 and does not. So a segmentation
+   past the crossover was not *poorly* funded, it was funded with a budget
+   that cannot be spent at all. Measured on the default release path,
+   **27 of 256** retained segmentations emitted no wording whatsoever on
+   `It's just a stupid game`, **109** on `a whole lot of trouble`, **84**
+   on `the cat sat on the mat`, each after spending its full 4 000 pops
+   out of the *global* pop budget, paid for by the segmentations that do
+   emit. The new function takes the largest `w` whose series fits the pop
+   limit, capped by `LEXICAL_BRANCH_STAGE_0`, so below the crossover
+   nothing changes and `next_branch_stage`'s widening ladder is untouched.
+
+**Purpose of each bound, before and after.**
+
+| bound | before | after |
+| --- | --- | --- |
+| per-slot candidate width | whole contribution list; cost budget checked only at the leaf | candidates the total budget cannot pay for are never pushed; the index space is the affordable one |
+| traversal opening width | `LEXICAL_BRANCH_STAGE_0`, uniform in the slot count, i.e. a function of nothing | largest `w` with `1 + w + ... + w^(d-1) <= LEXICAL_HEAP_POP_LIMIT`, capped by `LEXICAL_BRANCH_STAGE_0` and by the widest list |
+| `LEXICAL_HEAP_POP_LIMIT` | 4 000 per segmentation; unpayable past ~4 slots | unchanged; now actually payable at every slot count, because the width is derived from it |
+| `EMIT_PROFILE_RESERVE` / `coverage_tuples` / `sweep_index` / `EMIT_PROFILE_MAX_DEEP` | 16 / breadth-before-depth / floor `LEXICAL_BRANCH_STAGE_0` / 3 | **unchanged — not this front's territory** (9c4d21 owns the reserve) |
+| `SEGMENTATION_KEEP` | 256 retained alignments | unchanged |
+
+**Measured effect, base `03fdf52` → `784deaa`, default release path:**
+
+* pool size (`generate_with_pool`, `top_n = 20 000`): 19 511 → 20 500,
+  17 277 → 19 542, 17 919 → 22 981, 18 358 → 21 565, 16 525 → 21 294,
+  14 880 → 15 485, 11 048 → 11 333.
+* search wall clock, interleaved in one session, three runs each:
+  1 840 → 1 176 ms, 1 716 → 1 128 ms, 2 205 → 1 186 ms.
+* visible `--top 50` quality and the share/diversity profile are
+  unchanged (worst visible 0.898 → 0.897, 0.882 → 0.887, identical
+  elsewhere).
+* **The trade, stated rather than hidden:** the number of *distinct* deep
+  resegmentations in the pool falls (47 → 32 of six slots or more on
+  `she sells sea shells`; 336 → 310 structures on
+  `It's just a stupid game`), because the same pops now go to fewer,
+  actually-funded structures. Distinct words drawn on is flat to slightly
+  down (1 490 → 1 469 on that target).
+
+### Red/green evidence for the regression test
+
+`approximate_pool_reaches_resegmentations_deeper_than_one_walk` in
+`tests/corpus_integration.rs`: three seven-slot wordings of
+`she sells sea shells`, an ordinary target naming neither acceptance
+example. It is an executable-boundary assertion on the pool, and it
+expresses the external property "a resegmentation deeper than one
+uniform-width walk covers still contributes wordings".
+
+* **RED on `03fdf52`**: `she sells sea shells: "see if a law thus ish
+  l.'s" missing, so a resegmentation deeper than one uniform-width walk
+  covers contributed no wording at all; pool had 16837 clues`.
+* **GREEN on `784deaa`**.
+
+### Validation run on this branch
+
+* `cargo test --release --lib` — 53 passed, 0 failed.
+* `cargo test --release --test corpus_integration` — 11 passed, **1
+  failed**: `approximate_finds_classic_madgab_resegmentation` only.
+  `approximate_finds_recognize_speech_resegmentation`,
+  `approximate_pool_reaches_alternatives_past_the_opening_slot_width`,
+  `approximate_pool_reaches_matches_deep_in_a_span`,
+  `approximate_output_is_locked` and
+  `approximate_list_is_not_one_resegmentation` all pass.
+* `cargo test --release --test exact_determinism` — 1 passed.
+* `cargo test --release --test approx_determinism` — 4 passed.
+* `cargo test --release --test no_phrase_hard_coding` — 6 passed.
+* `cargo fmt`, `cargo clippy`, doctests and the wasm32 build do not exist
+  on this host and are **not** claimed.
+
+### Hygiene
+
+The two `MADGAB_TRACE_SPANS`/`WORDS`/`PHRASES` diagnostic blocks the
+previous agent left **committed** in `src/lib.rs` are removed by
+`784deaa`. No `ZZ_*`, `zz_*`, `MADGAB_*` or phase-timing scaffolding is on
+this branch, and the untracked `tests/zzprobe.rs` of the previous agent
+was never present here (this front's probes were removed before the
+commit; `git status` is clean).
+
+### Unresolved blockers and the single next action
+
+**Blocker.** The milestone test is a *visibility* assertion. The wording's
+score is fixed at `0.799901` by the real final scorer and the visible
+cutoff at `--top 50` is `0.898`, so the only ways to surface it are
+outside this front's fence: `select_diverse`'s admission rule or share cap
+(frozen by [w-8a1d47]), or a scoring change (frozen: `axes::*`,
+`boundary_novelty`). The coordinator has recorded that a later pass will
+refute scoring re-weighting the same way.
+
+**Concrete condition that would unblock this front**, in decreasing order
+of how much it disturbs what is frozen:
+
+1. a coordinator decision that the milestone criterion is *pool
+   membership* rather than visibility — the item's own criterion 4, which
+   asks for a non-zero pool count and is satisfiable, and which this
+   branch's own measurements show is still **zero** for this wording, so
+   even that needs a mechanism that can place a four-deep coordinate set;
+2. unfreezing `select_diverse` step 1 so that a resegmentation the search
+   enumerated is represented in the visible list on a criterion other than
+   "its best is inside the visible cutoff" — with the measured
+   specification: for `It's just a stupid game` the wanted structure's
+   best is rank 3 376 of 17 826 and the wanted wording rank 9 997, so a
+   per-structure *reserve slot* of the kind `structure_wording_allowance`
+   already computes for the pool would be the minimal form;
+3. failing that, an explicit statement that the milestone example is not
+   reachable by this search and the item should be re-scoped.
+
+**Single next action for the coordinator:** merge `784deaa` (or take it
+piecewise: the `MADGAB_TRACE` removal is independent of the enumeration
+change) and then decide between unblocking conditions 1 and 2 above. The
+enumeration front should not be re-opened a fourth time: the arithmetic
+above is the third independent derivation that no score-monotone walk
+reaches a four-deep coordinate set under a per-segmentation budget.
+
+<<<<<<< HEAD
+
+## Pass 2026-09-26T22:54Z (coordinator coord-3e91): the code half is now under independent review; blocker restated
+
+Objective state re-read from the branch, not from the agent's summary:
+`origin/madgab-enum-depth4` = `8a5dd3b`, whose single code commit is `784deaa`
+(`MADGAB_TRACE` probe removal plus `slot_is_affordable` and
+`affordable_opening_width`). Its next action asked the coordinator to review
+`784deaa` on its own merits before anything lands on top of it, so that review
+is now running as a **separate front** and is not this item's agent:
+
+* agent `7e1a03`, worktree `/workspace/madgab-review-1c3e77`, branch
+  `madgab-review-1c3e77` created from `madgab-enum-depth4` at `8a5dd3b`,
+  launched 22:54Z, brief covers the fence audit read **by eye as well as by
+  `no_phrase_hard_coding`** (that test strips comments, so example-naming doc
+  comments only a human read catches), the two mechanisms' arithmetic and
+  generality, an independent red-on-`03fdf52` / green-on-`784deaa` check of
+  `approximate_pool_reaches_resegmentations_deeper_than_one_walk` in a
+  throwaway worktree under `/tmp/opencode`, the five suites, and a re-measure
+  of the `recognize speech` guard. Verdict required in writing: integrate as
+  is, integrate with named fixes, or do not integrate.
+* it may not touch `/workspace/madgab-representation-b2e5c4` (agent `b2e5c4`,
+  `running`), may not push, merge, or touch `main`.
+
+**Blocker restated, unchanged in substance.** The milestone test is a
+visibility assertion: the wording's score is fixed at `0.799901` by the real
+final scorer against a `--top 50` cutoff of `0.898`, at pool rank 9 997 of
+17 826. Unblocking condition (2) from the report above — represent an
+enumerated resegmentation on a criterion other than "its own score is inside
+the visible cutoff" — is open as [w-b2e5c4](w-b2e5c4.md) and is the operative
+one. Condition (1), re-reading the milestone as pool membership, is refused:
+the itinerary forbids redefining the criterion, and this item's own
+measurement shows membership is still zero anyway.
+
+**What this item still needs, and it is not the same thing twice.** Integrating
+`784deaa` is worth doing on its own merits — it derives two widths from budgets
+the search already respects, reports a wall-clock improvement and a pool
+growth, and the guard `recognize speech` is claimed intact — but it is **not**
+a milestone route: this item's own arithmetic says no score-monotone walk
+reaches a four-deep coordinate set under a per-segmentation budget, and
+[w-6f2b18](w-6f2b18.md) reached the same conclusion from the pool side. So the
+item should not be re-opened a fourth time on the enumeration axis. If `7e1a03`
+returns "integrate", integrate and leave the milestone to `w-b2e5c4`; if it
+returns "do not integrate", the refusal stands with the review's evidence
+attached and this item closes on the refutation already on record.
+
+Coordinator ID for this pass: `coord-3e91`.
+=======
+>>>>>>> madgab-review-1c3e77

@@ -1,0 +1,216 @@
+---
+work_item: true
+id: w-3f8c62
+state: done
+priority: high
+<<<<<<< HEAD
+owner: coord-c1d4a (re-inspected by coord-5f31 at 21:49Z: the front has reached a TERMINAL HOLD IN FLIGHT. Its untracked docs/work/REPORT-3f8c62.md is 509 lines with verdict HOLD in its frontmatter, section 4's isolation table complete and section 7's handoff written. The agent is still running (2 prompts, ~45m) but 0 commits past base, so nothing is integrated yet; a later pass should let it go terminal and then integrate the report as a docs-only priced HOLD. Its successor is now OPEN and LAUNCHED, so this item needs nothing further from a coordinator: w-e086cc (commit 421f45f on post-milestone-acceptance) is the successor section 7 names verbatim, worktree /workspace/madgab-e086cc, front agent-e086cc prompted 21:50Z and left running. The landed C1d variant is on local branch scratch-3f8c62-landed (514ed91); the remote pre-receive hook DECLINES it, so it stays local and must never be integrated. Case-2 reach is untouched by this front and must not be read as progress on it) / prior coord-c1d4a
+updated: 2026-09-27T21:53:00Z  # 21:46Z pass (coord-5f31): terminal HOLD report found in the front's worktree, successor w-e086cc opened and launched, no integration, no steer
+=======
+owner: front-3f8c62 (claimed 2026-09-27T21:26Z on post-milestone-acceptance at 4a83e9e; front agent-3f8c62 launched 21:26Z in /workspace/madgab-parsim-3f8c62 [madgab-parsim-3f8c62])
+updated: 2026-09-27T23:45:00Z
+>>>>>>> 08bb406 (w-3f8c62: the word-count parsimony axis, landed and measured; verdict HOLD)
+branch: madgab-parsim-3f8c62
+worktree: /workspace/madgab-parsim-3f8c62
+opened_by: coord-c1d4a (reconciliation pass 2026-09-27T20:58Z-21:22Z)
+source_items: docs/work/REPORT-9b4a15.md §6 first bullet (the recipe), §4 (why it could not ship from w-9b4a15), docs/work/REPORT-d4e8b1.md (the residue that is now the largest single share of the canonical deficit), docs/work/OBSTRUCTION-MAP.md §4 ("honest next move") and row 10
+predecessors: w-9b4a15 (done, priced the axis; declined to ship it), w-3a8c05 (done, identified the axis), w-d4e8b1 (done, priced the phonetic term, 3.54% of the deficit), w-2f1c03 (done, priced the reserve sweep, reach-null)
+base: post-milestone-acceptance at 515f8bd (pushed); front branched from 8bfe7de
+verdict: HOLD
+---
+
+# Land the word-count parsimony axis in the structural keys as well as the final scorer
+
+## Goal
+
+Ship the one general objective repair that three consecutive fronts have independently identified
+and priced, and that no front was allowed to ship: a **word-count parsimony** term
+`1 - |w_clue - w_target| / max(w_clue, w_target)` at weight **0.15**, funded by `SHAPE` 0.05 →
+0, `NOVELTY` 0.15 → 0.05 and `RHYTHM` 0.30 → 0.25 (`SIMILARITY` stays 0.25), added to the
+**final scorer and to `complete_span_score`, `partial_span_score` and `span_score_bound`
+together** so `structural_bounds_dominate_the_real_scorer` stays true.
+
+The property this buys is general and phrase-free: *for a fixed target, the proposal set the
+executable returns is at least as acoustically good as the pool it was drawn from.* It is
+**currently false** — see the red fence `head_not_worse_than_pool` in `src/lib.rs`, integrated at
+`515f8bd`, `#[ignore]`d and red on HEAD: 2 of 10 ordinary targets sit below their pool mean
+(`they ate the whole pie` −0.0080, `my brother lost his wallet` −0.0184). Turning that fence
+green is this item's success criterion, expressed at the library boundary with no sentence, no
+clue and no exact rank.
+
+This is a **general search-quality** item, not a case-2 reach item. `REPORT-3a8c05.md` §3's
+weight-free bound of rank 1,127 is a floor under *every* monotone objective, so nothing here
+reaches the canonical case-2 tuple and nothing here may claim to.
+
+## Why this front now
+
+`OBSTRUCTION-MAP.md` §3 is exhausted: shape 1 went priced-negative at `91c0e35`, shape 2 at
+`38361de` (this pass), and shape 3 by `REPORT-9e2b41.md` / `REPORT-5d9c04.md`. The map's own §4
+conclusion is that the honest next move is a general search-quality item, and this is the one
+such item that is already fully priced end to end:
+
+* `REPORT-3a8c05.md` §5 note 1 identified the axis and refused to smuggle it in.
+* `REPORT-9b4a15.md` (integrated at `515f8bd`) priced **14 weight vectors** on captured pools,
+  including the comparator C1, and found the cheapest *complete* version: **C1d** — the axis at
+  0.15 in the structural keys as well as the final scorer, funded from `SHAPE`/`NOVELTY`/
+  `RHYTHM`, `SIMILARITY` unchanged. C1d is 9/10 on the spread, holds the green case at **pool
+  rank 46** (inside the top 50) and turns the case-2 head lift from **−0.0180 to +0.0437**.
+* `w-9b4a15` §4 recorded exactly why it could not ship it: adding the axis to the final scorer
+  **alone** makes `structural_bounds_dominate_the_real_scorer` false for every candidate. The
+  repair is a *bound* repair, and `w-9b4a15` was fenced off from the structural keys by its own
+  item. That is the gap this item exists to close.
+* `REPORT-d4e8b1.md` (integrated at `31e3073`) prices the objective-axis residue of the canonical
+  deficit as `NOVELTY` +0.05, `FAMILIARITY` +0.0252, `PUNCH` +0.02, `CLOSED_CLASS` −0.0042. The
+  axis attacks that same region, so its counterfactual must be reported against those numbers.
+
+## What this front must do
+
+1. **Re-derive the baseline** on integrated HEAD in release mode: for both canonical targets the
+   pool size, the shipped top-50 `SIMILARITY` lift against the pool mean (**−0.0180** case 2,
+   **+0.0609** case 1), and `wreck a nice beach`'s pool rank for `recognize speech` (**27**).
+   Record any disagreement with those figures rather than proceeding on them.
+2. **Record the red colour** of `head_not_worse_than_pool` on HEAD before the change, and its
+   green colour after. Un-`#[ignore]` it as part of the change. The property must stay
+   expressible as "the returned top-N is not worse than the pool", with no example token.
+3. **Implement the bound repair** so the structural keys and the final scorer agree: the axis
+   must be readable in `complete_span_score`, `partial_span_score` and `span_score_bound`, with a
+   **sound** upper bound — a bound that is merely loose enough to stay true is a defect, and
+   `structural_bounds_dominate_the_real_scorer` must hold for the right reason. Say in the report
+   why the bound is sound, not just that the test is green.
+4. **Price C1d against its own comparators on the same captures**: C1 (from `REPORT-3a8c05.md`,
+   the only vector there that keeps both canonical cases) and C1b (the `REPORT-3a8c05` form that
+   keeps `SIMILARITY` where it is but does not repair the bounds). Report the 9/10 spread result
+   and name the one target C1d loses, if it loses one.
+5. **Price the 10/10 row or state why it is out of scope.** `REPORT-9b4a15.md` §6's second bullet
+   says C1j and C1k are the only vectors holding both properties and that they need the
+   reserve-depth fence re-derived rather than preserved. This front may **report** that row's
+   cost; it may not buy a wider reserve, a larger pop limit, a changed depth cap, a changed
+   `SPAN_SHORTLIST`, `SPARSE_SHORTLIST` or emission budget. Those are map rows 3, 7, 8, 9, 12 and
+   are priced.
+6. **Fence the green case.** `wreck a nice beach` must remain in the returned proposal set for
+   `recognize speech`, with its pool rank reported before and after (27 before; C1d predicts 46).
+   A wall-clock or pool-size regression beyond measurement noise is a reason to report `HOLD`,
+   not a reason to raise a weight.
+7. **Cross-reference the deferred residue.** `REPORT-2f1c03.md`'s per-member modulus in
+   `coverage_tuples` (P1) is a **separate, later** front: report how your change interacts with
+   it in one paragraph, and do not implement it.
+
+## Constraints
+
+* **No phrase-specific hard-coding.** No sentence, clue, word list, per-input branch or special
+  case for `hid`, `dupe`, `hits`, `came`, `justice`, `wreck`, `beach`, `recognize` or any other
+  literal token. The axis is a function of two integer word counts and nothing else.
+  `no_phrase_hard_coding` must stay 9/9 and no new example token may appear in `src/` outside a
+  test module. The `no_phrase_hard_coding` test is a hard fence.
+* **Objective and its bounds only.** No change to search, shortlist, reserve, budget, retention,
+  depth, width, or emission order. `LEXICAL_HEAP_POP_LIMIT`, `SPAN_SHORTLIST`, `SPARSE_SHORTLIST`,
+  `LEXICAL_COMBINATIONS_PER_SEGMENTATION`, `EMIT_PROFILE_RESERVE` and the emission ceiling are all
+  off limits.
+* The score's documented **0.0–1.0 range** must be preserved. The six existing weights sum to
+  exactly 1.00 and `CLOSED_CLASS` is the only signed one, so the objective's maximum is already
+  exactly 1.0; adding a term without funding it exceeds 1.0 and is not acceptable.
+* **Instrumentation** stays behind `#[cfg(test)]` or in `examples/`/`tests/`. No `ZZ_*` probes, no
+  environment knobs, no baseline changes, no debug binaries.
+* Release mode only for measurement. `cargo fmt`, `cargo fmt --check`, `cargo clippy` and doctests
+  **cannot run on this host** (no `rustup`, no `rustfmt`/`clippy`/`rustdoc`) — see
+  [../environment-notes.md](../environment-notes.md). Do not claim them. `git commit` needs
+  `-c commit.gpgsign=false`; the fetch refspec is narrowed, so push child branches with an
+  explicit refspec.
+* End with exactly one of `INTEGRATE` (a real production change plus a red/green test plus a green
+  tree) or `HOLD` (decomposition and pricing only, a full success, with the numbers that show it).
+* **No self-merge.** Push the focused branch and stop; a later coordinator pass reviews and
+  integrates onto `post-milestone-acceptance`. **`main` is never touched.**
+
+## Independence
+
+* `w-0f3a17` and `w-4b1e07` carry **DO-NOT-RE-TAKE**; their three named successor fronts are all
+  terminal and their records integrated. Do not open a fourth front on the lattice-coverage code.
+* `w-1c7d40` (done), `w-7b40d2` and `w-5b1e93` (`superseded`), `w-a02d28` (`blocked`),
+  `w-5e2d41`/`w-5e2d42` (done), `w-9e2b41` (done), `w-c3f81a` (done), `w-3a8c05` (done),
+  `w-4d7c12` (done), `w-3e91a4` (done), `w-2f1c03` (done), `w-d4e8b1` (done) are closed or priced
+  negative. Read their records; do not re-run their hypotheses as if new, and do not re-pin their
+  red.
+* The red to preserve, not to re-pin: `approximate_finds_classic_madgab_resegmentation` (case 2) is
+  **red at base**. `corpus_integration` is expected at 12 passed / 1 failed, run with
+  `-- --test-threads=2`; it is SIGKILLed at default parallelism on this host even on pristine base,
+  which is not a property of any change.
+
+## Completion criteria
+
+1. The four baseline figures re-derived and printed on integrated HEAD, or a disagreement recorded
+   with both numbers.
+2. `head_not_worse_than_pool` shown **red** on HEAD before the change and **green** after, no
+   longer `#[ignore]`d, with the property expressed without a sentence, clue or exact rank.
+3. The axis present in the final scorer **and** in `complete_span_score`, `partial_span_score` and
+   `span_score_bound`, with an argument for why the bound is sound, and
+   `structural_bounds_dominate_the_real_scorer` green for that reason.
+4. C1d priced against C1 and C1b on the same captures; the 10/10 row's cost reported or scoped out
+   with a reason; `REPORT-2f1c03.md`'s P1 residue cross-referenced in one paragraph.
+5. `wreck a nice beach` still produced for `recognize speech`, pool rank reported before and after;
+   no wall-clock or pool-size regression beyond noise; score still within 0.0–1.0.
+6. Fences: `cargo test --release --lib` at no worse than **75 passed / 0 failed / 12 ignored**
+   (that is the measured figure on integrated HEAD `515f8bd`; 75/0 on unmodified HEAD too),
+   `no_phrase_hard_coding` 9/9, `corpus_integration` 12/1 with the known red not re-pinned,
+   `emit_coverage` 4/4, `approx_determinism` 4/4, `exact_determinism` 1/1.
+7. `docs/work/REPORT-3f8c62.md` pushed on the focused branch, ending in exactly one `INTEGRATE` or
+   `HOLD`, and this item's Handoff / notes recording branch, hashes, verdict, validation and next
+   action.
+
+## Handoff / notes
+
+* **Terminal 2026-09-27T23:45Z by front `front-3f8c62`. Verdict: HOLD.** Report
+  [../REPORT-3f8c62.md](../REPORT-3f8c62.md). Branch `madgab-parsim-3f8c62`,
+  base `8bfe7de`, report-only commit — `src/lib.rs` on this branch is
+  byte-identical to HEAD.
+* **The landed variant is preserved on the local, deliberately unpushed branch
+  `scratch-3f8c62-landed` at `514ed91`.** It is the complete C1d implementation
+  (axis in `metrics`, `partial_span_score`, `complete_span_score` and
+  `span_score_bound`; `SHAPE 0.05→0`, `NOVELTY 0.15→0.05`, `RHYTHM 0.30→0.25`,
+  `PARSIMONY 0.15`) plus the tests. It has **eight red fences** and must not be
+  integrated as it stands; it exists so §4's isolation can be re-measured
+  without re-deriving the patch.
+* **What was achieved:** the item's success criterion is met on the production
+  surface. `head_not_worse_than_pool` is **10/10 green** (was 8/10, red and
+  `#[ignore]`d on HEAD) at the two previously failing targets +0.0511 and
+  +0.0110, and the axis is in all four required places with an *exact*,
+  non-padded admissible bound. The green case is at pool rank **48** (was 27)
+  — inside the pool, but `select_diverse` no longer returns it, so two
+  `wreck a nice beach` tests go red.
+* **What blocks it:** every axis weight is read by the search's own keys.
+  `span_score_bound` — the objective's own admissible bound — is also the
+  search's only pruning key, so the bound repair *is* a search change. Isolated
+  and measured: axis in the scorer only → reserve-depth fence **green**; axis
+  in `span_score_bound` too → **red**; `RHYTHM 0.30→0.25` alone → **red**;
+  `SHAPE 0.05→0` alone → **red**; `NOVELTY 0.15→0.05` alone → **green**. The
+  weight lever is closed. See report §4 and §4.1's fenced property.
+* **Validation actually run** (release mode, one suite at a time, no suite was
+  SIGKILLed, so nothing was rerun for memory pressure):
+  * `cargo test --release --lib head_not_worse_than_pool -- --nocapture` —
+    red on HEAD (2 of 10), green after (10 of 10)
+  * `cargo test --release --lib price_the_budget -- --ignored --nocapture`
+  * `cargo test --release --lib price_the_property_over_a_spread -- --ignored --nocapture`
+  * `cargo test --release --lib a_target_whose_best_wording` — 7 isolation
+    variants, one run each
+  * `cargo test --release --lib` — 78 passed / **1 failed** / 11 ignored on the
+    scratch branch; **75 / 0 / 12 on this branch** (identical to HEAD)
+  * `cargo test --release --test no_phrase_hard_coding` — **9 / 9**
+  * `cargo test --release --test corpus_integration -- --test-threads=2` —
+    **7 passed / 6 failed** (expected 12 / 1; five new, the base red not
+    re-pinned)
+  * `cargo test --release --test emit_coverage` — **2 passed / 2 failed**
+  * `cargo test --release --test approx_determinism` — **4 / 4**
+  * `cargo test --release --test exact_determinism` — **1 / 1**
+  * `cargo run --release --example measure` — 3 runs before, 3 after
+  * **`cargo fmt`, `cargo fmt --check`, `cargo clippy` and doctests cannot run
+    on this host and are NOT claimed** (see [../environment-notes.md](../environment-notes.md)).
+* **Next action for a later coordinator pass:** do not integrate
+  `scratch-3f8c62-landed`. Either (a) open a front on the *search* surface
+  that re-derives the reserve-depth fence and the three pool-reach fences
+  against the axis in the keys — report §5.1 — or (b) leave the axis priced and
+  closed as a general objective repair, since the case-2 canonical tuple is
+  untouched and unreachable by any monotone objective
+  ([../REPORT-3a8c05.md](../REPORT-3a8c05.md) §3, rank ≥ 1,127) and must not be
+  read as progress. `w-2f1c03`'s P1 must not be measured on a tree carrying this
+  change (report §5.1).
+* **No self-merge.** `main` and `post-milestone-acceptance` untouched; this
+  branch is pushed with an explicit refspec and stops here.

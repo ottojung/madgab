@@ -1,0 +1,759 @@
+### target=1 rep=1 phrase=recognize speech
+PROFSTAT n=14 lattice_positions=14 lattice_entries=10751
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3972	1
+PROF	01_corpus_from_json	0.1173	1
+PROF	02_build_lexicon	0.1173	1
+PROF	10_gen_approx_total	9.8110	1
+PROF	20_lattice_matches_at	0.0246	1
+PROF	21_matches_at_one_pos	0.0246	14
+PROF	A0_matches_at_total	0.0246	14
+PROF	A1_matches_at_search_loop	0.0194	48759
+PROF	A2_matches_at_children_expand	0.0095	225208
+PROF	A3_matches_at_postprocess	0.0042	14
+PROF	30_main_beam_loop	9.7864	1
+PROF	80_prune_total	9.1890	6806
+PROF	P1_prune_calls	0.0010	6806
+PROF	P2_prune_keep_k	0.0005	6806
+PROF	81_prune_dedup_loop	9.1883	6806
+PROF	31_beam_extend_fuzzy	0.2475	503241
+PROF	32_beam_overflow_prune	9.0850	6791
+PROF	83_prune_metrics_vector	8.8777	6805
+PROF	90_partial_metrics	8.4253	8181408
+PROF	91_metrics_word_len_bucket	0.0000	8181408
+PROF	84_prune_orders_and_select	7.6403	6805
+PROF	85_prune_final_sort_recompute	7.4814	6805
+PROF	33_final_prune_partials	0.0923	1
+PROF	40_span_shortlist	0.2656	1
+PROF	50_seg_structural_dp	0.1881	1
+PROF	60_lexical_heap_enum	0.1874	1
+PROF	70_finish	0.0645	1
+PROF	71_finish_into_clue	0.0645	1
+PROF	72_finish_sort	0.0441	1
+PROF	73_finish_dedup	0.0427	1
+PROF	74_select_diverse	0.0413	1
+### target=1 rep=2 phrase=recognize speech
+PROFSTAT n=14 lattice_positions=14 lattice_entries=10751
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3955	1
+PROF	01_corpus_from_json	0.1167	1
+PROF	02_build_lexicon	0.1167	1
+PROF	10_gen_approx_total	9.6675	1
+PROF	20_lattice_matches_at	0.0238	1
+PROF	21_matches_at_one_pos	0.0238	14
+PROF	A0_matches_at_total	0.0238	14
+PROF	A1_matches_at_search_loop	0.0187	48759
+PROF	A2_matches_at_children_expand	0.0093	225208
+PROF	A3_matches_at_postprocess	0.0041	14
+PROF	30_main_beam_loop	9.6436	1
+PROF	80_prune_total	9.0603	6853
+PROF	P1_prune_calls	0.0010	6853
+PROF	P2_prune_keep_k	0.0005	6853
+PROF	81_prune_dedup_loop	9.0596	6853
+PROF	31_beam_extend_fuzzy	0.2414	506451
+PROF	32_beam_overflow_prune	8.9558	6838
+PROF	83_prune_metrics_vector	8.7554	6852
+PROF	90_partial_metrics	8.3162	8222263
+PROF	91_metrics_word_len_bucket	0.0000	8222263
+PROF	84_prune_orders_and_select	7.5386	6852
+PROF	85_prune_final_sort_recompute	7.3927	6852
+PROF	33_final_prune_partials	0.0931	1
+PROF	40_span_shortlist	0.2633	1
+PROF	50_seg_structural_dp	0.1862	1
+PROF	60_lexical_heap_enum	0.1855	1
+PROF	70_finish	0.0640	1
+PROF	71_finish_into_clue	0.0640	1
+PROF	72_finish_sort	0.0442	1
+PROF	73_finish_dedup	0.0428	1
+PROF	74_select_diverse	0.0414	1
+### target=1 rep=3 phrase=recognize speech
+PROFSTAT n=14 lattice_positions=14 lattice_entries=10751
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3973	1
+PROF	01_corpus_from_json	0.1214	1
+PROF	02_build_lexicon	0.1214	1
+PROF	10_gen_approx_total	9.9892	1
+PROF	20_lattice_matches_at	0.0233	1
+PROF	21_matches_at_one_pos	0.0233	14
+PROF	A0_matches_at_total	0.0233	14
+PROF	A1_matches_at_search_loop	0.0183	48759
+PROF	A2_matches_at_children_expand	0.0091	225208
+PROF	A3_matches_at_postprocess	0.0041	14
+PROF	30_main_beam_loop	9.9658	1
+PROF	80_prune_total	9.3622	6879
+PROF	P1_prune_calls	0.0010	6879
+PROF	P2_prune_keep_k	0.0005	6879
+PROF	81_prune_dedup_loop	9.3615	6879
+PROF	31_beam_extend_fuzzy	0.2347	507519
+PROF	32_beam_overflow_prune	9.2489	6864
+PROF	83_prune_metrics_vector	9.0570	6878
+PROF	90_partial_metrics	8.6153	8243029
+PROF	91_metrics_word_len_bucket	0.0000	8243029
+PROF	84_prune_orders_and_select	7.8027	6878
+PROF	85_prune_final_sort_recompute	7.6590	6878
+PROF	33_final_prune_partials	0.1015	1
+PROF	40_span_shortlist	0.2827	1
+PROF	50_seg_structural_dp	0.1994	1
+PROF	60_lexical_heap_enum	0.1987	1
+PROF	70_finish	0.0690	1
+PROF	71_finish_into_clue	0.0690	1
+PROF	72_finish_sort	0.0476	1
+PROF	73_finish_dedup	0.0461	1
+PROF	74_select_diverse	0.0446	1
+### target=2 rep=1 phrase=It's just a stupid game
+PROFSTAT n=19 lattice_positions=19 lattice_entries=14180
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4197	1
+PROF	01_corpus_from_json	0.1369	1
+PROF	02_build_lexicon	0.1369	1
+PROF	10_gen_approx_total	24.2437	1
+PROF	20_lattice_matches_at	0.0346	1
+PROF	21_matches_at_one_pos	0.0346	19
+PROF	A0_matches_at_total	0.0346	19
+PROF	A1_matches_at_search_loop	0.0279	59131
+PROF	A2_matches_at_children_expand	0.0133	281927
+PROF	A3_matches_at_postprocess	0.0053	19
+PROF	30_main_beam_loop	24.2091	1
+PROF	80_prune_total	22.8748	10842
+PROF	P1_prune_calls	0.0015	10842
+PROF	P2_prune_keep_k	0.0007	10842
+PROF	81_prune_dedup_loop	22.8735	10842
+PROF	31_beam_extend_fuzzy	0.5955	749901
+PROF	32_beam_overflow_prune	22.6787	10822
+PROF	83_prune_metrics_vector	22.3618	10841
+PROF	90_partial_metrics	21.4816	11607964
+PROF	91_metrics_word_len_bucket	0.0000	11607964
+PROF	84_prune_orders_and_select	19.1399	10841
+PROF	85_prune_final_sort_recompute	18.7232	10841
+PROF	33_final_prune_partials	0.1682	1
+PROF	40_span_shortlist	0.5760	1
+PROF	50_seg_structural_dp	0.4131	1
+PROF	60_lexical_heap_enum	0.4086	1
+PROF	70_finish	0.1063	1
+PROF	71_finish_into_clue	0.1063	1
+PROF	72_finish_sort	0.0625	1
+PROF	73_finish_dedup	0.0611	1
+PROF	74_select_diverse	0.0593	1
+### target=2 rep=2 phrase=It's just a stupid game
+PROFSTAT n=19 lattice_positions=19 lattice_entries=14180
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4652	1
+PROF	01_corpus_from_json	0.1298	1
+PROF	02_build_lexicon	0.1298	1
+PROF	10_gen_approx_total	20.8352	1
+PROF	20_lattice_matches_at	0.0298	1
+PROF	21_matches_at_one_pos	0.0298	19
+PROF	A0_matches_at_total	0.0298	19
+PROF	A1_matches_at_search_loop	0.0238	59131
+PROF	A2_matches_at_children_expand	0.0119	281927
+PROF	A3_matches_at_postprocess	0.0047	19
+PROF	30_main_beam_loop	20.8054	1
+PROF	80_prune_total	19.6645	10800
+PROF	P1_prune_calls	0.0015	10800
+PROF	P2_prune_keep_k	0.0007	10800
+PROF	81_prune_dedup_loop	19.6633	10800
+PROF	31_beam_extend_fuzzy	0.4376	746902
+PROF	32_beam_overflow_prune	19.4829	10780
+PROF	83_prune_metrics_vector	19.2388	10799
+PROF	90_partial_metrics	18.5441	11576641
+PROF	91_metrics_word_len_bucket	0.0000	11576641
+PROF	84_prune_orders_and_select	16.5017	10799
+PROF	85_prune_final_sort_recompute	16.2101	10799
+PROF	33_final_prune_partials	0.1575	1
+PROF	40_span_shortlist	0.5564	1
+PROF	50_seg_structural_dp	0.3933	1
+PROF	60_lexical_heap_enum	0.3888	1
+PROF	70_finish	0.0896	1
+PROF	71_finish_into_clue	0.0896	1
+PROF	72_finish_sort	0.0527	1
+PROF	73_finish_dedup	0.0508	1
+PROF	74_select_diverse	0.0493	1
+### target=2 rep=3 phrase=It's just a stupid game
+PROFSTAT n=19 lattice_positions=19 lattice_entries=14180
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4253	1
+PROF	01_corpus_from_json	0.1336	1
+PROF	02_build_lexicon	0.1336	1
+PROF	10_gen_approx_total	21.7899	1
+PROF	20_lattice_matches_at	0.0325	1
+PROF	21_matches_at_one_pos	0.0325	19
+PROF	A0_matches_at_total	0.0325	19
+PROF	A1_matches_at_search_loop	0.0260	59131
+PROF	A2_matches_at_children_expand	0.0128	281927
+PROF	A3_matches_at_postprocess	0.0051	19
+PROF	30_main_beam_loop	21.7574	1
+PROF	80_prune_total	20.5286	10665
+PROF	P1_prune_calls	0.0015	10665
+PROF	P2_prune_keep_k	0.0007	10665
+PROF	81_prune_dedup_loop	20.5275	10665
+PROF	31_beam_extend_fuzzy	0.5516	738193
+PROF	32_beam_overflow_prune	20.3405	10645
+PROF	83_prune_metrics_vector	20.0647	10663
+PROF	90_partial_metrics	19.2498	11453704
+PROF	91_metrics_word_len_bucket	0.0000	11453704
+PROF	84_prune_orders_and_select	17.1934	10663
+PROF	85_prune_final_sort_recompute	16.7895	10663
+PROF	33_final_prune_partials	0.1639	1
+PROF	40_span_shortlist	0.5303	1
+PROF	50_seg_structural_dp	0.3663	1
+PROF	60_lexical_heap_enum	0.3618	1
+PROF	70_finish	0.0847	1
+PROF	71_finish_into_clue	0.0847	1
+PROF	72_finish_sort	0.0496	1
+PROF	73_finish_dedup	0.0481	1
+PROF	74_select_diverse	0.0467	1
+### target=3 rep=1 phrase=I love you
+PROFSTAT n=7 lattice_positions=7 lattice_entries=4760
+PROFSTAT segmentations=63
+PROFSTAT finish_candidates_in=6590
+PROFSTAT finish_candidates=6590
+PROF	00_from_json_total	0.3846	1
+PROF	01_corpus_from_json	0.1135	1
+PROF	02_build_lexicon	0.1135	1
+PROF	10_gen_approx_total	3.3054	1
+PROF	20_lattice_matches_at	0.0102	1
+PROF	21_matches_at_one_pos	0.0102	7
+PROF	A0_matches_at_total	0.0102	7
+PROF	A1_matches_at_search_loop	0.0081	21829
+PROF	A2_matches_at_children_expand	0.0039	105371
+PROF	A3_matches_at_postprocess	0.0017	7
+PROF	30_main_beam_loop	3.2952	1
+PROF	80_prune_total	3.0567	2977
+PROF	P1_prune_calls	0.0005	2977
+PROF	P2_prune_keep_k	0.0002	2977
+PROF	81_prune_dedup_loop	3.0565	2977
+PROF	31_beam_extend_fuzzy	0.0908	234978
+PROF	32_beam_overflow_prune	2.9779	2969
+PROF	83_prune_metrics_vector	2.9257	2976
+PROF	90_partial_metrics	2.7403	3938155
+PROF	91_metrics_word_len_bucket	0.0000	3938155
+PROF	84_prune_orders_and_select	2.5065	2976
+PROF	85_prune_final_sort_recompute	2.4502	2976
+PROF	33_final_prune_partials	0.0754	1
+PROF	40_span_shortlist	0.1212	1
+PROF	50_seg_structural_dp	0.0805	1
+PROF	60_lexical_heap_enum	0.0804	1
+PROF	70_finish	0.0367	1
+PROF	71_finish_into_clue	0.0367	1
+PROF	72_finish_sort	0.0251	1
+PROF	73_finish_dedup	0.0240	1
+PROF	74_select_diverse	0.0229	1
+### target=3 rep=2 phrase=I love you
+PROFSTAT n=7 lattice_positions=7 lattice_entries=4760
+PROFSTAT segmentations=63
+PROFSTAT finish_candidates_in=6590
+PROFSTAT finish_candidates=6590
+PROF	00_from_json_total	0.4406	1
+PROF	01_corpus_from_json	0.1197	1
+PROF	02_build_lexicon	0.1197	1
+PROF	10_gen_approx_total	3.4129	1
+PROF	20_lattice_matches_at	0.0112	1
+PROF	21_matches_at_one_pos	0.0112	7
+PROF	A0_matches_at_total	0.0112	7
+PROF	A1_matches_at_search_loop	0.0088	21829
+PROF	A2_matches_at_children_expand	0.0043	105371
+PROF	A3_matches_at_postprocess	0.0019	7
+PROF	30_main_beam_loop	3.4017	1
+PROF	80_prune_total	3.1714	2974
+PROF	P1_prune_calls	0.0005	2974
+PROF	P2_prune_keep_k	0.0002	2974
+PROF	81_prune_dedup_loop	3.1711	2974
+PROF	31_beam_extend_fuzzy	0.0944	234863
+PROF	32_beam_overflow_prune	3.0949	2966
+PROF	83_prune_metrics_vector	3.0434	2973
+PROF	90_partial_metrics	2.8508	3944689
+PROF	91_metrics_word_len_bucket	0.0000	3944689
+PROF	84_prune_orders_and_select	2.6116	2973
+PROF	85_prune_final_sort_recompute	2.5540	2973
+PROF	33_final_prune_partials	0.0730	1
+PROF	40_span_shortlist	0.1078	1
+PROF	50_seg_structural_dp	0.0698	1
+PROF	60_lexical_heap_enum	0.0697	1
+PROF	70_finish	0.0308	1
+PROF	71_finish_into_clue	0.0308	1
+PROF	72_finish_sort	0.0207	1
+PROF	73_finish_dedup	0.0199	1
+PROF	74_select_diverse	0.0190	1
+### target=3 rep=3 phrase=I love you
+PROFSTAT n=7 lattice_positions=7 lattice_entries=4760
+PROFSTAT segmentations=63
+PROFSTAT finish_candidates_in=6590
+PROFSTAT finish_candidates=6590
+PROF	00_from_json_total	0.4235	1
+PROF	01_corpus_from_json	0.1303	1
+PROF	02_build_lexicon	0.1303	1
+PROF	10_gen_approx_total	3.5365	1
+PROF	20_lattice_matches_at	0.0124	1
+PROF	21_matches_at_one_pos	0.0123	7
+PROF	A0_matches_at_total	0.0123	7
+PROF	A1_matches_at_search_loop	0.0098	21829
+PROF	A2_matches_at_children_expand	0.0047	105371
+PROF	A3_matches_at_postprocess	0.0021	7
+PROF	30_main_beam_loop	3.5242	1
+PROF	80_prune_total	3.2882	2992
+PROF	P1_prune_calls	0.0005	2992
+PROF	P2_prune_keep_k	0.0002	2992
+PROF	81_prune_dedup_loop	3.2879	2992
+PROF	31_beam_extend_fuzzy	0.1079	236168
+PROF	32_beam_overflow_prune	3.2127	2984
+PROF	83_prune_metrics_vector	3.1495	2991
+PROF	90_partial_metrics	2.9410	3960155
+PROF	91_metrics_word_len_bucket	0.0000	3960155
+PROF	84_prune_orders_and_select	2.6990	2991
+PROF	85_prune_final_sort_recompute	2.6306	2991
+PROF	33_final_prune_partials	0.0717	1
+PROF	40_span_shortlist	0.1002	1
+PROF	50_seg_structural_dp	0.0633	1
+PROF	60_lexical_heap_enum	0.0632	1
+PROF	70_finish	0.0274	1
+PROF	71_finish_into_clue	0.0274	1
+PROF	72_finish_sort	0.0190	1
+PROF	73_finish_dedup	0.0183	1
+PROF	74_select_diverse	0.0176	1
+### target=4 rep=1 phrase=there is no place like home
+PROFSTAT n=21 lattice_positions=21 lattice_entries=18210
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3858	1
+PROF	01_corpus_from_json	0.1176	1
+PROF	02_build_lexicon	0.1176	1
+PROF	10_gen_approx_total	31.0627	1
+PROF	20_lattice_matches_at	0.0358	1
+PROF	21_matches_at_one_pos	0.0358	21
+PROF	A0_matches_at_total	0.0358	21
+PROF	A1_matches_at_search_loop	0.0279	78741
+PROF	A2_matches_at_children_expand	0.0139	355350
+PROF	A3_matches_at_postprocess	0.0063	21
+PROF	30_main_beam_loop	31.0269	1
+PROF	80_prune_total	29.5954	13599
+PROF	P1_prune_calls	0.0018	13599
+PROF	P2_prune_keep_k	0.0009	13599
+PROF	81_prune_dedup_loop	29.5939	13599
+PROF	31_beam_extend_fuzzy	0.6311	921535
+PROF	32_beam_overflow_prune	29.3484	13577
+PROF	83_prune_metrics_vector	29.0403	13598
+PROF	90_partial_metrics	28.0984	14092387
+PROF	91_metrics_word_len_bucket	0.0000	14092387
+PROF	84_prune_orders_and_select	24.8951	13598
+PROF	85_prune_final_sort_recompute	24.4537	13598
+PROF	33_final_prune_partials	0.2108	1
+PROF	40_span_shortlist	0.6103	1
+PROF	50_seg_structural_dp	0.3690	1
+PROF	60_lexical_heap_enum	0.3621	1
+PROF	70_finish	0.0904	1
+PROF	71_finish_into_clue	0.0904	1
+PROF	72_finish_sort	0.0515	1
+PROF	73_finish_dedup	0.0498	1
+PROF	74_select_diverse	0.0484	1
+### target=4 rep=2 phrase=there is no place like home
+PROFSTAT n=21 lattice_positions=21 lattice_entries=18210
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3861	1
+PROF	01_corpus_from_json	0.1145	1
+PROF	02_build_lexicon	0.1145	1
+PROF	10_gen_approx_total	33.6362	1
+PROF	20_lattice_matches_at	0.0366	1
+PROF	21_matches_at_one_pos	0.0366	21
+PROF	A0_matches_at_total	0.0366	21
+PROF	A1_matches_at_search_loop	0.0287	78741
+PROF	A2_matches_at_children_expand	0.0138	355350
+PROF	A3_matches_at_postprocess	0.0063	21
+PROF	30_main_beam_loop	33.5996	1
+PROF	80_prune_total	31.8575	13384
+PROF	P1_prune_calls	0.0018	13384
+PROF	P2_prune_keep_k	0.0009	13384
+PROF	81_prune_dedup_loop	31.8560	13384
+PROF	31_beam_extend_fuzzy	0.8400	908745
+PROF	32_beam_overflow_prune	31.5857	13362
+PROF	83_prune_metrics_vector	31.2294	13382
+PROF	90_partial_metrics	30.0904	13945591
+PROF	91_metrics_word_len_bucket	0.0000	13945591
+PROF	84_prune_orders_and_select	26.7653	13382
+PROF	85_prune_final_sort_recompute	26.1545	13382
+PROF	33_final_prune_partials	0.2345	1
+PROF	40_span_shortlist	0.6947	1
+PROF	50_seg_structural_dp	0.4211	1
+PROF	60_lexical_heap_enum	0.4129	1
+PROF	70_finish	0.1034	1
+PROF	71_finish_into_clue	0.1034	1
+PROF	72_finish_sort	0.0588	1
+PROF	73_finish_dedup	0.0562	1
+PROF	74_select_diverse	0.0545	1
+### target=4 rep=3 phrase=there is no place like home
+PROFSTAT n=21 lattice_positions=21 lattice_entries=18210
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4414	1
+PROF	01_corpus_from_json	0.1324	1
+PROF	02_build_lexicon	0.1324	1
+PROF	10_gen_approx_total	34.6913	1
+PROF	20_lattice_matches_at	0.0424	1
+PROF	21_matches_at_one_pos	0.0423	21
+PROF	A0_matches_at_total	0.0423	21
+PROF	A1_matches_at_search_loop	0.0333	78741
+PROF	A2_matches_at_children_expand	0.0155	355350
+PROF	A3_matches_at_postprocess	0.0073	21
+PROF	30_main_beam_loop	34.6489	1
+PROF	80_prune_total	32.9897	13769
+PROF	P1_prune_calls	0.0018	13769
+PROF	P2_prune_keep_k	0.0009	13769
+PROF	81_prune_dedup_loop	32.9882	13769
+PROF	31_beam_extend_fuzzy	0.7290	934027
+PROF	32_beam_overflow_prune	32.7023	13747
+PROF	83_prune_metrics_vector	32.3773	13768
+PROF	90_partial_metrics	31.3230	14324624
+PROF	91_metrics_word_len_bucket	0.0000	14324624
+PROF	84_prune_orders_and_select	27.7702	13768
+PROF	85_prune_final_sort_recompute	27.2555	13768
+PROF	33_final_prune_partials	0.2482	1
+PROF	40_span_shortlist	0.7153	1
+PROF	50_seg_structural_dp	0.4302	1
+PROF	60_lexical_heap_enum	0.4221	1
+PROF	70_finish	0.1057	1
+PROF	71_finish_into_clue	0.1057	1
+PROF	72_finish_sort	0.0612	1
+PROF	73_finish_dedup	0.0585	1
+PROF	74_select_diverse	0.0568	1
+### target=5 rep=1 phrase=congratulations on your promotion
+PROFSTAT n=30 lattice_positions=30 lattice_entries=25704
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.3984	1
+PROF	01_corpus_from_json	0.1187	1
+PROF	02_build_lexicon	0.1187	1
+PROF	10_gen_approx_total	57.2659	1
+PROF	20_lattice_matches_at	0.0545	1
+PROF	21_matches_at_one_pos	0.0545	30
+PROF	A0_matches_at_total	0.0545	30
+PROF	A1_matches_at_search_loop	0.0428	117305
+PROF	A2_matches_at_children_expand	0.0214	513488
+PROF	A3_matches_at_postprocess	0.0092	30
+PROF	30_main_beam_loop	57.2113	1
+PROF	80_prune_total	54.5431	18383
+PROF	P1_prune_calls	0.0025	18383
+PROF	P2_prune_keep_k	0.0012	18383
+PROF	81_prune_dedup_loop	54.5410	18383
+PROF	31_beam_extend_fuzzy	1.1783	1246472
+PROF	32_beam_overflow_prune	54.1484	18352
+PROF	83_prune_metrics_vector	53.5785	18382
+PROF	90_partial_metrics	52.0225	19141315
+PROF	91_metrics_word_len_bucket	0.0000	19141315
+PROF	84_prune_orders_and_select	46.1198	18382
+PROF	85_prune_final_sort_recompute	45.3243	18382
+PROF	33_final_prune_partials	0.3217	1
+PROF	40_span_shortlist	1.1283	1
+PROF	50_seg_structural_dp	0.7526	1
+PROF	60_lexical_heap_enum	0.7396	1
+PROF	70_finish	0.1578	1
+PROF	71_finish_into_clue	0.1578	1
+PROF	72_finish_sort	0.0960	1
+PROF	73_finish_dedup	0.0943	1
+PROF	74_select_diverse	0.0924	1
+### target=5 rep=2 phrase=congratulations on your promotion
+PROFSTAT n=30 lattice_positions=30 lattice_entries=25704
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4358	1
+PROF	01_corpus_from_json	0.1322	1
+PROF	02_build_lexicon	0.1322	1
+PROF	10_gen_approx_total	59.9367	1
+PROF	20_lattice_matches_at	0.0578	1
+PROF	21_matches_at_one_pos	0.0578	30
+PROF	A0_matches_at_total	0.0578	30
+PROF	A1_matches_at_search_loop	0.0454	117305
+PROF	A2_matches_at_children_expand	0.0228	513488
+PROF	A3_matches_at_postprocess	0.0098	30
+PROF	30_main_beam_loop	59.8789	1
+PROF	80_prune_total	57.0303	18619
+PROF	P1_prune_calls	0.0025	18619
+PROF	P2_prune_keep_k	0.0012	18619
+PROF	81_prune_dedup_loop	57.0279	18619
+PROF	31_beam_extend_fuzzy	1.4042	1262677
+PROF	32_beam_overflow_prune	56.6651	18588
+PROF	83_prune_metrics_vector	55.9529	18617
+PROF	90_partial_metrics	54.1560	19379646
+PROF	91_metrics_word_len_bucket	0.0000	19379646
+PROF	84_prune_orders_and_select	48.1136	18617
+PROF	85_prune_final_sort_recompute	47.1295	18617
+PROF	33_final_prune_partials	0.2963	1
+PROF	40_span_shortlist	1.0671	1
+PROF	50_seg_structural_dp	0.7146	1
+PROF	60_lexical_heap_enum	0.7016	1
+PROF	70_finish	0.1565	1
+PROF	71_finish_into_clue	0.1565	1
+PROF	72_finish_sort	0.0983	1
+PROF	73_finish_dedup	0.0965	1
+PROF	74_select_diverse	0.0944	1
+### target=5 rep=3 phrase=congratulations on your promotion
+PROFSTAT n=30 lattice_positions=30 lattice_entries=25704
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4306	1
+PROF	01_corpus_from_json	0.1234	1
+PROF	02_build_lexicon	0.1234	1
+PROF	10_gen_approx_total	58.4203	1
+PROF	20_lattice_matches_at	0.0573	1
+PROF	21_matches_at_one_pos	0.0573	30
+PROF	A0_matches_at_total	0.0572	30
+PROF	A1_matches_at_search_loop	0.0451	117305
+PROF	A2_matches_at_children_expand	0.0224	513488
+PROF	A3_matches_at_postprocess	0.0097	30
+PROF	30_main_beam_loop	58.3630	1
+PROF	80_prune_total	55.5417	18279
+PROF	P1_prune_calls	0.0025	18279
+PROF	P2_prune_keep_k	0.0012	18279
+PROF	81_prune_dedup_loop	55.5395	18279
+PROF	31_beam_extend_fuzzy	1.3283	1242143
+PROF	32_beam_overflow_prune	55.1594	18248
+PROF	83_prune_metrics_vector	54.5349	18277
+PROF	90_partial_metrics	52.8459	19114191
+PROF	91_metrics_word_len_bucket	0.0000	19114191
+PROF	84_prune_orders_and_select	46.9520	18277
+PROF	85_prune_final_sort_recompute	46.0343	18277
+PROF	33_final_prune_partials	0.3116	1
+PROF	40_span_shortlist	1.1281	1
+PROF	50_seg_structural_dp	0.7475	1
+PROF	60_lexical_heap_enum	0.7343	1
+PROF	70_finish	0.1565	1
+PROF	71_finish_into_clue	0.1565	1
+PROF	72_finish_sort	0.0960	1
+PROF	73_finish_dedup	0.0944	1
+PROF	74_select_diverse	0.0925	1
+### target=6 rep=1 phrase=my favorite color is blue
+PROFSTAT n=19 lattice_positions=19 lattice_entries=13482
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4499	1
+PROF	01_corpus_from_json	0.1357	1
+PROF	02_build_lexicon	0.1357	1
+PROF	10_gen_approx_total	24.9509	1
+PROF	20_lattice_matches_at	0.0340	1
+PROF	21_matches_at_one_pos	0.0340	19
+PROF	A0_matches_at_total	0.0340	19
+PROF	A1_matches_at_search_loop	0.0272	58648
+PROF	A2_matches_at_children_expand	0.0134	283116
+PROF	A3_matches_at_postprocess	0.0054	19
+PROF	30_main_beam_loop	24.9169	1
+PROF	80_prune_total	23.5962	9955
+PROF	P1_prune_calls	0.0014	9955
+PROF	P2_prune_keep_k	0.0007	9955
+PROF	81_prune_dedup_loop	23.5950	9955
+PROF	31_beam_extend_fuzzy	0.5928	682863
+PROF	32_beam_overflow_prune	23.3476	9935
+PROF	83_prune_metrics_vector	23.0939	9954
+PROF	90_partial_metrics	22.2026	10562508
+PROF	91_metrics_word_len_bucket	0.0000	10562508
+PROF	84_prune_orders_and_select	19.8683	9954
+PROF	85_prune_final_sort_recompute	19.4140	9954
+PROF	33_final_prune_partials	0.2141	1
+PROF	40_span_shortlist	0.5678	1
+PROF	50_seg_structural_dp	0.3937	1
+PROF	60_lexical_heap_enum	0.3899	1
+PROF	70_finish	0.1025	1
+PROF	71_finish_into_clue	0.1025	1
+PROF	72_finish_sort	0.0598	1
+PROF	73_finish_dedup	0.0576	1
+PROF	74_select_diverse	0.0560	1
+### target=6 rep=2 phrase=my favorite color is blue
+PROFSTAT n=19 lattice_positions=19 lattice_entries=13482
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.5760	1
+PROF	01_corpus_from_json	0.1415	1
+PROF	02_build_lexicon	0.1415	1
+PROF	10_gen_approx_total	24.1353	1
+PROF	20_lattice_matches_at	0.0325	1
+PROF	21_matches_at_one_pos	0.0325	19
+PROF	A0_matches_at_total	0.0325	19
+PROF	A1_matches_at_search_loop	0.0259	58648
+PROF	A2_matches_at_children_expand	0.0130	283116
+PROF	A3_matches_at_postprocess	0.0053	19
+PROF	30_main_beam_loop	24.1028	1
+PROF	80_prune_total	22.7911	9970
+PROF	P1_prune_calls	0.0014	9970
+PROF	P2_prune_keep_k	0.0007	9970
+PROF	81_prune_dedup_loop	22.7899	9970
+PROF	31_beam_extend_fuzzy	0.5703	683920
+PROF	32_beam_overflow_prune	22.5260	9950
+PROF	83_prune_metrics_vector	22.3191	9969
+PROF	90_partial_metrics	21.5252	10570431
+PROF	91_metrics_word_len_bucket	0.0000	10570431
+PROF	84_prune_orders_and_select	19.2036	9969
+PROF	85_prune_final_sort_recompute	18.8040	9969
+PROF	33_final_prune_partials	0.2322	1
+PROF	40_span_shortlist	0.5804	1
+PROF	50_seg_structural_dp	0.4078	1
+PROF	60_lexical_heap_enum	0.4039	1
+PROF	70_finish	0.1047	1
+PROF	71_finish_into_clue	0.1047	1
+PROF	72_finish_sort	0.0617	1
+PROF	73_finish_dedup	0.0594	1
+PROF	74_select_diverse	0.0577	1
+### target=6 rep=3 phrase=my favorite color is blue
+PROFSTAT n=19 lattice_positions=19 lattice_entries=13482
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4217	1
+PROF	01_corpus_from_json	0.1289	1
+PROF	02_build_lexicon	0.1289	1
+PROF	10_gen_approx_total	23.5033	1
+PROF	20_lattice_matches_at	0.0308	1
+PROF	21_matches_at_one_pos	0.0308	19
+PROF	A0_matches_at_total	0.0308	19
+PROF	A1_matches_at_search_loop	0.0246	58648
+PROF	A2_matches_at_children_expand	0.0124	283116
+PROF	A3_matches_at_postprocess	0.0050	19
+PROF	30_main_beam_loop	23.4725	1
+PROF	80_prune_total	22.1206	9856
+PROF	P1_prune_calls	0.0013	9856
+PROF	P2_prune_keep_k	0.0007	9856
+PROF	81_prune_dedup_loop	22.1194	9856
+PROF	31_beam_extend_fuzzy	0.5924	676026
+PROF	32_beam_overflow_prune	21.8602	9836
+PROF	83_prune_metrics_vector	21.6471	9855
+PROF	90_partial_metrics	20.8111	10398951
+PROF	91_metrics_word_len_bucket	0.0000	10398951
+PROF	84_prune_orders_and_select	18.5923	9855
+PROF	85_prune_final_sort_recompute	18.1501	9855
+PROF	33_final_prune_partials	0.2269	1
+PROF	40_span_shortlist	0.6021	1
+PROF	50_seg_structural_dp	0.4142	1
+PROF	60_lexical_heap_enum	0.4101	1
+PROF	70_finish	0.1025	1
+PROF	71_finish_into_clue	0.1025	1
+PROF	72_finish_sort	0.0602	1
+PROF	73_finish_dedup	0.0579	1
+PROF	74_select_diverse	0.0563	1
+### target=7 rep=1 phrase=insurance is important
+PROFSTAT n=19 lattice_positions=19 lattice_entries=16228
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4484	1
+PROF	01_corpus_from_json	0.1414	1
+PROF	02_build_lexicon	0.1414	1
+PROF	10_gen_approx_total	25.6574	1
+PROF	20_lattice_matches_at	0.0431	1
+PROF	21_matches_at_one_pos	0.0431	19
+PROF	A0_matches_at_total	0.0431	19
+PROF	A1_matches_at_search_loop	0.0339	76715
+PROF	A2_matches_at_children_expand	0.0162	333465
+PROF	A3_matches_at_postprocess	0.0074	19
+PROF	30_main_beam_loop	25.6143	1
+PROF	80_prune_total	24.2251	11736
+PROF	P1_prune_calls	0.0016	11736
+PROF	P2_prune_keep_k	0.0008	11736
+PROF	81_prune_dedup_loop	24.2237	11736
+PROF	31_beam_extend_fuzzy	0.6661	817940
+PROF	32_beam_overflow_prune	24.0222	11716
+PROF	83_prune_metrics_vector	23.6057	11735
+PROF	90_partial_metrics	22.6008	12727829
+PROF	91_metrics_word_len_bucket	0.0000	12727829
+PROF	84_prune_orders_and_select	20.2728	11735
+PROF	85_prune_final_sort_recompute	19.7962	11735
+PROF	33_final_prune_partials	0.1738	1
+PROF	40_span_shortlist	0.5283	1
+PROF	50_seg_structural_dp	0.3529	1
+PROF	60_lexical_heap_enum	0.3489	1
+PROF	70_finish	0.0977	1
+PROF	71_finish_into_clue	0.0977	1
+PROF	72_finish_sort	0.0637	1
+PROF	73_finish_dedup	0.0613	1
+PROF	74_select_diverse	0.0596	1
+### target=7 rep=2 phrase=insurance is important
+PROFSTAT n=19 lattice_positions=19 lattice_entries=16228
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4226	1
+PROF	01_corpus_from_json	0.1232	1
+PROF	02_build_lexicon	0.1232	1
+PROF	10_gen_approx_total	27.0669	1
+PROF	20_lattice_matches_at	0.0384	1
+PROF	21_matches_at_one_pos	0.0384	19
+PROF	A0_matches_at_total	0.0384	19
+PROF	A1_matches_at_search_loop	0.0300	76715
+PROF	A2_matches_at_children_expand	0.0149	333465
+PROF	A3_matches_at_postprocess	0.0067	19
+PROF	30_main_beam_loop	27.0285	1
+PROF	80_prune_total	25.6174	11855
+PROF	P1_prune_calls	0.0016	11855
+PROF	P2_prune_keep_k	0.0008	11855
+PROF	81_prune_dedup_loop	25.6159	11855
+PROF	31_beam_extend_fuzzy	0.6565	826734
+PROF	32_beam_overflow_prune	25.4098	11835
+PROF	83_prune_metrics_vector	24.9938	11853
+PROF	90_partial_metrics	24.0114	12910841
+PROF	91_metrics_word_len_bucket	0.0000	12910841
+PROF	84_prune_orders_and_select	21.4717	11853
+PROF	85_prune_final_sort_recompute	21.0334	11853
+PROF	33_final_prune_partials	0.1795	1
+PROF	40_span_shortlist	0.5630	1
+PROF	50_seg_structural_dp	0.3788	1
+PROF	60_lexical_heap_enum	0.3747	1
+PROF	70_finish	0.1043	1
+PROF	71_finish_into_clue	0.1043	1
+PROF	72_finish_sort	0.0682	1
+PROF	73_finish_dedup	0.0656	1
+PROF	74_select_diverse	0.0638	1
+### target=7 rep=3 phrase=insurance is important
+PROFSTAT n=19 lattice_positions=19 lattice_entries=16228
+PROFSTAT segmentations=128
+PROFSTAT finish_candidates_in=10752
+PROFSTAT finish_candidates=10752
+PROF	00_from_json_total	0.4579	1
+PROF	01_corpus_from_json	0.1487	1
+PROF	02_build_lexicon	0.1487	1
+PROF	10_gen_approx_total	27.7947	1
+PROF	20_lattice_matches_at	0.0469	1
+PROF	21_matches_at_one_pos	0.0469	19
+PROF	A0_matches_at_total	0.0469	19
+PROF	A1_matches_at_search_loop	0.0370	76715
+PROF	A2_matches_at_children_expand	0.0172	333465
+PROF	A3_matches_at_postprocess	0.0079	19
+PROF	30_main_beam_loop	27.7478	1
+PROF	80_prune_total	26.2306	11757
+PROF	P1_prune_calls	0.0016	11757
+PROF	P2_prune_keep_k	0.0008	11757
+PROF	81_prune_dedup_loop	26.2291	11757
+PROF	31_beam_extend_fuzzy	0.7534	819535
+PROF	32_beam_overflow_prune	26.0124	11737
+PROF	83_prune_metrics_vector	25.5710	11755
+PROF	90_partial_metrics	24.4572	12766017
+PROF	91_metrics_word_len_bucket	0.0000	12766017
+PROF	84_prune_orders_and_select	21.9459	11755
+PROF	85_prune_final_sort_recompute	21.4116	11755
+PROF	33_final_prune_partials	0.1893	1
+PROF	40_span_shortlist	0.5663	1
+PROF	50_seg_structural_dp	0.3799	1
+PROF	60_lexical_heap_enum	0.3759	1
+PROF	70_finish	0.1041	1
+PROF	71_finish_into_clue	0.1041	1
+PROF	72_finish_sort	0.0683	1
+PROF	73_finish_dedup	0.0658	1
+PROF	74_select_diverse	0.0640	1
+### target=8 rep=1 phrase=how much wood would a woodchuck chuck
+### target=8 rep=2 phrase=how much wood would a woodchuck chuck
+### target=8 rep=3 phrase=how much wood would a woodchuck chuck

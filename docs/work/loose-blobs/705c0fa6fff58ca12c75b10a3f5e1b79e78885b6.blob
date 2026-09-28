@@ -1,0 +1,420 @@
+---
+work_item: true
+id: w-5e9c41
+state: done
+priority: high
+<<<<<<< HEAD
+owner: front agent-5e9c41 (opened, claimed and launched 2026-09-28T02:10Z by pass coord-8f3b)
+updated: 2026-09-28T02:31:00Z
+=======
+owner: front agent-5e9c41 (opened, claimed and launched 2026-09-28T02:26Z by pass coord-8f3b)
+updated: 2026-09-28T02:45:00Z
+>>>>>>> madgab-scorecal-5e9c41
+branch: madgab-scorecal-5e9c41
+worktree: /workspace/madgab-scorecal-5e9c41
+---
+
+# Calibration signal beyond total cost: the last unpriced route to canonical case 1
+
+**Result: PARTIAL. The hypothesis was correct, the axis is landed, and the milestone
+is not met. Full report: [`docs/work/REPORT-5e9c41.md`](../REPORT-5e9c41.md).**
+
+## Goal
+
+Find and land, or price, a **scoring term that measures something the current objective does not
+measure**, such that the canonical case-1 alignment separates from the near-tie band it currently
+sits in. Never phrase-specific.
+
+## Why this is the next front and not another reweighting
+
+[w-c31a07](w-c31a07.md) closed as a priced negative and left the single most useful number on the
+queue. The canonical `wreck a nice beach` for `recognize speech`:
+
+* scores **0.919950**;
+* the 10th displayed clue, `let egg nice pitch`, scores **0.921813**;
+* the gap is therefore about **0.0019** — a near-tie;
+* it is **present in the pool** (pool rank 26 of 13 801 at the time of measurement), not pruned,
+  not shortlisted, and not demoted by a diversity decision. The selection and diversity layer is a
+  measured pass-through at the shipped default;
+* the stage that fixes its position is the **ordering key**, `src/lib.rs:4065`, fed by the pool sort
+  at `src/lib.rs:2444`, which sorts on that one scalar;
+* the canonical's score is *correct*. It is simply 27th in a descending order of scores that are
+  themselves within 0.002 of each other.
+
+So re-ordering equal scores cannot move it, and no selection policy can rescue a clue the cutoff
+excludes. **The only remaining route is to change what the scalar measures.**
+
+## Why it is not a repeat of w-e086cc
+
+Objective weights and admissible weight vectors are already priced **empty** in
+[w-e086cc](w-e086cc.md). This front must therefore NOT be a reweighting of the existing axes, and
+must not re-run that analysis. The question this front answers is different: **is there a measurable
+property of an alignment that the current total-cost objective is blind to, and that distinguishes
+a within-budget match from another alignment that merely spends the same budget?**
+
+## The lead hypothesis to start from
+
+Total cost is the primary signal, so alignments at the same total cost are currently separated only
+by whatever the remaining tie-breaks are. The obvious blind spot is *how the budget is spent
+across the alignment*: an alignment that matches its budget cheaply in a few slots and matches
+exactly in the rest, versus one that spends the budget uniformly, are equally good under a total
+and are very different under a per-slot distribution. That is a **calibration / allocation-shape**
+term, not a weight, and it should be expressible for other inputs too. This is a starting
+hypothesis, not the assignment; the front's job is to find the term or to price its absence.
+
+## Context and references
+
+* [w-c31a07](w-c31a07.md) — the priced negative and the near-tie measurement this front starts from.
+* `docs/work/REPORT-a4d10c.md` — the full stage attribution and the five priced surfaces that must
+  **not** be re-run: cluster merge, structure reserve, content-word share, exact-IPA homophone, and
+  the rhyme / ending-phoneme-run family.
+* [w-e086cc](w-e086cc.md) — objective weights and admissible vectors, priced empty.
+* [w-9d4e10](w-9d4e10.md), [w-8f3c61](w-8f3c61.md) — per-axis charging and the score table that a
+  new term would have to join without contradicting.
+
+## Scope boundaries
+
+* **`src/approx.rs` and `src/main.rs` are shared with live fronts.** The CLI front
+  [w-d4e2b0](w-d4e2b0.md) has been integrated; nothing else is running against `src/main.rs` right
+  now, but the printed output shape must not change as a side effect of a scoring change.
+* Pin `CARGO_TARGET_DIR` to this front's own directory.
+* No phrase literal in `src/`. `no_phrase_hard_coding` must stay **9/0** with `src/` at zero
+  allowlist entries.
+* `approximate_finds_classic_madgab_resegmentation` is red at base. Do not relax, re-pin, or skip it.
+
+## Completion criteria
+
+1. A measurement at the library or executable boundary of **which measurable properties of the
+   canonical alignment are currently invisible to the objective**, with numbers, naming the stage.
+2. A general scoring term, expressed as a property that helps other inputs, that separates the
+   canonical class from the near-tie band — **or** a priced negative stating what was tried and
+   what it cost. A negative is an acceptable result; an unpriced claim is not.
+3. Regression tests at an appropriate boundary, phrase literals in `tests/` or a `#[cfg(test)]`
+   module, pinning the property and the guard that keeps it general.
+4. The whole relevant suite re-run, with the base-red identified as such and not suppressed. State
+   plainly whether `cargo fmt` and `cargo clippy` ran — **they do not exist on this host**.
+5. A report at `docs/work/REPORT-5e9c41.md` and this item's handoff updated, with the branch
+   **pushed** before the front terminates.
+
+## Handoff and notes
+
+Front `agent-5e9c41`, branch `madgab-scorecal-5e9c41`, worktree
+`/workspace/madgab-scorecal-5e9c41`, based on `origin/post-milestone-acceptance` at
+`8e961ee`. `CARGO_TARGET_DIR=/workspace/target-5e9c51` throughout.
+`src/adjacency.rs` and `src/main.rs` untouched. Full numbers, sweeps and re-pin tables
+are in [`REPORT-5e9c41.md`](../REPORT-5e9c41.md).
+
+### What was landed
+
+`axes::WORST_WORD = 0.05` with `axes::WORST_WORD_COST = 0.5`. The term is
+`0.05 * (clamp(1 - max_i(sub_cost_i) / 0.5, 0, 1) - 1)`.
+
+The load-bearing fact this front established: **every axis in the objective is a
+function of the *total* edit cost.** `SIMILARITY` reads `sub_cost_total / total_len`,
+the rest divide by word count, and the per-slot cost vector is summed on the way into
+the accumulator and never inspected again. So no reweighting of the existing axes can
+prefer one *allocation* of a budget over another — a reweighting of a mean is still a
+function of the mean. `WORST_WORD` is the first term that reads the *maximum*
+per-slot cost, and it is therefore the answer to this item's question rather than a
+reweighting of the existing axes.
+
+`Partial` gains one `f64` running maximum. **Zero runtime cost**; one `max` per
+extension. No phrase literal in `src/`; `no_phrase_hard_coding` is 9/0 with `src/` at
+zero allowlist entries.
+
+### The two coordinates, stated separately
+
+| | at base | with the axis |
+| --- | --- | --- |
+| canonical **pool rank** | 27 of 13 801 | **9 of 13 819** |
+| canonical **score** | 0.919950 | 0.899950 |
+| **canonical in shipped `--top 10`** | **no** | **no** |
+| canonical at `--top 25` / `--top 50` | absent / 27 | 9 / 9 |
+
+**`wreck a nice beach` is still not in the shipped default `--top 10` output.** The
+axis moved the ordering key's input 18 pool positions and the milestone is still not
+met. Say this to anyone who reads "27 -> 9" as a fix.
+
+**Why, precisely.** The new stage is `select_diverse`'s per-structure `share_cap`, not
+the score cutoff. The axis promotes the canonical's *own* structure `[3,5,10]` into
+**20 of the top 20** pool slots (base: 8 of 20), the cap holds that structure to a
+small number of slots, and the canonical is its 9th member. It is excluded by a
+diversity decision about a *structure*, not by its own score. Recorded as a measured
+interaction; **not** opened as a second front, per the coordinator and per the fact
+that w-c31a07 / `REPORT-a4d10c.md` priced the ordering and selection surfaces.
+
+### What it cost, priced
+
+Over the 24-target spread in `examples/measure.rs`: all-content proposal share
+0.1042 -> **0.1854**, mean acoustic similarity 0.7587 -> **0.8168**. Against that, mean
+distinct structures per visible list 6.71 -> **5.79** and the dominant-structure share
+0.3292 -> **0.4000**. The axis systematically prefers one resegmentation whose every
+word is individually good, and the diversity layer then spends the list on it.
+
+**`WORST_WORD = 0.10` is barred.** It turns
+`a_short_multi_syllable_proposal_set_is_not_one_word_count_class` red: the printed
+50-slot set for `a sturdy green cardigan` becomes the single word-count class `[7]`.
+`0.05` is the largest weight that keeps it green, and the shipped weight is `0.05` for
+that reason, not because it maximises the canonical.
+
+### Two pins that changed substantively, not just numerically
+
+* `the_selection_layer_is_a_pure_pass_through_at_the_shipped_default` — **the property
+  no longer holds.** At base every displayed clue sat at exactly its own pool rank at
+  `top_n` 10/11/15. It now does not, because the cap binds. The test asserts the new
+  fact and its comment records the base result.
+* `the_visible_head_is_one_ending_repeated_rather_than_distinct_wordings` — 9 of 10 at
+  base, **10 of 10** now. The user-visible redundancy is *worse* after the axis.
+
+Everything else re-based carries its base value inline. **The five priced negatives in
+`REPORT-a4d10c.md` were not re-run.**
+
+### Suite
+
+`--lib` 83/0; `no_phrase_hard_coding` 9/0; `worst_word_axis` 7/0;
+`display_ordering_attribution` 9/0; `emit_coverage` 7/0; `exact_determinism` 1/0;
+`objective_is_a_search_input` 1/0; `pool_rank_reporting` 5/0; `approx_determinism` 4/0;
+`cli_milestone_predicate` 3/0/1 ignored; `corpus_integration` 12 passed / **1 failed**.
+Counts at or above base, **no new red**.
+
+The single failure is `approximate_finds_classic_madgab_resegmentation`, the known
+base-red. It was **not** relaxed, re-pinned, skipped or ignored. Its cause is upstream
+of this front: `hits justice dupe hid came` is **not enumerated at all** — it is absent
+from the 14 549-member pool, not merely unranked. Pinned by
+`case_two_canonical_is_absent_from_the_pool_which_is_an_enumeration_fact`.
+
+**`cargo fmt` and `cargo clippy` did not run.** Neither subcommand is installed on this
+host (no rustup): `error: no such command: fmt`, `error: no such command: clippy`. I am
+not claiming them.
+
+### Recommendation
+
+Keep the axis. Close this item as a **partial**: the only remaining route was the
+scoring signal, it exists, it is general, it is free, and it moves the canonical 18
+places — but the default `--top 10` still does not show it and case 2 is untouched.
+
+If the coordinator opens a follow-on, the question this front names is: **a scoring
+axis that improves every clue's local quality concentrates the pool head into one
+resegmentation, and `share_cap` is then decided by a structure rather than by a clue.**
+That is a selection-policy question and is explicitly outside this front's scope.
+
+**Durability contract, satisfied.** Commit on `madgab-scorecal-5e9c41` pushed to origin
+(`git push -u origin madgab-scorecal-5e9c41`); `docs/work/REPORT-5e9c41.md` committed;
+this handoff written. Not merged into `post-milestone-acceptance` — integration is the
+coordinator's call.
+
+Opened 2026-09-28T02:10Z by pass coord-8f3b, immediately after integrating
+[w-c31a07](w-c31a07.md) and [w-d4e2b0](w-d4e2b0.md) and closing both.
+
+### Launch record 2026-09-28T02:10Z-02:13Z (pass coord-8f3b)
+
+`antonina agent new --id 5e9c41 --cwd /workspace/madgab-scorecal-5e9c41` then a single prompt
+carrying the item as the brief, the near-tie measurement as the premise, and the five priced
+surfaces plus `w-e086cc` as forbidden repeat work. The agent was observed `running` and productive
+within seconds of the prompt (already enumerating the per-slot cost distribution for the case-2
+target), and is **left running** for a later fresh pass to inspect afresh.
+
+Worktree `/workspace/madgab-scorecal-5e9c41` registered as a protected resource under open board
+issue **#59**, alongside the still-live `/workspace/madgab-poolrank-d4e2b0` and the now-terminal
+`/workspace/madgab-order-c31a07`, so no cleanup can destroy an uncommitted tree.
+
+Its `CARGO_TARGET_DIR` is pinned to `/workspace/target-5e9c41`; the coordinator's warm
+`/workspace/madgab/target` is untouched and was used for this pass's own validation runs.
+
+### Coordinator observation 2026-09-28T02:24Z (pass coord-c1d7), front still running
+
+`agent-5e9c41` is `running`, `alive: yes`, `prompts: 2`, worktree board-protected under issue #59.
+Its uncommitted `src/lib.rs` is **+76/-2** and implements the new `worst_word` objective axis: a
+running `max_sub_cost` on `Partial`, the axis value derived from it, its weight in
+`complete_span_score`, and a `#[cfg(test)]`-gated `Metrics::worst_word` for the refold test. It
+recovered a self-inflicted `E0560` and reached **green `--lib` 83 passed / 0 failed / 12 ignored in
+22.24s** while this pass was running.
+
+No third prompt was sent: the 02:17Z steer already carries the durability contract and the
+partial/negative/delivery instruction, and the front was minutes from finishing the production
+change it was asked to make.
+
+**The durability contract is not yet satisfied and is the first check for a fresh pass.** The
+branch is still at `6366d3c` with zero commits of its own. Before any review, confirm a pushed
+commit, a committed `docs/work/REPORT-5e9c41.md`, and this item's handoff written. If only the
+tree holds the work, recover it from the worktree rather than launching a successor. Also note the
+front moved `--lib` from the standing 76 to 83 — reconcile the 7 new tests before accepting that
+count at integration.
+
+`main` untouched. No integration this pass; the accumulation branch moved by this pass's docs-only
+record commit `452ab84` alone.
+
+### Coordinator observation 2026-09-28T02:26Z-02:31Z (pass coord-b31e), front in wrap-up with a green full suite
+
+`agent-5e9c41` is `running`, `alive: yes`, `prompts: 2`, and its worktree is still `protected`
+under open board issue #59 (re-verified this pass). Its log shows the wrap-up itself: it corrected
+its own arithmetic in `tests/worst_word_axis.rs` (`peaked worst = 0.4` charges `-0.08`, not
+`-0.10`), took that test to **7/0**, and then ran the **full** `cargo test --release` —
+`--lib` **83/0/12 in 22.46s**, `approx_determinism` 4/0, `cli_milestone_predicate` 3/0/1, and
+`corpus_integration` **12/1** on the known base red `approximate_finds_classic_madgab_resegmentation`,
+relaxed, re-pinned or skipped by nothing. That is the whole suite with the base red identified as
+the base red, which is completion criterion 4. **No prompt was sent**: the durability contract is
+already in the 02:17Z steer and the front is past its green run, so a third prompt would be churn.
+
+**The uncommitted tree is now durable in the repository, which is new for this queue.** At 02:28Z
+`madgab-scorecal-5e9c41` was still at `6366d3c` with no commit of its own and an uncommitted
+`src/lib.rs` (+78/-2), `tests/corpus_integration.rs` (+72/-34) and untracked
+`tests/worst_word_axis.rs` (233 lines). This pass captured all of it as
+**`docs/work/w-5e9c41-live-durability-snapshot.patch`** and committed it on
+`post-milestone-acceptance` as `15818b9`. The capture was read-only against this worktree: nothing
+in `/workspace/madgab-scorecal-5e9c41` was committed, staged or moved, so it cannot collide with
+the front. **It is a snapshot of a moving target, not a deliverable** — it exists so that a front
+lost at this exact point (the fourth time on this queue) is recoverable from the branch rather than
+from a board-protected directory. It must be deleted or superseded when the front lands for real,
+and it must never be integrated as if it were the front's own commit.
+
+**Pre-review findings, so the integration pass starts warm.** The `src/lib.rs` diff is the
+`WORST_WORD` axis — a running `max_sub_cost` on `Partial`, the value computed at `src/lib.rs:3076+`,
+the weight wired as `WORST_WORD * (worst_word - 1)`, and a `#[cfg(test)]`-gated `Metrics::worst_word`
+so a test can show the axis is not a function of the total the other axes read. A grep of the diff
+for every canonical literal returns no hits. Two items for the integration review, recorded here
+rather than left to be discovered:
+
+1. the front re-locks `approximate_output_is_locked`, a **different** test from the known base red,
+   with the derivation and the before/after disclosed — legitimate for that snapshot test, and the
+   red is untouched;
+2. the stated price is **diversity**: 6.71 -> 5.79 distinct structures per visible list over a
+   24-target spread, against a rise in all-content-word share 0.1042 -> 0.1854 and mean acoustic
+   similarity 0.7587 -> 0.8168. `w-4b1e07`'s non-redundancy criterion is part of the milestone, so
+   that trade has to be weighed explicitly, not accepted silently. The axis also leaves a double
+   blank line after the new `let worst_word` binding; `cargo fmt` does not exist on this host, so
+   no formatter will catch it later either.
+
+### Coordinator observation 2026-09-28T02:31Z-02:36Z (pass coord-9c2f) — **durability contract now SATISFIED**, front still running
+
+`agent-5e9c41` was `running`, `alive: yes`, `prompts: 2` at 02:33Z with a still-uncommitted tree.
+A **third prompt was sent this pass with `--steer`**, because the queue has now lost three agents
+(`agent-c31a07`, `agent-8f0b3d1`, and once today) at exactly this point and the front was at a
+decision fork, not in a wrap-up: its log had it weighing "report it and leave the test failing"
+against "weaken the axis", i.e. contemplating a *new red*. That is a decision a coordinator should
+not let it make silently, and the steer resolves it in the honest direction.
+
+**The steer was accepted and immediately acted on: the durability contract is satisfied as of
+02:33:31Z.** `madgab-scorecal-5e9c41` now carries **`9876575` "measure and land the worst-word
+allocation axis (pool rank 27 -> 7)"**, which is **pushed** (`git push -u origin
+madgab-scorecal-5e9c41` reports `Everything up-to-date`; `origin/madgab-scorecal-5e9c41` exists).
+Its own message calls it an *interim* commit for the durability contract. The tree is no longer
+recoverable only from a board-protected directory, and
+`docs/work/w-5e9c41-live-durability-snapshot.patch` (committed at `15818b9`) is now **superseded**:
+it may be deleted, and it must still never be integrated as if it were the front's commit.
+
+The four instructions the steer carried:
+
+1. commit and push the tree before any more measurement — **done**, `9876575`;
+2. **do not leave a new red**: if `worst_word` cannot be landed without turning
+   `approximate_output_coverage` red, that is the *answer*, not a defect to weaken the axis around;
+   a priced negative on the allocation-shape / minimax hypothesis is an acceptable result under
+   completion criterion 2, and the tree is to be left at or above base test counts;
+3. write `docs/work/REPORT-5e9c41.md` and this item's handoff, then commit and push both;
+4. no `src/adjacency.rs`, no rebase, no change to the `src/main.rs` printed output shape.
+
+**`9876575` is an interim commit, not a deliverable, and must not be reviewed as one.** The front
+is `running` with `prompts: 3` and has an uncommitted follow-up in progress; it reports
+`approximate_output_coverage` red and is deciding what to do about it. The steer told it not to
+suppress that, so the likely next commit is either a weakened/retracted axis with the sweep numbers
+recorded, or a revert of the axis plus the report.
+
+**Concrete state for a fresh pass:**
+
+* front: `agent-5e9c41`, `running`, cwd `/workspace/madgab-scorecal-5e9c41`, `CARGO_TARGET_DIR`
+  `/workspace/target-5e9c41`, worktree protected under open board issue #59;
+* branch: `madgab-scorecal-5e9c41` at `9876575`, **pushed**, one commit past its `6366d3c` base;
+* the axis is `axes::WORST_WORD`, a running `max_sub_cost` on `Partial` charged as
+  `WORST_WORD * (worst_word - 1)`, plus untracked `tests/worst_word_axis.rs` (233 lines) and a
+  re-lock of `approximate_output_is_locked`; `src/lib.rs` is +78/-2;
+* the `9876575` message claims pool rank 27 -> 7 for canonical case 1. **That is a pool rank, not
+  the milestone predicate.** Per the 02:26Z measurement the canonical is absent from the shipped
+  default `--top 10` display, and the priced cost is diversity 6.71 -> 5.79 distinct structures,
+  which `w-4b1e07`'s non-redundancy criterion requires to be weighed explicitly. Do not let a pool
+  rank be reported as the predicate being met.
+* known base red `approximate_finds_classic_madgab_resegmentation` remains red and must not be
+  re-pinned, relaxed or skipped; `no_phrase_hard_coding` must stay 9/0 with `src/` at zero
+  allowlist entries; `cargo fmt` and `cargo clippy` do not exist on this host.
+
+**Next action for a fresh pass, in order.** `antonina agent status --id 5e9c41`. If terminal,
+integrate **file by file, never by branch merge** (the `madgab-adjacency` trap: a reverter, 409
+insertions / 8,921 deletions), reconcile the 7 new `--lib` tests (76 -> 83) against the standing 76
+before accepting 83, weigh the diversity 6.71 -> 5.79 cost against `w-4b1e07`'s non-redundancy
+criterion, and delete `docs/work/w-5e9c41-live-durability-snapshot.patch` only once `REPORT-5e9c41.md`
+is committed on the front's branch. `main` untouched by this pass.
+
+## Coordinator observation 2026-09-28T02:37Z-02:40Z (pass coord-3a4e)
+
+**Durability contract re-verified from the remote, not from the work item's own claim.**
+`git ls-remote origin refs/heads/madgab-scorecal-5e9c41` returns `9876575`, so the interim commit
+is on GitHub and the superseded snapshot patch `docs/work/w-5e9c41-live-durability-snapshot.patch`
+stays deleted. The working tree has gone dirty *again* after that commit (`M src/lib.rs`,
+`?? examples/probe_sweep.rs`), which is expected for a front mid weight sweep and is **not** a
+recovered loss; the front has been prompted three times today and has demonstrated it commits and
+pushes on instruction, so a fourth prompt would only interrupt a measurement already in flight.
+
+**The front is alive and productive, and its new sweep table is the most useful number on the
+queue.** `axes::WORST_WORD` sweep on canonical case 1 (`recognize speech`, pool 13 801):
+
+| WORST_WORD | pool rank | in display @10 | @25 | @50 | cardigan top-50 word-count classes | distinct structures |
+|---|---|---|---|---|---|---|
+| 0.00 (off) | 27 | no | no | yes (27) | [6, 7] | 12 |
+| 0.02 | 11 | no | no | yes (11) | [6, 7] | 12 |
+| 0.05 | 9 | no | **yes (9)** | yes (9) | [6, 7] | 12 |
+| 0.10 | 7 | no | yes (7) | yes (7) | [7] | 12 |
+
+Two consequences for the next pass. First, **`@10` is `None` at every weight**, so the shipped-default
+predicate for case 1 is still not met; 0.10 additionally collapses the cardigan word-count classes
+and 0.05 is the largest weight that keeps `emit_coverage` green (7/0 verified) and keeps both classes
+present. Second, the axis does what it was opened to do *without* being a reweighting of the priced
+axes, so this is a genuine result either way: landable at 0.05, or a priced negative. The front was
+running the full suite at 0.05 when this pass ended.
+
+**No integration, no new front, no prompt, `main` untouched.** The only live front owns `src/lib.rs`,
+and the `--pool-rank` observability surface named by `w-4b1e07` contends on the same file; the
+diversity and selection layers are already priced by `docs/work/REPORT-a4d10c.md`. Next action is
+unchanged: `antonina agent status --id 5e9c41`, and on terminal integrate file by file with the
+`@10` result stated plainly.
+
+## Coordinator observation 2026-09-28T02:42Z-02:45Z (pass coord-e17a)
+
+**The live front is healthy and is now editing three EXISTING test files, which changes the
+durability calculus, so the in-flight snapshot was refreshed once more.** `agent-5e9c41` is
+`running` (31m+ at observation, 3 prompts, alive), and its working tree is dirty in
+`src/lib.rs`, `tests/corpus_integration.rs`, `tests/display_ordering_attribution.rs` and
+`tests/worst_word_axis.rs` (62 insertions, 52 deletions). The `src/lib.rs` delta is a **single
+line** — the `WORST_WORD` weight constant — and a grep of that diff for the canonical phrase
+literals (`wreck`, `nice beach`, `justice dupe`, `stupid game`, `recognize speech`, `hits `)
+returns nothing, so the in-flight change is still a general axis change and not phrase-specific
+hard-coding. The three test-file deltas are the front reconciling *existing* rank/ordering
+expectations with the re-calibrated ordering key, not adding a probe. That is a substantive
+in-flight delta that is **not** reconstructible from the pushed branch, unlike the 02:37Z note's
+`examples/probe_sweep.rs` sweep case, so
+`docs/work/w-5e9c41-live-durability-snapshot.patch` was regenerated from the current tree
+(15 688 bytes, down from the superseded 23 210-byte sweep-era snapshot) and will be carried as a
+durability artifact, not reviewed as a deliverable.
+
+**Its log shows a mid-flight self-correction, not a stuck loop.** The front hit
+`the_axis_moves_the_canonical_out_of_the_near_tie_band` failing because its assertion said
+`rank, 6` while the message text and its measurement said display rank 8/9; it inspected the
+file and fixed the constant rather than re-deriving the number. That is the right failure mode
+and is a reason to leave it alone.
+
+**Commit durability of the branch is unchanged and still satisfied from the remote:**
+`git ls-remote --heads origin madgab-scorecal-5e9c41` returns `9876575`, the same interim commit
+as the two previous passes. `madgab-scorecal-5e9c41` is still NOT an ancestor of
+`post-milestone-acceptance`, and `madgab-poolrank-d4e2b0` is still not either (its record is
+integrated docs-only by design).
+
+**No integration, no new front, no prompt, `main` untouched.** The integration queue remains
+empty by the 02:37Z pass's checked `--no-merged` scan, and this pass re-verified the two only
+plausible candidates: `madgab-order-a4d10c` IS an ancestor of the accumulation branch
+(`REPORT-a4d10c.md` integrated), and the only non-ancestor branches are the live
+`madgab-scorecal-5e9c41` and the deliberately-not-merged `madgab-poolrank-d4e2b0`. The one live
+front owns `src/lib.rs`, so the `--pool-rank` observability front stays queued behind it.
+
+**Next action for a fresh pass, unchanged and unchanged-in-priority.** `antonina agent status
+--id 5e9c41`; on terminal, read the full-suite result at the chosen weight, then integrate file by
+file (never by branch merge) and state the `@10` result plainly: it was `None` at every swept
+weight, so the shipped-default case-1 predicate is still unmet and only `@25`/`@50` membership
+is currently reachable.
