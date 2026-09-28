@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7a3e
-updated: 2026-09-28T12:52:00Z
+owner: coord-3c8f
+updated: 2026-09-28T12:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5438,3 +5438,122 @@ two distinct blobs.
   * (iv) If the gate answer is ever **yes**: cut a fresh branch from `main` (byte-identical
     for production code), validate general behaviour, never hard-code canonical phrases,
     and pursue a qualitatively different whole-path algorithm.
+
+## 45. **An ignored file is not an absent file: `.gitignore` puts a whole content class
+## outside every sweep this log has ever run, and the accepted release's dependency
+## graph was living in it.**
+
+Pass 56 closed the *uncommitted* gap and named the technique — change the question, not the
+key. Its own next-action (ii) suggested asking what sits *outside* the repository. The
+nearest thing outside the repository turned out to be **inside** it and invisible: a file
+git has been instructed never to mention.
+
+`.gitignore` on this repository has three lines, and two of them name content:
+
+```
+/target/
+Cargo.lock
+/web/pkg/
+```
+
+`Cargo.lock` is ignored, and this repository has **no `Cargo.lock` in any commit on any
+ref** — `git log --all -- Cargo.lock` is empty, and
+`git rev-list --objects --all --reflog` names the path **zero** times. So the resolved
+dependency graph of the accepted release existed only as **118 identical untracked working
+-tree files**, one per registered worktree, in an object store that has never held them.
+
+Every sweep in this log's history is blind to them, and the reason is uniform:
+
+| check | why it cannot see it |
+|---|---|
+| rule 44's dirty-path hash test | enumerates `git status --porcelain`, which **does not list ignored paths** |
+| rules 6–9's hash sweep | enumerates the same status output |
+| the five object keys (42, 43, 10/13/28, 44) | hold nothing; the bytes were never written into the store |
+| rule 9's `target*` filter | *excludes* the one large ignored class, and has no opinion about the other two |
+
+**This is the sixth instance of the log's one recurring failure shape**, and the sharpest
+yet: **an enumeration that can only see what git chose to tell it about, read as a statement
+about what exists.** Pass 56 found the same shape one level in (uncommitted content) and
+`.gitignore` puts the gap one level *out* — the file is not merely unrecorded, it is
+actively excluded from enumeration by a rule a human wrote. The general form worth carrying:
+
+> **A `.gitignore` entry is an enumeration filter, not a storage decision.** It changes what
+> `git status` reports, and every pass that enumerates through `git status` has silently
+> inherited it as a storage fact. The only thing that sees the class is asking git for
+> ignored paths explicitly: `git status --porcelain -uall --ignored | grep '^!!'`.
+
+**Measured, 127 worktrees:**
+
+| step | result |
+|---|---|
+| ignored paths, `target*` excluded by path component (rule 9) | **118** |
+| distinct content hashes among them | **1** (`3b1a0a54`) |
+| of those, absent from the entire object store | **1** |
+| positive control — `git check-ignore -v Cargo.lock` | fires, `.gitignore:2` |
+| negative control — `/web/pkg/` (the only other ignorable path) | **0** paths; the directory does not exist |
+
+Both controls matter, and the negative one is the same lesson as `coord-2b7e`'s filter bug
+in a new costume: `/web/pkg/` is the other path this `.gitignore` can ever produce, so a pass
+that reported the sweep without counting it would have looked equally thorough and been
+measuring nothing. One distinct content hash across 118 paths is the other control — the
+check can return non-zero, and it did.
+
+**Recovered** to `recovery/ignored-lockfile-2026-09-28` (`c82ee17`), pushed, **not merged**:
+`docs/work/ignored-files/Cargo.lock` (5,614 B, 24 `[[package]]` entries), verified by
+`git hash-object` equality with the live file (`3b1a0a54…`, computed without `-w` so the
+hash was measured, not created) **and** by sha256 identity. Provenance, both controls and the
+fence note are in `docs/work/ignored-files/README.md`.
+
+**What this is *not*.** Nothing here is production code, nothing is a merge candidate, and
+`Cargo.lock` must stay git-ignored — the accepted release deliberately pins no dependencies
+in-tree. The archive exists so the *measurement context* of the accepted state is
+recoverable: the timing numbers in `docs/accepted-state-2026-09-27.md` and the 1.8 s claim
+rule 25 scrutinised were measured against *these* versions, and a fresh `cargo build` today
+resolves differently. That is the same lesson as rule 29 — an artifact produced earlier and
+consumed later carries no currency unless someone checked — applied to a file git will not
+tell the next pass about.
+
+### Pass 57 — 2026-09-28 12:42Z–12:50Z — coord-3c8f — the ignored-file class
+
+**Gate answer: still no.** Nothing was created, claimed, resumed, launched, integrated or
+merged; `main` untouched at `0267ade`; no front branch touched. The prompt's canonical-example
+clause was read against the itinerary's pause gate for the **twenty-first** time and declined
+for the twenty-first time — it restates the programme's standing goal, and reopening requires
+an explicit human instruction that has not been given. The *no-hard-coding* half remains
+discharged on the merits and is unaffected by this pass: nothing under `src/`, `tests/`,
+`web/`, `examples/` or `Cargo.toml` was touched, so the fence result stands by content.
+
+  * **The one new class, found and recovered.** Rule 45 above. `recovery/ignored-lockfile-2026-09-28`
+    = `c82ee17`, pushed, not merged, verified by blob-hash *and* sha256 identity.
+  * **Agents: nothing MadGab-owned is alive, nothing to prompt, nothing left running.**
+    `antonina agent list` shows five `running` agents — `100b1` (`/workspace/antonina-100-review`),
+    `47d1` (`/workspace/skrynia-cat500`), `98a1` (`/workspace/antonina-98-flake`), `94b2`
+    (`/workspace/assemblyp1-94-chords`), `92d1` (`/workspace/volodyslav-92-plan`) — all outside
+    `/workspace/madgab*` and all belonging to other projects; per the contract they were left
+    running for their own owners. The paused fronts `3a8f01`/`3a8f02` remain `stopped`,
+    deliberately, by the pause rather than by failure. **This pass launched nothing, so there
+    is nothing for a later pass to supervise.**
+  * **Cheap checks, all clean.** `git ls-remote`: `main` = `0267ade` (untouched, remote-only —
+    `git rev-parse main` still fails, so no push to it was possible), `post-milestone-acceptance`
+    = `7d07c73` equal to local `HEAD` before this entry, and all **13** `recovery/*` branches
+    present on the remote. Worktree clean before and after. Census: of 97 files in
+    `docs/work/items/`, the only non-terminal one is this log — **no claimable item exists**.
+  * **No code to integrate.** The accumulation branch and `origin/main` are byte-identical
+    outside `docs/` (pass 52's finding, unchanged: `git diff origin/main
+    post-milestone-acceptance -- src tests web examples Cargo.toml README.md` is **0 lines**).
+    Nothing on any branch is waiting to be integrated, and this pass added none.
+  * **Next useful action.** (i) The gate question is now **twenty-one** passes old and remains
+    the only thing that can change the programme's status: *is MadGab development being
+    reopened?* (ii) Rule 45 shows the technique that keeps producing new classes — **ask what
+    an enumeration filter is silently dropping**, not what key to try next. The untried
+    instances of that, in order: `.git/info/exclude` and any global
+    `core.excludesFile`, which are the *other* two places a filter can hide content and
+    which are per-repository and per-user state git consults before `.gitignore`; and
+    `.git/worktrees/<name>/info/exclude`, which is per-worktree and which no pass has
+    enumerated. (iii) Never merge or push to `main`; never integrate scratch instrumentation;
+    never archive `target-after/`, `target-base/`, `target-front-*` or the two oversize
+    binaries. (iv) If the gate answer is ever **yes**: cut a fresh branch from `main`
+    (byte-identical for production code), validate general behaviour, pursue the named
+    direction — a **qualitatively different whole-path algorithm** (compact pronunciation DAG
+    with k-best / A*-style search, or a strong backward suffix heuristic) — and **never**
+    hard-code the canonical phrases.
