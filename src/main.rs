@@ -41,9 +41,43 @@ Options:
   --per-word-budget COST   Approximate-mode: max substitution cost per clue word
                            (default 0.5).
   --total-budget COST      Approximate-mode: max total substitution cost (default 1.5).
+  --pool-rank        Also report each proposal's rank in the scored candidate
+                     pool, not just its display position. Costs a second search.
   --transcribe       Print the target's IPA stream and exit.
   --help             This message.
 ";
+
+/// The **display position** of a proposal: its 1-based position in the printed
+/// list, after the search's selection policy has narrowed the pool to `--top`.
+///
+/// The **pool rank** of a proposal: its 1-based position in the deduplicated,
+/// score-ordered candidate pool the search actually built, before that
+/// selection policy ran.
+///
+/// These are different coordinates and must never be printed under one label.
+/// A clue can be display position 1 and pool rank 400; a clue can be absent
+/// from the display and present in the pool; and a clue can be missing from
+/// both, which is a search question rather than a display question. Until the
+/// CLI reported both, every rank figure in this project's records was ambiguous
+/// between them, and "the binary shows rank 27" could mean either.
+fn render_row(
+    display_position: usize,
+    clue: &madgab::Clue,
+    pool_rank: Option<usize>,
+    pool_size: usize,
+) -> String {
+    match pool_rank {
+        // Default shape, byte-identical to what this tool has always printed.
+        None => format!("{display_position:2}. [{:.3}] {}", clue.score, clue.phrase),
+        // Labelled shape: the score and the pool rank are named fields inside
+        // the one bracket, so no consumer has to guess which is which, and the
+        // phrase still starts at the first `]` exactly as before.
+        Some(rank) => format!(
+            "{display_position:2}. [score {:.3}, pool rank {rank} of {pool_size}] {}",
+            clue.score, clue.phrase
+        ),
+    }
+}
 
 fn main() -> ExitCode {
     let mut args = std::env::args().skip(1).collect::<Vec<String>>();
@@ -60,6 +94,7 @@ fn main() -> ExitCode {
     let mut approximate_per_word = 0.5_f64;
     let mut approximate_total = 1.5_f64;
     let mut transcribe_only = false;
+    let mut show_pool_rank = false;
 
     while let Some(flag) = args.first().cloned() {
         match flag.as_str() {
@@ -109,6 +144,10 @@ fn main() -> ExitCode {
                     };
                 }
             }
+            "--pool-rank" => {
+                args.remove(0);
+                show_pool_rank = true;
+            }
             "--transcribe" => {
                 args.remove(0);
                 transcribe_only = true;
@@ -154,7 +193,7 @@ fn main() -> ExitCode {
         }
     } else {
         let started_search = std::time::Instant::now();
-        let clues = generator.generate(&target);
+        let (clues, pool_size) = generator.generate_with_pool(&target);
         let search_ms = started_search.elapsed().as_millis();
 
         if clues.is_empty() {
@@ -163,6 +202,21 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
 
+        // Pool ranks come from a second search. `generate_with_pool` reports
+        // the pool's *size* only, so the pool's contents — and therefore any
+        // proposal's coordinate inside it — need `generate_pool`. The search
+        // is deterministic (tests/approx_determinism.rs, tests/exact_determinism.rs),
+        // so the second run's pool is the first run's pool, and the ranks
+        // below describe the printed rows. This is why the flag is opt-in:
+        // the default path pays no extra search for the size it now reports.
+        let started_pool = std::time::Instant::now();
+        let pool_ranks: Option<Vec<Option<usize>>> = if show_pool_rank {
+            Some(pool_ranks_of(&generator.generate_pool(&target), &clues))
+        } else {
+            None
+        };
+        let pool_ms = started_pool.elapsed().as_millis();
+
         let ipa = generator
             .corpus()
             .transcribe(&target)
@@ -170,11 +224,46 @@ fn main() -> ExitCode {
         eprintln!("target: {target}");
         eprintln!("IPA:    /{ipa}/");
         eprintln!("(corpus loaded in {load_ms}ms; search {search_ms}ms)");
+        eprintln!(
+            "(pool: {pool_size} scored candidates, {} displayed; expansion {:.1}x)",
+            clues.len(),
+            if clues.is_empty() {
+                0.0
+            } else {
+                pool_size as f64 / clues.len() as f64
+            }
+        );
+        if show_pool_rank {
+            eprintln!("(pool-rank run: second search {pool_ms}ms)");
+        }
         eprintln!();
 
         for (i, clue) in clues.iter().enumerate() {
-            println!("{:2}. [{:.3}] {}", i + 1, clue.score, clue.phrase);
+            println!(
+                "{}",
+                render_row(
+                    i + 1,
+                    clue,
+                    pool_ranks.as_ref().and_then(|r| r[i]),
+                    pool_size,
+                )
+            );
         }
         ExitCode::SUCCESS
     }
+}
+
+/// Map each displayed proposal to its 1-based position in `pool`.
+///
+/// The pool is phrase-deduplicated, so the mapping is one-to-one; `None` is
+/// returned for a displayed proposal with no pool entry, which should not
+/// happen, and is reported as such rather than being papered over with a
+/// guess at a rank.
+fn pool_ranks_of(pool: &[madgab::Clue], displayed: &[madgab::Clue]) -> Vec<Option<usize>> {
+    let rank_of = |phrase: &str| -> Option<usize> {
+        pool.iter()
+            .position(|c| c.phrase == phrase)
+            .map(|i| i + 1)
+    };
+    displayed.iter().map(|c| rank_of(&c.phrase)).collect()
 }
