@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4d6a
-updated: 2026-09-28T10:24:00Z
+owner: coord-7f21
+updated: 2026-09-28T10:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -388,6 +388,22 @@ instruction.
       check over a class that many prior passes called clean returns a large number, the check
       is wrong before the class is.** `git worktree list --porcelain` prints the resolved sha for
       `HEAD`; the raw admin file does not.
+
+29. **A prebuilt binary is evidence of the current tree only if you bind it, and running it
+    does not rebuild it.** Rule 25 requires that a documented quantity be resolved to the
+    thing that was timed; the corollary this pass had to execute is that the *thing* must be
+    shown to be the code that is in the tree. Every timing in the `coord-4407a` and
+    `coord-7f21` measurements came from `target/release/deps/*`, and a release test binary is
+    not recompiled by being executed — on this repository that directory carries binaries
+    from several fronts, and a pass that quoted a number from it after any `src/` change
+    would report the previous compilation's behaviour with a fresh timestamp on it. The check
+    is one `ls -l --time-style=+%Y-%m-%dT%H:%M:%SZ` over the binaries and over
+    `src/*.rs tests/*.rs Cargo.toml`, comparing the newest input against the binary: here
+    `05:19:07Z` against `08:05:49Z`/`08:06:06Z`, so every input is older than the binary that
+    ran it. The general form is rules 9, 14, 17 and 22 again, applied to a *measurement*
+    rather than to a count: **an artifact produced earlier and consumed later carries no
+    currency unless someone checked the two dates.** The same check applies to any other
+    stale-by-default artifact a future pass might time or cite.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -2865,7 +2881,127 @@ unrebutted.** No front opened, no agent launched, no item claimed, nothing integ
     reproduced here, and it is the last claim in the accepted-state document with no evidence
     behind it. **The human gate question is unchanged and still the only one a human can
     answer: is MadGab development being reopened?** If yes, `coord-1c8e`'s three
-    measurement-infrastructure corrections are the first work, in its stated order, and the
-    named search direction is unchanged — a qualitatively different whole-path algorithm
-    (compact pronunciation DAG with k-best / A*-style search, or a strong backward suffix
-    heuristic), **never** phrase-specific hard-coding.
+  measurement-infrastructure corrections are the first work, in its stated order, and the named
+  search direction is unchanged — a qualitatively different whole-path algorithm (compact
+  pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+  **never** phrase-specific hard-coding.
+
+### `coord-7f21` — thirty-fifth pass, 2026-09-28T10:22Z–10:26Z
+
+**Reconciliation plus the timing measurement the thirty-fourth pass named as its next useful
+action. The accepted-state document's last unevidenced number is now measured here, and the
+measurement produced one fact the document does not state: the case-2 failure costs the same
+wall clock as the case-1 success.** No front opened, no agent launched, no item claimed,
+nothing integrated, no `src/` change proposed, `main` untouched at `0267ade`.
+
+  * **The named next action was run, and the claim reproduces.** "The two canonical release
+    tests take about 1.8 seconds each in an already-built release test binary", three runs
+    each, wall clock around the whole process:
+
+    | test | binary | runs (s) | median | outcome |
+    | --- | --- | --- | --- | --- |
+    | `approximate_finds_recognize_speech_resegmentation` (case 1) | `corpus_integration-9da4be35735cc27f` | 1.66, 1.85, 2.01 | **1.85 s** | passes |
+    | `approximate_finds_classic_madgab_resegmentation` (case 2) | same, run with `--ignored` | 1.79, 1.97, 2.03 | **1.97 s** | **fails** (`rc=101`) |
+    | `canonical_case_two_is_absent_across_the_documented_public_knobs` (the case-2 *predicate*) | `cli_milestone_predicate-c1f570a047ba936a` | 34.61, 33.71, 31.90 | **33.71 s** | passes |
+
+    So the document's "about 1.8 seconds each" is **true on a different host** for the two
+    regressions, and the order-of-magnitude caveat standing rule 25 recorded from the
+    twenty-fifth pass is **re-confirmed**: the certifying predicate costs **~18×** a single
+    regression (33.71 s vs 1.85 s), and its 32.91 s figure from `coord-4407a`'s measurement
+    reproduces within host variance (31.90–34.61 s here). The three timing figures must be
+    read as *what was measured*: a whole-process wall clock around a single-threaded
+    `--exact` filter of a prebuilt release test binary, on a 32-core host whose load average
+    was 3.4–4.5 during the runs. The three processes ran **concurrently** by design, so the
+    case-1 and case-2 numbers above are each within ~5% of the other's and the comparison
+    between them — the only comparison this pass draws — is not an artefact of contention.
+
+  * **New standing rule 29, below: a prebuilt binary is evidence of the current tree only if
+    you check it.** The whole measurement above is worthless if the binaries predate the
+    sources they are credited with. Bound explicitly: the newest source file is
+    `src/lib.rs`/`src/approx.rs`/`src/adjacency.rs`/`src/lexical.rs` at `2026-09-28T05:19:07Z`,
+    `tests/cli_milestone_predicate.rs` at `01:33:06Z`, `Cargo.toml` at `2026-09-26T05:01:13Z`,
+    and the binaries are `08:05:49Z` and `08:06:06Z` — **every input older than the binary
+    that ran it**. This is the cheapest form of rule 25's "record what was measured": a
+    release/test binary is *not* rebuilt by running it, and a pass that reports a timing from
+    `target/release/deps/` without this comparison is reporting the time of whatever was
+    compiled last, which on this repository has been stale across two paused fronts. No
+    compilation was performed, no Cargo lock was contended, and no source was modified.
+
+  * **The one fact this measurement adds, and it is about the limitation rather than the
+    claim.** A reader of `docs/accepted-state-2026-09-27.md` could reasonably infer that the
+    unsolved case 2 is *expensive* — the document says the sequence is feasible, that
+    widening the traversal is "prohibitively expensive", and that the remedy is a different
+    whole-path algorithm. The default path's own clock says otherwise: **the case-2
+    regression costs 1.97 s against the case-1 regression's 1.85 s, a 6% difference, while
+    both run the identical search over the same budget.** The 18× cost is entirely in the
+    *predicate* that sweeps the documented public knobs, not in the search that misses. So the
+    failure is not visible as extra runtime on the default path, and a future front must not
+    read the wall clock as evidence that a larger budget on the *same* traversal would
+    recover the clue — that hypothesis is already priced negative in
+    `docs/accepted-state-2026-09-27.md` and the `docs/work/REPORT-*.md` history, and this
+    number removes "it is only a matter of more search" as a *re*-proposal. The named
+    direction is unchanged: a qualitatively different whole-path algorithm, **never**
+    phrase-specific hard-coding.
+  * **The accepted head's case-2 pool head, measured here for the first time on this host.**
+    The forced-run failure prints the pool it was given:
+    `it said thus test oop dame` first, then `eat said thus test oop dame`,
+    `it sad thus test oop dame`, `shit said thus test oop dame`, … twelve entries, all of the
+    form *pronoun/verb + said/sad/us + thus/test/oop + dame* and all 4–5 words. So the emitted
+    family for this phrase is not a near-miss of the target's 4-word shape but a different
+    structural family, which is consistent with the obstruction map's account and is recorded
+    as a current-state observation only. **No inference is drawn from it here and none should
+    be**: it is one host, one default configuration, one phrase, and it is a *print*, not a
+    measurement of the space.
+
+  * **The two closed preservation questions were re-run as independent confirmations, not
+    inherited.** Rule 28's tree-based probe over all **180** unreachable commits against the
+    **6,074**-object reachable set returns **20 unique blobs in 3 commits** — byte-for-byte
+    `coord-7b04`'s table, so per that pass's own falsification rule ("a pass returning any
+    number other than 20 has found something") the sweep is closed and nothing was archived.
+    The three are `0088d27c` (1 blob, archived by `coord-2b74`), `727eb36b` (1 blob, archived
+    by `coord-11b9`), `202aef9f` (18 `prof/*`, the standing rule-8 deliberate drop). The
+    reachable set grew from 6,062 to 6,074 across the last two passes' own log commits, which
+    is expected and does not move the figure.
+  * **Cheap checks, all clean and identical to the last ten passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails),
+    `post-milestone-acceptance` = `d13ba45`, equal to local `HEAD` before this commit, 0 ahead
+    / 0 behind. All seven `recovery/*` branches present on the remote and matching their local
+    refs — `2408c25`, `6b21857`, `cc666db`, `52b38c9`, `a1d7425`, `134c0ed`, `a91f71d`.
+    Worktree clean (`git status --porcelain -uall` empty); `git worktree prune -n` reports
+    nothing stale. Census re-derived with the rule-10 parser: **87 `done`, 12 `superseded`,
+    2 `open` (`docs/work/TEMPLATE.md` and `docs/skills/work-items.md`, neither claimable),
+    1 `working`** (this log), 0 `blocked` — the durable figure **88 / 12 / 0 claimable /
+    1 working** holds. `docs/work/items/w-0f3a17-shortlist-rule.md` remains the one
+    work-item-shaped document with no metadata, deliberately untouched under rule 1 (eighth
+    pass to decline it). **Agents: no MadGab agent alive or claimable** — the seven `running`
+    agents host-wide (`14a1` `/workspace/kawun-links-14`, `94e3`, `92c1`, `8a1`, `73f1`,
+    `76a1`, `72a1`) all belong to other repositories and were left running and untouched;
+    the only other nonterminal entry is `a11d`, `idle` in `/tmp/cwd-7ze5eU` at its usual
+    20724-day age; the two MadGab-cwd entries `3a8f01`/`3a8f02` remain `stopped` on superseded
+    items and were left stopped. No rebase, stash or worktree state was touched.
+
+  * **Timestamp honesty note.** `coord-4d6a`'s claim commit (`d13ba45`, committed
+    `10:20:10Z`) sets `updated: 2026-09-28T10:24:00Z` and its entry ends `10:24Z` — four
+    minutes forward of when the work was committed. The same drift `coord-4f7a` recorded
+    once before. Harmless, and repeated here only so a future pass does not read a timeline
+    that cannot have happened: this pass's own window, `10:22Z–10:26Z`, is the real one.
+
+  * **The canonical-example instruction was read against the pause gate for the thirty-first
+    time and declined for the thirty-first time.** It restates the programme's standing goal;
+    reopening requires an explicit human instruction, which has not been given. Its
+    *no-hard-coding* half is now discharged three ways on the merits: `coord-4d31` ran
+    `no_phrase_hard_coding` green by execution, this pass ran **no** test that could
+    constitute a phrase-specific change and **proposed no `src/` change at all**, and the only
+    phrases appearing in this pass's output are the two canonical ones printed by the test
+    binary's own failure message. The pause and its documented limitation stand.
+  * **Next useful action.** Both preservation questions and both document claims are now
+    closed with numbers that are re-derivable, so the repository side is done; a future pass
+    should not re-run any of them without a reason to disbelieve one. The remaining
+    unmeasured surface is the *reopening* decision itself, which no check can answer. **The
+    human gate question is unchanged and is still the only thing a human can answer: is MadGab
+    development being reopened?** If yes, the first work in order is (a) rule 29's binding
+    check before quoting any timing, (b) `coord-1c8e`'s three measurement-infrastructure
+    corrections, in its stated order, and (c) the named search direction — a qualitatively
+    different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search,
+    or a strong backward suffix heuristic) — which this pass's 1.97 s-vs-1.85 s measurement
+    reinforces rather than replaces: **never** phrase-specific hard-coding.
