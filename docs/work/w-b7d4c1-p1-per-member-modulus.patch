@@ -1,0 +1,288 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -740,16 +740,16 @@
+             if out.len() >= reserve {
+                 return out;
+             }
+-            // One *rate* serves the whole subset, but each member draws its
+-            // own index from it, so the subset's coordinates are at
+-            // unrelated ranks rather than one shared rank.  The index has to
+-            // be legal in every member, so each is taken modulo the span of
+-            // the subset's *narrowest* slot.
+-            let narrowest = combo
+-                .iter()
+-                .map(|&slot| slot_widths[slot])
+-                .min()
+-                .unwrap_or(0);
++            // One *rate* per member, and each member draws its own index
++            // from **its own slot's** span above the floor.  Sharing the
++            // narrowest member's span instead — which is what this used to
++            // do, so that one index was legal in every member at once —
++            // capped every deep coordinate of the subset at the narrowest
++            // slot's last index, and made a wider member's own list
++            // unreachable however long the sweep ran.  Per member, each
++            // index is legal in its own slot by construction, which is the
++            // only place legality ever needed checking.
++            //
+             // The candidate this subset contributes, and the best-bound
+             // candidate seen so far.  `t = 0` is the strided draw the sweep
+             // made on its own, so the sample is a superset of the old
+@@ -758,31 +758,26 @@
+             let mut best: Option<(f64, Vec<usize>)> = None;
+             for t in 0..EMIT_PROFILE_SAMPLE {
+                 let rotation = phase.wrapping_add(t);
+-                let Some(_) =
+-                    sweep_index(narrowest, reserve, out.len(), 0, rotation)
+-                else {
+-                    break;
+-                };
+                 let mut tuple = vec![0usize; depth];
+                 let mut legal = true;
+                 for (member, &slot) in combo.iter().enumerate() {
+                     let Some(at) = sweep_index(
+-                        narrowest,
++                        slot_widths[slot],
+                         reserve,
+                         out.len(),
+                         member,
+                         rotation,
+                     ) else {
++                        // A member with no room above the floor leaves the
++                        // subset unfunded, exactly as the narrowest member
++                        // did: `funded_slot_depth` counts the slots wider
++                        // than the floor for that reason and is unchanged.
+                         legal = false;
+                         break;
+                     };
+                     tuple[slot] = at;
+                 }
+-                if !legal
+-                    || combo
+-                        .iter()
+-                        .any(|&slot| tuple[slot] >= slot_widths[slot])
+-                {
++                if !legal {
+                     break;
+                 }
+                 let bound = bound_of(&tuple);
+@@ -5489,6 +5484,220 @@
+         }
+     }
+ 
++    /// **Property (i): a subset's members are indexed in their own spans,
++    /// not in the narrowest member's.**
++    ///
++    /// The reserve draws a deep coordinate per subset member.  A member
++    /// whose own list is wider than its subset's narrowest list must
++    /// therefore be reachable *above* that narrowest width: if every deep
++    /// coordinate of a subset is capped by the narrowest member's span, the
++    /// subset's draws are a function of one member of the subset and the
++    /// rest of the subset's own lists are never covered at all.
++    ///
++    /// The expectation is recomputed here, inline, from the **slot widths**
++    /// and [`LEXICAL_BRANCH_STAGE_0`], deliberately not by calling
++    /// [`sweep_index`] or [`coverage_tuples`] on their own behalf: the
++    /// narrowest width of a subset is arithmetic on the widths, and the
++    /// rule under test is exactly which width is passed where.  No phrase,
++    /// clue or word list appears in the assertion, so this test is a
++    /// property of the *function* and not of any target.
++    ///
++    /// The first clause is the literal per-member legality bound (each
++    /// member's index is inside *its own* list, and above the traversal's
++    /// floor, recomputed from the widths).  That clause holds under a
++    /// shared modulus too and is deliberately not the whole assertion: the
++    /// second clause is the one that is red under it, and without it this
++    /// test would be a statement that a remainder is a remainder.
++    #[test]
++    fn each_sweep_member_is_indexed_in_its_own_slot_width() {
++        // Shapes whose slots are all the same width, and shapes whose widths
++        // differ, so that a subset has a narrowest member and a strictly
++        // wider one and the difference is visible at all.
++        for widths in [
++            vec![SPAN_SHORTLIST; 4],
++            vec![SPAN_SHORTLIST, 93, 40, SPAN_SHORTLIST],
++            vec![12, SPAN_SHORTLIST, SPAN_SHORTLIST, 20, SPAN_SHORTLIST],
++        ] {
++            let max_deep = funded_slot_depth(&widths);
++            // Which subsets the reserve can place at all: every subset of
++            // every funded size, recomputed inline from the widths rather
++            // than read off the production function.  The per-subset
++            // allowance is set to their number so that breadth-before-depth
++            // truncation cannot hide one of them from the property — the
++            // point of the test is the *index* rule, and a subset that was
++            // never funded would say nothing about it.
++            let expected: HashSet<Vec<usize>> = (1..=max_deep)
++                .flat_map(|k| slot_combinations(widths.len(), k))
++                .collect();
++            let per = expected.len();
++            let mut seen: HashSet<Vec<usize>> = HashSet::new();
++            let mut reached_above_narrowest = false;
++            for phase in 0..512usize {
++                for tuple in
++                    coverage_tuples(&widths, per, max_deep, phase, &flat_bound)
++                {
++                    // The members of this tuple's own subset, read off the
++                    // tuple: a slot the reserve kept at the traversal's own
++                    // index is not a member, and a member's index is above
++                    // the floor by the first clause below.
++                    let members: Vec<usize> = tuple
++                        .iter()
++                        .enumerate()
++                        .filter(|&(_, &at)| at != 0)
++                        .map(|(slot, _)| slot)
++                        .collect();
++                    assert!(
++                        !members.is_empty(),
++                        "{tuple:?} is not a coverage draw at all"
++                    );
++                    seen.insert(members.clone());
++                    // Recomputed inline from the widths: the narrowest
++                    // list any member of this subset could be indexed in.
++                    let narrowest = members
++                        .iter()
++                        .map(|&slot| widths[slot])
++                        .min()
++                        .expect("a subset has members");
++                    for &slot in &members {
++                        let at = tuple[slot];
++                        // Recomputed inline: the member's own list, above
++                        // the traversal's own first stage.
++                        assert!(
++                            at >= LEXICAL_BRANCH_STAGE_0 && at < widths[slot],
++                            "slot {slot} of {tuple:?} is outside the part of \
++                             its own list the traversal cannot generate, \
++                             at widths {widths:?}"
++                        );
++                        // The load-bearing clause: some member is indexed at
++                        // or above the subset's narrowest width, so no
++                        // member's draw is confined to another member's
++                        // span.
++                        reached_above_narrowest |= at >= narrowest;
++                    }
++                }
++            }
++            for combo in &expected {
++                assert!(
++                    seen.contains(combo),
++                    "{combo:?} was never placed at any of the 512 phases, so \
++                     'every subset at every phase' is not what was measured \
++                     (widths {widths:?})"
++                );
++            }
++            let ragged = widths.iter().any(|&w| w != *widths.iter().min().unwrap());
++            assert!(
++                !ragged || reached_above_narrowest,
++                "every deep coordinate stayed below the subset's narrowest \
++                 width, so the wider members' own lists are unreachable in \
++                 every phase (widths {widths:?})"
++            );
++        }
++    }
++
++    /// **Property (ii): a `k`-deep subset's coordinates are not confined to
++    /// a one-parameter family modulo the members' spans.**
++    ///
++    /// Two coordinates generated by the *same* phase through rates that are
++    /// coprime to their spans are still locked together if they share one
++    /// modulus: then the first is an affine function of the second with a
++    /// shared modulus, and knowing one determines the other, so the subset
++    /// traces a rank-1 curve of the index-tuple space instead of covering
++    /// it.  Concretely: if the second member's coordinate takes a given
++    /// value, the first member's coordinate may not be determined by it (and
++    /// the other way round).
++    ///
++    /// The expectation is again recomputed inline from the **widths** — a
++    /// two-member subset of lists of *different* lengths is the case in
++    /// which a shared modulus is even visible, because with equal spans the
++    /// two claims coincide — and the only functions called are
++    /// [`coverage_tuples`] and [`slot_combinations`], never [`sweep_index`],
++    /// so the assertion cannot be satisfied by the function under test
++    /// agreeing with itself.  No phrase, clue or word list appears.
++    #[test]
++    fn a_deep_subsets_coordinates_are_not_a_one_parameter_family() {
++        // Shapes whose two chosen members have spans of different lengths:
++        // with equal spans "shared modulus" and "each member's own span"
++        // are the same claim and nothing can be told apart.
++        for widths in [
++            vec![SPAN_SHORTLIST, 93],
++            vec![93, SPAN_SHORTLIST],
++            vec![SPAN_SHORTLIST, 40, 93],
++        ] {
++            let depth = widths.len();
++            for combo in slot_combinations(depth, 2) {
++                let (a, b) = (combo[0], combo[1]);
++                // Recomputed inline from the widths: the two members' own
++                // spans above the traversal's floor.  They differ, so a
++                // shared modulus is a claim the widths themselves can
++                // falsify.
++                let span_a = widths[a] - LEXICAL_BRANCH_STAGE_0;
++                let span_b = widths[b] - LEXICAL_BRANCH_STAGE_0;
++                assert_ne!(
++                    span_a, span_b,
++                    "the two members must have spans of different lengths \
++                     for a shared modulus to be visible at all ({widths:?})"
++                );
++                // One *full period of the subset's own draw* — the least
++                // common multiple of the two members' spans, recomputed here
++                // from the widths, so this is a period the widths
++                // themselves determine and not something the sweep reports.
++                // A shared modulus makes the whole subset repeat every
++                // `min(span)` phases, so inside one joint period each of
++                // the narrower member's values is paired with exactly one
++                // value of the wider member's.  Under each member's own
++                // span the narrower member still repeats, and the wider
++                // member's coordinate does not repeat with it.
++                let period = span_a / gcd(span_a, span_b) * span_b;
++                // Which of the two is the narrower one, recomputed from
++                // the widths, so the failure message names the right side.
++                let (narrow, wide) = if span_a < span_b { (a, b) } else { (b, a) };
++                let mut by_narrow: HashMap<usize, HashSet<usize>> = HashMap::new();
++                let mut pairs = 0usize;
++                for phase in 0..period {
++                    for tuple in coverage_tuples(
++                        &widths,
++                        EMIT_PROFILE_RESERVE,
++                        2,
++                        phase,
++                        &flat_bound,
++                    ) {
++                        // Only the draws that made *both* members deep say
++                        // anything about the pair; a tuple that kept one of
++                        // them at the traversal's own index carries no
++                        // second coordinate at all.
++                        if tuple[a] == 0 || tuple[b] == 0 {
++                            continue;
++                        }
++                        pairs += 1;
++                        by_narrow
++                            .entry(tuple[narrow])
++                            .or_default()
++                            .insert(tuple[wide]);
++                    }
++                }
++                assert!(
++                    pairs > 0,
++                    "{combo:?} of {widths:?} never made both members deep in \
++                     {period} phases"
++                );
++                // Keyed by the **narrower** member, which is the direction
++                // that can fail: inside one joint period its coordinate
++                // repeats, and a shared modulus would make the wider
++                // member's repeat with it exactly.  Keyed by the wider
++                // member the map is injective whenever that member's own
++                // period is the joint period, so that direction would be a
++                // statement about the arithmetic of the test rather than
++                // about the rule.
++                assert!(
++                    by_narrow.values().any(|v| v.len() > 1),
++                    "the wider member's coordinate of {combo:?} in {widths:?} \
++                     is a function of the narrower one's, so over one full \
++                     period of the subset's own draw the pair traces a \
++                     one-parameter family instead of a two-parameter support"
++                );
++            }
++        }
++    }
+ 
+     /// What the reserve buys, asserted externally: the depth-profile
+     /// emissions reach further into a slot's candidate list than the
