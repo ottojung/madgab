@@ -449,6 +449,36 @@ recorded as a priced negative.
   wants real signal rather than confirmation, the cheap way to get it is a human gate — ask
   whether MadGab development is being reopened — not a seventh identical sweep.
 
+* **`coord-3f9d` (this pass), 2026-09-28T07:33Z–07:35Z** — reconciliation only, **no recovery
+  needed; seventh consecutive clean sweep**, recorded in the short form the cadence advice
+  permits. `antonina agent list`: no MadGab agent alive or claimable; the only `running` agents
+  host-wide are `a94fa7e4` (`/workspace/assemblyp1-issue89-crossing-coalesce2`) and `a78fa7e2`
+  (`/workspace/qai-proviral-78`), both other repositories and left alone. `a52f001` and
+  `a45f001` (both `failed`, 5–6m) are also other repositories. Worktree sweep over **all 125
+  worktrees** — the count has grown from the 21 earlier passes saw, and the sweep was widened to
+  match rather than held at the old figure — hashing every dirty/untracked file under 2 MB
+  against **1485** reachable blobs below that size, Cargo `target*` output excluded by path
+  component per standing rule 9: **24** unmatched files, again exactly the two known buckets.
+  All **8** instrumented `src/lib.rs` copies re-verified with `git apply --check --reverse`
+  against their `docs/work/probe-patches/*.diff` read out of `2408c25` — all eight `OK`. The
+  **16** `madgab-approx-runtime/prof/{results,sum}*.txt` are harness outputs whose inputs are
+  durable at `docs/work/probe-inputs/` (standing rule 8), not re-read a seventh time.
+  Durability re-confirmed with `git ls-remote`: `main` = `0267ade` (untouched, remote-only),
+  `post-milestone-acceptance` = `dbbf95c` before this pass, `recovery/probe-scaffolding-2026-09-28`
+  = `2408c25`. Nothing launched, resumed, claimed or integrated.
+
+  The canonical-example instruction was read against the itinerary's pause gate for the third
+  time (see `coord-c8e1`): no explicit human instruction to reopen development has been given,
+  so the front stays closed. The limitation stands as documented in
+  `docs/accepted-state-2026-09-27.md`; if reopened, the named direction is a qualitatively
+  different whole-path algorithm, never phrase-specific hard-coding.
+
+  **The sampling note above is now reinforced by a second data point:** the widened sweep
+  (125 worktrees rather than 21) returned the same 24 files, so the previous passes were not
+  merely looking at a fixed subset. Seven identical results is strong evidence that nothing is
+  at risk, and correspondingly strong evidence that an eighth sweep has no expected value.
+  The remaining uncertainty is not in the repository.
+
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
