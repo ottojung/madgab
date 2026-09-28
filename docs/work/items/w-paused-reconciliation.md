@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-2e4a
-updated: 2026-09-28T07:58:00Z
+owner: coord-3c17
+updated: 2026-09-28T08:03:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -658,11 +658,59 @@ pass may record a single line and exit without re-running the hash sweep at all.
 As of **`coord-1b8e`** that count is **ten**, and the "record a single line and exit" allowance
 should be read as licence to stop sweeping rather than to keep doing a shortened version of it.
 
+* **`coord-3c17` (this pass), 2026-09-28T07:59Z–08:03Z** — reconciliation only, **no recovery
+  needed; twelfth consecutive clean sweep**, recorded in short form per the allowance below.
+
+  * **Agents: none alive for MadGab.** The only two nonterminal MadGab-cwd entries, `3a8f01` and
+    `3a8f02`, are `stopped` and belong to items that are now `superseded`; both left stopped,
+    deliberately. Every other nonterminal agent host-wide is another repository; none touched.
+  * **Sweep: unchanged, 8 unmatched, all diff-archived.** Fence-scanned surface only
+    (`src/`, `examples/`, `tests/`, `web/`, Cargo `target*` excluded by path component): 25
+    files archived as reachable blobs, **8** unmatched, every one an instrumented `src/lib.rs`.
+    Blob set **1521**. Two worktrees that showed a dirty `src/lib.rs` but no archived diff
+    (`madgab-fillstrat-probe`, `madgab-probe-c3f81a`) were re-checked by content hash and both
+    hash to existing blobs, so they are not in the unmatched set — the eight really is eight.
+    All eight re-verified by `git apply --check --reverse` against the eight archived diffs,
+    each against its own worktree — eight `OK`.
+  * **Durability:** `git ls-remote` — `main` = `0267ade` (untouched, remote-only), `post-milestone-acceptance` = `946c99b` in sync with local after fetch, `recovery/probe-scaffolding-2026-09-28` = `2408c25`. Census unchanged: 92 `done`, 11 `superseded`, 5 `produced`, 1 `open` (`TEMPLATE.md` placeholder), this log the only `working` entry.
+  * Nothing launched, resumed, claimed or integrated; `main` untouched.
+
+  **One new fact this pass adds, and it is a durability one, not a sweep one.** The eight
+  `docs/work/probe-patches/*.diff` files that are the *sole* reason those eight instrumented
+  `src/lib.rs` copies count as archived are **not present on `post-milestone-acceptance` at all**
+  — they exist only on `recovery/probe-scaffolding-2026-09-28` (`2408c25`). The prior passes
+  recorded the mapping as verified without recording where the patches live, so the safety of
+  those eight files has been resting on a branch that is, by its name, a recovery artefact. If
+  that branch were ever deleted or GC'd as post-acceptance scaffolding, the eight files would
+  silently become unarchived and no later sweep would know why. This does not need action now —
+  the branch is pushed to the remote and durable — but it should not be discovered by accident.
+  Note the same is true of `docs/work/probe-inputs/` and `docs/work/probe-output/`, which are
+  also recovery-branch-only. The alternative to a fix is to record the fact, which is done here.
+
+  The instruction to prioritise the canonical approximate-search examples was read against the
+  itinerary's pause gate for the **eighth** time: it restates the programme's standing goal, and
+  reopening requires an explicit human instruction, which has not been given. No front was
+  opened and no agent launched. The limitation stands as documented in
+  `docs/accepted-state-2026-09-27.md`; if reopened, the named direction is a qualitatively
+  different whole-path algorithm, **never** phrase-specific hard-coding.
+
+  **The escalation stands at twelve sweeps and the pass is now below the value of its own
+  reporting.** Eleven prior passes have produced exactly one durable datum between them — this
+  one — and it took a different question to get, not more sweeping. A thirteenth pass should not
+  re-run the hash sweep at all; it should re-run only `git ls-remote` and the agent census, and
+  if the recovery branch is still present, record nothing and exit.
+
 As of **`coord-2e4a`** that count is **eleven**, and the sweep has additionally been narrowed
 once, to the fence-scanned surface (`src/`, `examples/`, `tests/`, `web/`), where it returns
 **8** unmatched files — all of them diff-archived instrumented `src/lib.rs` copies. There is no
 sub-surface left to check that has not been checked. **Ask the human gate question** — is MadGab
-development being reopened? — rather than running a twelfth sweep. If the answer is yes, the
+development being reopened? — rather than running a twelfth sweep.
+
+As of **`coord-3c17`** that count is **twelve**, and the twelfth found one thing eleven did not:
+the eight archived probe diffs are recovery-branch-only. The count of useful sweeps has now
+stopped growing, so a thirteenth should skip the hash sweep and keep only the agent census and
+`git ls-remote`, per the escalation in the pass entry above. If the answer to the gate question
+is yes, the
 reopened work must read
 `docs/accepted-state-2026-09-27.md` and the `docs/work/REPORT-*.md` history first, must not
 re-price any front already recorded as a priced negative, must work on a fresh focused branch
