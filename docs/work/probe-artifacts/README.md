@@ -37,6 +37,23 @@ the accepted limitation. The tail closes with the target and IPA lines.
 `madgab-diversity-3a8f01` and `madgab-poolrank-3a8f02`. These are Cargo `target/` directories
 from the paused fronts, reproducible from the recorded source, and far too large to carry.
 
+## Third pass — the `prof/` reproduction scripts and baseline raw output
+
+| archived copy | live worktree path | why the first two passes missed it |
+|---|---|---|
+| `approx-runtime-prof_run.sh` | `/workspace/madgab-approx-runtime/prof/run.sh` | untracked directory `prof/`; the second pass took only the two markdown write-ups and dropped the harness that produced every number in them |
+| `approx-runtime-prof_summarize.py` | `/workspace/madgab-approx-runtime/prof/summarize.py` | same |
+| `../probe-output/approx-runtime-prof-baseline/` (24 files) | `/workspace/madgab-approx-runtime/prof/baseline/` | small per-rep `.out`/`.err`/`.target` files; the second pass's rule was "skip raw output rather than source", and this baseline half is the evidence behind the baseline column of `scale.txt` |
+
+`run.sh` and `summarize.py` are the parts that matter: without them the two markdown
+write-ups are unreproducible claims, and the second pass explicitly noted that
+`prof/README.md` documents a real `src/lib.rs` change in `prune_partials` that "was **not**
+carried anywhere". That change is still not in any branch — it existed only as the dirty
+state of `madgab-approx-runtime` and is now at least captured as the harness that measured
+it. **Still not archived** (unchanged, deliberate): the two 30 MB instrumented binaries
+`prof/madgab-baseline` and `prof/madgab-prof`, the ~2 MB `results-*.txt`/`sum-*.txt`
+summaries, and the `target-front-*` Cargo directories.
+
 ## Hard-coding fence
 
 **Read this before promoting any file here.** Several archived copies contain canonical
