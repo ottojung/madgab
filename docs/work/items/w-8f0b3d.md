@@ -3,8 +3,8 @@ work_item: true
 id: w-8f0b3d
 state: working
 priority: high
-owner: front agent-8f0b3d1 (launched 2026-09-28T00:26Z by pass coord-c4d2 in /workspace/madgab-cli-recheck-8f0b3d [madgab-cli-recheck-8f0b3d]) / opened and claimed 2026-09-28T00:26Z by coord-c4d2
-updated: 2026-09-28T00:26:00Z
+owner: front agent-8f0b3d1 (running, 1 prompt, deliberately NOT steered 2026-09-28T00:28Z by pass coord-5e1f - healthy, only 3m old, and already producing the executable-boundary numbers the milestone predicate needs) / opened and claimed 2026-09-28T00:26Z by coord-c4d2
+updated: 2026-09-28T00:34:00Z
 branch: madgab-cli-recheck-8f0b3d
 worktree: /workspace/madgab-cli-recheck-8f0b3d
 base: 97c9397 (post-milestone-acceptance, pushed)
@@ -118,3 +118,51 @@ integrate onto `post-milestone-acceptance` only, never `main`. Independently, ke
 review path: generality first, then `no_phrase_hard_coding` 9/9, `corpus_integration` 12/1 with the
 known red not re-pinned, `--lib` no worse than 76/0/12, and `wreck a nice beach` at or better than
 display rank 27.
+
+### Reconciliation pass coord-5e1f (2026-09-28T00:27Z-00:34Z): front healthy and already producing the number the milestone needs
+
+Pass verdict: this front is the right one, it is running, and its in-flight measurements are
+already the most useful durable information in the queue. Left RUNNING, not steered — it was
+prompted 3m ago and needs no redirect. No integration candidate. `main` untouched.
+
+**State at inspection.** `agent-8f0b3d1`: `running`, alive, 1 prompt, 3m, worktree
+`/workspace/madgab-cli-recheck-8f0b3d` **clean** on branch `madgab-cli-recheck-8f0b3d`, which is
+pushed at `7eee678` (the item's own commit — it has not yet added one). It is using the shipped
+release binary as intended and has produced results no earlier front could, because every
+load-bearing number on this branch so far came from a `#[cfg(test)]` harness, an
+`examples/zz-probe-*.rs` file or a library capture.
+
+**In-flight measurements, provisional until the report is pushed.** Against
+`target/release/madgab` on `post-milestone-acceptance` at `97c9397`:
+
+| input | knob | result |
+| --- | --- | --- |
+| `recognize speech` | default | `wreck a nice beach` at display rank 27 of 50, score 0.920 |
+| `recognize speech` | `--top` 1, 10, 25, 50, 100, 200 | absent |
+| `recognize speech` | `--top` 500, 1000 | present at display rank 27 |
+| `It's just a stupid game` | `--top` 1 .. 1000 | `hits justice dupe hid came` **absent at every value** |
+
+Search cost is 1.04s for case 1 and 1.20s for case 2 from a 513ms/538ms corpus load, so the whole
+sweep runs in seconds and this front can afford the full documented-knob envelope.
+
+**Why this changes the queue's reasoning, and why the front must still finish.** The `--top` sweep
+retires knob-shaped explanations for case 2 that the library-side fronts could not: at the
+executable boundary the clue is not hidden behind `top_n`, an emission ceiling or a ranking cut at
+any width up to 1000. Combined with `w-2f7a10`'s and `w-3a8c05`'s lower-bound results, the case-2
+blocker should now be treated as a **reaching** problem, not a ranking or budget problem — the
+canonical alignment is not produced by this pipeline for this input under any of its public knobs.
+That is a materially different statement than the one the last four passes could make, and it is the
+input any later general search-quality front should be judged against. It is still provisional: an
+in-flight log is not a report, and the default-knob case-1 rank of 27 needs reconciling against the
+"display 26" figure that older notes carry.
+
+**Next action for a fresh pass.** `antonina agent status --id 8f0b3d1`. The precondition for review
+is unchanged and is a **pushed** commit — `git ls-remote origin madgab-cli-recheck-8f0b3d`, not a
+local `origin/madgab-*` ref, because this host's fetch refspec only tracks
+`post-milestone-acceptance`. On terminal, review `docs/work/REPORT-8f0b3d.md`, verify with
+`git diff --stat <parent> <new> -- src tests examples` that **no production line landed** (this
+front's own criteria forbid editing `src/lib.rs`, `src/approx.rs` and `src/main.rs`), confirm the
+`--top` table is reproduced there and not only in the log, and check whether the front settled the
+26-vs-27 question. Integrate docs-only onto `post-milestone-acceptance`, never `main`. Then hand
+the reconciled case-2 statement back to [w-4b1e07](w-4b1e07.md) as the objective current form of
+the milestone predicate, replacing the case-2 reach attempts this queue has now exhausted.
