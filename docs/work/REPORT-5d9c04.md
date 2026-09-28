@@ -1,6 +1,6 @@
 ---
-work_item: true
-id: w-5d9c04
+work_item: w-5d9c04  # back-reference to the canonical item in docs/work/items/, not a second item (coord-9d1f)
+id: w-5d9c04-report  # report id only; the task id is the back-reference above
 state: done
 priority: high
 owner: front-5d9c04

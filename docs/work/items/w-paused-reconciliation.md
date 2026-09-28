@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-1e07
-updated: 2026-09-28T11:52:00Z
+owner: coord-9d1f
+updated: 2026-09-28T12:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4581,3 +4581,108 @@ touched, and `main` is untouched at `0267ade`.**
     corrections, **cut the branch from `main`**, and the named direction — a qualitatively
     different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search,
     or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-9d1f` — forty-ninth pass, 2026-09-28T12:06Z–12:14Z
+
+**The forty-eighth pass's next action (iii) is answered — yes, four files were second items
+carrying an id that a canonical item already owns, and they are now repaired. No agent, item,
+branch or front was touched, and `main` is untouched at `0267ade`.**
+
+  * **(a) The gate is still closed, read for the **thirteenth** time.** The recurring prompt again
+    asks to "recover or assign work, split independent fronts, launch or prompt Antonina
+    agents" and to "prioritize the canonical approximate-search examples", which is exactly the
+    set of actions [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+    (`## Status: accepted and paused`) forbids absent an explicit human instruction, which has
+    not been given. Nothing was launched, claimed, resumed or integrated. The prompt's
+    *no-hard-coding* half is discharged on the merits: no canonical phrase appears in this
+    entry — every artefact is named by path, header key or sha, and the four edits below are
+    header metadata, not phrase data. The prompt's accumulation clause is satisfied: nothing
+    merged, nothing pushed to `main`, and the only branch written is this log's own home per
+    rule 19.
+  * **(b) The prescribed cheap checks all reproduce, and one of them needed a new
+    cross-check.** `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` → **188** branch
+    refs fetched, and `git ls-remote origin` now returns **193** lines, not 188. The gap is
+    fully explained and is **not** drift: `comm -3` on prefix-stripped names lists exactly
+    `HEAD`, three `refs/pull/*/head` and one `refs/tags/*` — five non-branch refs. So the
+    branch count is still **188** and the audit ref set still matches the remote **188/188**
+    in both directions. Recorded because a bare `ls-remote | wc -l` now disagrees with the
+    "188 remote heads" figure that ~30 earlier entries quote, and a future pass must not read
+    the difference as five unfetched branches. Rule 10 via rule 30's stateless `^` spelling:
+    **11**; the bare `--not <list>` spelling: **11**; the two agree (rule 14 cross-check). The
+    mixed spelling rule 30 forbids — `--all --not <list of ^refs>` — returned **934** again,
+    up from the 932 the forty-seventh pass recorded, because `post-milestone-acceptance` has
+    moved two commits. **The number that changes is the wrong number, and that it tracks the
+    log's own history is the tell.**
+    `git status --porcelain -uall` was **0** before this pass's edits. `git ls-remote origin
+    main` = `0267ade` and there is still **no local `main` ref**. `antonina agent list` shows
+    **no MadGab agent alive or claimable** — every `madgab-*` entry is terminal, the two
+    paused fronts `3a8f01`/`3a8f02` remain deliberately stopped, and the only nonterminal
+    entry host-wide remains `a11d` (`idle`, `/tmp/cwd-7ze5U`, another repository), left
+    running per the contract. No agent was launched, so none is left running for later.
+  * **(c) The finding: four duplicate ids, a *population-shape* defect, invisible to every
+    vocabulary census this log has run.** The forty-eighth pass named the question: do the
+    four `REPORT-*.md` files carrying the full `work_item: true` marker have a canonical twin
+    in `docs/work/items/`, or are any of them a *second* item with the same id? Answer: **all
+    four are duplicates.** `REPORT-3f8c62.md`, `REPORT-5d9c04.md`, `REPORT-9b4a15.md` and
+    `REPORT-e086cc.md` each declare `work_item: true` **and** `id: w-<id>`, and
+    `docs/work/items/w-3f8c62.md`, `w-5d9c04.md`, `w-9b4a15.md` and `w-e086cc.md` each declare
+    the same `id`. So the protocol's "one Markdown file per task" was broken in six files, and
+    `id` was not a unique key anywhere in a 101-file population. No vocabulary check can see
+    this: all eight files are internally legal, every value is in-vocabulary, and rule 34's
+    census returns a clean `87 done / 12 superseded / 1 working / 0 open / 0 blocked`. The
+    general form is rule 23/24's again — a check that enumerates *values* cannot find a
+    *structural* collision; the census has to group by the key, not tally it.
+  * **(d) Blast radius, measured before repair, not after.** All eight files read
+    `state: done` and all eight `verdict: HOLD` except the two that do not carry a `verdict`
+    line; the canonical item and its report agree on `state`, `branch` and `worktree` in all
+    four pairs. A discovery simulation over the population — *`work_item: true` and
+    `state: open`* with a null or absent owner — returned **no candidate** both before and
+    after, so nothing was claimable and no claim could have been misdirected. The residual
+    risk is a resolution one, not a de-facto-reopening one: a coordinator that resolves an
+    item *by id* (the natural way to read `w-e086cc`'s own `report:` field, and the way
+    `source_items:` references work throughout the queue) gets two files and no way to tell
+    which is the task. That is a real defect, but a quiet one, which is why it survived
+    thirty-one passes of a discipline that was otherwise looking in the right place.
+  * **(e) The repair, in the form the repository already uses, not a new one.** The other ten
+    `REPORT-`/`OBSTRUCTION-MAP` documents already carry `work_item: w-<id>` as a **back-
+    reference**, which the forty-seventh pass established is outside the discovery population.
+    So the four duplicates were converted to that same sanctioned form rather than to
+    `work_item: false` (the template's shape, correct for a file that is not a task at all)
+    and rather than to any invented value. The task identity stays in the back-reference; the
+    `id:` line keeps a distinct report-scoped id so the report remains addressable. Each
+    substitution carries an inline comment naming the canonical item and the coordinator, so
+    the value is *read off the protocol and the existing convention* rather than chosen to
+    read well — rule 12's discipline applied to metadata, which is what the forty-seventh
+    pass established for this family. **Verified after repair, not asserted:** population
+    **101 → 97**, duplicate ids **4 → 0** (the `uniq -d` output is empty), discovery simulation
+    still returns **no candidate**, and the states of all four canonical items are unchanged —
+    so no completion claim was manufactured and no item was reopened, claimed or completed.
+    `docs/` is the only tree touched; `src/`, `tests/`, `web/`, `examples/`, `Cargo.toml`,
+    `README.md` and `LICENSE` are byte-identical.
+  * **(f) One apparent duplicate is not one, recorded so a later pass does not "fix" it.**
+    `docs/continuation-approximate-search.md` carries `work_item: true` and
+    `id: w-7c4a91`, and there is **no** `docs/work/items/w-7c4a91.md`. That is not a
+    collision: [../../skills/scheduled.md](../../skills/scheduled.md) expressly permits a
+    continuation or handoff document to *be* a work item in its own right, and this one is
+    `state: superseded`, which is terminal. The general form: *a missing twin is not a
+    duplicate id.* A census that grouped by id without also asking what the id resolves to
+    would have "repaired" this by deleting or renaming a legitimate item — the mirror image of
+    rules 9/10/38, a check stricter than the thing it measures.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can
+    answer it: *is MadGab development being reopened?* It is now thirteen passes old, and the
+    metadata/population family is **closed by measurement**: the vocabulary census, the
+    state census, the back-reference resolution and now the duplicate-id census have each
+    returned a clean answer, and a future pass should not re-run them for a new result.
+    (ii) `target-base/` residue and the two deliberately stopped fronts need no action.
+    (iii) The one question this pass leaves, in the same spirit and cheap: the duplicate-id
+    check was run over the *fence-blind* population only. `docs/skills/work-items.md` contains
+    a full example header inside a ```yaml fence, and the forty-eighth pass established that
+    a fence-blind `grep` always counts it. Whether any *fenced* example in the protocol
+    documents (or in `TEMPLATE.md`) now collides by id with a real item is the same check one
+    layer in, and its answer would be about the protocol documents, which are human-governed —
+    so the expected finding is a documented observation, not a repair.
+    (iv) If the gate answer is ever yes, the order is unchanged: rule 29's binding check
+    before any timing is quoted, `coord-1c8e`'s three measurement corrections, **cut the
+    branch from `main`**, and the named direction — a qualitatively different whole-path
+    algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
+    suffix heuristic), **never** phrase-specific hard-coding.
