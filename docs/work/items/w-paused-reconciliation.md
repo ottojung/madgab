@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-0f4a (pass 99; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:47:00Z
+owner: coord-7c40 (pass 100; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10440,3 +10440,108 @@ work in it. The durable half remains closed by execution.
    column printed next to every path**, and pass 98's list of classes that are closed and must not be
    re-walked. Do not re-walk the dirty-path class, the 85 unreachable commits, the per-worktree
    `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs` enumeration.
+
+## Pass 100 — 2026-09-28 17:41Z → 17:52Z — coord-7c40 — the exclusion set had a third remote namespace it never enumerated, and the standing build-output filter fails as written
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, ninth pass running, on the ground recorded in passes
+92–99: the itinerary's `## Status: accepted and paused` forbids a scheduled orchestrator from creating
+MadGab work, claiming historical items, launching agents or resuming fronts without an explicit human
+reopening, and records `post-milestone-acceptance` as release history that is "no longer an automatic
+accumulation target" (rule 19). A recurring template is not that human. The no-hard-coding half is
+discharged by identity: the production fence against `origin/main` over
+`src tests web examples Cargo.toml README.md` is **0 lines**.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `4f4acfa` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** total, **0** non-`target` |
+| recovery branches | **20** local, **20** remote, in agreement |
+| MadGab Antonina agents alive | **0** (the 3 `running` agents are `94e5`, `98c1`, `a1b30c01`, all outside `/workspace/madgab*`) |
+
+### 2. At-risk sweep, re-run with the positive control pass 98/99 did not have
+
+| probe | result |
+|---|---|
+| baseline, `rev-list --all --reflog`, no exclusion (rule 39) | **1,092** |
+| at-risk commits, `--all --reflog --not <203 remote refs>` | **89** |
+| **positive control**: the `recovery/reflog-held-2026-09-28` ref dropped from the *exclusion* side | **90** — fires |
+| reflog-only objects (`comm -13`, `sort -u` both sides) | **319** |
+| …by type (`cat-file --batch-check`, before any path filter — rule 62/64) | 82 commit / 166 tree / **71 blob** / 0 tag |
+| …reflog-only **blob**s, non-build by path **component** (rule 9) | **1** — `3daf061`, this log's own superseded draft, in **0** refs |
+| **control**: same filter with the `target-*` component rule removed | **71** — fires |
+
+**Standing value: 0 at-risk non-build content**, re-measured by execution, unchanged from passes 98–99.
+
+### 3. Rule 65 — the audit exclusion set never enumerated the remote's *namespaces*, only its heads and its one tag
+
+Ninety-nine passes built the exclusion set from `git ls-remote --heads` plus a manual tag, and every one
+of them reported the size as "198 heads / 199 audit refs". `git ls-remote origin` with no refspec
+returns **203** lines, in **three** namespaces: 198 `refs/heads/*`, 1 `refs/tags/*`, and
+**`refs/pull/{1,2,3}/head`** — `d80163d` (`web-port`, "Disable generation until engine
+initialization"), `5e5f37f`-line `5e5f37f` is in fact `5e5f37f`=`5e5f37f`… precisely `5e5f37f` is
+`5e5f37f`: the second is `5e5f37fd97b464542f66ee907fe0593ea6b74314` ("Fix helper brace"), the third
+`734e37e` ("Fix hard-coding detector clippy lint"). A pass that never prints the *namespace* of each
+remote ref cannot notice the class it is blind to: `refs/pull/*` is neither a head nor a tag, so it is
+absent from every at-risk figure this log has published, and it is unreachable by the
+`+refs/heads/*:refs/…` fetch the log prescribes in rules 10/37.
+
+Measured, this time **reach-null**: adding the three pull refs to the exclusion set leaves at-risk at
+**89** (they duplicate `web-port` and `improve-approximate-quality` and a detached `734e37e`). So no
+figure above is wrong. The finding is about the *check*, not the count: a 199-ref exclusion set was
+called complete against a 203-ref remote, and the four-ref gap was invisible precisely because it is
+empty of unique objects. **Print `awk '{print $2}' | sed 's|\(refs/[^/]*\)/.*|\1|' | sort | uniq -c`
+over the full `ls-remote` output before believing any "N audit refs" figure**, and fetch
+`+refs/pull/*` into the audit namespace alongside heads and tags so the gap is measured rather than
+assumed away.
+
+### 4. Rule 66 — the standing "exclude build output by path component" rule has no working spelling in the log, and the obvious one is 57x wrong
+
+Rule 9 requires excluding build output by path *component*, and correctly names `target-front-3a8f01/`
+and `target-front-3a8f02/` as the cases a `target/` prefix filter misses. This pass found a fourth
+variant, `target-after/`, and — the reason this is a rule and not a footnote — **the first implementation
+of the component rule written from rule 9's own prose was silently wrong**: `grep -v -e '(^|/)target-'
+-e '(^|/)target/'` over the 71 reflog-only blobs reported **57 non-build blobs**, where the truth is
+**1**. The BRE alternation inside the group did not do what it reads like, and every `target-after/`
+path survived it, so 56 build-artifact fingerprints were reported as unpreserved source. The count was
+only caught because rule 64's print-the-evidence discipline was still in force and the printed paths
+were visibly under `target-after/`. The replacement that works is component-wise, in one pass:
+
+```sh
+awk '{p=$2; n=split(p,a,"/"); for(i=1;i<=n;i++) if(a[i]=="target" || a[i] ~ /^target-/) {next} print $1, $2}'
+```
+
+→ **1**. Control, the same line with the `^target-` branch deleted → **71**. **Any build-output filter
+written here must be shown the two numbers it produces**; the standing failure mode of this log is a
+count that cannot fail, and a filter that is never run against its own exception case is exactly that.
+
+### 5. This log stays `blocked`
+
+Unchanged from passes 94–99. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it. The durable half remains closed by execution.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Seven passes have now reached this same result.
+2. **The item should be closed by a human, not extended.** The remaining question is a human's: reopen
+   MadGab development, or confirm the pause. Confirming means setting this item `done` and retiring the
+   front; reopening means a fresh branch from `main` and pass 78's direction (compact pronunciation DAG
+   with k-best/A*-style whole-path search, canonical cases validated **generically**, never hard-coding
+   `recognize speech` or `It's just a stupid game`).
+3. **The scheduler template is the thing to fix.** It has now fired **nine** times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
+   or closing this item `done` so it stops being selected, is worth more than a hundred-and-first
+   declining pass.
+4. If the sweep is ever re-run: rule 65's namespace census **first** (it is what makes the exclusion
+   set's size meaningful), rule 66's `awk` component filter instead of any `grep` variant, rule 62's
+   type census before any path filter, rule 64's type column printed next to every path, and a control
+   on whichever side of the subtraction the change lands. Do **not** re-walk the 36-line dirty-path
+   class, the 85 unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/`
+   classes, or the `--include-root-refs` enumeration; all are closed, and listing them is the standing
+   reason not to.
