@@ -7278,3 +7278,126 @@ widening of the Cartesian-prefix traversal) or confirms the pause, in which case
 closed as `done` rather than left `working` indefinitely. Until one of those happens, the correct
 pass is the one that measures and records, and this is the third such pass to reach the same
 conclusion.
+
+## Seventy-third pass (`coord-5a93`, wall clock 2026-09-28T14:26Z–14:31Z) — rule 58: the at-risk sweep was run against the wrong set, and reported the safe class as safe
+
+Pause gate confirmed closed before anything else was done; the gate question is now **thirty-seven
+passes old**. No MadGab work item created, none claimed, no agent launched, nothing merged, nothing
+pushed to `main`. The recurring prompt's canonical-example instruction was read against the gate for
+the **fourteenth** time: it restates the standing goal and does not authorise work. The answer while
+paused is unchanged: **verify the fence, never add a phrase.**
+
+This pass found and recovered **real at-risk state** — the first genuinely new risk in several
+passes. Pass 72 reported "11 commits held by no remote head ... **9 are held by local scratch
+branches** ... **no recovery branch was created: nothing is at risk.**" That classification was
+wrong, and it was wrong in the direction that hides a loss.
+
+### What pass 72's count included, and why four of the eleven were never safe
+
+Pass 72 ran rule 10's command (`git rev-list --all --not <192 remote heads>`) and got 11. This pass
+re-ran the identical command against a freshly fetched 192-head ref set and got the same 11 — so the
+*count* was right. The error was in reading its output: the output is a list of **commits**, and
+pass 72 assigned each one a *ref class* by pattern-matching the branch names it expected
+(`scratch/…`, `madgab-fuzzy-cost`, `refs/stash`) without asking which refs actually contain each
+commit. Rule 11 already warns about exactly this — classify by `git for-each-ref --contains`, not by
+how the name looks — and pass 72 skipped that step for these four.
+
+Classifying all 11 by containment, as rule 11 requires:
+
+| commit | subject | actually held by | risk |
+|---|---|---|---|
+| `cf44be7` | w-4d1e93 probe (SCRATCH, unpushed) | `refs/heads/scratch/4d1e93-f5f6` | safe |
+| `514ed91` | scratch-3f8c62-landed | `refs/heads/scratch-3f8c62-landed` | safe |
+| `fc3a930` | w-d4e8b1 probe instrumentation | `refs/heads/phon-probe-d4e8b1` | safe |
+| `496826b`, `3fdcbe7` | WIP on / index on `scratch/review-c3f81a` | `refs/stash` | safe (rule 15) |
+| `b4a3009`, `c06953a` | w-0f3a17 probes | `refs/heads/scratch/0f3a17-shortlist-probe` | safe |
+| **`3f098bc`** | w-d5a2c1: all five axes MEASURED at 42ced98 | **`refs/remotes/origin/madgab-audit-d5a2c1` only** | **at risk** |
+| **`8b1a61f`** | w-3b8e15: reproduce the per-word costs | **`refs/remotes/origin/madgab-fuzzy-cost` only** | **at risk** |
+| **`880d7bc`** | w-3b8e15: rebuild the substitution cost on articulatory features | **`refs/remotes/origin/madgab-fuzzy-cost` only** | **at risk** |
+| **`b7b22b7`** | w-3b8e15: charge an indel by what kind of segment went missing | **`refs/remotes/origin/madgab-fuzzy-cost` only** | **at risk** |
+
+The reason is rule 11's second trap, hit for real and named there: these are **local-only refs
+wearing a remote-tracking name**. `git ls-remote --heads origin` shows
+`madgab-fuzzy-cost` = **`0f7f763`**, and `b7b22b7` is **not an ancestor of `0f7f763`**
+(`git merge-base --is-ancestor` = no) — the remote's real tip is a *re-derived* version of the same
+three w-3b8e15 commits (`0b6c8e2`, `a74615a`, `8bfecb0`, all present on `0f7f763`). Likewise
+`madgab-audit-d5a2c1` is `36589f8` on the remote, and `3f098bc` is not an ancestor of it. Pass 72
+saw the names `madgab-fuzzy-cost` and `madgab-audit-d5a2c1` in its expected list and recorded them as
+local-branch-held; they are not. `git for-each-ref --contains <c> refs/heads/` returns **nothing**
+for all four. A `git remote prune`, a `git fetch --prune`, or a plain `git gc` after the stale
+`refs/remotes/origin/*` entries were dropped would have taken all four with them.
+
+Rule 11 says to treat any name under `refs/remotes/` as unproven until `ls-remote` agrees. The rule
+was written; the check was not performed this time. **A rule that is written but not executed on the
+row that needs it is not a control.** The standing instruction for the next pass is now explicit:
+for every commit rule 10 returns, run `git for-each-ref --contains <c>` and print the answer, before
+assigning any class to it.
+
+### Recovered
+
+Four `recovery/*` branches, one per orphaned chain, each pushed (not merely created locally, so the
+objects survive a `gc` on either side):
+
+| branch | tip | content |
+|---|---|---|
+| `recovery/reflog-only-fuzzy-cost-2026-09-28` | `3f098bc` | w-d5a2c1 five-axis measurement table + w-3a7f0d item, at the version that predates the re-landing |
+| `recovery/reflog-only-fuzzy-cost-chain-2026-09-28` | `8b1a61f` | w-3b8e15 per-word cost reproduction (`docs/work/items/w-3b8e15.md`) |
+| `recovery/reflog-only-articulatory-cost-2026-09-28` | `880d7bc` | w-3b8e15 articulatory-feature substitution cost (`src/approx.rs`, +294/−12) |
+| `recovery/reflog-only-indel-cost-2026-09-28` | `b7b22b7` | w-3b8e15 indel cost (`src/approx.rs`, +211/−24) |
+
+Verified after the push, not assumed: `git ls-remote --heads origin | grep reflog-only` returns all
+four at the expected SHAs, and rule 10's command now returns **7** instead of 11 — the four
+recovered commits are gone from the at-risk set, and each of the remaining 7 is held by a real
+`refs/heads/` branch or by `refs/stash`, each confirmed by containment rather than by name.
+
+### Content check: is any of this actually unique?
+
+Recovery is only worth doing if the content is not already elsewhere, and the answer here is
+**mostly no**, which is the honest reason to say so rather than overstate the recovery:
+
+* `w-3a7f0d.md` and `w-d5a2c1.md` exist in both `origin/main` and the accumulation branch. A
+  line-level `comm` against the accumulation version shows 18 lines unique to `3f098bc` — all of
+  them the item's *earlier* frontmatter (`state: open`, `owner: null`, an unchecked acceptance
+  checklist) that a later pass superseded. Nothing measured is lost.
+* The `src/approx.rs` blobs at `880d7bc` (`ba4902d`) and `b7b22b7` (`662eab9`) are **not** the
+  shipped blob (accumulation = `0f1e3b1`), and no remote head carries them — but the w-3b8e15 lever
+  was subsequently **refuted by measurement** on `madgab-fuzzy-cost` (`0f7f763`: "record the
+  coordinator decision; close the item as a refutation"). So this is the history of a priced
+  negative, not a candidate for integration.
+
+So the recovery preserves *provenance*, not pending work. That is still the right thing to do while
+paused — the rule is that durable state must not be one `gc` away from gone — but it is not a front,
+it does not go into the queue, and no pass should later read these branches as unfinished work.
+The three `w-3b8e15` commits are the clearest case in the log of a ref that *looks* like a live
+`madgab-*` front and is a closed negative.
+
+### Fence re-verified on the shipped release line
+
+Because the prompt asks for the canonical examples to be prioritised without phrase-specific
+hard-coding, and because the answer while paused is to verify rather than build, the fence itself
+was run rather than assumed. `cargo test --release --test no_phrase_hard_coding` at `e01b102`:
+**9 passed, 0 failed**, including the 11-case positive control (every documented shape still
+detected and reported as that shape), the 9-case negative control, and
+`no_canonical_example_in_a_production_doc_comment`. The fence has detection power, has a
+demonstrated quiet case, and is green on the code `origin/main` ships (pass 72 measured that code
+byte-identical to the accumulation branch over `src/ tests/ examples/ Cargo.toml Cargo.lock`).
+
+### Census, re-measured
+
+95 `docs/work/items/*.md` files carry `work_item: true`; the two that do not are `README.md` and
+`w-0f3a17-shortlist-rule.md` (rule 51). States: **83 `done`, 11 `superseded`, 0 `open`,
+0 `blocked`, 1 `working`** (this log). `HEAD` = `e01b102`, working tree clean on arrival, and this
+log is the only tracked file touched, per rule 19. No MadGab Antonina agent is alive: all 121
+MadGab agents are terminal.
+
+### Next action for the next pass
+
+The queue is empty of openable work and the gate is closed. The at-risk sweep is **not** saturated
+— it had a false negative, which means its number was never a safety property. The next pass should
+re-run rule 10 with **containment printed per commit** (the table above is the format), and should
+also re-check the remaining 7 by containment rather than by name, since the same error class is what
+hid these four. Beyond that, the useful next action is still not a pass: it is the answer to the
+gate question, now **thirty-seven passes old** — a human either reopens MadGab development (in which
+case `w-6b2f04`'s report names the one surviving direction, a compact pronunciation DAG with
+k-best/A*-style whole-path search) or confirms the pause, in which case this log should be closed as
+`done` rather than left `working` indefinitely.
