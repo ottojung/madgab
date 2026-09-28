@@ -283,6 +283,27 @@ instruction.
     first thing that will go red when a fix lands. Record the gap; do not un-ignore anything while
     paused, because that turns the release suite red on purpose and that is a human decision.
 
+24. **A link asserts that its target exists, not that it is current — and a claim's authority is
+    not inherited from the document that cites it.** Rule 23 made the `#[ignore]` *reason string*
+    the durable claim, and both reason strings terminate in a document:
+    `accepted known limitation; see docs/accepted-state-2026-09-27.md` and
+    `...case-2 reach is closed as a search-side question (OBSTRUCTION-MAP.md §3)`. Rule 23's own fix
+    therefore makes the pointer **load-bearing**, and the twenty-sixth pass checked what it points
+    at. `OBSTRUCTION-MAP.md` §3's closing paragraph presents `w-3f8c62` as `working`, with a live
+    front `agent-3f8c62` in `/workspace/madgab-parsim-3f8c62` — that item is `done` (closed
+    2026-09-27T21:55Z), the agent is terminal (`succeeded`), and its report is integrated at
+    `93d0eed` with verdict **HOLD**. §4 opens with "**The blocker:** ... case 2 is **red at
+    base** ... `corpus_integration` is expected at 12 passed / 1 failed" — the exact status rule 23
+    measured to be **false** (`12 passed, 0 failed, 1 ignored`). So the document the reason strings
+    cite **disagrees with the accepted-state document about the same test**, and it cites a front
+    that had already died a day before the release was accepted. The general form: verifying the
+    first hop of a citation chain is not verifying the chain. After establishing that a status is
+    masked by an attribute, the next question is what the attribute's *reason* asserts, and a
+    reason's authority terminates in a document with its own drift. **Every hop is a place currency
+    can be lost**, and the fix is cheap — resolve the links, then read the sentence the claim is
+    actually about. A pass that stopped at the test would have reported the accepted state as
+    self-certifying, which is the opposite of what rule 23 found.
+
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
 * Work items: **87 `done`, 12 `superseded`, 0 `open`, 0 `blocked`, 0 `working`.** The only
@@ -1840,3 +1861,114 @@ nothing was compiled and no Cargo lock was contended.
     document's *performance* line (the "about 1.8 seconds each" figure, which was measured on
     another host and is not a property of this repository), or in the `OBSTRUCTION-MAP.md` links
     the two `#[ignore]` reasons now depend on.
+
+### `coord-4a7e` — twenty-sixth pass, 2026-09-28T09:32Z–09:36Z
+
+**This pass followed the twenty-fifth pass's second suggestion — check the `OBSTRUCTION-MAP.md` links
+the two `#[ignore]` reasons now depend on — and it found real drift, in the one document that both
+the release notes and the test suite point at.** No front opened, no agent launched, no item
+claimed, nothing integrated, `main` untouched at `0267ade`. No worktree walked, no object hashed, no
+ref fetched, no branch created: rules 6–23 were not re-run, because the twenty-fifth pass was right
+that the object classes are enumerated and nearly exhausted, and the remaining uncertainty is in the
+*claims*, not the state.
+
+  * **Cheap checks, all clean and identical to `coord-7d3a` / `coord-9c1f`.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails, as recorded),
+    `post-milestone-acceptance` = `6040db7`, equal to local `HEAD`: 0 ahead / 0 behind after fetch.
+    All five `recovery/*` branches present on the remote and matching their local refs —
+    `2408c25`, `6b21857`, `cc666db`, `a91f71d`, `a1d7425` — so all fifteen archived patches remain
+    reconstructible. Worktree clean (`git status --porcelain -uall` empty). Agents: **no MadGab
+    agent alive or claimable**; `antonina agent list` over 438 agents is 382 `succeeded`, 43
+    `failed`, 8 `running`, 4 `stopped`, 1 `idle`, and **zero** nonterminal entries in a MadGab
+    cwd. The eight running agents are all other repositories and were not touched.
+
+  * **Finding 1 — the cited section still presents a front that died a day before the release.**
+    `OBSTRUCTION-MAP.md` §3's closing paragraph, under "**Where that now stands
+    (2026-09-27, coord-c1d4a)**", says the gap is "now owned by
+    [w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62` in
+    `/workspace/madgab-parsim-3f8c62` on `madgab-parsim-3f8c62`)". In fact `w-3f8c62` is
+    **`done`** — its own header records "CLOSED done by coord-5f31: report integrated as `93d0eed`
+    (docs-only, cherry-pick of `08bb406`), verdict HOLD", `updated: 2026-09-27T21:55:00Z` —
+    `antonina agent status --id 3f8c62` returns `state: succeeded, alive: no`, and
+    `docs/work/REPORT-3f8c62.md` (28 KB) is present on this branch. The paragraph names a *live*
+    front that was terminal by 21:52Z on 2026-09-27, hours before acceptance. A human who follows
+    the `#[ignore]` reason string into §3 is told there is an in-flight owner of the case-2 gap.
+    There is not; the item closed **HOLD**, and the direction it named was taken up by
+    `w-e086cc` and integrated at `c1ca0a0`.
+
+  * **Finding 2 — the same section asserts the test status rule 23 measured to be false.** §4
+    ("Standing notes, restated so no pass has to re-derive them") opens: "**The blocker:**
+    `approximate_finds_classic_madgab_resegmentation` (case 2) is **red at base**. It is red on
+    every head in every report cited here. **Do not re-pin it and do not let a change turn it green
+    by accident.** `corpus_integration` is expected at 12 passed / 1 failed." §3 closes with the
+    same claim ("**Case-2 reach is closed as a search-side question**" — which is fine) but §4's
+    expected result is the one `coord-9c1f` overwrote: the suite is **12 passed, 0 failed, 1
+    ignored**, because the assertion is `#[ignore]`d at `tests/corpus_integration.rs:134` and
+    `tests/cli_milestone_predicate.rs:200`. **So the accepted-state document and the document its
+    `#[ignore]` reasons cite now disagree about the same test**, one saying "remains red" and the
+    other "expected at 12 passed / 1 failed", while the observable truth is green-by-ignore. §4's
+    instruction is also self-defeating as written: "do not let a change turn it green by accident"
+    is unactionable against a test that no longer runs, because *nothing* can turn it green or red.
+
+  * **Finding 3 — one dangling link in the same document, and it is a mis-citation, not a lost
+    file.** Every relative link in `OBSTRUCTION-MAP.md` was resolved; exactly one fails:
+    `items/w-5e2d42.md` in the row-7 table, which cites "its review front
+    [w-5e2d42](items/w-5e2d42.md)". **No such work item ever existed in any ref** —
+    `git log --all -- 'docs/work/items/w-5e2d42.md'` is empty, and no file in the tree carries
+    `id: w-5e2d42`.     `w-5e2d42` was a *front*, not an item: branch `madgab-floorrev-5e2d42`, worktree
+    `/workspace/madgab-floorrev-5e2d42`, agent `5e2d412`, whose
+    report was integrated by **appending** to `w-5e2d41` (section "Integrated front B report",
+    `w-5e2d41.md:130`) together with `docs/work/w-5e2d42-measurement-probe.patch` and
+    `w-5e2d42-probe-example.rs`. The map therefore links to a document that was never created, and
+    the fix is a re-citation to `w-5e2d41`, not a recovery. Row 7's substance is unaffected: the row
+    is CLOSED and the pricing stands. The accepted-state document's own links all resolve.
+
+  * **Nothing was edited, deliberately.** The three findings are all in a document the release's own
+    test attributes point at, and the corrections a human would want are small and specific: restate
+    §4's expected result as *12 passed / 1 ignored*, restate §3's `w-3f8c62` line as closed-HOLD
+    with `w-e086cc` as the successor, and re-cite row 7 to `w-5e2d41`. **A paused pass should not
+    make them.** Rule 23 already recorded the adjacent case — un-ignoring a test to make the gap
+    observable turns the release suite red on purpose, which is a human release decision — and
+    editing the text a released `#[ignore]` reason cites is the same class of choice: it changes
+    what a future reader of the accepted state is told, with no test to arbitrate it. So the
+    findings are **recorded, with the exact fix, and the document is left alone.** Unlike rule 23's
+    case this is not observable by running the suite, which is precisely why it needed a human:
+    nothing will ever go red over it. No branch other than this log was created, so the at-risk
+    recovery rules were not re-run and nothing needed archiving.
+
+  * **The `no-hard-coding` requirement is unaffected, and remains discharged by execution.** This
+    pass changed nothing under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` — the only file
+    written is this one — so `coord-4d31`'s and `coord-9c1f`'s green fence results still hold by
+    content, and `ALLOWLIST_CAPS` is unchanged. The canonical-example instruction was read against
+    the itinerary's pause gate for the **twenty-second** time and declined for the twenty-second
+    time: it restates the programme's standing goal, and reopening requires an explicit human
+    instruction, which has not been given. If development is ever reopened, the named direction is
+    unchanged — a qualitatively different whole-path algorithm (compact pronunciation DAG with
+    k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
+
+  * **New standing rule 24, above.** Rule 23 established that a claimed regression and an
+    observable regression are different objects, and it made the `#[ignore]` reason string the
+    durable claim. This pass is the necessary second half: **a claim's authority is not inherited
+    from the document that cites it.** Both reason strings terminate in a document, so rule 23's own
+    fix made that pointer load-bearing — and the document had drifted, in all three of the ways a
+    long-lived research note drifts: a live front left described as live, an expected result left
+    describing a state the tests no longer have, and a front cited as if it were a work item.
+    Verifying the first hop of a citation chain is not verifying the chain; every hop is a place
+    currency can be lost.
+
+  * **On the escalation, now nine passes in a row superseded by a coverage gap rather than
+    confirmed, and the gap has changed axis twice.** Rules 6–22 closed *preservation* (can this be
+    lost?). Rule 23 closed *status* (does the accepted state describe the built program?). This pass
+    closed *provenance* (is the document that backs the claim still current?). Those three are
+    enumerable and all three are now covered, each by asking what the previous check was never asked
+    about. The one thing still unasked, and still the only thing only a human can answer, is
+    unchanged: **is MadGab development being reopened?** A twenty-seventh pass should not re-run
+    rules 6–24, should not re-run the hash sweep, the commit checks, the fence or the link
+    resolution, and should not open a front. If it wants a new fact, the untested claim named by the
+    twenty-fifth pass and not taken up here is the accepted-state document's **performance** line —
+    "about 1.8 seconds each ... on the accepted integrated head", measured on `marceline-dev`, a
+    different host, and therefore not a property of this repository. That is a single timing run and
+    would either confirm the release note or falsify it the way rule 23 falsified the other one.
+    **And if the answer to the gate question is no, the correct outcome for every subsequent pass is
+    a single log line, because the work this log exists to protect is already durable.**
