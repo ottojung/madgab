@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3f6a
-updated: 2026-09-28T13:33:00Z
+owner: coord-4a7d
+updated: 2026-09-28T13:21:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -6088,3 +6088,122 @@ ever yes: cut a fresh focused branch from `main` (production code is still byte-
 validate *general* behaviour, pursue the named direction (a qualitatively different
 whole-path algorithm — compact pronunciation DAG with k-best / A*-style search, or a strong
 backward suffix heuristic), and **never hard-code the canonical phrases**.
+
+## Sixty-third pass (`coord-4a7d`, wall clock 2026-09-28T13:16Z–13:21Z) — a closure, plus one small new fact about the instrument's own residue
+
+Pause gate confirmed closed before anything else was done, and the gate question is now
+**twenty-seven passes old**: no MadGab work item created, none claimed, no agent launched,
+nothing merged, nothing pushed to `main` (`git rev-parse main` still fails; the ref is
+remote-only). All six standing measurements re-ran clean and unchanged, and the only new
+observation is small enough to be a rule about this log's own instrument rather than about the
+repository.
+
+### 50. **The measuring instrument leaves objects in the store it measures, and a sweep of the loose-blob class will meet the log's own experiments.**
+
+Rule 42 closed the loose-blob class at 227 objects / 185 unheld, and rule 43 closed the tree
+class. This pass ran the blob class from the other end — `git fsck --unreachable`, which asks
+git rather than walking files — and it returns **3** unreachable blobs. All three classify
+without archiving anything:
+
+| blob | size | what it is | action |
+|---|---|---|---|
+| `aad696a0` | 30,111,288 | ELF, a release test binary | regenerable; excluded by standing instruction |
+| `24753c12` | 30,129,432 | ELF, a release test binary | regenerable; excluded by standing instruction |
+| `816833a2` | 42 | `synthetic staged content probe 1790598721` | the log's own rule-18 negative control |
+
+The 42-byte one is the durable residue of the experiment that proved rule 18's check could
+fail: a throwaway worktree with a staged-but-uncommitted file, created to demonstrate
+sensitivity and then removed. Nothing holds it — it is unreachable — and nothing needs it. It
+is recorded here for the next pass rather than archived, because archiving it would put this
+log's own negative control into a recovery branch as though it were recovered work, which is
+the mirror error of rule 35's inflated clean bill of health: **an instrument's leftovers are
+not findings, and neither are they absent.** The general form is rules 48 and 49 one level
+down: every check this log runs leaves a trace somewhere on the disk, and a later pass that
+discovers the trace has no way to tell measurement from finding. The cheap discipline is the
+one that worked here — identify each object by *content*, not by the sweep that surfaced it
+(rule 12's rule for archived patches, applied to loose blobs). Two of the three were also
+already covered by a standing instruction, so "unarchived" and "worth archiving" are separate
+questions in exactly the way rule 6–8's coverage test made them.
+
+**Twelfth instance of the could-not-fail family, and this pass's own:** the first
+classification loop wrote `count` into `held.txt` where a later step read field 2 expecting a
+ref *name*, so the holder-name resolution printed **nothing at all** — silently, exit 0. Read
+alone that is "no ref holds these 11 commits", i.e. the 11 most fragile commits in the
+repository are actually unheld. Re-run reading the right field, the 11 are held by 7 refs
+(`refs/remotes/origin/madgab-fuzzy-cost` ×3, `refs/stash` ×2,
+`refs/heads/scratch/0f3a17-shortlist-probe` ×2, and one each on `origin/madgab-audit-d5a2c1`,
+`scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`). An empty result from a
+generated command line is not a result; per rule 22, treat it as a failed check, not a
+negative one. The `madgab-fuzzy-cost` entry is rule 11's stale-remote-name case again
+(`git ls-remote` gives the real tip `0f7f763`), and its 3 commits are ancestors of it, so they
+are durable on the remote after all.
+
+### What re-measured, and what is unchanged
+
+* **Not-on-remote: 92, with both of rule 48's detectors run explicitly and both passing.**
+  * *Order-invariance:* the same 192-ref set spelled forward gives **92**; the identical set
+    reversed on the command line also gives **92**.
+  * *Monotonicity:* growing the exclusion set by prefix gives **816, 808, 452, 341, 306, 273,
+    92** for 8/16/32/64/96/128/192 refs — non-increasing throughout, as it must be.
+  * *Annihilation control (rule 39):* unexcluded baseline **1,035**, not equal to 92.
+  * All 92 subjects validated as commits with `git cat-file -e` (rule 49's guard 2): **0**
+    failures.
+  * Remote heads **192**, local `refs/remotes/audit/*` **192**, in agreement (explicit fetch
+    run first, per rules 10/37).
+* **Held by a ref: 11. Held by nothing: 81**, and pass 60's figure is reproducible.
+* **Object-level check over the 81 unheld commits: 0 at risk.** With rule 49's guards printed:
+  **81 subjects, 81 `git ls-tree -r` invocations** (equal, as required), 5,900 blob lines over
+  **626 distinct blobs**, against a reachable set of **6,533** objects, **0** of the 626
+  outside it.
+* **`git fsck --unreachable`: 180 commits, 338 trees, 3 blobs** — the 180/338 are the figures
+  rules 28 and 43 recorded; the 3 blobs are classified in rule 50 above. No new risk class.
+* **Census: 95 items in `docs/work/items/` — 83 `done`, 11 `superseded`, 0 `open`, 0
+  `blocked`, 1 `working` (this log).** Identical to passes 61 and 62. The two `work_item: true`
+  documents outside that directory are still `docs/skills/work-items.md` (the protocol) and
+  `docs/continuation-approximate-search.md` (`w-7c4a91`, `superseded` by `w-4b1e07`).
+* **No MadGab Antonina agent is alive.** The three `running` agents on this host have `cwd`
+  outside `/workspace/madgab*` and belong to other projects. **This pass launched nothing, so
+  it leaves nothing running to supervise.**
+* **Repository shape:** 127 registered worktrees = 126 linked admin directories + the primary
+  worktree, and every worktree's `gitdir` resolves under `/workspace/madgab/.git/worktrees/`
+  — so there is **no separate-git-dir worktree** outside the scope of rules 16/18/20/27. That
+  is a closure of a scope question no pass had asked, and it is why the linked-directory
+  census is trustworthy. 0 dirty non-`target` paths in this worktree; **14** `recovery/*`
+  branches local and **14** on the remote, in agreement; production code still byte-identical
+  to `origin/main` (`git diff origin/main post-milestone-acceptance -- src tests web examples
+  Cargo.toml README.md` is **0 lines**).
+* **Hard-coding fence: green by identity of the tree, not re-run.** Pass 62 ran
+  `cargo test --test no_phrase_hard_coding` at **9/9**. Re-running is unnecessary while
+  `src/`, `tests/`, `examples/`, `web/`, `Cargo.toml` and `README.md` are **0 lines** from
+  `origin/main` and this worktree has 0 dirty non-`target` paths — the binding rule 25 asks
+  for is that the number is resolved to the thing measured, and here the thing measured is
+  provably unchanged. This remains the whole of the answer to "prioritise the canonical
+  examples" in a paused programme: **verify the fence, never add a phrase to make a case
+  pass.** Case 1 (`recognize speech`) is served by the approximate mode; case 2
+  (`It's just a stupid game`) is the documented accepted limitation and stays unre-litigated.
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, and — for the third consecutive
+pass — **no new rule about the repository**: rule 50 is about the instrument, again the only
+place anything true turned up. The sweep remains saturated over its population (92/11/81/0,
+six measurements identical across passes 55–63), and the two classes flagged by rule 50 are
+both closed with zero archives created, so this pass added **no** `recovery/*` branch and
+pushed nothing but this log.
+
+One genuinely new *scope* closure is worth a successor's attention, because it is the kind of
+fact that gets re-derived: **every worktree on this host stores its administrative state under
+`/workspace/madgab/.git/worktrees/`**, so rules 16, 18, 20 and 27's directory loop has no
+blind spot. A future pass that adds a worktree with `--separate-git-dir` would create one, and
+the standing census line to re-run is the `gitdir` scope check, not the file sweep.
+
+**The gate question is now twenty-seven passes old and remains the only thing that can change
+this programme's status: is MadGab development being reopened?** It is not a coordinator's
+call. Standing instructions unchanged: never push to `main`; never integrate scratch
+instrumentation (including anything under `docs/work/probes/`); never archive
+`target-after/`, `target-base/`, `target-front-*` or the two oversize binaries; leave
+`scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent. If the answer is
+ever yes: cut a fresh focused branch from `main` (production code is still byte-identical),
+validate *general* behaviour, pursue the named direction (a qualitatively different whole-path
+algorithm — compact pronunciation DAG with k-best / A*-style search, or a strong backward
+suffix heuristic), and **never hard-code the canonical phrases**.
