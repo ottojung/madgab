@@ -647,7 +647,7 @@ fn runtime_normalization_comparison(code: &str) -> bool {
         }
         n
     };
-    code.split(|c| c == ';' || c == '\n')
+    code.split([';', '\n'])
         .filter(|s| s.contains("==") || s.contains("!="))
         .any(|s| count_calls(s) == 1 && !s.contains("<literal>"))
 }
