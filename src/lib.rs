@@ -2789,6 +2789,12 @@ struct Partial {
     /// Tail of the persistent clue-word list, or `None` when empty.
     words: Option<Rc<WordNode>>,
     sub_cost_total: f64,
+    /// Running **maximum** per-word edit cost, for the `WORST_WORD` axis.
+    /// `sub_cost_total` is a sum and a sum cannot see the worst slot, so
+    /// this is the one aggregate the worst-word axis needs that the
+    /// existing ones do not already carry.  It is a running max, so it
+    /// costs one comparison per extension.
+    max_sub_cost: f64,
     /// Cached syllable total; `metrics` runs in every beam comparison.
     syllables: usize,
     /// Cached closed-class word count; `metrics` runs in every beam
@@ -2820,6 +2826,7 @@ impl Partial {
         Self {
             words: None,
             sub_cost_total: 0.0,
+            max_sub_cost: 0.0,
             syllables: 0,
             closed: 0,
             cheap_score: 0.0,
@@ -2946,6 +2953,7 @@ impl Partial {
         Self {
             words: Some(word_node),
             sub_cost_total: self.sub_cost_total + word_sub_cost,
+            max_sub_cost: self.max_sub_cost.max(word_sub_cost),
             syllables: self.syllables + syllables,
             // `ipa_syllables` floors an empty transcription at zero and a
             // non-empty one at one, so `== 1` is "one syllable or fewer"
@@ -3068,6 +3076,20 @@ impl Partial {
         // it bites hardest exactly where the target has long words.
         let punch = self.punch_count as f64 / words.max(1) as f64;
 
+        // ... and by the same argument the clue is solved word by word, so
+        // the *worst* word is the binding one.  `SIMILARITY` above divides
+        // the total edit cost over the target's phones and keeps no record
+        // of which clue word paid it, so a candidate that hides all of its
+        // damage in one word and a candidate that spreads the same damage
+        // evenly are the same candidate to every other axis and to
+        // `SIMILARITY` itself.  For a listener they are not: the first has
+        // a word that will not be heard, the second does not.  This is the
+        // only term in the objective that reads the shape of the cost
+        // distribution rather than its total, which is why it is an axis
+        // and not a weight.
+        let worst_word =
+            (1.0 - self.max_sub_cost / axes::WORST_WORD_COST).clamp(0.0, 1.0);
+
 
         // Written as `w * (v - 1)` rather than `w * v`.  The six existing
         // weights sum to exactly 1.00 and `CLOSED_CLASS` is the only
@@ -3090,7 +3112,8 @@ impl Partial {
             + axes::RHYTHM * rhythm
             + axes::SHAPE * shape_quality
             + axes::CLOSED_CLASS * closed_penalty
-            + axes::PUNCH * (punch - 1.0);
+            + axes::PUNCH * (punch - 1.0)
+            + axes::WORST_WORD * (worst_word - 1.0);
 
         Metrics {
             combined,
@@ -3106,6 +3129,11 @@ impl Partial {
             closed_penalty,
             #[cfg(test)]
             punch,
+            /// The `WORST_WORD` axis on its own, kept so a test can assert
+            /// that it reads the *maximum* per-word cost and therefore
+            /// is not a function of the total the other axes read.
+            #[cfg(test)]
+            worst_word: worst_word,
             #[cfg(test)]
             words,
         }
@@ -3207,6 +3235,41 @@ mod axes {
     /// Closed-class (function) word share, subtracted.  The share is
     /// squared by `closed_class_penalty` before it gets here.
     pub const CLOSED_CLASS: f64 = -super::CLOSED_CLASS_WEIGHT;
+    /// Penalty for the *worst* clue word, by the largest per-word edit cost
+    /// in the candidate rather than by the total.
+    ///
+    /// `SIMILARITY` above is a **mean** over the target's phone stream: it
+    /// reads `sub_cost_total / total_len`, so the total edit cost is
+    /// divided up among the target's phones and nothing survives of
+    /// *which* clue word paid it.  Two alignments that cost the same total
+    /// are therefore scored identically whether the damage is spread
+    /// evenly or hidden inside one word, and the objective is blind to
+    /// the difference.  That difference is the whole of what this axis
+    /// measures, and it is a different measurement rather than a
+    /// different weight: no reweighting of `SIMILARITY` can express it,
+    /// because every reweighting of the mean is still a function of the
+    /// mean.
+    ///
+    /// It matters because a Mad Gab clue is solved **one word at a
+    /// time**.  A listener who misses one word of a four-word clue has
+    /// no answer at all, so the binding constraint on whether the
+    /// wordplay lands is the *worst* word, not the average one, and the
+    /// average is the wrong summary.  Minimising the maximum is also the
+    /// conservative reading: it never rewards a candidate for being
+    /// excellent on average, only for not being bad anywhere.
+    ///
+    /// Normalised by the approximate mode's per-word budget, so a word
+    /// is at its ceiling (`v == 0`) exactly when it has consumed the
+    /// whole per-word budget it was allowed, and costs nothing when it
+    /// is an exact phonetic match.  Applied as `w * (v - 1)` like
+    /// `PUNCH`, for the same headroom reason.
+    pub const WORST_WORD: f64 = 0.10;
+    /// Per-word edit cost at which `WORST_WORD` is zero.  This is
+    /// `SearchMode::approximate`'s `per_word_budget`, the per-slot ceiling
+    /// the search already enforces, so the axis's scale is the budget the
+    /// search was given rather than a number fitted to one target.
+    pub const WORST_WORD_COST: f64 = 0.5;
+
     /// Share of clue words of one syllable or fewer, `PUNCH`, also
     /// non-positive: `metrics` applies it as `w * (v - 1)`, so a clue
     /// that is entirely monosyllabic pays nothing and one with no
@@ -3258,6 +3321,8 @@ struct Metrics {
     shape: f64,
     #[cfg(test)]
     closed_penalty: f64,
+    #[cfg(test)]
+    worst_word: f64,
     #[cfg(test)]
     punch: f64,
     #[cfg(test)]
@@ -4893,6 +4958,12 @@ mod tests {
             };
             let closed_penalty = closed_class_penalty(closed, count as f64);
             let punch = p.punch_count as f64 / count.max(1) as f64;
+            // The `WORST_WORD` axis, refolded from the word vector rather
+            // than read off the running max the real `metrics` keeps.
+            let worst_word = (1.0
+                - p.words().map(|w| w.sub_cost).fold(0.0, f64::max)
+                    / axes::WORST_WORD_COST)
+                .clamp(0.0, 1.0);
             let combined = axes::SIMILARITY * similarity
                 + axes::NOVELTY * novelty
                 + axes::WORD_NOVELTY * word_novelty
@@ -4900,7 +4971,8 @@ mod tests {
                 + axes::RHYTHM * rhythm
                 + axes::SHAPE * shape_quality
                 + axes::CLOSED_CLASS * closed_penalty
-                + axes::PUNCH * (punch - 1.0);
+                + axes::PUNCH * (punch - 1.0)
+                + axes::WORST_WORD * (worst_word - 1.0);
 
             Metrics {
                 combined,
@@ -4917,6 +4989,8 @@ mod tests {
                 #[cfg(test)]
                 punch,
                 #[cfg(test)]
+                #[cfg(test)]
+                worst_word,
                 words: count,
             }
         }
