@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-8f4a
-updated: 2026-09-28T09:18:00Z
+owner: coord-5e11
+updated: 2026-09-28T09:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -186,6 +186,40 @@ instruction.
     and 14 for the *object* sweep: a check that looks stricter than it is, returning a number
     large enough to look like a major discovery and wrong in the cheapest possible way. Any
     content-hash membership test must fix the field before trusting it.
+
+18. **A worktree's *index* is also neither a ref nor a reflog entry, and it is jointly invisible to
+    rules 10 and 13 in exactly the way `refs/stash` was.** Rule 16 enumerates the per-worktree state
+    directories under `.git/worktrees/<name>/` but stops at the pseudorefs; the `index` file sits in
+    the same directory and holds the full stage-0 blob list. `--all` does not enumerate it, and
+    `git fsck` treats every worktree index as a **root**, so staged-but-uncommitted content is
+    reported as neither reachable-from-a-ref nor unreachable. This is rule 15's shape verbatim — two
+    individually correct checks, jointly blind — in the one remaining place a paused programme can
+    leave work: a file someone `git add`ed and never committed. The check is a loop over the 126
+    registered worktrees, `git ls-files -s` filtered to stage 0, diffed against
+    `git rev-list --objects --all --reflog | awk '{print $1}'` (field 1 per rule 17; **5,904**
+    entries). On this repository it returns **0** index-only blobs, and the 0 is trustworthy because
+    it was **cross-checked with a negative control** rather than accepted as a bare count per rule
+    14: a throwaway worktree with one staged-but-uncommitted file *is* detected, and removing it
+    returns the count to 0. A check whose sensitivity has been demonstrated can return a negative
+    result; one that has not can only return a number of unknown meaning.
+
+19. **The recurring prompt's own branch instruction is stale, and following it literally would be
+    an error.** The scheduled prompt says to "accumulate work on `post-milestone-acceptance`
+    exactly as the itinerary requires". The itinerary does not require that: it states that the
+    branch "is release history after this acceptance and is **no longer an automatic accumulation
+    target**", and that reopened work must start "on a fresh focused branch from `main`". The two
+    clauses are reconciled as follows, and this is the branch policy a pass should apply:
+    * Recovery and scaffolding archives go to their own dated `recovery/*` branches (rule 5).
+    * A **new development front**, if development is ever reopened, goes on a fresh focused branch
+      cut from `main` — never on `post-milestone-acceptance`, and never merged or pushed to `main`.
+    * This log file is the one thing that still commits there, because it is the log's own home and
+      `coord-a1c4` established that ref as release history the human already moved past. It carries
+      no product code, so the accumulation it adds is documentation of the pause, not work on top
+      of the release.
+    * `main` is read-only for this programme in all cases (`origin/main` = `0267ade`; there is no
+      local `main` ref, so a push to it would require creating one).
+    Eighteen prior passes recorded the pause gate but never recorded *this* discrepancy, which means
+    a future pass reading the same prompt will re-derive it. That is what a standing rule is for.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1507,3 +1541,67 @@ were never asked about. Two answers, one of them a real at-risk finding.
   candidate classes are now few enough to enumerate rather than guess at. **The human gate
   question is unchanged and is still the only thing only a human can answer: is MadGab development
   being reopened?**
+
+### `coord-5e11` — twenty-third pass, 2026-09-28T09:16Z–09:24Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass added a sixth covered object class and closed a stale
+instruction in the recurring prompt itself, in the six commands the log's own method prescribes.
+
+  * **Cheap checks, all clean and as recorded.** `git ls-remote`: `main` = `0267ade` (untouched,
+    remote-only — `git rev-parse main` still fails, as recorded), `post-milestone-acceptance` =
+    `a9bc62d`, equal to local `HEAD`: 0 ahead / 0 behind after the rule 10 fetch into
+    `refs/remotes/audit/*`, which now holds **183** entries. All five `recovery/*` branches are
+    present on the remote and match their local refs. Worktree clean. Census re-derived with the
+    rule 10 parser (count an item only if `work_item: true` is in its header): **87 `done`,
+    12 `superseded`, 2 `open`** (the `TEMPLATE.md` placeholder and the fenced example header in
+    `docs/skills/work-items.md`; neither real, neither claimable), **1 `working`** (this log),
+    0 `blocked`. Agents: none alive for MadGab — the entire nonterminal set host-wide is other
+    repositories plus `a11d`, `idle` in `/tmp/cwd-7ze5eU` at its usual 20724-day age, and none of
+    them was touched. `3a8f01`/`3a8f02` remain `stopped` on superseded items, deliberately.
+  * **Rule 16's state-directory loop re-run returns the same five hits in four worktrees** — four
+    inert `AUTO_MERGE` trees plus the `madgab-scorespread-measure` `rebase-merge/` that
+    `coord-8f4a` classified as already durable. Not re-derived.
+  * **New standing rule 18, above — the finding of this pass: the per-worktree `index` is the one
+    remaining jointly-blind object class.** Rule 16 enumerates the pseudorefs in
+    `.git/worktrees/<name>/` but not the `index` sitting beside them, and an index is a holder of
+    full blob content that `--all` does not enumerate and `fsck` treats as a *root*. That is rule
+    15's exact failure shape — two individually correct checks, jointly blind — in the one place a
+    paused programme can still strand work: a file `git add`ed and never committed. Checked across
+    all **126** worktrees: 11,189 stage-0 entries, **0** blobs absent from the 5,904-entry
+    reachable set.
+  * **The 0 is cross-checked, which is the part that matters.** Per rule 14 a bare count from a new
+    check means nothing, so the check's sensitivity was demonstrated on a throwaway worktree: one
+    staged-but-uncommitted file **is** detected, and its removal returns the count to 0. The
+    control worktree was removed. This is the first negative result in this log that carries its
+    own falsification test, and it is recorded as such because a check that can be shown to fire is
+    what makes "nothing found" an answer rather than an absence of one.
+  * **New standing rule 19, above: the recurring prompt's own branch instruction is stale.** It
+    directs accumulation onto `post-milestone-acceptance` "exactly as the itinerary requires", and
+    the itinerary says the opposite — that branch is release history and "no longer an automatic
+    accumulation target", and reopened work must start on a fresh focused branch from `main`.
+    Eighteen prior passes recorded the pause gate without recording this discrepancy. Rule 19 gives
+    the reconciliation so no future pass re-derives it from the same contradictory sentence.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  nineteenth time and declined for the nineteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction to reopen MadGab development, which has
+  not been given. Its *no-hard-coding* half remains discharged on the merits, by content rather
+  than by re-running the fence: this pass changed nothing under `src/`, `tests/`, `web/`,
+  `examples/` or `Cargo.toml` — the only change is this `docs/work/items/` file — so
+  `coord-4d31`'s green fence result still holds, and `ALLOWLIST_CAPS` is unchanged. The pause and
+  its documented limitation stand. If development is ever reopened, the named direction is still a
+  qualitatively different whole-path algorithm (compact pronunciation DAG with k-best / A*-style
+  search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+  **On the escalation, now seven passes in a row superseded by a coverage gap rather than
+  confirmed.** This pass is the first to end with a *negative* result rather than a new archive,
+  and that is progress of the same kind: the index class is now covered by a check that has been
+  shown to detect a positive. The remaining candidate classes are enumerable rather than
+  speculative — index (done, rule 18), worktree pseudorefs (done, rule 16), reflog entries
+  including `refs/stash` (done, rule 15), no-holder objects (done, rule 13), non-`refs/heads`
+  holders (done, rule 11), and uncommitted file content (done, rules 6–9). A twenty-fourth pass
+  should not re-run rules 10, 13, 15, 16, 18, the hash sweep or the fence; if it wants a new fact
+  it should ask a new question, because that is the only thing that has produced one in seven
+  passes. **The human gate question is unchanged and is still the only thing only a human can
+  answer: is MadGab development being reopened?**
