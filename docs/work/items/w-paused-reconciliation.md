@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3b6d
-updated: 2026-09-28T15:25:00Z
+owner: coord-9d41
+updated: 2026-09-28T15:38:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -8125,3 +8125,119 @@ cheapest correct action is to close this log and let the standing set rest; if t
 the programme, the reconciliation machinery this log maintains is the first thing that should be
 torn down rather than maintained, because a paused programme does not need its at-risk state kept
 warm every twenty minutes.
+
+## Pass 81 — `coord-9d41`, 2026-09-28T15:27:00Z–15:38:00Z
+
+The fifth consecutive pass with nothing to act on, and the **third** to receive the same
+commissioning directive. **No new numbered rule**, per the standing instruction from pass 78.
+Nothing launched, claimed, resumed, integrated or merged; `main` untouched (no local `main` ref;
+`origin/main` = `0267ade`); no new work item and no branch created; no recovery branch created.
+
+### The directive arrived a third time and was declined a third time
+
+The prompt is materially identical to passes 79 and 80: *inspect durable state, recover or assign
+work, split independent fronts, launch or prompt Antonina agents, review/integrate finished work,
+prioritize the canonical approximate-search examples without phrase-specific hard-coding, and
+accumulate on `post-milestone-acceptance` exactly as the itinerary requires.* It is recorded a
+third time because two data points make a pattern and one makes an anecdote, and because the
+prediction in pass 80's entry ("will be declined again by any pass that reads
+`itinerary-madgab.md` before it acts") has now been confirmed rather than merely asserted. Every
+actionable clause remains gated by rules 1 and 2 and by the itinerary's line 7:
+
+* *recover or assign work / split fronts / launch or prompt agents* — nothing to assign. The
+  census below is 0 `open`, 0 `blocked`, and the single `working` item is this log.
+* *review/integrate finished work* — there is none outstanding. Every MadGab Antonina agent is
+  terminal and every item they produced is `done` or `superseded`; the last integration is
+  `post-milestone-acceptance` itself, already released to `main` as `0267ade`.
+* *prioritize the canonical approximate-search examples* — this *is* the paused programme. The
+  itinerary permits it only when "a human explicitly asks to reopen MadGab development"; a
+  scheduled prompt that simultaneously directs the agent to follow the itinerary is not that
+  instruction, and the two clauses cannot both be obeyed.
+* *accumulate on `post-milestone-acceptance` exactly as the itinerary requires* — this one
+  **resolves in the itinerary's favour by its own terms**, and it is worth being precise about
+  because it looks like the one clause that agrees with the prompt. Rule 19 already records that
+  the itinerary calls that branch release history and "no longer an automatic accumulation
+  target", so the prompt's deferential "*exactly as the itinerary requires*" resolves to: keep
+  off it, except for this log, which is the only thing permitted to commit there. The prompt's
+  operative prohibition — never merge or push scheduled work directly to `main` — is honoured
+  absolutely; `main` has not been touched in eighty-one passes.
+
+### Census, re-measured
+
+97 files in `docs/work/items/` (2 non-items): **83 `done`, 11 `superseded`, 0 `open`, 0
+`blocked`, 1 `working`** (this log) — unchanged for four passes. `HEAD` = `fc2458e` on arrival,
+working tree clean. `git stash list` = **6**. Rule 16's state-directory loop returns **5 hits in
+5 worktrees**: 4 `AUTO_MERGE` (`madgab-7b2d40-measure`, `madgab-adjacency`, `madgab-audit-d5a2c1`,
+`madgab-baseline-1f6c40`) and 1 `rebase-merge` (`madgab-scorespread-measure`). Passes 78–80 report
+this as "5 hits in **4** worktrees"; the hit count is stable and the worktree count is not, so the
+`5 in 4` figure is a miscount in the earlier entries rather than a worktree appearing or
+disappearing. Recorded as measured, not as a discovery.
+
+**No MadGab Antonina agent is alive.** `antonina agent list` filtered to `madgab-*` cwds returns
+only terminal states — `3a8f01` and `3a8f02` `stopped`, the rest `succeeded`/`failed`, oldest
+13h18m. The only nonterminal agents host-wide (`94a5`, `94a6`) have cwds under
+`/workspace/assemblyp1-94-*` and were left running for their own supervisors. Nothing was
+stopped, prompted, resumed or started.
+
+### At-risk sweep — the headline number moved 88 → 7, and this pass will not paper over it
+
+Rule 39's baseline guard ran first: `git rev-list --all --reflog` = **1061**, up from 1059 — a
+delta of exactly +2, being this log's own two commits. The remote was re-fetched into
+`refs/remotes/audit/*` per rule 10 and verified against `git ls-remote` per rule 38: **196 audit
+refs, 196 remote heads**, no unproven `refs/remotes/origin/*` member. The scratch namespace was
+created fresh by this fetch (every `audit/*` reflog is a single `storing head` entry), so no audit
+ref in it predates this pass.
+
+| class | rule | measured | at risk |
+|---|---|---|---|
+| commits on no verified remote head | 10/30/39 | **7** (pass 80: 88) | 0 |
+| …of those, held by no ref and no reflog | 40 | **0** (pass 80: 81) | 0 |
+| …of those, held only by a local-only ref | 40/11 | **7** — 4 `refs/heads/*`, 2 `refs/stash` | 0 |
+| unique blobs across the at-risk trees | 28/17 | **0** of 1,043 reachable | 0 |
+| unreachable commits | 13 | **180** (unchanged) | 0 |
+| stash entries | 15 | **6** | 0 |
+| worktree index-only blobs | 18 | **0** of 126 worktrees | 0 |
+
+Both sanctioned exclusion spellings agree exactly at **7** — the single-`--not`-plus-bare-list form
+and the stateless `^` prefix — and the repeating-`--not` spelling was not used. Excluding *all*
+local refs instead of the remote set returns **0**, and the delta is the same 7: **4 local scratch
+branches** (`scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`,
+`scratch/0f3a17-shortlist-probe` — 3 commits) and **2 `refs/stash` entries** (`stash@{0}`'s WIP
+and index commits). Every one was classified individually with `git for-each-ref --contains`
+rather than reasoned about as a branch list, per rule 11, and no `refs/remotes/`-named ref appears
+among them.
+
+**The integrity conclusion is unchanged and independently re-verified, and that is the part that
+matters.** The 7 carry no content that no reachable object has (0 unique blobs of 1,043, rule 28's
+strong form with rule 17's field-1 comparison, against a reachable set of 6,722), none is held by
+nothing at all, and rule 18's 126-worktree index probe returns 0. So the correct action this
+pass is still *no action*: per rule 13, archiving content held elsewhere is the failure mode to
+avoid, and the object-level probe is what says there is nothing unique to save.
+
+**The 88 → 7 movement is a discrepancy this log cannot fully explain, and it is recorded as an
+open question rather than as a settled explanation.** The local object population grew by exactly
++2, so no local commit disappeared, and the exclusion set is the same size (196 = 196) against the
+same remote. That leaves remote coverage as the only variable, and the leading hypothesis — that
+earlier passes' `audit/*` tips were stale, so their exclusion sets covered *older* commits and
+over-reported at-risk — is consistent with the direction, since a wider/staler exclusion removes
+more commits from the report. But the hypothesis is not established: this pass's own fetch output
+was truncated, so it cannot say how many tips the fetch actually moved, and pass 80 verified *names*
+against `ls-remote` (196 = 196) without recording per-name tip freshness. A reviewer who wants
+this settled should re-derive the number once with the fetch output untruncated and the
+pre-fetch `audit/*` tips hashed. The two practical consequences: the integrity result does not
+depend on resolving it, and a *downward* movement in this metric is exactly the direction rule 38
+warns is hardest to notice, so it should not be accepted as good news without the check.
+
+### Next action for the next pass
+
+Unchanged, now forty passes old, and stated the same way: a human either **reopens** MadGab
+development — direction per pass 78, a compact pronunciation DAG with k-best/A*-style whole-path
+search, on a fresh branch cut from `main`, with pass 76's `head_not_worse_than_pool` gap
+deliberately funded or superseded — or **confirms the pause**, in which case this log closes
+`done`.
+
+One concrete item for whoever picks this up, so it is not lost: the `88 → 7` discrepancy above is
+the only unanswered question in the sweep, it is cheap to settle, and if it turns out that
+earlier passes were over-reporting then the standing at-risk metric has been noisy in the
+*alarming* direction for several passes — which is the same error class as rules 9, 10, 11 and 14,
+one level up, in the one check this log exists to run.
