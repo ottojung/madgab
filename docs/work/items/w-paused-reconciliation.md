@@ -2411,3 +2411,116 @@ log has reported for a dozen passes**.
     search direction is unchanged — a qualitatively different whole-path algorithm (compact
     pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
     **never** phrase-specific hard-coding.
+
+### `coord-9c31` — thirty-first pass, 2026-09-28T09:57Z–10:01Z
+
+**One new at-risk class found and recovered.** Reconciliation plus a real recovery: two commits
+held by **no ref at all** are now archived and pushed to
+`recovery/no-ref-commits-2026-09-28` (`52b38c9`). No front opened, no agent launched, no item
+claimed, nothing integrated, `main` untouched at `0267ade`. The pause gate was read and confirmed
+closed for the twenty-seventh time, and the canonical-example instruction was declined for the
+twenty-seventh time on the same grounds as before.
+
+  * **The gap: rule 10 cannot see this class, by construction.** Rule 10's check is
+    `git rev-list --all --not --remotes='audit/*' --remotes='origin/*'`, which walks `--all` — the
+    set of commits reachable from some ref. A commit with **no** ref is therefore invisible to it,
+    no matter how prunable it is. The `coord-7e40` pass did find two such commits (`a7f08ea`,
+    `69b5a07`, the `ZZ_AXIS` pair) and correctly classified them as "held by no ref", but it
+    reached them through the `tmp` worktree's reflog, and it reported the count as **2** — which is
+    the number reachable from a *reflog*, not the number in the object database. `git fsck
+    --unreachable` reports **180 unreachable commits**, and the no-ref class is a strict superset
+    of what rule 10 or the reflog sweep can name. This is a coverage gap of the same shape as rules
+    9, 14 and 17: a check that reports a cleaner number than the underlying set supports.
+
+  * **Classification, per rule 11 (by holder, not by branch).** Of the 180: **157** are
+    stash-shaped (`index on …` / `WIP on …` / `wip on …` with zero files changed against their
+    parent — the index parents of stashes whose real content is elsewhere, so they carry no unique
+    state), and **23** are not. Of the 23, 12 are `untracked files on …` third parents and 1 is
+    `0088d27c` (the `w-b3e91a` correction, already archived by `coord-2b74` on
+    `recovery/unreachable-objects-2026-09-28`). **That leaves exactly two carrying unique,
+    unarchived content**, and they are the recovery:
+
+    | commit | date | subject | unique content |
+    | --- | --- | --- | --- |
+    | `e9515446` | 2026-09-26 10:57Z | `On madgab-clue-objective: wip2` | `src/lib.rs` **and** `tests/corpus_integration.rs` |
+    | `921a3b62` | 2026-09-26 11:03Z | `On madgab-clue-objective: timing-base` | `src/lib.rs` |
+
+    "Unique" was tested by blob identity against **every** commit in `git rev-list --all`, not by
+    patch-id: for each path, `git rev-parse <candidate>:<path>` compared across all reachable
+    commits. `4f91ad3` ("test merge", 587 insertions) was checked the same way and is **not** at
+    risk — all four of its files resolve to blobs already reachable elsewhere, so it is correctly
+    excluded. The two keepers are not ancestors of each other; both branch from `293d723`.
+
+  * **Archived per rule 5, and verified per rules 6 and 7.** `docs/work/no-ref-archive/` carries
+    each commit's full binary worktree diff plus verbatim copies of the three unique files, with a
+    README recording the table above and the verification recipe. Verification was not "does this
+    path exist in the archive": each patch was `git apply --check`-ed **forward** against a fresh
+    worktree at `293d723` (clean for both) and `git apply --check --reverse --3way`-ed (clean for
+    both — plain `--reverse` fails without `--3way`, because the patch was generated from the commit
+    tree rather than from a worktree checkout, and `src/lib.rs` carries 46 hunks; that is recorded
+    in the README so the next pass does not re-derive it), and each copied file was
+    `git hash-object`-checked against its source commit (3/3 MATCH). Both commits' *index* parents
+    were diffed against the base and are **empty**, so no index-side state was lost. The two
+    temporary verification worktrees were removed and the object count re-checked.
+
+  * **A false-positive worth recording, of the kind rule 11 already names.** `git branch -a
+    --contains e9515446` returns *nothing*, and `git rev-list --all` does not list it, so both
+    "is it held?" probes agree it is unheld — but running `git rev-parse <commit>^{tree}` and
+    searching for a *reachable* commit with the same tree found none, while a plain `git log
+    --all | while read x; do patch-id …` loop over the first 4,000 commits reported
+    `4f91ad3` as a duplicate of `0267ade` (an **empty** patch-id matching the empty merge commit on
+    `main`). A loop that compares empty strings is a filter that always fires; the blob-identity
+    probe is the one that is sound here, and it is what the archive rests on.
+
+  * **Cheap checks, all clean and identical to the last six passes.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `6f3e563`, equal to local `HEAD` before this commit, 0 ahead / 0 behind. Worktree clean
+    (`git status --porcelain -uall` empty). `git worktree prune -n` reports nothing stale, so all
+    119 worktrees are live registrations. All five `recovery/*` branches plus the new sixth are
+    present on the remote. **Agents: no MadGab agent alive or claimable** — `antonina agent list`
+    shows 39 entries, every nonterminal one rooted in a different repository
+    (`volodyslav-92-plan`, `kawun-authz-32`, `antonina-71-followup`, …); the two MadGab-cwd
+    nonterminal entries (`3a8f02`, `3a8f01`) remain `stopped` on superseded items and were left
+    stopped. Nothing was compiled and no Cargo lock was contended.
+
+  * **The census correction from the last pass survives re-derivation, unchanged.**
+    `grep -rl 'work_item: true' docs/` returns 104 files: **87 `done`, 12 `superseded`, 2 `open`,
+    1 `working`**, 0 `blocked`, 2 carrying the marker with no `state:` key
+    (`docs/work/README.md`, `docs/work/items/README.md`). The two `open` markers remain
+    `docs/work/TEMPLATE.md` (the blank placeholder) and `docs/skills/work-items.md` (the protocol
+    specification) — neither claimable, so the durable figure is still **88 / 12 / 0 claimable /
+    1 working**, and the check is still *"is any `state: open` item claimable?"*.
+    `docs/work/items/w-0f3a17-shortlist-rule.md` remains the one work-item-shaped document with no
+    metadata, still deliberately untouched under rule 1 (fourth pass to decline it).
+
+  * **A stale rebase state directory, now explained rather than merely noted.** The
+    `coord-8f4a` pass recorded "the rebase state directory" without saying whether it was live.
+    It is `.git/worktrees/madgab-scorespread-measure/rebase-merge`, last written 2026-09-26 15:00,
+    and it is **finished, not interrupted**: `done` and `git-rebase-todo` both name the same single
+    `pick fb6a9c6` (the `ZZ_AXIS` dump), `msgnum` and `end` are both `2`, and `HEAD` is `a7f08ea`
+    — the post-rebase commit. So the leftover directory is the residue of a rebase that completed
+    and was never cleaned, and it is harmless: `fb6a9c6` is still held by the `tmp` branch.
+    **Nothing was resumed, aborted or deleted** — rule 1 is a standing refusal, not a judgement
+    call, and the directory is not at risk either way.
+
+  * **The canonical-example instruction was read against the pause gate for the twenty-seventh time
+    and declined for the twenty-seventh time.** It restates the programme's standing goal;
+    reopening requires an explicit human instruction, which has not been given, and its
+    *no-hard-coding* half remains discharged on the merits by the accepted head's general
+    implementation. This pass's finding is orthogonal to it — the recovered `src/lib.rs` copies are
+    from a paused front and are archived as evidence, not proposed for landing — and no
+    phrase-specific change was made or proposed.
+
+  * **Next useful action, and the standing recommendation for the next pass.** The reusable
+    correction is rule 10's own: **add a `git fsck --unreachable` pass beside it.** It is the only
+    check that sees a commit with no holder, it is cheap (one command, ~180 commits to classify),
+    and it is the check that would have caught this class before `coord-7e40` found two members of
+    it by accident. With the two unique members now archived, re-running it should return the
+    157 empty stash-index parents, the 12 empty `untracked files on …` parents, and `0088d27c` —
+    i.e. **zero further at-risk commits**, which is the figure a pass should record, rather than
+    "nothing found", which is unfalsifiable. The gate question is unchanged and still the only one
+    a human can answer: **is MadGab development being reopened?** If yes, `coord-1c8e`'s three
+    measurement-infrastructure corrections are the first work, in its stated order, and the named
+    search direction is unchanged — a qualitatively different whole-path algorithm (compact
+    pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+    **never** phrase-specific hard-coding.
