@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7f04
-updated: 2026-09-28T13:11:00Z
+owner: coord-3f6a
+updated: 2026-09-28T13:33:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5971,3 +5971,120 @@ README.md` is 0 lines), validate *general* behaviour, pursue the named direction
 qualitatively different whole-path algorithm — compact pronunciation DAG with k-best /
 A*-style search, or a strong backward suffix heuristic), and never hard-code the canonical
 phrases.
+
+## Sixty-second pass (`coord-3f6a`, wall clock 2026-09-28T13:11Z–13:33Z) — a short closure, and one more could-not-fail instance, this time in this pass's own instrument
+
+Pass 61 said the next coordinator should expect to do nothing until the gate question is
+answered. That call was correct about *fronts* and this pass honoured it: **no MadGab work
+item created, none claimed, no agent launched, nothing merged, nothing pushed to `main`**
+(`git rev-parse main` still fails — it is remote-only). Every standing measurement re-ran
+clean and unchanged, and the only thing this pass found that is worth writing down is a
+defect in the way this pass *tried* to measure, which is the same family as rule 48.
+
+### 49. **A subject list built by shell word-splitting can contain a token `git rev-list` never emitted, and a loop over it still reports a plausible, small, wrong number.**
+
+Rule 60's object-level check requires one `git ls-tree -r` invocation per subject commit.
+The first attempt here built that subject list by looping over `$(git rev-list ... | tr
+'\n' ' ')` and testing `for-each-ref --contains`, all inline. It reported **82 subjects**
+where the validated count is **81**, and the `git ls-tree` loop inside it died once with:
+
+```
+fatal: Not a valid object name 0
+```
+
+`0` is not a revision and `git rev-list --all --reflog --not <192 refs>` emits 92 lines,
+**every one of which matches `^[0-9a-f]{40}$`** (verified). So the extra subject was a token
+the producing command did not print, and it was counted anyway. The result was not *wild* —
+the run completed and reported 5,900 blob lines over 626 distinct blobs and 0 at risk — which
+is exactly what makes it dangerous: a near-correct number from a loop whose subject list is
+not the list the command produced. **The exact mechanism is not established** (it did not
+reproduce in three subsequent runs, one of them byte-identical in construction), so this is
+recorded as a **detector, not a diagnosis** — the same standard rule 48 was held to.
+
+Three cheap guards, and the first alone would have caught it:
+
+1. **Bracket the subject count against the invocation count and print both.** The loop that
+   runs the measurement must print `invocations` beside the `subjects` it was given, and
+   those two numbers must be equal. A mismatch means the list changed shape between
+   counting and using. (Rule 35's bracket guard; this is the subject-list instance.)
+2. **Validate every subject before using it** — `git cat-file -e "$c^{commit}"` over the
+   list, and refuse to proceed if any subject fails. Cheap, and it is what converted this
+   pass's ambiguous 82 into a definite 81 with every subject a real commit.
+3. **Build the subject list in a file, not in a variable** — `while read -r c; do … done <
+   subj.txt`. Word-splitting a 92-element space-separated string inside `$( )` is the only
+   place in this pass where a token could enter that the producer never wrote; a file and
+   `read` cannot do that. The re-run with this shape gave 81 subjects and 81 invocations.
+
+This is the **eleventh** instance of the could-not-fail family (rules 22/35/37/46/48/58/60
+and the passes named in them). Note the direction again: it *under*-counted the unheld
+population and *over*-counted the subjects, and it still produced the correct verdict
+(0 at risk) — which is the trap. A wrong instrument that happens to return the right answer
+is more durable than one that returns a wrong answer, because it survives being believed.
+
+### What re-measured, and what is unchanged
+
+* **Not-on-remote: 92, unchanged, and this time both of rule 48's detectors were run
+  explicitly rather than assumed.**
+  * *Order-invariance:* the 192-ref exclusion set, spelled as one `--not` in forward order,
+    gives **92**; the **identical set reversed on the command line** also gives **92**. Pass
+    61 reported 92 and separately reported that the reversed spelling gave 188 — measured
+    together here, they agree, which is the result rule 48 says must hold. The rule-48
+    spelling is therefore the sound one and the log's counter is not the broken artifact.
+  * *Monotonicity:* growing the exclusion set by prefix gives **560, 549, 528, 208, 171,
+    142, 92** for 8/16/32/64/96/128/192 refs — non-increasing throughout, as it must be.
+  * *Annihilation control (rule 39):* unexcluded baseline **1,034**, not equal to 92.
+  * Remote heads **192** and local `refs/remotes/audit/*` **192**, in agreement
+    (`git fetch origin '+refs/heads/*:refs/remotes/audit/*'` run first, per rules 10/37).
+* **Held by no ref at all: 81, and pass 60's figure is reproducible.** All 92 at-risk commits
+  were classified by `git for-each-ref --contains` (rule 11): 11 are held by a real ref,
+  **81 by none** — reflog-only or unreachable, the fragile class `git gc` expires first.
+  All 81 validated as commits.
+* **Object-level check over the 81 unheld commits: 0 at risk.** With rules 49/60's guards
+  applied and printed: **81 subjects, 81 `git ls-tree -r` invocations** (equal, as required),
+  5,900 blob lines over **626 distinct blobs**, against a reachable set of 6,527 objects,
+  and **0** of the 626 outside it. Consistent with passes 55–61; no new risk class.
+* **Census, measured over `docs/work/items/` where `work_item: true`: 95 items — 83 `done`,
+  11 `superseded`, 0 `open`, 0 `blocked`, 1 `working` (this log).** Identical to pass 61's
+  measured figure. The two `work_item: true` documents outside that directory are
+  `docs/skills/work-items.md` (the protocol itself, not an item) and
+  `docs/continuation-approximate-search.md` (`w-7c4a91`, `state: superseded`, superseded by
+  `w-4b1e07`) — so counting the continuation document too gives 96 items, 0 open.
+* **Hard-coding fence: green, 9/9, against the accepted sources.** `cargo test --test
+  no_phrase_hard_coding`, worktree build with no instrumentation, including
+  `the_fence_watches_both_canonical_examples`, `no_canonical_example_in_a_production_doc_comment`
+  and `the_detector_catches_every_documented_shape`. This remains the whole of the answer to
+  "prioritise the canonical examples" in a paused programme: **verify the fence, do not add a
+  phrase to make a case pass.** Case 1 (`recognize speech`) is served by the approximate mode;
+  case 2 (`It's just a stupid game`) is the documented accepted limitation.
+* **Repository shape: 170 local branches, 127 worktrees, 0 dirty non-`target` paths** in this
+  worktree, 14 `recovery/*` branches intact, `scratch-3f8c62-landed` still present and
+  unpushed-and-undeleted as instructed. Production code still byte-identical to `origin/main`
+  (`git diff origin/main post-milestone-acceptance -- src tests web examples Cargo.toml
+  README.md` is **0 lines**).
+* **No MadGab Antonina agent is alive.** The `running` agents on this host all have `cwd`
+  outside `/workspace/madgab*` and belong to other projects. **This pass launched nothing,
+  so it leaves nothing running to supervise.**
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, and — for the second consecutive
+pass — **no new rule about the repository**: rule 49 is about the measuring instrument, which
+is the only place anything true turned up, and the six standing measurements are all
+unchanged from passes 55–61. The finding worth a successor's attention is *procedural*:
+this log now has **two** recorded cases of its own counters being wrong (rule 48's
+interleaved `--not` spelling, rule 49's unvalidated subject list), and both produced
+plausible numbers in the same direction. A successor should treat any single number in this
+document as unproven until the paired control next to it also runs — which is why rule 48's
+two detectors are now run explicitly and printed every pass rather than checked by
+inspection.
+
+**The gate question is now twenty-six passes old and remains the only thing that can change
+this programme's status: is MadGab development being reopened?** It is not a coordinator's
+call. Standing instructions unchanged: never push to `main`; never integrate scratch
+instrumentation (including anything under `docs/work/probes/`); never archive
+`target-after/`, `target-base/`, `target-front-*` or the two oversize binaries; leave
+`scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent. If the answer is
+ever yes: cut a fresh focused branch from `main` (production code is still byte-identical),
+validate *general* behaviour, pursue the named direction (a qualitatively different
+whole-path algorithm — compact pronunciation DAG with k-best / A*-style search, or a strong
+backward suffix heuristic), and **never hard-code the canonical phrases**.
