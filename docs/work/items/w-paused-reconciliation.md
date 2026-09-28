@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a5e (pass 113; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:06:00Z
+owner: coord-7b3d (pass 114; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,23 +20,23 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 113 (2026-09-28T19:06Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 114 (2026-09-28T19:12Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 113`.
+last section of this file; search for `## Pass 114`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **113** (template has fired 22 times since pass 92) |
-| At-risk non-build content | **0**. Re-measured at the commit level at pass 108: exclusion set **199** refs, baseline `rev-list --all` **1,020** (`--reflog` **1,104**), at-risk **7** — and all 7 are previously classified and ref-held (see `## Pass 108`). Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
+| Passes that reached this same answer | **114** (template has fired 23 times since pass 92) |
+| At-risk non-build content | **0**. Re-measured at the commit level at pass 114: exclusion set **199** refs (198 `ls-remote`-confirmed heads + 1 tag), baseline `rev-list --all --reflog` **1,111**, at-risk **91** — identical under both sanctioned exclusion spellings (rule 14) and not equal to the baseline, so rule 39's cancellation guard passes. Classified by holder (rule 11): **7** ref-held (local scratch branches such as `scratch/4d1e93-f5f6`), **84** reflog-only, i.e. **0** needing recovery. Pass 105 reported the same 91/199; pass 108's "7" is that same 7 counted after holder classification, not a contradiction. Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
 | MadGab Antonina agents alive | **0** — re-listed in full at pass 113: the 3 running agents are other projects (`107c1`, `47e2` skrynia, `98a2`). The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
 | Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 113 per file by locating each file's `#[cfg(test)]` line and classifying every hit by which side it falls: `src/adjacency.rs`, `src/lexical.rs`, `src/wasm.rs` 0; `src/approx.rs` 0 prod / 1 test (boundary 464); `src/lib.rs` 0 prod / 19 test (boundary 381); `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines (`madgab "It's just a stupid game"`), not logic. **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** |
 
-**Stop reading here if you are a scheduler.** Twenty-two passes (92–113) have reached this same
+**Stop reading here if you are a scheduler.** Twenty-three passes (92–114) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
-The scheduler template has now fired **twenty-two** times carrying the same **three** clauses that
+The scheduler template has now fired **twenty-three** times carrying the same **three** clauses that
 contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
@@ -11542,3 +11542,32 @@ No work item created or claimed, no agent launched, no branch cut, no recovery s
 2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
    pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction). Until
    one of those happens, every future pass is this pass.
+
+## Pass 114 — 2026-09-28T19:07Z → 19:13Z — coord-7b3d — the twenty-third identical firing; minimum entry
+
+Gate answer unchanged from passes 92–113: **NO**. The same three contradictory template clauses
+(rule 19) were reconciled the same way. Header kept in step with this entry.
+
+| Fact | Result |
+|---|---|
+| Deciding authority | paused; gate **NO** |
+| MadGab Antonina agents non-terminal | **0** (4 running board-wide: `94c3`, `107c1`, `47e2`, `98a2` — all other projects; `3a8f01`/`3a8f02` are 15h-old `stopped`) |
+| Dirty non-build content in `/workspace/madgab` | **0** (`git status --porcelain` empty) |
+| Production fence | **0** in production logic: `adjacency.rs` 0, `approx.rs` 0 prod / 1 test (≥464), `lexical.rs` 0, `lib.rs` 0 prod / 19 test (≥381), `wasm.rs` 0, `main.rs` 2 `//!` usage-doc lines |
+| At-risk non-build content | **0** (91 at-risk commits, 199-ref `ls-remote`-verified exclusion set, both spellings agree, baseline 1,111 ≠ 91; 7 ref-held + 84 reflog-only) |
+
+The at-risk row was the only one re-measured, because it is two commands and rule 40 asks that a
+count be stated with its exclusion set. Nothing else was re-derived: no file sweep, no `fsck`, no
+per-worktree pseudoref census (rules 6–41 closed).
+
+**Declined, same three clauses.** Assigning/launching agents, recovering or splitting fronts, and
+prioritising the canonical examples are forbidden by the pause (rules 1–2); the no-hard-coding
+requirement that clause names is already met by the fence row, so acting on it would mean a
+phrase-specific hard-code or a pause violation. The `post-milestone-acceptance` accumulation clause
+is contradicted by the itinerary's retired-target note; this log's own entry is the only thing
+committed there (rule 19). **Nothing pushed to `main`.** No work item created or claimed, no agent
+launched, no branch cut.
+
+**Next action for the next pass:** prefer no commit over a twenty-fourth entry. Otherwise verify the
+five rows, keep the header in step, append one short entry, exit. Only a human can close this item.
+
