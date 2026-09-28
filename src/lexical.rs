@@ -203,10 +203,10 @@ fn lemmas() -> &'static HashSet<&'static str> {
 ///    `he`+`'s` = `he's`, `we`+`'re` = `we're`, `i`+`'ve`, `they`+`'d`;
 /// 3. the word is a lemma plus the negative clitic `n't` —
 ///    `do`+`n't` = `don't`, `is`+`n't` = `isn't`.
-/// (4) is only tried when the word actually contains an apostrophe, so
-/// the genuine content-word homographs `cant`, `wont`, `wont`, `im`,
-/// `lets`, `d'ye`-style spellings and `aunt` are *not* caught.  A
-/// closed-class word never appears in a clue without its apostrophe.
+/// 4. this path is only tried when the word actually contains an apostrophe,
+///    so the genuine content-word homographs `cant`, `wont`, `wont`,
+///    `im`, `lets`, `d'ye`-style spellings and `aunt` are *not* caught.
+///    A closed-class word never appears in a clue without its apostrophe.
 ///
 /// The empty (zero-word) clitics `''s`/`'ll`/`'ve`/`'re`/`'m`/`'d` are
 /// listed as lemmas in [`AUXILIARIES_AND_MODALS`] so that a clue
