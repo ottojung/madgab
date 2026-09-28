@@ -4,7 +4,7 @@ id: w-paused-recon
 state: working
 priority: normal
 owner: coord-9c1f
-updated: 2026-09-28T09:31:00Z
+updated: 2026-09-28T09:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -303,6 +303,28 @@ instruction.
     can be lost**, and the fix is cheap — resolve the links, then read the sentence the claim is
     actually about. A pass that stopped at the test would have reported the accepted state as
     self-certifying, which is the opposite of what rule 23 found.
+
+25. **A documented number is scoped by the thing it was measured on, and the scope is the part
+    nobody writes down.** Rules 6–22 preserved state, rule 23 established that a *claimed* regression
+    and an *observable* one are different objects, and rule 24 that a claim's authority terminates
+    in a document with its own drift. The last unexecuted claim in
+    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md) was a number: "the two
+    canonical release tests take about 1.8 seconds each". It measured **true** — 1.48 s and
+    1.76–2.27 s, twice each, on a different host from the one it was written about — and it was
+    still misleading, because the phrase "the two canonical release tests" does not name the tests,
+    and the *certifying* test for the case-2 absence, `canonical_case_two_is_absent_across_the_
+    documented_public_knobs`, takes **32.91 s**. A number copied out of a document without the
+    identity of what was timed is an unbound claim, and the gap between 1.8 s and 32.91 s is an
+    order of magnitude of free error available to anyone who quotes it. The general form, and it is
+    the third instance of one pattern: **a fact that is not wrong can still be wrong in the hands of
+    the next reader.** Rule 12's archived patch reads correctly and does not apply; rule 23's
+    "red" is true of the assertion and false of the suite; this pass's "1.8 seconds" is true of the
+    two case tests and false of the predicate. *Measure the number, then record what was measured —
+    and when a document states a quantity, resolve it to the thing that was timed before repeating
+    it.* Corollary for the same reason rule 23 required: **forcing the ignored case-2 test to run
+    (`--ignored`) makes it genuinely fail, 0 passed / 1 failed.** So the documented limitation is a
+    live assertion, not a masked one, and no attribute flip will close it. Do not perform that flip
+    while paused; it turns the release suite red on purpose and that is a human release decision.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1963,12 +1985,90 @@ that the object classes are enumerated and nearly exhausted, and the remaining u
     closed *provenance* (is the document that backs the claim still current?). Those three are
     enumerable and all three are now covered, each by asking what the previous check was never asked
     about. The one thing still unasked, and still the only thing only a human can answer, is
-    unchanged: **is MadGab development being reopened?** A twenty-seventh pass should not re-run
-    rules 6–24, should not re-run the hash sweep, the commit checks, the fence or the link
-    resolution, and should not open a front. If it wants a new fact, the untested claim named by the
-    twenty-fifth pass and not taken up here is the accepted-state document's **performance** line —
-    "about 1.8 seconds each ... on the accepted integrated head", measured on `marceline-dev`, a
-    different host, and therefore not a property of this repository. That is a single timing run and
-    would either confirm the release note or falsify it the way rule 23 falsified the other one.
-    **And if the answer to the gate question is no, the correct outcome for every subsequent pass is
-    a single log line, because the work this log exists to protect is already durable.**
+    unchanged: **is MadGab development being reopened?**
+
+### `coord-b5d3` — twenty-seventh pass, 2026-09-28T09:36Z–09:41Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass took the untested claim the twenty-sixth pass named —
+the accepted-state document's **performance** line — and measured it. It is the only claim in that
+document that had never been executed, and it is the one a human reopening the programme is most
+likely to weigh.
+
+  * **Cheap checks, all clean and identical to the last two passes.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `4407aed`, equal to local `HEAD`: 0 ahead / 0 behind. All five `recovery/*` branches present
+    on the remote and matching their local refs — `2408c25`, `6b21857`, `cc666db`, `a91f71d`,
+    `a1d7425` — so all fifteen archived patches remain reconstructible. Worktree clean
+    (`git status --porcelain -uall` empty). Census re-derived with the rule 10 parser: **87 `done`,
+    11 `superseded`, 1 `open`** (the `TEMPLATE.md` placeholder, not claimable), **1 `working`**
+    (this log), 0 `blocked`. Agents: **no MadGab agent alive or claimable** — `3a8f01`/`3a8f02`
+    remain `stopped` on superseded items, left stopped deliberately; the fourteen nonterminal agents
+    host-wide (`6a1`, `19a1`, `71b1`, `95b1`, `76a1`, `7a1`, `92b1`, `94c2`, `72a1`, `47b1a001`
+    running; `94c1`, `52b1a001`, `3a8f01`, `3a8f02` stopped; `a11d` `idle` in `/tmp/cwd-7ze5eU` at
+    its usual 20724-day age) are all other repositories and were not touched. Nothing was compiled
+    and no Cargo lock was contended: every run below used a test binary already built in
+    `target/release/deps/` on 2026-09-28T08:05–08:06.
+
+  * **Finding 1 — the performance line is confirmed on this host, and it is a `corpus_integration`
+    claim, not a CLI claim.** `docs/accepted-state-2026-09-27.md:19` says "the two canonical release
+    tests take about **1.8 seconds** each in an already-built release test binary on `marceline-dev`".
+    Measured here, twice each, on a 32-core host at load ~8:
+
+    | test | run 1 | run 2 |
+    |---|---|---|
+    | `approximate_finds_recognize_speech_resegmentation` | 1.48 s | 1.48 s |
+    | `approximate_finds_classic_madgab_resegmentation` (forced `--ignored`) | 1.76 s | 2.27 s |
+    | `canonical_case_one_is_displayed_at_or_better_than_its_standing_rank` | 1.56 s | — |
+
+    So the figure holds to within noise on a different host, and the 1.8 s claim is honest. **But
+    the scope matters and no prior pass had pinned it:** it describes the two *case* tests, and it is
+    *not* a statement about the milestone predicate suite. The sibling CLI test
+    `canonical_case_two_is_absent_across_the_documented_public_knobs` — green, and the one that
+    actually certifies the case-2 absence — takes **32.91 s** here, because it invokes the CLI across
+    every documented public knob. Anyone citing "1.8 s" as the cost of the acceptance predicate would
+    be off by more than an order of magnitude. Record it so a future pass does not make that
+    substitution.
+
+  * **Finding 2 — the accepted state's "remains red" claim and rule 23's "is `#[ignore]`d" claim are
+    both true, of different objects, and this pass measured the bridge.** Rule 23 found the case-2
+    limitation is *masked* rather than *failing*: the suite reports green. Forcing the ignored test to
+    actually run (`--ignored`) makes it **genuinely fail — 0 passed, 1 failed** — at 1.76–2.27 s.
+    So `docs/accepted-state-2026-09-27.md`'s "top-50 acceptance regression **remains red**" is a true
+    statement about the *assertion*, and `coord-9c1f`'s "12 passed / 1 ignored" is a true statement
+    about the *suite*. They are not in conflict, and neither is wrong. This is rule 23 stated as a
+    fact rather than a warning, and it is the fact a reopening front most needs: **the gap is real
+    and un-fixed, not merely documented.** The limitation is not closable by relaxing an attribute.
+
+  * **Nothing was edited, for the same reason the twenty-sixth pass gave.** The `#[ignore]` at
+    `tests/corpus_integration.rs:134` and `tests/cli_milestone_predicate.rs:200` stays exactly as it
+    is; un-ignoring it turns the release suite red on purpose, which is a human release decision, and
+    the `OBSTRUCTION-MAP.md` drift the last pass recorded is still left for a human. This pass wrote
+    one file — this one — so the fence-scanned surface (`src/ tests/ web/ examples/ Cargo.toml`) is
+    unchanged and `coord-4d31`'s and `coord-9c1f`'s green fence results still hold by content.
+    `ALLOWLIST_CAPS` is unchanged.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    twenty-third time and declined for the twenty-third time.** It restates the programme's standing
+    goal, and reopening requires an explicit human instruction, which has not been given. Its
+    *no-hard-coding* half remains discharged on the merits, now by execution four times over. The
+    pause and its documented limitation stand; if development is ever reopened, the named direction
+    is unchanged — a qualitatively different whole-path algorithm (compact pronunciation DAG with
+    k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
+
+  * **On the escalation, now ten passes in a row superseded by a coverage gap rather than
+    confirmed.** The twenty-sixth pass asked for a *new question* rather than a new sweep, and got
+    one. That suggests the axis is not exhausted: the remaining questions are not about preserving
+    state (rules 6–22), not about the suite's status (rule 23), not about citation provenance
+    (rule 24), and not about performance (this pass) — but about **what a reopening would inherit**.
+    Concretely, a future pass could add, cheaply and by the same interrogate-the-claim method: the
+    **case-1 presentation tripwire** `coord-9c1f` named but never exercised (what exactly flips
+    `shipped_default_top_n_does_not_display_the_canonical_case_one` green, i.e. the precise
+    presentation defect a front would have to fix), and the **documented public knob set** that
+    `canonical_case_two_is_absent_across_the_documented_public_knobs` sweeps — the 33 s test covers
+    the enumeration of the case-2 search space, and its list is the closest thing in the repository
+    to a specification of the remaining problem. Neither is development, so neither reopens
+    anything; both are the kind of fact that makes a human gate answerable. **And if the gate
+    answer is no, the correct outcome for every subsequent pass remains a single log line, because
+    the work this log exists to protect is already durable.**
