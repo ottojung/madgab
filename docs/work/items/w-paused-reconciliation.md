@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a5f (pass 128; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T20:27:00Z
+owner: coord-b2c8 (pass 129; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T20:42:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,22 +20,23 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 126 (2026-09-28T20:14Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 129 (2026-09-28T20:42Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 126`.
+last section of this file; search for `## Pass 129`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **126** (template has fired 34 times since pass 92) |
-| At-risk non-build content | **0**, re-measured at pass 118 over the **whole** worktree set, and the population itself corrected: the standing sweep had been counting only **tracked** dirty rows, so it reported **11**; the real non-build population is **74 untracked files** plus 11 tracked `M src/lib.rs` rows across **127** linked worktrees. All **74** untracked files were subjected to the rule 6/7 content-hash test for the first time: **72** hash to blobs in `git rev-list --objects --all --reflog` (7,035 objects), and the **2** that do not are the 30 MB prebuilt ELF harness binaries `prof/madgab-baseline` and `prof/madgab-prof` in `madgab-approx-runtime` — build output, excluded by rule 9/41 and regenerable from source. **0 need archiving**, now on a population that is 3× the one the previous twenty-five passes measured. See rule 29 for what the narrow `M`-only spelling was blind to |
-| At-risk commits | **7** (corrected at pass 126; the header previously said 91). Exclusion set **199** fetched refs (`refs/remotes/audit/` + `audit-tag/`), which is the full `ls-remote` set of 203 minus 4 non-branch refs (`HEAD`, 3× `refs/pull/*/head`) that no `refs/heads/*` refspec can see. Baseline `rev-list --all --reflog` **1,126**. Both sanctioned spellings (rules 14/30) return **91**, and the figure is not the baseline, so the exclusions took. Of the 91, **7 are ref-held** — `scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`, `scratch/0f3a17-shortlist-probe` (×2), `refs/stash` (×2) — and **0 are release material**; the remaining **84 are reflog-only holders already covered by the `--reflog` baseline**, so they are not an at-risk population and must not be summed as risk. Pass 120's 91 = 7 + 84 was summing two different questions. **Caveat recorded at pass 126:** the `ls-remote`-*name* spelling of the exclusion list returns **0**, not 7, because `^HEAD` and the three `^refs/pull/*/head` names are not resolvable revisions and abort the traversal — a 0 is a broken command (rules 35/37), not a clean result. Use the fetched `audit/` ref list, and state its count (199) beside the result |
-| MadGab Antonina agents alive | **0 running** — re-verified at pass 120. **Correction to the standing row:** "alive" had been measured as *running* only, and there are in fact **2** madgab-cwd agents in a non-terminal `stopped` state — `3a8f01` (`/workspace/madgab-diversity-3a8f01`) and `3a8f02` (`/workspace/madgab-poolrank-3a8f02`), both ~16h old. Both are the SIGKILL'd fronts whose work is already preserved at `5821185`/`29d6143` and `653c4de` per their work items, both items are `superseded`, and each worktree's only dirty row is `target-front-*/` build output (rule 9). **Nothing at risk and nothing resumed**: resuming either would be resuming a superseded front (rule 2). The row is restated as *running / non-terminal* so the 0 is not read as "no madgab agent is non-terminal" |
-| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 120 with the same per-file `#[cfg(test)]` boundary method over the three canonical phrases: `src/adjacency.rs` (boundary 269) 0/0; `src/lexical.rs` (260) 0/0; `src/approx.rs` (464) 0 prod / 1 test; `src/lib.rs` (381) 0 prod / 11 test; `src/main.rs` and `src/wasm.rs` carry no `#[cfg(test)]` module, so their figures are documentation-comment lines and are reported as such rather than as a boundary. **Fence still 0** — unchanged for a fourth consecutive pass. Note the per-file totals are scoped to the three phrases this pass grepped, so they are *not* directly comparable to passes 117–119's 18/2/0 (rule 25: a number is scoped by what it measured); the invariant that matters is the **0** in the production region, which is identical under both scopes |
-| `main` | untouched: `origin/main` = `0267ade` (re-confirmed by `ls-remote` this pass, remote holds 203 refs), still no local `main` ref. HEAD is `post-milestone-acceptance`. **Corrected at pass 127:** the header previously pinned HEAD to "pass 119's `9816ba2`", which stopped being true as soon as passes 120–126 committed; HEAD is whatever the last pass committed, and the stable fact is the *branch*, not the SHA. Read `git rev-parse HEAD` rather than trusting this row |
+| Passes that reached this same answer | **129** (template has fired 37 times since pass 92) |
+| At-risk non-build content | **0**, re-measured end to end at pass 129 over all **127** linked worktrees at `-uall`, with the build-output filter now correct (rule 70). Raw population **2,625** dirty rows = 11 tracked `M` + 2,614 untracked, of which **2,540** are `target*/` build output (including the 1,387- and 1,153-row `target-front-3a8f01/`, `target-front-3a8f02/` trees) and **26** are `prof/` harness output (24 `prof/baseline/*` + the 2 prebuilt ELF binaries). Non-build population is therefore **59** = 11 tracked `M` + **48** untracked. All 48 untracked were content-hashed against `git rev-list --objects --all --reflog`: **0 are unhashable/unreachable, so 0 need archiving**. This closes a coverage gap: passes 118/127/128 excluded all of `prof/` from the hash test, so the 23 harness-content files (`prof/README.md`, `REPORT.md`, `results*.txt`, `sum-*.txt`, `summarize.py`, `run.sh`, `targets.txt`, `scale*.txt`) had **never** been hash-tested. They are all already durable blobs |
+| At-risk commits | **7 ref-held** of an at-risk total of **91** (the other **84** are reflog-only and are not an at-risk population). Re-derived at pass 129 with the exclusion set **re-fetched this pass**: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` yields **198** refs (passes 126/128 reported 199; state the count beside the result, and note the fetch must be repeated because a later pass found the namespace *empty*, which silently turns the at-risk command into `rev-list --all` and returns the baseline). Baseline `rev-list --all --reflog` **1,129** (1,128 at pass 128; the delta is pass 128's own pushed commit). The at-risk figure **91** reproduces exactly and its 7 ref-held holders are the same 7 refs — `scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`, `scratch/0f3a17-shortlist-probe` (×2), `refs/stash` (×2) — with **0** of them ancestors of `origin/main`. **Failure mode worth naming:** with the `audit/` namespace empty, the same command returns **1,129 = the baseline**, which looks like a *clean result of zero risk* and is in fact a *broken command* (rules 35/37). Bracket every at-risk number by the baseline and by the ref count |
+| MadGab Antonina agents alive | **0 running in a MadGab cwd** — re-verified at pass 129 over the full host census (552 agents: 491 `succeeded`, 51 `failed`, 8 `stopped`, 1 `running`, 1 `idle`). The host's single `running` agent is `94f6` in `/workspace/assemblyp1-94-refute-check`, which is not MadGab; the `running`-only census must always be filtered by cwd. The 2 non-terminal MadGab agents remain `3a8f01` (`/workspace/madgab-diversity-3a8f01`) and `3a8f02` (`/workspace/madgab-poolrank-3a8f02`), both `stopped` at ~16h41m on superseded fronts whose work is already preserved per their (now `superseded`) work items. Each of their worktrees' only dirty rows are `target-front-*/` build output (rule 9). **Nothing at risk and nothing resumed** — resuming either would be resuming a superseded front (rule 2) |
+| Production fence | **0** hard-coded canonical phrases in the production region of all six production files, re-derived at pass 129 at the same per-file `#[cfg(test)]` boundaries: `src/adjacency.rs` (boundary 269) 0; `src/lexical.rs` (260) 0; `src/approx.rs` (464) 0 prod; `src/lib.rs` (381) 0 prod / **13** test-region lines; `src/main.rs` and `src/wasm.rs` 0. **Fence still 0** — unchanged for a fifth consecutive pass. The `lib.rs` figure is **13** where pass 120 recorded 11: the 3-phrase regex now also matches `phrase_signature("wreck a nice beach")` and comment lines such as `"recognize speech" split as rec / og / nize / spitch`, all of them at or after line 4357. That is a scope difference, not new hard-coding (rule 25) — the invariant is the 0 in the production region, identical under both scopes |
+| Work items | **0 `open` / `working`**, 1 `blocked` (this one), 84 `done`, 11 `superseded`, by the header-scoped census (pass 127). A bare `grep 'state: open'` is a false-positive census (5 hits, 0 open) — parse the frontmatter `state:` line only |
+| `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref, HEAD is `post-milestone-acceptance` (at `c9102f5` entering this pass). **Do not pin HEAD to a SHA in this row** — it is whatever the last pass committed; the stable facts are the *branch* and `origin/main` |
 
-**Stop reading here if you are a scheduler.** Twenty-nine passes (92–120) have reached this same
+**Stop reading here if you are a scheduler.** Thirty-seven passes (92–129) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
 The scheduler template has now fired **twenty-nine** times carrying the same **three** clauses that
@@ -12337,3 +12338,80 @@ carries no product code.
 two header repairs deferred at passes 125–126 and the one found at pass 128 are all now made.
 Prefer *no commit at all* over a 38th entry. The remaining value is in retiring or fixing the
 scheduler template, which is a human task outside this repository. Only a human can close this item.
+
+## Pass 129 (coord-b2c8) — 2026-09-28T20:27Z–20:43Z
+
+The thirty-eighth identical firing. All standing facts re-derived from the repository. Two durable
+defects found in the *measurement* machinery (not in MadGab), one of which had been silently
+skewing every pass since 118.
+
+| fact | result |
+|---|---|
+| Gate | **NO** — from `itinerary-madgab.md` `## Status: accepted and paused`, re-read at the top of this pass |
+| `main` | untouched at `0267ade`; no local `main` ref; HEAD `post-milestone-acceptance` at `c9102f5` entering the pass |
+| MadGab agents | **0 running in a MadGab cwd** over the full 552-agent host census; the one `running` host agent (`94f6`, `/workspace/assemblyp1-94-refute-check`) is not MadGab; the 2 non-terminal MadGab agents are still `3a8f01`/`3a8f02`, `stopped` on superseded fronts, not resumed (rule 2) |
+| Work items | **0 `open`/`working`**, 1 `blocked` (this one), 84 `done`, 11 `superseded`, frontmatter-parsed |
+| Production fence | **0** canonical phrases in the production region of all six production files; `lib.rs` 0 prod / 13 test-region lines |
+| At-risk commits | **91** = **84 reflog-only** + **7 ref-held**, against a **198**-ref exclusion set re-fetched this pass and a **1,129** `--reflog` baseline; same 7 ref-held refs; **0** ancestors of `origin/main` |
+| At-risk content | **0** over a non-build population of **59** rows (11 tracked `M` + 48 untracked), all 48 hashed durable |
+
+### Rule 70 — a build-output filter with a trailing slash stops being a build-output filter
+
+The at-risk content sweep must exclude cargo's target directories. Passes 118–128 wrote that
+exclusion several ways; the way that is *natural* to type is wrong here, because agents did not all
+build into `target/`:
+
+    ^\?\? target/          <- correct for stock cargo, misses 2,540 rows of the wrong thing
+    ^\?\? (target|...)     <- prefix, no trailing slash: catches target-front-<id>/ too
+
+`madgab-diversity-3a8f01` and `madgab-poolrank-3a8f02` were launched with `CARGO_TARGET_DIR`
+pointed at `target-front-3a8f01/` and `target-front-3a8f02/`, and between them those two
+directories hold **2,540** untracked rows — every one of them build output, none of it content.
+This pass ran the trailing-slash spelling first and got a report of **~2,000 "missing hashes"**,
+which was entirely an artifact of the filter: no hash was missing, the filter had simply stopped
+excluding. A per-agent `CARGO_TARGET_DIR` is a normal thing for an agent to do to avoid contending
+on a shared lockfile, so **the exclusion has to be prefix-anchored on the first path component, not
+on a hard-coded directory name**, and the population it leaves behind (59) should be quoted next to
+the population it removed (2,566) so the two can never be confused again (rules 22, 25, 35).
+
+### Second defect: the `audit/` exclusion namespace is local, and can be empty
+
+`refs/remotes/audit/*` is populated by an explicit fetch, not by a refspec. At the start of this
+pass the namespace was **empty** (0 refs), and the at-risk command
+
+    git rev-list --all --reflog --count $(git for-each-ref --format='^%(refname)' refs/remotes/audit)
+
+with zero arguments degenerates to plain `rev-list --all --reflog --count` and returned the
+baseline **1,129** — indistinguishable, at a glance, from a *measured zero risk*. Re-fetching
+(`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'`, 198 refs) restored the real
+answer, 91. So the at-risk row is only valid if the exclusion set was fetched **in the same pass**,
+and every at-risk number must be bracketed by the baseline and the ref count (rules 35/37, applied
+to ref *state* rather than to ref *naming*). The count also moved 199 → 198 between passes 126 and
+129; the risk figure did not move, which is the useful thing about it.
+
+### Third, small: the fence's `lib.rs` figure moved 11 → 13 without anything changing
+
+Pass 120 recorded `lib.rs` 0 prod / 11 test lines; this pass measures 13. The 3-phrase regex also
+matches `phrase_signature("wreck a nice beach")` and comment lines such as
+`"recognize speech" split as rec / og / nize / spitch`, all at or after line 4357, i.e. deep inside
+the test region. Nothing was hard-coded; the regex simply sees more this time (rule 25). The number
+that is invariant across passes, scopes and regexes is the **production-region 0**, and that is the
+number the header row now leads with.
+
+### Declined, same three clauses, thirty-eighth time
+
+(1) Recover/assign work, split fronts, launch or prompt Antonina agents: forbidden by the pause
+(rules 1–2), and there is nothing to recover — 0 uncommitted content at risk, 0 open items, 0
+running MadGab agents, and the only non-terminal MadGab agents are stopped superseded fronts whose
+work is already preserved. (2) Prioritise the canonical approximate-search examples without
+phrase-specific hard-coding: that *is* the paused research goal, self-contradicting while paused;
+the fence is at **0**, and the documented limitation (`Hits Justice Dupe Hid Came` unreachable by the
+production pool) remains a live assertion whose flip to red is a human release decision
+(rule 25). (3) Accumulate on `post-milestone-acceptance`: the itinerary retired it as an automatic
+accumulation target (rule 19); this entry and the header rows it corrects are the only things
+committed there, and neither carries product code.
+
+**Next action for the next pass:** no coordination action is available, and no repair is queued —
+pass 129's three measurement defects are all recorded and fixed in place. Prefer *no commit at all*
+over a 39th entry. The remaining value is in retiring or fixing the scheduler template, which is a
+human task outside this repository. Only a human can close this item.
