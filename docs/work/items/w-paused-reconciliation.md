@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6f2b (pass 105; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:12:00Z
+owner: coord-6f2b (pass 106; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T18:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,18 +20,25 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 105 (2026-09-28T18:12Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 106 (2026-09-28T18:14Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 105`.
+last section of this file; search for `## Pass 106`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **105** (template has fired 14 times since pass 92) |
-| At-risk non-build content | **0** as of pass 104; pass 105 **did not confirm or refute** the blob-level figure (see its §2) and cut no `recovery/*` branch |
+| Passes that reached this same answer | **106** (template has fired 15 times since pass 92) |
+| At-risk non-build content | **0** as of pass 104; pass 105 **did not confirm or refute** the blob-level figure (see its §2) and cut no `recovery/*` branch; pass 106 did not re-run it either (closed class, rule 68) |
 | MadGab Antonina agents alive | **0** |
 | Production fence vs `origin/main` | **0 lines** — no hard-coded canonical phrases (and **0** in `src/` outside `#[cfg(test)]`, rule 69; the 31 test-side uses are correct) |
+
+**Stop reading here if you are a scheduler.** Pass 106 started **28 seconds** after pass 105 was
+committed and reached this same answer, and its own "Next action" had already said the correct
+response to a fifteenth identical invocation was to do nothing. The remaining cost of continuing is
+not a MadGab risk; it is this log growing. The scheduler template fired for the fifteenth time
+carrying **three** clauses that contradict the itinerary it points at (see `## Pass 106` §2). Fixing
+or retiring the template is worth more than any further declining pass.
 
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
 pass is short:** verify these five facts, decline the scheduler template's two contradictory clauses
@@ -11049,3 +11056,58 @@ work in it.
    in the same command** (rule 37/§3 above); and do **not** report a blob-level "absent" count as a
    risk without rule 6/7's name-and-hash verification against the recovery branches, because the
    archives re-encode content and raw blob identity cannot see them at all.
+
+## Pass 106 — 2026-09-28 18:12Z → 18:14Z — coord-6f2b — the fifteenth identical template firing; the standing five facts hold and nothing else was done
+
+This pass began **28 seconds** after pass 105 was committed (`be3542c`, `2026-09-28T18:11:29Z`) and
+reached the same gate answer. It is deliberately the shortest entry in this log.
+
+### 1. The five standing facts, re-verified
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Dirty non-build content in `/workspace/madgab` | **0** |
+| MadGab Antonina agents alive | **0** (running agents in `antonina agent list` are other projects: boards 104/107/94, assemblyp1) |
+| Production fence vs `origin/main` (canonical phrases in `src/**`) | **0** lines |
+| `post-milestone-acceptance` vs its upstream | clean, in sync |
+
+The at-risk reflog sweep was **not** re-run: it is a closed class (rule 68 / pass 102's rule 68) and
+pass 105 already declined its blob-level figure as unreconciled. No `recovery/*` branch was cut.
+
+### 2. The template contradicted the itinerary in three places, not two
+
+Pass 105 recorded two such clauses. This pass's prompt carried **three**, and the third is new:
+
+1. *"recover or assign work, split independent fronts, launch or prompt Antonina agents"* — forbidden
+   by the itinerary's `## Status: accepted and paused` and by standing rule 1/2.
+2. *"Prioritize the canonical approximate-search examples"* — the canonical
+   `It's just a stupid game` → `Hits Justice Dupe Hid Came` gap is the **documented accepted
+   limitation** ([accepted-state](../../accepted-state-2026-09-27.md) §"Known unresolved
+   limitation"), preserved deliberately rather than hidden. Prioritising it is not a gap in the
+   pause; it *is* the pause being overridden.
+3. **New:** *"accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"* — the
+   itinerary requires the **opposite**. It states: *"The historical `post-milestone-acceptance`
+   branch is release history after this acceptance and is no longer an automatic accumulation
+   target."* This clause names the right branch and then asks for the behaviour the itinerary
+   withdrew. It is the sharpest instance yet of a prompt asserting an authority it does not have:
+   it cites the itinerary as justification for a rule the itinerary does not contain.
+
+Declined all three. No work item was created or claimed, no agent was launched, no branch was cut,
+nothing was pushed to `main`, and this entry is the only change.
+
+### 3. This log stays `blocked`
+
+Unchanged from passes 94–105. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it.
+
+### Next action for the next pass
+
+1. **Prefer doing nothing to a sixteenth entry.** The correct response to a fifteenth identical
+   firing is not a shorter log entry; it is that the firing stops. This pass took under three
+   minutes and its only durable output is this section.
+2. **The scheduler template is the thing to fix — and clause 3 above is the concrete defect to fix
+   first.** It instructs accumulating on `post-milestone-acceptance`, which the itinerary retired as
+   a target. A scheduler that follows it will eventually push unrelated work onto release history.
+3. **A human decision closes this item**, not another pass: confirm the pause (`done`) or reopen it
+   (fresh branch from `main`, pass 78's direction, canonical cases validated generically).
