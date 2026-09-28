@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-paused-recon
-state: working
+state: blocked
 priority: normal
-owner: coord-9b1d
-updated: 2026-09-28T16:58:00Z
+owner: coord-7b31 (pass 94; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -9747,8 +9747,9 @@ is now self-consistent without a special case: 97 files, 95 carrying `work_item:
 a `state:` line, and the two that differ are `items/README.md` (a directory README, correctly not an
 item) and the report above (an item-directory document that is explicitly not a queue entry).**
 
-That is the whole of the standing state: **84 `done`, 11 `superseded`, 0 `open`, 0 `blocked`,
-1 `working`** (this log).
+That is the whole of the standing state: **84 `done`, 11 `superseded`, 0 `open`, 1 `blocked`**
+(this log, as of pass 94 — previously counted here as the 1 `working`; nothing else in the queue
+changed, and 0 `blocked` was true only while this log was still pretending to be worked).
 
 ### Standing counts, re-measured
 
@@ -9779,16 +9780,114 @@ reflog-only class is now measured and **its unique content is archived**; re-run
 should return *zero* unpreserved non-build blobs, and that zero is the standing expectation to check
 against rather than re-derive.
 
+## Pass 94 — 2026-09-28 16:56:50Z → 17:14Z — coord-7b31 — the standing 0 is confirmed, the last non-build blob is archived, and this log is `blocked` on a human
+
+This pass did the two things that were available and **nothing else**. It ran no probe, launched no
+agent, created no work item, and resumed no front.
+
+### 1. The named verification, run as verification
+
+Pass 93's carry-forward 1 said to re-run the object-level probe and expect **0**, and to treat a
+non-zero as a real signal about the method. It returned **1**, and the signal was correct.
+
+The probe was `git rev-list --objects --all` against `git rev-list --objects --all --reflog`,
+set-differenced, blobs only, build output excluded by **path component** (rule 9, not prefix):
+
+| | |
+|---|---|
+| ref-held objects | 6,393 |
+| reflog-held objects | 6,737 |
+| reflog-only objects | 344 (72 blob, 92 commit, 180 tree) |
+| reflog-only blobs under `target-after/` | 70 — all build output, rule 41 |
+| **reflog-only non-build blobs** | **2** |
+
+Pass 92 reported 317 and pass 93 reported 4 held by no ref, against 2 here. These are three
+different enumerations of overlapping populations, not three corrections of one number: pass 92
+walked the 82 reflog-only commits' trees, pass 93 counted 673 distinct blobs within them, and this
+pass takes the set difference of the two `rev-list` object enumerations. The rules already record
+that the enumeration route is part of the question (rules 14, 48, 49, 61). The load-bearing number
+is not the total — it is the count of **non-build blobs held by no ref**, and that is what was
+archived and what is now 0.
+
+### 2. The one real at-risk object, archived
+
+`docs/work/items/w-paused-reconciliation.md` is this log's own superseded draft — the known
+non-issue pass 84 already recorded. The other was real and is the substance of this pass:
+
+**`src/lib.rs` blob `9343e1d`**, 211,402 bytes, held by **no ref** and by exactly one reflog entry,
+`refs/heads/scratch/9c6f2b-probe`, via commit `4625220` (`scratch: 9c6f2b axis probe (ZZ_AXES
+per-candidate metric dump in finish)`, `AssemblyP1 Agent`, 2026-09-27T02:20:03Z, +56/−3 over its
+parent `eed0d5c`).
+
+It is stranded, not merely old. The branch reflog reads `4625220 → 8e198fc` → **`reset: moving to
+madgab-objective-axes`** → `9001822`, so `4625220` sits on the discarded side of a reset and is
+**not an ancestor** of the tip `e9a2797` (`git branch --contains 4625220` is empty while
+`git branch --contains eed0d5c` lists 5+). Reachable from the reflog, from no ref, prunable.
+
+It is also **superseded, not unfinished**, which is why this is a completeness archive and not a
+resumption. The same reflog shows the ZZ_AXES probe replaced by `9001822 → 64ced66 → e9a2797`
+(`ZZ_PHRASES` / `ZZ_STRUCT` harness, "fix harness tuple order"), which **is** on the branch tip. The
+front `w-9c6f2b` is `state: done`, integrated to `post-milestone-acceptance` and reviewed by
+`d3f7a1` with verdict pass. The durable half of this front was never missing; only this
+intermediate probe was, and its successor is safe.
+
+Archived verbatim on **`recovery/reflog-only-scratch-9c6f2b-2026-09-28`** at `2fccdcd`, pushed to
+`origin`, **not merged** (rule 5: a dedicated `recovery/*` branch, not a scratch probe added to
+release history), following pass 93's `docs/work/reflog-only-wip/files/` convention with provenance
+in `README-9c6f2b.md`. Verified by **blob identity** per rules 14 and 33:
+`git hash-object` of the archived file equals `9343e1d` exactly. Re-measured after the push: the
+blob is in the ref-reachable set, and the reflog-only non-build count is **0**.
+
+One methodological note, offered because it cost this pass a wrong turn: the push's refspec
+`refs/heads/x:refs/heads/x` creates the **remote** branch but no local `refs/remotes/origin/x`, so
+`git rev-parse origin/<branch>` failed afterwards even though the push had succeeded. Use
+`git ls-remote` to confirm, and re-fetch with an explicit `+refs/heads/*:refs/remotes/origin/*` to
+create the tracking ref.
+
+### 3. Standing counts, re-measured
+
+| | |
+|---|---|
+| `origin/main` | `0267ade`, no local `main` ref |
+| `post-milestone-acceptance` | `09978c7` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** over `src tests web examples Cargo.toml README.md` |
+| worktrees | **127** |
+| recovery branches | **20** local, **20** on the remote, in agreement |
+| reflog-only non-build blobs | **0** (from 1) |
+| MadGab agents alive | **0** |
+
+The one `running` agent on the host is `a1b30c01`, cwd `/workspace/assemblyp1-89-consolidate`,
+board 94 — a different project. It was left alone, per rule 1. **This pass launched nothing and
+therefore leaves nothing running to supervise**, so a fresh pass has no agent to inspect here.
+
+### 4. This log is now `blocked`, and that is the honest encoding
+
+It is not `done`. Nobody has confirmed the pause; the open question in next-action 2 below is
+still a human's to answer, and a pass that recorded its own resolution would be asserting a
+decision it was not given. It is not `working` either, because there is no work left in it: both
+the durable-state half (at-risk recovery) and the enumeration half are closed, and 94 passes have
+demonstrated that leaving it `working` only manufactures a ninety-fifth thing to measure.
+
+So: **`state: blocked`, owner `coord-7b31`, blocker = the human reopen/confirm decision below.**
+This is a real state in the itinerary's vocabulary, and it is the one that makes a future scheduled
+pass skip this item in one read instead of re-deriving the census.
+
 ### Next action for the next pass
 
-1. **Verify, do not re-derive**: re-run the object-level probe and confirm it now returns **0**
-   unpreserved non-`target` blobs. If it does not, the archive is incomplete and that is a real
-   signal about the method, not a nudge.
-2. **The standing decision is unchanged and is a human one.** Either a human **reopens** MadGab
-   development — direction per pass 78, a compact pronunciation DAG with k-best/A*-style whole-path
-   search, on a fresh branch cut from `main`, validating the canonical cases **generically** — or
-   the pause is **confirmed**, in which case this log closes `done`. Ninety-three passes of
-   reconciliation have not moved this: the remaining limitation is a research question, and the
-   durable-state half of the queue is now closed.
-3. Nothing else is worth a pass. If the next invocation finds no human instruction and no unpreserved
-   state, the correct action is to record that and close, not to invent a fourth thing to measure.
+1. **Do nothing, unless a human says otherwise.** The at-risk sweep is at its standing value of
+   **0**. A re-run is a one-line check against that number, not a re-derivation. If a future pass
+   finds no human instruction and no unpreserved state, there is nothing to do here and the correct
+   outcome is a no-op.
+2. **The standing decision remains a human one, and it is the only thing left.** Either a human
+   **reopens** MadGab development — direction per pass 78, a compact pronunciation DAG with
+   k-best/A*-style whole-path search, on a fresh branch cut from `main`, validating the canonical
+   cases **generically**, never hard-coding `recognize speech` or `It's just a stupid game` — or the
+   pause is **confirmed**, in which case this log closes `done` and the front retires.
+3. **Watch for a stale scheduler prompt.** This pass was invoked by a recurring prompt that
+   asserted the itinerary "requires" accumulating on `post-milestone-acceptance` and asked for the
+   canonical approximate-search examples to be prioritised. The itinerary says the opposite on both
+   counts: it forbids creating work items, claiming superseded items and launching agents while
+   paused, and it records `post-milestone-acceptance` as release history that is "no longer an
+   automatic accumulation target". **A recurring template is not the explicit human reopening that
+   the itinerary requires**, so it was not treated as one. A human who wants the work done should
+   say so in the itinerary or a work item, not only in the scheduler prompt.
