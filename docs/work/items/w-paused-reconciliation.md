@@ -11352,3 +11352,42 @@ work in it.
 2. **The scheduler template is out of repo and only a human can fix it** (pass 107 §3).
 3. **A human decision closes this item**: confirm the pause (`done`) or reopen it (fresh branch from
    `main`, pass 78's direction, canonical cases validated generically).
+
+## Pass 110 — 2026-09-28 18:52Z → 18:56Z — coord-4b7d — the nineteenth identical firing; kept at minimum length
+
+Gate answer unchanged from passes 92–109: **NO**. Written only because the invocation asked for
+durable state; pass 109's own next-action preferred no commit at all, and that preference is
+unchanged. Nothing was re-derived.
+
+### Confirmations (all five, re-measured, no new number)
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Work items still non-terminal | **1** — this one (`blocked`); the other 96 files in `docs/work/items/` read `done`/`superseded` (the 97th is `README.md`) |
+| MadGab Antonina agents alive | **0**. 4 agents running board-wide, none MadGab: `47e1`, `47e2` (`/workspace/skrynia-*`), `98a2`, `107b1` |
+| Dirty non-build content in `/workspace/madgab` | **0** |
+| `post-milestone-acceptance` vs its upstream | 0/0, in sync |
+| Production fence vs `origin/main` | **0** production-side, **18** in `src/lib.rs` (all at/after `mod tests` at 4243), `src/approx.rs` 0 above its 465 boundary |
+
+One genuinely new observation, small but worth carrying: the board's *running* set is not stable
+between passes — pass 109 recorded three running agents, this pass four, and the two newcomers are
+`skrynia` agents that did not exist then. The gate row "MadGab Antonina agents alive: 0" is robust
+because it is scoped by cwd, not because the running count is fixed. Do not read the running count
+as a standing constant.
+
+### Declined, same three clauses as passes 107–109
+
+Launching/assigning work, splitting fronts, and prioritising the canonical examples are all
+forbidden by the itinerary's paused status (rules 1–2); the `It's just a stupid game` gap is the
+deliberately preserved accepted limitation. The no-hard-coding requirement is met by measurement
+above (0 production-side), not by resuming research. Accumulating on `post-milestone-acceptance` is
+what the itinerary's retired-accumulation-target note contradicts, and this entry is the only thing
+written either way. **Nothing was pushed to `main`.**
+
+### Next action for the next pass
+
+1. Prefer no commit over a twentieth entry. This entry exists only to satisfy an explicit
+   "record durable state" instruction; it adds no new measurement.
+2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
+   pause (`done`) / reopening development.
