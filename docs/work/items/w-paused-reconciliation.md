@@ -4,7 +4,7 @@ id: w-paused-recon
 state: working
 priority: normal
 owner: coord-5a93
-updated: 2026-09-28T14:32:00Z
+updated: 2026-09-28T14:48:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7401,3 +7401,113 @@ gate question, now **thirty-seven passes old** — a human either reopens MadGab
 case `w-6b2f04`'s report names the one surviving direction, a compact pronunciation DAG with
 k-best/A*-style whole-path search) or confirms the pause, in which case this log should be closed as
 `done` rather than left `working` indefinitely.
+
+## Seventy-fourth pass (`coord-3e88`, wall clock 2026-09-28T14:32Z–14:47Z) — pass 73's assigned re-run, done by containment, and it closes the sweep
+
+Pause gate confirmed closed before anything else was done; the gate question is now **thirty-eight
+passes old**. No MadGab work item created, none claimed, no agent launched, nothing merged, nothing
+pushed to `main` (`origin/main` = `0267ade`, unchanged, verified by `ls-remote` this pass).
+Pass 73 left two instructions and both are now executed; the first one is the whole of this entry.
+
+The recurring prompt's canonical-example instruction was read against the gate for the **fifteenth**
+time: it restates the standing goal and does not authorise work. The answer while paused is
+unchanged and was **re-verified by running, not by asserting** — see the fence section.
+
+### Instruction 1 executed: rule 10 with containment printed for every returned commit
+
+`git fetch origin '+refs/heads/*:refs/remotes/audit/*'` first, per rule 10's narrow-refspec trap
+(196 heads fetched; the `audit/*` namespace now carries all of them). Then rule 10 in both safe
+spellings per rule 14/30 — `git rev-list --all --not <196 bare refs>` and
+`git rev-list --all $(… '^ref')` — which **agree at 7**, against the repeating-`--not` spelling's
+known inflation. Pass 73 recovered 4 of its 11; the 7 that remain are:
+
+| commit | subject | holder, by `for-each-ref --contains` | under-refs remotes/ |
+|---|---|---|---|
+| `cf44be7` | w-4d1e93 probe (SCRATCH, unpushed) | `refs/heads/scratch/4d1e93-f5f6` | none |
+| `514ed91` | scratch-3f8c62-landed: C1d axis landed, 8 new reds | `refs/heads/scratch-3f8c62-landed` | none |
+| `fc3a930` | w-d4e8b1 phonetic-cost probe instrumentation | `refs/heads/phon-probe-d4e8b1` | none |
+| `496826b` | WIP on `scratch/review-c3f81a` | `refs/stash` | none |
+| `3fdcbe7` | index on `scratch/review-c3f81a` | `refs/stash` | none |
+| `b4a3009` | w-0f3a17 per-slot index probe | `refs/heads/scratch/0f3a17-shortlist-probe` | none |
+| `c06953a` | w-0f3a17 per-slot shortlist dump | `refs/heads/scratch/0f3a17-shortlist-probe` | none |
+
+**Every one is held by a real `refs/heads/` branch or by `refs/stash`; the `remote-named` column is
+empty for all 7.** That is the property pass 73's four lacked, so pass 73's classification error does
+not recur here. The remaining exposure is ordinary: four **local-only, unpushed** scratch branches.
+A local branch is a real holder and `gc` will not take these, but they are one disk from gone — so
+the question worth asking is not "are they at risk of a prune" but "does any of them hold content
+that exists nowhere else".
+
+### Is the local-only content unique? Measured, per rule 28's "ask about the tree, not the diff"
+
+Durable blob set from the **remote refs alone** (rule 35: never the `^`/`--all` combination, which
+annihilates the set): `git rev-list --objects $(for-each-ref refs/remotes/audit/ refs/remotes/origin/
+'%(refname)')` → **5978** blobs. Per rule 35's bracketing guard, the set to be differenced against is
+larger than the result, and it is. Then every blob of each of the 5 probe/scratch commits, compared
+by `grep -qx` on field 1 per rule 17:
+
+* `cf44be7`, `fc3a930`, `b4a3009`, `c06953a`: **0** of their blobs are absent from the remote set.
+* `514ed91`: 462 blobs, **317** initially flagged — and **all 317 are under `target-base/`**, a
+  committed Cargo target directory, which rule 9 excludes by path component. After the rule 9 filter
+  the figure is **0**.
+
+So **no recovery branch was created, and the reason is a measurement rather than an assumption**: the
+five local-only holders carry no source content that a remote head does not already carry. Their
+subject lines ("SCRATCH, unpushed", "never to be integrated", "8 new reds") are accurate — this is
+the history of priced negatives and abandoned probes, and archiving it would be the 2.7 GB mistake
+rule 9 was written about, at smaller scale. The two `refs/stash` entries are already durable per
+rule 15's recovery (`recovery/stash-reflog-2026-09-28` is on the remote).
+
+**A note on how this pass nearly repeated the log's own recurring failure.** The first attempt at the
+uniqueness check reported **141/462/129/100/100 blobs missing** — every blob of every commit, as if
+no remote head had ever held any of this code. Two independent defects, both already named: the
+`refs/remotes/audit/*` glob (rule 35 — it yields **0** rows, because refs are not paths) and
+`git rev-parse <c>:<path>` echoing the argument alongside the sha, so the field-1 comparison of
+rule 17 never matched. That is the **ninth instance** of this log's one failure mode — a check that
+cannot fail returning a confident, wrong number — and the first one where a single *empty* input set
+was the cause. The guard that caught it is rule 35's arithmetic bracket, not inspection: a "missing"
+set of 141 against a durable set of 5978 is arithmetically impossible, and noticing that took one
+look. A tenth instance would suggest the real defect is that this log has no automated harness; rules
+54 and 55 built a negative control for the *link* census only.
+
+### Instruction 2 executed: the `recovery/*` branches are still on the remote
+
+`git ls-remote --heads origin 'refs/heads/recovery/*'` returns **18** heads, including all four
+pass 73 pushed and all fourteen from earlier passes. Nothing has been lost to a prune on the remote
+side.
+
+### Fence re-verified on the shipped line (run, not asserted)
+
+`cargo test --release --test no_phrase_hard_coding` at `dfc31a7`: **9 passed, 0 failed, 0 ignored**,
+including `the_detector_catches_every_documented_shape` (positive control, 11 cases),
+`the_detector_stays_quiet_on_ordinary_english_and_real_production_code` (negative control),
+`no_canonical_example_in_a_production_doc_comment`, and
+`no_phrase_specific_hard_coding_in_src_web_or_examples`. Per rule 29 the binary was bound to the
+tree before the number was quoted, and the run took 0.02 s, so no stale-artifact reading is in play.
+The prompt's standing goal — canonical approximate-search examples, **no phrase-specific
+hard-coding** — is satisfied by construction on the accepted release: the fence is what enforces it,
+and adding a phrase while paused is precisely what rule 1 forbids.
+
+### Census, re-measured
+
+`docs/work/items/*.md` states: **83 `done`, 11 `superseded`, 0 `open`, 0 `blocked`, 1 `working`**
+(this log). `HEAD` = `dfc31a7`, working tree clean on arrival; this log is the only tracked file
+touched, per rule 19. No MadGab Antonina agent is alive — the five nonterminal agents host-wide
+(`101b1`, `98b1`, `94a5`, `94a6`, `a11d`) are other repositories and were not touched; all 121
+MadGab agents are terminal. `git stash list` = 6 entries, matching rule 15's count.
+
+### Next action for the next pass
+
+Both of pass 73's instructions are now **closed**, and the sweep is saturated for a second
+consecutive time with the count cross-checked two ways and every commit classified by containment.
+Do not re-run it a third time: the yield, twice running, has come from asking a new question about
+the check, not from running it. The untried object classes are recorded and ranked in the
+`coord-2b74` note above. If one is chosen, the lesson of this pass is the instrument, not the
+repository: **build the negative control for whichever check you run next**, because this pass's
+check reported a total loss that did not exist, and only the arithmetic bracket caught it.
+
+The useful next action remains a human one. The gate question is **thirty-eight passes old**:
+reopen MadGab development — in which case `w-6b2f04`'s report names the one surviving direction, a
+compact pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch from `main` — or
+confirm the pause, in which case this log should be closed `done` rather than left `working`
+indefinitely.
