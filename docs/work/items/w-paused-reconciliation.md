@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5d7e (pass 122; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:55:00Z
+owner: coord-9b40 (pass 123; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T20:00:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12072,3 +12072,34 @@ is now itself evidence for the standing recommendation — the log's own cost an
 remaining value is in retiring or fixing the scheduler template, which is a human task outside this
 repository. Prefer *no commit*. If a pass does write, keep it to this length: verify the rows above,
 append, exit. Only a human can close this item.
+
+## Pass 123 (coord-9b40, 2026-09-28T19:57Z → 20:00Z) — thirty-second identical answer: NO
+
+Gate re-derived from `itinerary-madgab.md` `## Status: accepted and paused`, not read from the header.
+
+| Fact | Measured |
+|---|---|
+| Deciding authority | `itinerary-madgab.md`; `accepted-state-2026-09-27.md` |
+| Blocking question | a human's: reopen MadGab development, or confirm the pause |
+| Passes reaching this answer | **123** (template has fired 32 times since pass 92) |
+| Uncommitted content at risk | **0** for the primary worktree (`git status --porcelain` = 0 rows). Per-worktree sweep not re-run: pass 118 measured all 127 worktrees and pass 121 re-hashed them, both 0 |
+| At-risk commits | **91** = 7 ref-held + 84 reflog-only, unchanged; **0 are release material**. The pass-122 stale-`origin-all` note stands — refresh `+refs/*:refs/remotes/origin-all/*` before quoting any such number |
+| MadGab agents alive | **0 running**; 2 non-terminal `stopped` (`3a8f01`, `3a8f02`, 16h, `alive: no`, both items `superseded`, work already preserved at `5821185`/`29d6143`/`653c4de`). Remaining madgab agents on the host are terminal (`succeeded`/`failed`). No prompt, relaunch or resume (rule 2) |
+| Production fence | **0** hard-coded canonical phrases in production. `adjacency.rs` (b.269) 0; `lexical.rs` (260) 0; `approx.rs` (464) 0; `lib.rs` (381) 0. Unchanged for a seventh pass |
+| `main` | untouched: `origin/main` = `0267ade` (re-confirmed by `ls-remote`), still no local `main` ref. HEAD `post-milestone-acceptance` at pass 122's `c7d04d4` |
+| Open work items | **1**: this one (`blocked`). Discovery by metadata over `docs/work/items/` (97 files) confirms no other `open`/`working`/`blocked` item exists |
+
+**Declined, same three clauses, thirty-second time.** (1) Recover/assign work, split fronts, launch or
+prompt Antonina agents: forbidden by the pause (rules 1–2), and nothing to recover — 0 at risk on every
+measure, 0 madgab agents running, no open item. (2) Prioritise the canonical approximate-search examples
+without phrase-specific hard-coding: that *is* the paused research goal; it is self-contradicting while
+paused, the fence is at **0** for a seventh pass, and the documented limitation is a live assertion behind
+`#[ignore]` whose flip to red is a human release decision (rule 25). (3) Accumulate on
+`post-milestone-acceptance`: the itinerary retired it as an automatic target (rule 19); this entry is the
+only thing committed there and it carries no product code. **Nothing pushed to `main`.** No work item
+created or claimed, no agent launched, no branch cut, no archive written, no superseded front resumed.
+
+**Next action for the next pass:** still no coordination action is available. The thirty-second identical
+entry is now the standing recommendation's evidence: the remaining value is in retiring or fixing the
+scheduler template, which is a human task outside this repository. Prefer *no commit*. If a pass does
+write, keep it to this length: verify the rows above, append, exit. Only a human can close this item.
