@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4a7d
-updated: 2026-09-28T13:21:00Z
+owner: coord-6b2a
+updated: 2026-09-28T13:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -6207,3 +6207,127 @@ ever yes: cut a fresh focused branch from `main` (production code is still byte-
 validate *general* behaviour, pursue the named direction (a qualitatively different whole-path
 algorithm — compact pronunciation DAG with k-best / A*-style search, or a strong backward
 suffix heuristic), and **never hard-code the canonical phrases**.
+
+## Sixty-fourth pass (`coord-6b2a`, wall clock 2026-09-28T13:21Z–13:26Z) — rule 51: the discovery directory contains a document discovery cannot see
+
+Pause gate confirmed closed first; the gate question is now **twenty-eight passes old**. No
+MadGab work item created, none claimed, no agent launched, nothing merged, nothing pushed to
+`main` (`git rev-parse main` still fails — the ref is remote-only, at `0267ade`). The
+canonical-example instruction was read against the itinerary's pause gate for the **fifth**
+time (see the `coord-c8e1` entry): it restates the standing goal, and reopening requires an
+explicit human instruction, which has not been given. So the whole of this pass's answer to
+"prioritise the canonical examples without phrase-specific hard-coding" is rule 51's
+*verify the fence, never add a phrase* — unchanged, and still verifiable by identity of the
+tree (§ below: production code is 0 lines from `origin/main`).
+
+### 51. **A file in the work-item directory that the work-item directory's own rule excludes is invisible to every state census, and this log has run 63 of them.**
+
+`docs/work/items/README.md` states the discovery rule the scheduled protocol depends on:
+"Files in this directory are discovered by scheduled orchestrators only when their YAML
+metadata contains `work_item: true`." Applying that rule to the directory finds a
+**20,617-byte front report carrying no metadata at all**:
+`docs/work/items/w-0f3a17-shortlist-rule.md` — no `work_item:`, no `state:`, no `id:`, no
+frontmatter of any kind. It is the whole of the `0f3a17` shortlist front, and its §7 is
+explicitly written for whoever comes next:
+
+> the canonical clue needs **width 100**, against an opening width of 7 derived from
+> `1 + 7 + 49 + 343 + 2401 = 2801 <= 4000` … the width the clue needs is 100/7 ≈ 14x the
+> width the budget derives, and the shortlist is not what stands in the way.
+
+That is a load-bearing input to the reopened programme's named direction, and **no
+state-based census can find it**: a queue query is "list items whose `state` is X", and this
+document has no state to be X. It is in fact *doubly* hidden, because the file that does
+point at it — `w-0f3a17.md` — is `superseded`, and rule 24's shape applies to discovery as
+much as to citation: the successor front's first act would be to read a superseded item.
+
+**It is not at risk, and the distinction is the point.** `git ls-files` confirms it tracked,
+and `git cat-file -e` finds it in **both** `origin/main` and
+`origin/post-milestone-acceptance` (added by `534a39c`, on the accepted release line). Every
+one of rules 6–50 is a *preservation* question and would report it safe, correctly. The
+general form is rule 23's, one object over: **rule 23 separated a claimed regression from an
+observable one, and rule 51 separates a durable document from a discoverable one.** A
+saturated preservation sweep has no question left to ask about a file that is safe *and*
+findable, so it can be safe and unfindable indefinitely — which is exactly the state this has
+been in for the 63 passes that came before. Standing rule 4's premise ("the one genuinely
+useful recurring action is at-risk state recovery") is therefore **narrower than it reads**:
+preservation is saturated, and the complement — *can the next pass find what we wrote?* — is
+the question that still has an unanswered instance.
+
+**Action taken: none, deliberately, and that is the recommendation too.** Adding a
+`work_item: true` header would create a phantom queue entry out of research history — a
+`state: open` line on a front that was priced in 2026-09-27 and is closed by its own
+successors. Recording it here instead means the next pass reads this log and finds it in one
+grep. **If development is reopened, read this file before sizing any whole-path or width
+front**; it is the front that establishes the shortlist is *not* the blocker.
+
+**Companion finding in the same directory, and the census spelling.** The unanchored census
+this log's entries have used — `grep -l 'work_item: true' docs/work/items/*.md` — matches
+**96** files, because `README.md` quotes the marker *in prose* at line 5 and has no state
+line, so a state tally over that list prints a confident "NO STATE LINE" row for a file that
+is not an item. Anchoring the pattern to the header (`head -12 … | grep -q '^work_item:
+true'`) returns **95**, which is the true item count and matches 83 `done` + 11
+`superseded` + 1 `working` exactly. Two directions, one directory, and the loose spelling
+inflates the queue by a document that documents the queue. This is rule 22's field lesson at
+the level of the pattern rather than the field: **an unanchored marker match is a census that
+cannot distinguish an item from a document describing items.**
+
+### Closure: no stale worktree registrations (the complement of pass 63's `gitdir` scope check)
+
+Pass 63 closed the *scope* question — all 127 registered worktrees store admin state under
+`/workspace/madgab/.git/worktrees/`, so rules 16/18/20/27's loop has no blind spot. It did
+not ask whether each registration still points at a directory that **exists**, which is the
+complement and the one that matters: a registration whose `gitdir` target is gone is still
+reported by `git worktree list` (so the census looks complete) while holding a `HEAD`, an
+`index` and an `ORIG_HEAD` that nothing else holds, and `git worktree prune` would destroy
+them. Run over all 126 linked admin directories, resolving each `gitdir` file to its
+worktree path and testing the directory: **0 stale registrations.** Nothing at risk, no
+recovery branch created. One cheap line, and it is the standing check to re-run if a
+worktree is ever removed by hand rather than with `git worktree remove`.
+
+### What re-measured, and what is unchanged
+
+* **Census, anchored spelling:** 95 items — 83 `done`, 11 `superseded`, 0 `open`, 0
+  `blocked`, 1 `working` (this log). Identical to passes 61–63; the 96 figure is the
+  unanchored artifact rule 51 corrects.
+* **No MadGab Antonina agent is alive.** The `running` agents on this host are `94a4`
+  (`/workspace/assemblyp1-94-chords`), `98a1` (`/workspace/antonina-98-flake`) and `92d1`
+  (`/workspace/volodyslav-92-plan`), all other repositories, plus `a11d`, `idle` in
+  `/tmp/cwd-7ze5eU` at its usual 20724-day age. **This pass launched nothing, so it leaves
+  nothing running to supervise.**
+* **Repository shape:** 127 registered worktrees = 126 linked admin dirs + the primary, 0
+  dirty non-`target` paths here, 192 remote heads. Production code still **0 lines** from
+  `origin/main` (`git diff origin/main post-milestone-acceptance -- src tests web examples
+  Cargo.toml README.md`), which is the binding condition rule 25 requires before a number
+  measured on an earlier tree may be repeated.
+* **The object-level at-risk sweep was deliberately not re-run.** Passes 55–63 have it
+  unchanged at 92 / 11 / 81 / 0, and rule 51 is the reason not to: a seventh identical
+  number is not evidence, and the class it measures has no open instance. Re-deriving it
+  would have spent this pass's budget reproducing a figure whose *meaning* — "not on the
+  remote" vs "held by nothing" (rule 40) — depends on an exclusion set no reader will
+  reconstruct from a bare integer.
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, and **no `recovery/*` branch** —
+pass 64 added no archive because there was nothing at risk to archive, and pushed nothing but
+this log, to `post-milestone-acceptance` only.
+
+The useful output is rule 51 and it is about **the queue rather than the repository**: the
+preservation axis is saturated and provably so, and the discovery axis has a live instance
+that 63 passes of the wrong question could not have surfaced. The standing advice for the
+next pass therefore changes shape — not "run an eighth sweep", but **"before repeating a
+census, check that the census's own inclusion rule matches the directory it is pointed at,
+and check that every document in the queue directory is in the queue."**
+
+**The gate question is now twenty-eight passes old and remains the only thing that can change
+this programme's status: is MadGab development being reopened?** It is not a coordinator's
+call. Standing instructions unchanged: never push to `main`; never integrate scratch
+instrumentation (including anything under `docs/work/probes/`); never archive
+`target-after/`, `target-base/`, `target-front-*` or the two oversize binaries; leave
+`scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent; do not add
+`work_item: true` to a historical report. If the answer is ever yes: read
+`docs/work/items/w-0f3a17-shortlist-rule.md` §7 first, cut a fresh focused branch from `main`
+(production code is still byte-identical), validate *general* behaviour, pursue the named
+direction (a qualitatively different whole-path algorithm — compact pronunciation DAG with
+k-best / A*-style search, or a strong backward suffix heuristic), and **never hard-code the
+canonical phrases**.
