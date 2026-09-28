@@ -3088,3 +3088,81 @@ every preservation and claim-verification question this log knows how to ask.
     (c) the named search direction — a qualitatively different whole-path algorithm (compact
     pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
     **never** phrase-specific hard-coding.
+
+### `coord-5e83` — thirty-seventh pass, 2026-09-28T10:32Z–10:36Z
+
+**Reconciliation only. No front opened, no agent launched, no item claimed, nothing integrated,
+no `src/` change, `main` untouched at `0267ade` and not written to.** The escalation from
+`coord-4b6e` was followed: no hash sweep, no unreachable sweep, no fence re-run, no timing
+re-measurement. The new datum came from asking the one question the log had never put to
+`main` — not "is `main` an ancestor of the accumulation branch" (recorded since the 05:37Z
+census as **no**), but **what, concretely, is the 45-commit divergence between them?**
+
+  * **The divergence is 100% documentation. The released product is byte-identical.**
+    `0267ade` (`main`) and `post-milestone-acceptance` have diverged at `734e37e`, with
+    `0267ade` one commit ahead (the human's `Merge accepted MadGab approximate-search
+    release state`) and the accumulation branch **45** commits ahead. Every one of those 45
+    commits touches exactly one of two paths:
+
+    ```sh
+    git rev-list 0267ade..post-milestone-acceptance \
+      | while read -r c; do git show --pretty=format: --name-only "$c" | grep -v '^$'; done \
+      | sort -u
+    # -> docs/work/items/w-3a8f01.md
+    # -> docs/work/items/w-paused-reconciliation.md
+    ```
+
+    Corroborated three ways, per rules 14 and 22 rather than from one command
+    (`git diff --stat` on the product surface is empty; the four surface **tree** hashes
+    `0267ade:src`, `:tests`, `:web`, `:examples` and `:Cargo.toml` each equal their
+    `post-milestone-acceptance` counterparts; and a `git ls-tree -r | awk '{print $3,$4}'`
+    comparison over both full trees, with a **negative control** against a known-differing
+    pair `0267ade` vs `a676176` that did report `w-3a8f01.md`, returns only
+    `w-3a8f01.md` and this log). Also confirmed: `docs/accepted-state-2026-09-27.md`,
+    `docs/work/TEMPLATE.md` and all five `docs/skills/*.md` are identical on both refs, and
+    `0267ade:docs/work/items/w-3a8f01.md` already carries `state: superseded`.
+
+    **So the accepted state was released as accepted, and nothing in the 45 commits since is
+    product work.** That closes a question the log had carried unanswered for nine passes: it
+    recorded the *divergence* (as a "do not reconcile this" release-history note) but never
+    what the divergence *contained*, leaving a future pass free to assume the accumulation
+    branch held unreleased source. It does not. `main` is a complete and current product
+    tree, which is exactly what rule 19's branch policy assumes when it requires reopened work
+    to be cut from `main`.
+
+  * **Cheap checks, all clean and identical to the last twelve passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — no local `main` ref), and all **seven**
+    `recovery/*` branches verified **individually** local-vs-remote this pass rather than as
+    a set: `2408c25`, `6b21857`, `cc666db`, `52b38c9`, `a1d7425`, `134c0ed`, `a91f71d` — seven
+    `OK`, zero mismatches. Worktree clean (`git status --porcelain -uall` empty). Census
+    re-derived with `coord-4b6e`'s recorded command (header first, state second, never
+    `grep -m1 "^state:"` over `docs/`): **87 `done`, 12 `superseded`, 2 `open** (the two
+    protocol placeholders, neither claimable), **1 `working`** (this log), 0 `blocked` —
+    102 real work items, byte-for-byte the durable figure. **No MadGab agent alive or
+    claimable**: the nine `running` agents host-wide (`97d1`, `74a1`, `71e1`, `12f1`, `94e3`,
+    `92c1`, `73f1`, `76a1`, `72a1`) all belong to other repositories and were left running and
+    untouched; `a11d` remains `idle` in `/tmp/cwd-7ze5eU` at its usual 20724-day age;
+    `3a8f01`/`3a8f02` remain `stopped` on superseded items and were left stopped. No rebase,
+    stash, index or worktree state was touched, and no agent was prompted or stopped.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-third time and declined for the thirty-third time.** It restates the programme's
+    standing goal; reopening requires an explicit human instruction, which has not been
+    given. Its *no-hard-coding* half remains discharged on the merits: no `src/`, `tests/`,
+    `web/`, `examples/` or `Cargo.toml` byte changed in this pass, no canonical phrase appears
+    anywhere in its output, and the product surface is now *proven* identical to the head
+    `coord-4d31` ran `no_phrase_hard_coding` green against. The pause and its documented
+    limitation stand.
+
+  * **Next useful action: the gate question, unchanged and still the only one a human can
+    answer — is MadGab development being reopened?** Nothing in the repository can answer it.
+    A thirty-eighth pass should not re-run the hash sweep, the unreachable sweep, the fence,
+    the timings, or the `main`-divergence comparison, all of which now have reproducible
+    numbers; the cheap way to add a fact is another new question about the accepted state, as
+    passes twenty-five, twenty-eight, thirty-four, thirty-five, thirty-six and this one each
+    did. If the answer is yes, the first work in order is (a) rule 29's binding check before
+    quoting any timing, (b) `coord-1c8e`'s three measurement-infrastructure corrections in
+    their stated order, (c) **cut the branch from `main`, which this pass has now shown is a
+    complete product tree** — and (d) the named search direction, a qualitatively different
+    whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic), **never** phrase-specific hard-coding.
