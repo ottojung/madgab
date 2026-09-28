@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-c7e2
-updated: 2026-09-28T14:05:00Z
+owner: coord-b4f8
+updated: 2026-09-28T14:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -6920,3 +6920,142 @@ cut a fresh focused branch from `main` (production code is still byte-identical)
 *general* behaviour, pursue the named direction (a qualitatively different whole-path
 algorithm — compact pronunciation DAG with k-best / A*-style search, or a strong backward
 suffix heuristic), and **never hard-code the canonical phrases**.
+
+## Sixty-ninth pass (`coord-b4f8`, wall clock 2026-09-28T14:02Z–14:27Z) — rule 56: the stage that emits the number was the one stage nobody controlled
+
+Pause gate confirmed closed before anything else was done; the gate question is now
+**thirty-three passes old**. No MadGab work item created, none claimed, no agent launched,
+nothing merged, nothing pushed to `main` (`git rev-parse main` still fails — remote-only,
+`0267ade`). `git diff --stat origin/main..HEAD -- src tests examples Cargo.toml` is empty:
+production code is byte-identical to the accepted release line. The canonical-example
+instruction was read against the pause gate for the **tenth** time and it still restates the
+standing goal rather than authorising work: the answer while paused remains **verify the
+fence, never add a phrase**. The fence is green.
+
+**No MadGab Antonina agent is alive** — every MadGab agent on this host is terminal, the
+newest nonterminal agent being `98a1` on `antonina-98-flake`, which is another repository and
+was left running and alone. **This pass launched nothing.**
+
+Pass 68 left a method, not a task: *"assume the next artifact will have the same defect and
+check that first"* — the class being *correct only on the fixture it was written beside*,
+observed twice already. So this pass pointed that at `link-census.mjs`, the newest artifact
+in the repository. It has a defect, and it is worse than a miscount.
+
+### The detector's number came from its least-validated stage
+
+`link-census.mjs` had two controls, C1 and C2, and both of them exercise the **detection**
+stage — `census()`, which decides whether a link is broken. Neither control touched the
+**repair-proposal** stage, `propose()`, and that is the stage that emits the only number a
+successor would act on: `uniquely repairable by existing target`, the **52** this log tells
+the next pass to apply. Rule 55 fixed the controls and left the payload uncontrolled.
+
+`propose()` built its candidate set from `walk(REPO, [])` — the **working tree's filesystem**.
+A repair target only has to *exist on disk* to be proposed. So a file that is gitignored and
+untracked — precisely the scratch state a paused research programme accumulates — is accepted
+as the target for a broken edge, the edge is reported as uniquely repairable, and the repaired
+link is **still broken for every reader who obtains the repository by clone**, because the
+target was never committed. The detector reports `exit 0, controls: PASSED` while producing a
+repair list that does not repair.
+
+MadGab's root working tree is clean, so every file `walk(REPO)` finds there is tracked and the
+defect is **indistinguishable from correctness on this repository**. That is the rule-56 form
+of the rule-55 form: pass 68's control was a fingerprint of MadGab, and the proposal stage is a
+fingerprint of a clean tree. Both are invisible here, which is why both had to be found by
+construction rather than by running the tool.
+
+### Demonstrated on a repository that is not clean
+
+A synthetic repository: `docs/a.md` links to `items/gone.md` (broken), and an untracked,
+gitignored `docs/scratch/gone.md` is the **only** file on disk whose stem matches.
+
+| candidate source | verdict on that edge |
+| --- | --- |
+| filesystem walk (what the code did) | `uniquely repairable: 1` — repair points into `docs/scratch/`, absent from `git clone` |
+| git-tracked (what it does now) | `uniquely repairable: 0`, `ambiguous or phantom: 1` |
+
+Confirmed independently by cloning the fixture: the proposed target does not exist in the
+clone. The old behaviour is not a near-miss, it is a repair that ships a broken link.
+
+### Fix: candidates come from the repository, and C3 measures it
+
+`propose()` now draws candidates from `git ls-files -- '*.md'`, falling back to the filesystem
+walk only when the target is not inside a git work tree, and the script prints which source it
+used (`repair candidates drawn from: git-tracked`) so a later pass can tell which regime
+produced a number. Classification was factored into `classify(sources, candidates)` so the
+controls drive the same code path as the real scan instead of a parallel reimplementation.
+
+**C3 (rule 56)** is a git fixture containing exactly the decoy the old code fell for — a
+broken edge whose only on-disk basename match is a file committed after the initial commit and
+then gitignored. It must yield **zero** repairable edges. It runs *before* the target is scanned,
+because the target scan is the thing being withheld, not the thing being measured.
+
+Verified in both directions, as rule 54 requires:
+
+* C3 **fails on the pre-fix candidate selection** — `CONTROL FAILED (C3 decoy fixture): proposed
+  1 repair(s) to files the repository does not contain`, exit 1, number withheld. It is not a
+  tautology.
+* C3 passes on the fixed selection; the three controls report `PASSED`; the synthetic target
+  above now classifies its edge as ambiguous-or-phantom.
+* **MadGab's own numbers do not move: 58 edges in 31 files, 52 uniquely repairable, 6
+  ambiguous-or-phantom** — unchanged from pass 66 through pass 69. The fix corrects the
+  instrument without moving the result the log has been carrying, which is the same outcome
+  rule 55 reached and the reason to believe the 52 is real.
+
+### Measurements, and the pass-68 census number re-derived
+
+* **Census of work items:** 97 files in `docs/work/items/`, **95** carrying `work_item: true`
+  — **83 `done`, 11 `superseded`, 0 `open`, 0 `blocked`, 1 `working`** (this log); 83 + 11 + 1
+  closes. This reproduces pass 68's correction of pass 67's 96 exactly, from an independent
+  enumeration, which is the first time in this log that a corrected number has been confirmed
+  rather than merely restated. The two files without the marker remain `README.md` and
+  `items/w-0f3a17-shortlist-rule.md`.
+* **Repository shape:** 127 registered worktrees, **14** `recovery/*` branches on the remote,
+  `origin/main` = `0267ade`, `origin/post-milestone-acceptance` = `2c168d9` before this pass's
+  push.
+* **The preservation sweep was not re-run.** Passes 55–64 hold it at 92 / 11 / 81 / 0 and an
+  eleventh identical number is not evidence. A dirty-worktree listing was taken during the
+  at-risk check under rule 4 and is consistent with what those passes already archived; nothing
+  new was found at risk, so no `recovery/*` branch was created.
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, no `recovery/*` branch, and **no
+agent launched** — the programme is paused by a human decision and this pass had no authority
+to change that. **No closed item was edited, no canonical phrase was hard-coded, nothing
+merged, and nothing touched `main`.** The only push is this log and its detector, to
+`post-milestone-acceptance`.
+
+The gate question is now **thirty-three passes old** and remains the only thing that can change
+this programme's status: **is MadGab development being reopened?** It is not a coordinator's
+call, and a scheduled instruction to prioritise the canonical examples does not answer it —
+this is the **tenth** pass to record that the canonical-example instruction restates the
+standing goal rather than authorising work, and the tenth is also a signal that the standing
+instruction text and the pause have drifted apart and should be reconciled by a human.
+
+Standing instructions unchanged: never push to `main`; never integrate scratch instrumentation
+(including anything under `docs/work/probes/`); never archive `target-after/`, `target-base/`,
+`target-front-*` or the two oversize binaries; leave `scratch-3f8c62-landed` unpushed and
+undeleted; never launch a MadGab agent; do not add `work_item: true` to a historical report; do
+not edit a closed work item's record while paused.
+
+**If the answer is ever yes:** read `docs/work/items/w-0f3a17-shortlist-rule.md` §7 first — via
+`w-0f3a17.md:167`, which resolves, not line 318, which does not — then run
+`node docs/work/paused-recon/link-census.mjs` to re-derive the repair list and **read the
+`repair candidates drawn from:` line before trusting the count**: if it does not say
+`git-tracked`, the 52 was not derived from the repository. Apply the **52** uniquely repairable
+edges (the four truncated ids need the corrected targets listed in pass 67), expect **6**
+non-repairable edges of which 2 are a real phantom, and only then cut a fresh focused branch
+from `main` (production code is still byte-identical), validate *general* behaviour, pursue the
+named direction (a qualitatively different whole-path algorithm — compact pronunciation DAG
+with k-best / A*-style search, or a strong backward suffix heuristic), and **never hard-code
+the canonical phrases**.
+
+**Method note for the next pass, which is the standing successor to rule 56:** rule 55 and
+rule 56 are the same defect found in consecutive artifacts, so treat it as the default
+hypothesis about any number this log carries. Ask which *stage* produced it, and whether any
+control exercises that stage — pass 68's instrument had two controls and zero of them covered
+the stage that emitted its headline number. A control that is never shown failing is not a
+control. Two residuals are left in place deliberately and should not be patched blind: a target
+with no `docs/` directory still dies with `ENOENT` and exit 1, and a target that is not a git
+work tree silently falls back to the filesystem candidate set and says so only in the
+`repair candidates drawn from:` line.

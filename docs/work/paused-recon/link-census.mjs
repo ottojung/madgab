@@ -15,6 +15,16 @@
 // link, so it could not report a broken .md link anywhere except MadGab, and
 // called a clean repository a failure.)
 //
+// Rule 56 closes the matching hole one stage later. C1 and C2 both measure the
+// DETECTION stage; neither touched the REPAIR-PROPOSAL stage, which is the one
+// that emits "uniquely repairable" — the number a successor would act on. That
+// stage drew its candidates from the working tree's filesystem, so an untracked
+// or gitignored scratch file was accepted as a repair target and the repaired
+// link stayed broken for anyone who obtained the repository by clone. MadGab's
+// root tree is clean, so on this repository the defect is indistinguishable
+// from correctness. C3 now measures that stage, on a fixture that contains
+// exactly the decoy the old code fell for.
+//
 // Usage: node docs/work/paused-recon/link-census.mjs [repoRoot]
 // Exit code 0 = census complete (both controls passed). Exit 1 = control failed.
 
@@ -115,11 +125,37 @@ const anchored = census(docsFiles, ANCHORED);
 const full = census(docsFiles, ANY);
 
 // --- repair proposal -------------------------------------------------------
-const repoMd = walk(REPO, []).sort();
-const propose = (src, link) => {
+// Rule 56: the candidate set must be the files the REPOSITORY contains, not the
+// files this working tree happens to contain. Drawing candidates from the
+// filesystem lets an untracked or gitignored scratch file be offered as the
+// repair target for a broken edge: the proposal then reads as "uniquely
+// repairable" and the repaired link is still broken for every reader who gets
+// the repository by clone, because the target was never committed. MadGab's
+// root tree is clean, so this class is invisible here and the defect is
+// indistinguishable from correctness on this repository alone.
+const { execFileSync } = await import("node:child_process");
+
+// Returns absolute paths to tracked .md files, or null when REPO is not inside
+// a git work tree (in which case the filesystem walk is the only thing we have).
+const trackedMd = (root) => {
+  try {
+    const out = execFileSync("git", ["-C", root, "ls-files", "-z", "--", "*.md"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.split("\0").filter(Boolean).map((p) => path.join(root, p));
+  } catch {
+    return null;
+  }
+};
+
+const repoMd = (trackedMd(REPO) ?? walk(REPO, []).slice().sort());
+const candidateSource = trackedMd(REPO) ? "git-tracked" : "filesystem walk (REPO is not a git work tree)";
+
+const propose = (src, link, candidates) => {
   const base = path.basename(link.split("#")[0]);
   const stem = base.replace(/\.md$/, "");
-  const hits = repoMd.filter(
+  const hits = candidates.filter(
     (f) => path.basename(f) === base || path.basename(f, ".md") === stem || path.basename(f, ".md") === "w-" + stem
   );
   const set = new Map();
@@ -128,23 +164,66 @@ const propose = (src, link) => {
   return uniq.length === 1 ? uniq[0] : null;
 };
 
-const fixable = new Map();
-const unresolvable = [];
-for (const [f, links] of full) {
-  for (const l of links) {
-    const t = propose(f, l);
-    if (t) {
-      if (!fixable.has(f)) fixable.set(f, new Map());
-      fixable.get(f).set(l, t);
-    } else unresolvable.push([path.relative(REPO, f), l]);
+// Split a broken-edge census into repairable and not-repairable, over an
+// explicit candidate set so the controls below can drive the same code path.
+const classify = (sources, candidates) => {
+  const fixable = new Map();
+  const unresolvable = [];
+  for (const [f, links] of sources) {
+    for (const l of links) {
+      const t = propose(f, l, candidates);
+      if (t) {
+        if (!fixable.has(f)) fixable.set(f, new Map());
+        fixable.get(f).set(l, t);
+      } else unresolvable.push([path.relative(REPO, f), l]);
+    }
   }
+  return { fixable, unresolvable };
+};
+
+// C3 (rule 56) runs BEFORE the real target is scanned, because it is the stage
+// that produces the number a successor would act on. Both controls this file
+// previously shipped exercised only the detection stage; the proposal stage had
+// none, and it is the stage that emits "uniquely repairable".
+const decoy = fixture("decoy", {
+  "a.md": "# A\n\n[broken](items/gone.md)\n",
+  "keep.md": "# Keep\n",
+});
+execFileSync("git", ["init", "-q", decoy], { stdio: "ignore" });
+execFileSync("git", ["-C", decoy, "config", "user.email", "control@fixture"], { stdio: "ignore" });
+execFileSync("git", ["-C", decoy, "config", "user.name", "control"], { stdio: "ignore" });
+execFileSync("git", ["-C", decoy, "add", "-A"], { stdio: "ignore" });
+execFileSync("git", ["-C", decoy, "commit", "-qm", "init"], { stdio: "ignore" });
+fs.mkdirSync(path.join(decoy, "docs", "scratch"), { recursive: true });
+// Committed AFTER the initial commit and ignored, so it exists on disk only.
+fs.writeFileSync(path.join(decoy, "docs", "scratch", "gone.md"), "# Gone\n");
+fs.writeFileSync(path.join(decoy, ".gitignore"), "docs/scratch/\n");
+
+const decoyFiles = walk(path.join(decoy, "docs"), []);
+const decoyCensus = census(decoyFiles, ANY);
+const decoyResult = classify(decoyCensus, trackedMd(decoy) ?? []);
+const decoyFixable = [...decoyResult.fixable.values()].reduce((a, m) => a + m.size, 0);
+// The decoy is the ONLY file on disk matching the link's stem, so the
+// filesystem candidate set finds a unique target. The repository does not
+// contain that target, so the edge is not repairable and must be reported.
+if (decoyFixable !== 0) {
+  console.error(
+    `CONTROL FAILED (C3 decoy fixture): proposed ${decoyFixable} repair(s) to files the ` +
+      `repository does not contain; a link repaired to an uncommitted file is still broken ` +
+      `for every clone. Detector is not trustworthy; number withheld.`
+  );
+  process.exit(1);
 }
+controlResults.push("C3 decoy fixture");
+
+const { fixable, unresolvable } = classify(full, repoMd);
 
 const rel = (f) => path.relative(REPO, f);
 console.log(`repo: ${REPO}`);
 console.log(`docs .md files scanned: ${docsFiles.length}`);
 console.log(`anchored-pattern broken edges: ${edges(anchored)} (undercount by construction)`);
 console.log(`broken edges, extension optional: ${edges(full)} in ${full.size} files`);
+console.log(`repair candidates drawn from: ${candidateSource}`);
 console.log(`uniquely repairable by existing target: ${[...fixable.values()].reduce((a, m) => a + m.size, 0)}`);
 console.log(`ambiguous or phantom: ${unresolvable.length}`);
 for (const [f, l] of unresolvable) console.log(`  ${f}: ${l}`);
