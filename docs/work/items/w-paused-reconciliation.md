@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4e7b
-updated: 2026-09-28T12:07:00Z
+owner: coord-7b31
+updated: 2026-09-28T12:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4893,3 +4893,89 @@ pass left open.
     qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
     A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
     hard-coding of the canonical phrases.
+
+### `coord-7b31` — fifty-second pass, 2026-09-28T12:07Z–12:14Z
+
+**The gate is unchanged and still only a human can answer it. This pass created no work item,
+claimed none, launched no agent, resumed no front, and did not touch `main` (`0267ade`) or any
+front branch. Its one new fact is the shortest statement of why no coordination action is
+available: the accumulation branch and the release line are byte-identical everywhere outside
+`docs/`, so there is no code anywhere on this repository that is waiting to be integrated,
+reviewed or split — the work queue's emptiness is not an administrative artefact, it is the
+literal content of the branch.**
+
+  * **(a) The new fact: `origin/post-milestone-acceptance` contains no code that
+    `origin/main` does not.** `git diff origin/main origin/post-milestone-acceptance` over
+    `src/ tests/ web/ examples/ Cargo.toml Cargo.lock` is **0 lines** — not "no
+    production-relevant hunks", *zero lines of output at all*, verified twice (once as
+    `--name-only` filtered, once as `--numstat` filtered, each returning 0). The full
+    tree diff is **12 files, 4947 insertions, 14 deletions, all under `docs/`**, and the
+    per-blob check agrees independently: `src/lib.rs`, `Cargo.toml`,
+    `tests/no_phrase_hard_coding.rs` and `README.md` resolve to the **same blob sha** on
+    both sides (`6c1029025ed1`, `6746bbba5a7e`, `75f008d55ef1`, `e84b5f27e066`). The two
+    *tree* shas differ (`a01b7433…` vs `e1a466fc…`) precisely because of those 12 doc
+    files, which is why the tree-sha comparison alone would have looked like a divergence
+    and the blob comparison is the one that settles it. **This closes the recurring
+    prompt's "never merge or push scheduled work directly to `main`" clause by
+    measurement rather than by assertion**: there is nothing on this branch that *could*
+    be merged to `main` except this log, so the instruction is satisfied and the
+    instruction is also moot. The general form, and it is the dual of rules 23–25: those
+    asked whether the *accepted documents* still describe the built program, and this asks
+    whether the *accumulation branch* still contains anything the program is not already
+    released with. Both are questions about the gap between a record and reality, and a
+    reconciliation log that only ever asks the first will happily report a clean queue
+    while code sits unreviewed on a branch — here the answer is that none does, and it
+    took a byte comparison rather than a census to establish it.
+  * **(b) The phrase-hard-coding fence is green, run rather than assumed.** The prompt's
+    "prioritize the canonical approximate-search examples without phrase-specific
+    hard-coding" has exactly one checkable half, and it was run this pass: the prebuilt
+    `target/release/deps/no_phrase_hard_coding-5cce163437db32d3` reports
+    **9 passed, 0 failed, 0 ignored**, including
+    `no_phrase_specific_hard_coding_in_src_web_or_examples` and
+    `no_canonical_example_in_a_production_doc_comment`. Per rule 29 the binary was bound to
+    the tree before its result was believed: `src/lib.rs` and
+    `tests/no_phrase_hard_coding.rs` are `05:19:07Z` and the binary is `08:05:35Z`, so
+    the binary is the compilation of the current sources. The worktree is clean
+    (`git status --porcelain` empty before this entry), so no phrase literal can be
+    hiding in an uncommitted edit. **This is also why (a) and (b) are the same fact from
+    two directions**: the accepted production code is unchanged from the released line and
+    is free of phrase-specific literals, which is precisely the state
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) claims. The
+    *other* half of the prompt clause — that the canonical examples be made to work — is
+    the forbidden half without an explicit human reopen, and it remains undone by design.
+  * **(c) At-risk population: unchanged at 92, and the control still fires.** Rule 10's
+    check, stateless `^`-prefix spelling, exclusion set named (the 188 remote tips from
+    `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`), returns **92** for the third
+    consecutive pass; the unexcluded baseline (`rev-list --all --reflog`) is **1019** and
+    the two differ, so the exclusion is doing something. The 188/188 fetch agreement was
+    re-verified with prefix-stripped sorted `comm` in both directions (**0** differences),
+    and the `refs/remotes/audit/*` namespace was deleted afterwards, per rule 30. The
+    baseline moved 993 → 1019 across the intervening log commits, which is expected and is
+    exactly the signal that would have exposed a stale control.
+  * **(d) Agents: no MadGab agent alive, none claimable, nothing to leave running.**
+    `antonina agent list` filtered to MadGab worktrees returns **only terminal entries**;
+    the two paused fronts `3a8f01`/`3a8f02` remain `stopped` at 8h21m, deliberately left
+    that way by the pause. The six nonterminal agents host-wide (`71c1`, `98a1`, `94b2`,
+    `92d1`, `76a1`, plus the long-idle `a11d`) all have working directories outside
+    `/workspace/madgab*` and belong to other projects; per the contract they were left
+    running. No `failed` MadGab agent is recent enough to be a recoverable front — the
+    newest is `8f0b3d1` at 11h44m, whose work is already integrated on
+    `madgab-cli-recheck-8f0b3d` and reported in `REPORT-8f0b3d.md`.
+  * **(e) Nothing is unpushed.** `post-milestone-acceptance` is level with
+    `origin/post-milestone-acceptance` at `f31515a` before this entry; `git ls-remote`
+    shows `main` at `0267ade`, matching the local view. No local `main` ref exists
+    (remote-only), so there is no way for this pass to have pushed to it.
+  * **Next useful action.** (i) The gate question is now **sixteen** passes old and is the
+    only question left: *is MadGab development being reopened?* (ii) The three censuses
+    this pass touched — at-risk (c), code-pending-integration (a) and the hard-coding
+    fence (b) — are all **closed by measurement**, and a further pass should not re-run any
+    of them for a new result. The honest report for any future pass is unchanged and is
+    now stated three ways: **no at-risk state to recover, no work item to claim, and no
+    code on any branch waiting to be integrated.** (iii) `target-after/` and `target-base/`
+    still need no action and must never be archived. (iv) If the gate answer is ever yes,
+    the order is unchanged: rule 29's binding check before any timing is quoted,
+    `coord-1c8e`'s three measurement corrections, **cut the branch from `main`** — which
+    (a) confirms is a byte-identical starting point for production code — and the named
+    direction, a qualitatively different whole-path algorithm (compact pronunciation DAG
+    with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+    phrase-specific hard-coding of the canonical phrases.
