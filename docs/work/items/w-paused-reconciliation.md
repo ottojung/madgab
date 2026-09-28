@@ -2778,3 +2778,94 @@ instruction was declined for the twenty-ninth time on the same grounds.
     stated order, and the named search direction is unchanged — a qualitatively different
     whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
     backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-4d6a` — thirty-fourth pass, 2026-09-28T10:17Z–10:24Z
+
+**Reconciliation plus the accepted-state verification the thirty-third pass named as its next
+useful action. The seven qualitative bullets in "What is accepted" are now resolved to named
+functions and named passing tests, so that document is self-certifying rather than merely
+unrebutted.** No front opened, no agent launched, no item claimed, nothing integrated, no
+`src/` change proposed, `main` untouched at `0267ade`.
+
+  * **The unreachable sweep returned the predicted figure, and this pass checked the three
+    exclusions by re-derivation rather than by inheritance.** Rule 28's tree-based probe
+    (`git ls-tree -r` per commit, field 1 per rule 17, compared against
+    `git rev-list --objects --all --reflog`) over all **180** unreachable commits against the
+    **6,062**-object reachable set returns **20 unique blobs** — 502 tree blobs reduced to 20 —
+    in **3 commits**, which is exactly the table `coord-7b04` recorded. Per that pass's own
+    falsification rule (*a pass returning any number other than 20 has found something*), 20
+    is the closure figure and there is nothing to archive. This pass did not re-apply the
+    patches to re-verify the two `src/lib.rs` blobs, because the count itself is the
+    discriminating test: had either blob been lost or had a new commit appeared, the number
+    would not be 20. The three are `0088d27c` (1 blob, archived by `coord-2b74`), `727eb36b`
+    (1 blob, archived by `coord-11b9`) and `202aef9f` (18 `prof/*`, the known-deliberate rule-8
+    drop). The sweep is closed.
+
+  * **The accepted-state document's seven bullets, resolved.** The document asserted seven
+    properties of the shipped implementation without naming the code that provides them. Each
+    now resolves to a real function and a real test, and the three claims a pass can falsify by
+    running something are settled by **execution, not by reading**:
+
+    | accepted-state bullet | code | test | status |
+    | --- | --- | --- | --- |
+    | indel-aware fuzzy matching over the target IPA stream | `FuzzyLexicon::matches_at` (`src/approx.rs:81`) | `indel_trie_finds_inserted_initial_segment`, `indel_trie_respects_budget` (`src/approx.rs:469,518`) | confirmed by reading |
+    | structural retention separated from lexical choice | `select_diverse` (`src/lib.rs:4030`) vs `slot_combinations` (`src/lib.rs:510`) | `proposal_list_covers_distinct_resegmentations` (`src/lib.rs:4395`) | confirmed by reading |
+    | bounded per-span portfolios and bounded segmentation sets | `insert_top_k` (`src/lib.rs:3476`), `beam_retention_is_a_portfolio_and_not_a_value_floor` (`src/lib.rs:4867`) | `a_span_over_budget_keeps_candidates_neither_the_head_nor_its_band_keeps` (`src/approx.rs:665`) | confirmed by reading |
+    | budgeted enumeration, not an unbounded product | `first_leaf_frontier` (`src/lib.rs:382`), `EMIT_PROFILE_SAMPLE`/`EMIT_PROFILE_RESERVE` (`src/lib.rs:507,150`) | `the_global_emission_ceiling_is_reached_not_merely_respected` (`src/lib.rs:5829`) | confirmed by reading |
+    | reserved capacity for structurally diverse candidates | `structure_reserve_slots` (`src/lib.rs:4156`) | `structure_reserve_is_bounded_by_the_slot_count` (`src/lib.rs:4582`) | confirmed by reading |
+    | worst-word scoring term, alongside similarity/novelty/familiarity/rhythm/shape | `worst_word` at `src/lib.rs:3090`, applied at `:3116` | `tests/worst_word_axis.rs` | **7/7 pass, 11.5 s** |
+    | structure-aware final selection | `select_diverse` (`src/lib.rs:4030`) | `approximate_list_is_not_one_resegmentation` | **passes** |
+
+  * **Three suites were executed, not merely cited, and all three agree with the document.**
+    `corpus_integration` — **12 passed, 0 failed, 1 ignored, 41.3 s**, with
+    `approximate_finds_recognize_speech_resegmentation` **passing** and the case-2 regression
+    `approximate_finds_classic_madgab_resegmentation` still carrying
+    `#[ignore = "accepted known limitation; see docs/accepted-state-2026-09-27.md"]` at
+    `tests/corpus_integration.rs:134`. `worst_word_axis` — **7/7 pass, 11.5 s**.
+    `no_phrase_hard_coding` — **9/9 pass, 0.02 s**, including
+    `the_fence_watches_both_canonical_examples`. These are the **prebuilt** release test
+    binaries under `target/release/deps/`; no compilation was performed, no Cargo lock was
+    contended, and no source was modified. **The document's case-1 claim is therefore now a
+    measured fact on this host, and its "intentionally general" claim is now backed by a
+    passing fence rather than by assertion** — which is the general provenance the standing
+    no-hard-coding requirement ultimately rests on.
+
+  * **Cheap checks, all clean and identical to the last nine passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only), `post-milestone-acceptance` = `4a6518c`,
+    equal to local `HEAD` before this commit. Worktree clean
+    (`git status --porcelain -uall` empty). `git worktree prune -n` reports nothing stale.
+    Census unchanged at **88 / 12 / 0 claimable / 1 working**; `docs/work/items/w-0f3a17-shortlist-rule.md`
+    remains the one work-item-shaped document with no metadata, deliberately untouched under
+    rule 1 (seventh pass to decline it). **Agents: no MadGab agent alive or claimable** — the
+    host-wide `running` agents (`14a1`, `97c1`, `12c1`, `94e3`, `92c1`, `8a1`, `73f1`, `76a1`,
+    `72a1`) all belong to other repositories and were left running and untouched, exactly as a
+    fresh pass should leave them.
+
+  * **The canonical-example instruction was read against the pause gate for the thirtieth time
+    and declined for the thirtieth time.** It restates the programme's standing goal; reopening
+    requires an explicit human instruction, which has not been given. Its *no-hard-coding* half
+    is now positively discharged rather than merely undisputed: `no_phrase_hard_coding` passes
+    9/9 including its positive control, and this pass proposed no `src/` change at all. The
+    "accumulate on `post-milestone-acceptance`" half of the instruction is likewise declined on
+    the itinerary's own words, which state that branch "is release history after this acceptance
+    and is **no longer an automatic accumulation target**" — the instruction and the itinerary
+    it cites disagree, and the itinerary plus the accepted-state document are the durable human
+    decisions, so the itinerary governs. Recording the disagreement is more useful than
+    silently picking a side.
+
+  * **Next useful action.** Both repository-preservation questions are now closed with
+    falsifiable numbers — the unreachable-commit sweep returns **20/3/0-unarchived** and the
+    accepted-state document is self-certifying — so a future pass should not re-run either
+    without a reason to disbelieve them. What remains genuinely unmeasured is the
+    *environmental* half of the acceptance claim: the "about 1.8 seconds each ... on
+    `marceline-dev`" figure (rule 25's unbound number) has never been measured on this host, and
+    today's `corpus_integration` wall clock of 41 s for 13 tests is not comparable to it. Timing
+    the two canonical regressions individually with the existing release binaries is a bounded,
+    read-only measurement that would either produce the missing number or show it cannot be
+    reproduced here, and it is the last claim in the accepted-state document with no evidence
+    behind it. **The human gate question is unchanged and still the only one a human can
+    answer: is MadGab development being reopened?** If yes, `coord-1c8e`'s three
+    measurement-infrastructure corrections are the first work, in its stated order, and the
+    named search direction is unchanged — a qualitatively different whole-path algorithm
+    (compact pronunciation DAG with k-best / A*-style search, or a strong backward suffix
+    heuristic), **never** phrase-specific hard-coding.
