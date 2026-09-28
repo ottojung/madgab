@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a17 (pass 104; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:09:00Z
+owner: coord-6f2b (pass 105; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T18:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,16 +20,16 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 104 (2026-09-28T18:09Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 105 (2026-09-28T18:12Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 104`.
+last section of this file; search for `## Pass 105`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **104** (template has fired 13 times since pass 92) |
-| At-risk non-build content | **0**, re-measured by execution with controls that fire (pass 104: 300 unfiltered → 1, the log's own older version) |
+| Passes that reached this same answer | **105** (template has fired 14 times since pass 92) |
+| At-risk non-build content | **0** as of pass 104; pass 105 **did not confirm or refute** the blob-level figure (see its §2) and cut no `recovery/*` branch |
 | MadGab Antonina agents alive | **0** |
 | Production fence vs `origin/main` | **0 lines** — no hard-coded canonical phrases (and **0** in `src/` outside `#[cfg(test)]`, rule 69; the 31 test-side uses are correct) |
 
@@ -10957,3 +10957,95 @@ work in it. The durable half remains closed by execution.
    and already recovered; build the durable blob set from the remote refs **alone and positively**;
    and filter `target/` and `target-*/` by path component with a control that must disagree. Do **not**
    re-walk the closed classes listed in pass 102's rule 68.
+
+## Pass 105 — 2026-09-28 18:07Z → 18:12Z — coord-6f2b — the commit-level sweep reproduces exactly, and rule 37's empty-set trap fires again on a ref list that was non-empty thirty seconds earlier
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, fourteenth pass running, on the ground recorded since
+pass 92 and restated by rule 19: the itinerary's `## Status: accepted and paused` forbids a scheduled
+orchestrator from creating MadGab work, claiming historical items, launching agents or resuming fronts
+without an explicit human reopening, and calls `post-milestone-acceptance` release history that is
+"no longer an automatic accumulation target". "Prioritize the canonical approximate-search examples
+without phrase-specific hard-coding" is the reopening request itself; discharging it *without*
+hard-coding is not a middle path, it is the resumed front the itinerary names.
+
+### 1. Standing facts, all five verified
+
+| fact | measurement |
+|---|---|
+| `post-milestone-acceptance` | `b577105`, in sync with `origin`, **0** dirty paths |
+| `origin/main` | `0267ade`, unchanged; **no local `main` ref exists** — `main` read-only, nothing pushed to it |
+| MadGab Antonina agents alive | **0** — 131 agents have a `/workspace/madgab*` cwd, the 2 non-`succeeded`/`failed` ones (`3a8f01`, `3a8f02`) are `stopped`, i.e. terminal, 14h old |
+| Production fence vs `origin/main` | **0** lines over `src tests web examples Cargo.toml` |
+| At-risk commits (rule 10/14/39) | exclusion set **199** refs; baseline `rev-list --all --reflog` **1,101**; at-risk **91** by both sanctioned spellings, `comm -3` between them **0** lines, and **91 ≠ 1,101** so the exclusions did not cancel |
+
+### 2. What this pass did *not* establish, recorded because the next pass will want it
+
+The commit-level figures reproduce pass 104 exactly (91 at-risk, same exclusion-set size, same
+ref-cross-check). The **blob-level** figure does not, and this pass declines to report a number
+rather than publish one it cannot reconcile:
+
+* Pass 104 recorded "300 unfiltered → 1, the log's own older version". This pass measured the
+  same probe as **649 unfiltered → 245 non-build**, of which **224 are held only by a reflog**.
+* Two candidate explanations, **neither tested within this pass's budget**: (a) the durable set here
+  is 6,302 blobs over 199 remote refs against pass 104's 6,296, and the populations differ
+  (`--objects` on a *negative* spec is a different traversal than on a positive one — rule 35), so
+  the two runs are not the same question; (b) a raw blob-identity test **cannot** see archived
+  content at all, because the recovery archives re-encode each file as a new blob under a new path
+  (`docs/work/reflog-held/files/<sha>--<name>`), so a content-hash membership test reports them all
+  as absent by construction. That is rule 6/7's standing point, and it means the 245 is **not**
+  evidence of a gap in either direction.
+* The check that *would* settle it — rule 6/7's, verify archived content by **basename and content
+  against the live worktree and against the recovery branches** — is the closed class pass 102's
+  rule 68 forbids re-walking, and it is in any case not actionable while paused. **No recovery branch
+  was cut and no new risk is claimed.**
+* **A self-correction.** The path-extraction half of this check was itself wrong and is recorded so
+  the next pass does not inherit it: `git log --format=%H --name-only` prints the `%H` line into the
+  stream, so filtering for the `commit ` prefix left **every commit sha in the file**, and the
+  probe dutifully reported "1,112 uncovered paths" that were mostly 40-hex shas. This is rules 9, 14,
+  17 and 22 a seventh time — *a check that cannot fail, returning a confident wrong number* — and it
+  was caught only because the output was obviously not paths. A `--name-only` extraction must filter
+  the `^<40-hex>$` lines too, not just the header lines.
+
+### 3. Rule 37 recurred, in a new spelling: the ref list was non-empty and the pipeline still produced nothing
+
+Rule 37 records a ref namespace that fails to expand and is treated as an *empty set* rather than an
+error. This pass hit the same failure through a different door: a cell that began
+`REFS=$(git for-each-ref …)` produced an **empty** `$REFS` for its two consumers, so
+`git rev-list --objects $REFS` wrote **0** lines (a durable set of zero) and
+`git rev-list --objects --all --reflog --not $REFS` silently degraded to an **unexcluded** traversal
+returning 6,951 rows. The tell was rule 35's arithmetic guard: the "durable" set had come out
+**smaller than the at-risk set it was being differenced against**, which is structurally impossible,
+and 6,296 vs 6,951 is not a plausible delta. The identical command re-run with a freshly assigned
+`REFS` returned **6,302** and **797**, and the same 199 refs, with no other change. **The durable
+figure had to be thrown away and re-measured; the 6,951 was never a measurement of anything.**
+The generalisation, and it is the ninth instance of this log's one recurring failure mode: *a shell
+variable carrying a list, silently empty in one expansion and populated in the next, propagates as a
+plausible number rather than an error.* A pass that assigns a ref list should print its **count in
+the same breath as the figure it feeds**, exactly as rule 10 already requires for the fetched ref
+count, and should recompute the list in the same command that consumes it rather than trusting a
+value carried across tool calls.
+
+### 4. This log stays `blocked`
+
+Unchanged from passes 94–104. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Fourteen passes have now reached this result.
+2. **Close this item by human decision, not by a hundred-and-sixth pass.** Confirming the pause
+   means `done`; reopening means a fresh branch from `main` and pass 78's direction (compact
+   pronunciation DAG with k-best/A*-style whole-path search), with the canonical cases validated
+   **generically** — the 31 test-side occurrences are the target, not the obstacle.
+3. **The scheduler template is the thing to fix.** It has fired **fourteen** times with two clauses
+   that contradict the itinerary it points at (rule 19). Fixing the template, or retiring this item
+   so it stops being selected, is worth more than another declining pass.
+4. If the sweep is re-run: fetch into `refs/remotes/audit/*` and `refs/remotes/audit-tag/*` and
+   state **199** beside every figure; compare against the **1,101** baseline before believing an
+   at-risk count; cross-check the two exclusion spellings with `comm -3`; **assign `$REFS` and use it
+   in the same command** (rule 37/§3 above); and do **not** report a blob-level "absent" count as a
+   risk without rule 6/7's name-and-hash verification against the recovery branches, because the
+   archives re-encode content and raw blob identity cannot see them at all.
