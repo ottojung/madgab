@@ -1,5 +1,9 @@
 ---
-work_item: true
+# This file is a TEMPLATE, not a work item. `work_item: false` is deliberate: discovery
+# is by the literal `work_item: true` marker (skills/work-items.md), so a template left
+# at `true` is discoverable as an open, unowned, claimable item. Corrected by coord-1e07.
+# When you copy this header into a real item, change this line back to `work_item: true`.
+work_item: false
 id: w-000000
 state: open
 priority: normal

@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-6f4a
-updated: 2026-09-28T11:46:00Z
+owner: coord-1e07
+updated: 2026-09-28T11:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4477,3 +4477,107 @@ front was touched, and `main` is untouched at `0267ade`.**
     direction — a qualitatively different whole-path algorithm (compact pronunciation DAG with
     k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
     hard-coding.
+
+### `coord-1e07` — forty-eighth pass, 2026-09-28T11:41Z–11:53Z
+
+**The forty-seventh pass's next action (iii) is answered — yes, there was one more
+population defect, and unlike that pass's measured-zero `produced` repair this one has a
+**non-zero** blast radius: the repository's own `TEMPLATE.md` was discoverable as an open,
+unowned, claimable work item. It is now repaired. No agent, item, branch or front was
+touched, and `main` is untouched at `0267ade`.**
+
+  * **(a) The gate is still closed, read for the **twelfth** time.** The recurring prompt again
+    asks to "recover or assign work, split independent fronts, launch or prompt Antonina
+    agents" and to "prioritize the canonical approximate-search examples", which is precisely
+    the set of actions [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+    (`## Status: accepted and paused`) forbids absent an explicit human instruction, which has
+    not been given. Nothing was launched, claimed, resumed or integrated, and no superseded
+    item was touched. The prompt's *no-hard-coding* half is discharged on the merits: no
+    canonical phrase appears in this entry — every artefact is named by path, header key or
+    sha. The prompt's accumulation clause is satisfied: nothing merged, nothing pushed to
+    `main`, and the only branch written is this log's own home per rule 19.
+  * **(b) The prescribed cheap checks all reproduce.** `git fetch origin
+    '+refs/heads/*:refs/remotes/audit/*'` → **188** remote heads, **188** audit refs, and
+    prefix-stripped sorted names `comm -3` **empty in both directions (0)**. Rule 10 via rule
+    30's stateless `^` spelling: **11** at-risk commits, the same constant, in the same three
+    ref classes rule 11 names — 3 on local `refs/heads/scratch/*`, 2 in `refs/stash`, 1 on
+    `refs/heads/scratch/0f3a17-shortlist-probe`, and 4 (3f098bc, b7b22b7, 880d7bc, 8b1a61f)
+    held **only** by stale local `refs/remotes/origin/*` names, which rule 11 correctly treats
+    as unproven until `ls-remote` agrees. `git status --porcelain -uall` was **0** before this
+    pass's edits. `git ls-remote origin main` = `0267ade` and there is still **no local
+    `main` ref**, so `main` remains uncreatable by accident. `antonina agent list` shows **no
+    MadGab agent alive or claimable** — every `madgab-*` entry is terminal, and the two paused
+    fronts `3a8f01`/`3a8f02` remain deliberately stopped. `refs/remotes/audit/*` is left
+    fetched at 188/188.
+  * **(c) The finding: a phantom claimable item, which is a real risk of de-facto reopening.**
+    Rule 34's named population is `grep -rl '^work_item: true$' docs/`, and it returned
+    **102**. Ten of those files are outside `docs/work/items/`, and one of them is the
+    **template**. `docs/work/TEMPLATE.md` carried a complete, valid-looking header —
+    `work_item: true`, `id: w-000000`, `state: open`, `owner: null` — so it satisfied
+    `scheduled.md`'s discovery rule 1 (*"an open explicit work item"*) better than any real
+    item in the repository does. A fresh coordinator pass running the documented discovery
+    order would have claimed the template as its very first act, and under the standing rules
+    that claim is exactly the de-facto reopening of MadGab work that this programme exists to
+    prevent. This is the first non-zero-blast-radius protocol defect found in this family;
+    the forty-seventh pass's `produced` repair measured zero only because those five files
+    were back-references, outside the population.
+    * **Blast radius, measured before repair, not after.** A discovery simulation over the
+      population — *`work_item: true`* and *`state: open`* — returned exactly one candidate,
+      `docs/work/TEMPLATE.md` with `owner: null`, i.e. claimable by the next pass.
+    * **The repair, read off the authoritative document per rule 12.** `work-items.md` makes
+      `work_item: true` the discovery marker and makes a work item a *committed task* file;
+      a template is neither, so the correct value is `false`, not a state change. Changing
+      `state` to `done` — the shape of the previous repair — would have been wrong: it would
+      have left a non-item inside the discovery population. `work_item: true` →
+      `work_item: false`, with an inline comment naming the protocol, the reason, and the
+      instruction to flip it back when copying the header into a real item.
+    * **Verified after repair, not asserted:** population **102 → 101**, and the discovery
+      simulation returns **no candidate at all**. `docs/` is the only tree touched; `src/`,
+      `tests/`, `web/`, `examples/` and `Cargo.toml` are byte-identical. No work item was
+      created, claimed, reopened or completed, so no completion claim was manufactured.
+  * **(d) The ten back-references are all clean, which closes the previous pass's family.**
+    All ten files that use `work_item: w-<id>` as a *back-reference* (OBSTRUCTION-MAP plus
+    nine `REPORT-*.md`) now carry `state: done`. The five the forty-seventh pass edited are
+    the only five that ever carried `state: produced`; the other five — `w-4d1e93`,
+    `w-7c9d21`, `w-1a4e8d`, `w-3c5b18`, `w-2b6a19` — were already `done` and were not
+    misreported. So that pass's repair was **complete**, and there is no second `state`
+    violation. `state` across the whole population is now **87 done, 12 superseded, 1
+    working, 0 open, 0 blocked** — entirely inside the protocol's five-word vocabulary.
+  * **(e) One field is *not* a violation, and calling it one would repeat a known error
+    class.** `priority` takes values `high` (73), `normal` (26) and `low` (1), while
+    `work-items.md` shows only `priority: normal` and **never enumerates a priority
+    vocabulary**. An unenumerated field is not an out-of-vocabulary value; reporting it as a
+    defect would be the same mistake as rules 9, 10 and 38 — a check stricter than the thing
+    it measures, returning a confident number. Recorded here as an observation only, and
+    explicitly **not** repaired. Six work items are also marked `work_item: true` outside the
+    sanctioned `docs/work/items/` location; five of them are report/continuation documents
+    that `scheduled.md` expressly permits to *be* work items, so only the location is noted.
+  * **(f) My own error this pass, in the fence-blindness family, and it changed a number.** My
+    first key census reported **101** `work_item` headers where a plain `grep` reported
+    **102**. The cause is that `docs/skills/work-items.md` — the protocol document — contains
+    a full example header **inside a ```yaml fence**, and my `---`-delimited header parser
+    skipped it, while the fence-blind `grep` counted it. The discrepancy is the finding, not
+    a nuisance: a coordinator that discovers by the documented `grep` method will always also
+    match the protocol document's own example, which shows a perfectly well-formed
+    `state: open` / `owner: null` header. Its blast radius is lower than the template's (it is
+    a document, not a file under `docs/work/items/`), and I did **not** repair it: editing
+    the protocol document to suit a discovery script is a human-governed decision, and
+    falsifying its example would be worse than the defect. The general fix is a
+    **fence-aware discovery rule** — treat only `---`-delimited headers outside fenced blocks
+    as items — and that belongs in `work-items.md` only if a human asks for it.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can
+    answer it: *is MadGab development being reopened?* It is now twelve passes old, and both
+    cheap durable defects rule 34's population line had left are now repaired. (ii)
+    `target-base/` residue and the two deliberately stopped fronts need no action. (iii) Rules
+    23–25's `#[ignore]` surface, the rule 10/30 count family and the metadata-vocabulary
+    family are all now **closed by measurement**: a future pass should not re-force these
+    predicates, re-run the count cross-check, or re-census header values. The one untried
+    question left in this spirit is a *population-shape* check rather than a vocabulary one:
+    whether the four `REPORT-*.md` files that carry the full `work_item: true` marker have
+    their canonical twin in `docs/work/items/`, or whether any report is a *second* item with
+    the same id — duplicate ids would break the "one Markdown file per task" rule in a way no
+    vocabulary census can see. (iv) If the gate answer is ever yes, the order is unchanged:
+    rule 29's binding check before any timing is quoted, `coord-1c8e`'s three measurement
+    corrections, **cut the branch from `main`**, and the named direction — a qualitatively
+    different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search,
+    or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
