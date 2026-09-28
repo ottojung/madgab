@@ -1,10 +1,10 @@
 ---
 work_item: true
 id: w-d4e2b0
-state: working
+state: done
 priority: normal
-owner: front agent-d4e2b0 (claimed and launched 2026-09-28T01:53Z by pass coord-3f18)
-updated: 2026-09-28T01:53:00Z
+owner: front agent-d4e2b0 (claimed 2026-09-28T01:53Z by pass coord-3f18; work complete and pushed 2026-09-28T02:2xZ)
+updated: 2026-09-28T02:29:00Z
 branch: madgab-poolrank-d4e2b0
 worktree: /workspace/madgab-poolrank-d4e2b0
 ---
@@ -77,3 +77,106 @@ is the only warm tree and must stay warm for later fence runs), and run tests wi
 `-- --test-threads=1` — the 13-test `corpus_integration` run at default threads was SIGKILLed by
 host memory pressure in the 01:36Z pass (49 of 62 GB used, 11 available), so the serial run is the
 measurement, not an inconvenience.
+
+### Completed 2026-09-28T02:29Z by front agent-d4e2b0
+
+Pushed on `madgab-poolrank-d4e2b0`. Work commit `0cc070b` (`src/main.rs` +
+`tests/pool_rank_reporting.rs`); report at
+[../REPORT-d4e2b0.md](../REPORT-d4e2b0.md). Not merged into
+`post-milestone-acceptance` — integration is the coordinator's call, and
+[w-c31a07](w-c31a07.md) is still running in parallel.
+
+**What changed.** Two separable things, both in `src/main.rs`.
+
+1. Every run now prints the pool's size and the expansion factor to **stderr**:
+   `(pool: 18289 scored candidates, 50 displayed; expansion 365.8x)`. This costs
+   **zero** extra search — `generate` is defined as `generate_with_pool(..).0`,
+   so the pool size was already being computed and discarded; the change reads it.
+2. A new `--pool-rank` flag labels both coordinates on the row, inside the one
+   existing bracket so the phrase still starts at the first `]` and every existing
+   parser is unaffected:
+   ` 1. [score 0.924, pool rank 1 of 18289] yeah 'cause i.'s pitch`
+
+The flag costs a **second search** (+315 to +737 ms measured per process, the
+self-reported second search being 805 ms for case 1), because
+`generate_with_pool` reports the pool's size only and a rank needs the pool's
+contents via `generate_pool`. There is no single-call public API returning both
+the selected proposals and the pool — `search` is private — and `src/lib.rs` is
+out of scope for this front. Hence the opt-in flag. The **default path is
+unchanged in wall clock and byte-identical on stdout** (verified by md5 on three
+targets, before vs after).
+
+**Why the flag rather than changing the default output.** The item asked to state
+the choice. The default shape is what `tests/approx_determinism.rs`,
+`tests/exact_determinism.rs` and `tests/cli_milestone_predicate.rs` parse, and
+those are not this front's to edit. A flag keeps every consumer working and keeps
+the extra search off the default path.
+
+**The two coordinates diverge, which is the point.** At `--approximate --top 50`:
+
+| target | pool size | display 50's pool rank |
+|---|---|---|
+| `recognize speech` | 18 289 | 27 |
+| `It's just a stupid game` | 18 949 | 115 |
+| `Coors light` | 12 956 | 1 346 |
+
+For the canonical case-1 input the selection happens to be a prefix of the pool,
+so display position and pool rank coincide — which is exactly why the two were
+never separated before. The milestone's own input is the one input where the
+distinction is invisible.
+
+**Re-measured canonical numbers** (shipped binary, re-measured, not assumed):
+
+* **case 1** — `wreck a nice beach` for `recognize speech` is present at
+  **display 27 of 50**, score 0.920, **pool rank 27 of 18 289**, unchanged from
+  base. Still absent at the shipped default `--top 10`, as before.
+* **case 2** — `It's just a stupid game` is **not made worse** and not made
+  better: not printed at any documented public knob, exactly as at base. Its
+  first row is still `it said thus test oop day`; display 50 is
+  `it josh test oop add aim` at **pool rank 115 of 18 949**. The known base red
+  `approximate_finds_classic_madgab_resegmentation` is still red and was **not**
+  relaxed, re-pinned or skipped.
+
+**Validation** (serial, `cargo test --release --no-fail-fast -- --test-threads=1`,
+own `CARGO_TARGET_DIR=/workspace/target-d4e2b0`):
+
+| suite | result |
+|---|---|
+| unittests `src/lib.rs` | 83 passed, 0 failed, 12 ignored |
+| `tests/pool_rank_reporting.rs` (new) | **5 passed / 0 failed** |
+| `tests/corpus_integration.rs` | **12 passed / 1 failed** — the 1 being `approximate_finds_classic_madgab_resegmentation` |
+| `tests/no_phrase_hard_coding.rs` | **9 passed / 0 failed**, `src/` allowlist entries still **0** |
+| `tests/cli_milestone_predicate.rs` | 3 passed, 0 failed, 1 ignored |
+| `tests/approx_determinism.rs` | 4 passed / 0 failed |
+| `tests/exact_determinism.rs` | 1 passed / 0 failed |
+| `tests/emit_coverage.rs` | 7 passed / 0 failed |
+| `tests/objective_is_a_search_input.rs` | 1 passed / 0 failed |
+| unittests `src/lib.rs` | 83 passed, 0 failed, 12 ignored |
+
+The whole serial suite is green apart from two targets, neither a new failure:
+
+* `corpus_integration` — the known base red, as required.
+* `--doc` — **not a code failure.** `rustdoc` is not installed on this host
+  (`command -v rustdoc` → not found; only `cargo` and `rustc` are), so the
+  doctest target cannot execute. Doc-tests come from `src/lib.rs`, which this
+  front did not touch, so it would fail identically at base.
+
+`cargo test` without `--no-fail-fast` halts at `corpus_integration` by design, so
+the full picture above required that flag.
+
+**Honest gaps.**
+
+* **`cargo fmt` and `cargo clippy` were not run** — this host has no rustup, so
+  neither is available. Formatting and lints are unverified; a `fmt` pass on a
+  rust-capable host may adjust the new code.
+* The pool ranks come from a second search, not the one that produced the
+  displayed rows. The search is deterministic and
+  `the_flag_annotates_the_same_rows_the_default_path_prints` checks the two runs
+  agree rather than assuming it. The proper fix is a public API returning both
+  from one search, which is a `src/lib.rs` change and therefore another front.
+
+**Suggested follow-up item, not done here:** expose selected proposals *and* the
+pool from a single public call in `src/lib.rs`. It would halve `--pool-rank`'s
+cost, remove the two-search consistency assumption, and let library-level tests
+assert a candidate's pool rank directly. That is outside this front's declared
+surface, so it is recorded rather than attempted.
