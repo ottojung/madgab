@@ -326,6 +326,33 @@ instruction.
     live assertion, not a masked one, and no attribute flip will close it. Do not perform that flip
      while paused; it turns the release suite red on purpose and that is a human release decision.
 
+28. **`git diff-tree -r <merge>` prints nothing, so every merge commit looks empty to a
+    check written in its default spelling — and a merge is the normal shape of a
+    `git stash` entry.** Rule 13's `git fsck --unreachable` check is the only one that sees a
+    commit with no holder, and `coord-9c31` ran it and classified all **180** unreachable
+    commits, concluding that **2** carried unique unarchived content. The true figure was
+    **39**. The cause is a spelling error of exactly the kind rules 9, 14, 17 and 22 were
+    written about: git does not diff a merge commit against its first parent unless asked
+    (`-m`, `--cc`, `--first-parent`). `git diff-tree -r <merge>` exits 0 and reports an
+    empty diff. **85 of the 180 unreachable commits are merges** (word count > 2 on
+    `git rev-list --parents -n1`), and every one of them read as empty. The correct probe
+    is per-blob over the *tree*, not per-blob over a *diff*:
+    `git ls-tree -r <c> | awk '{print $3}'` with each blob tested by `grep -qx` against
+    `git rev-list --objects --all --reflog | cut -d' ' -f1` (field 1 per rule 17). That
+    covers a merge exactly as it covers a non-merge, and it is the same
+    scope-correct/scope-silent shape as rules 11, 16, 20 and 27 — except here the blind
+    spot is not a class of holder but a *spelling* of the diff. **This is the sixth instance
+    in this repository of one failure mode: a check that cannot fail returns a clean,
+    confident, wrong number.** The general form worth carrying: *when a check is asked to
+    decide whether a commit has content, never ask it about the commit's **diff**. Ask
+    about its **tree**.* A diff is a function of two commits and of git's merge-handling
+    policy; a tree is a property of the commit alone.
+    Recovery: `recovery/unreachable-merge-content-2026-09-28` = `134c0ed`, pushed, not
+    merged — 39 patches, the 39 unique files verbatim, and a MANIFEST, verified in three
+    independent layers (file identity, forward application, and **patch-applied → blob
+    identity**, which is the strong form), with positive and negative controls on the
+    harness first. Archive README carries the exclusions and their reasons.
+
 27. **Rule 21 checked the *main* worktree's `ORIG_HEAD` and stopped there; the 125 linked worktrees
     each carry their own, and so does each of the 3 with a `REBASE_HEAD`.** Rule 21 is right that
     `ORIG_HEAD` is the pseudoref to check first, and it enumerated `.git/ORIG_HEAD` — the primary
@@ -2524,3 +2551,120 @@ twenty-seventh time on the same grounds as before.
     search direction is unchanged — a qualitatively different whole-path algorithm (compact
     pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
     **never** phrase-specific hard-coding.
+
+### `coord-2f1d` — thirty-second pass, 2026-09-28T10:02Z–10:12Z
+
+**One new at-risk class found and recovered: 39 unreachable merge commits carrying unique,
+unarchived source, where the previous pass recorded 2.** Reconciliation plus a real recovery
+to `recovery/unreachable-merge-content-2026-09-28` (`134c0ed`), pushed, not merged. No front
+opened, no agent launched, no item claimed, nothing integrated, `main` untouched at `0267ade`.
+The pause gate was read and confirmed closed for the twenty-eighth time, and the
+canonical-example instruction was declined for the twenty-eighth time on the same grounds.
+
+  * **The finding, and why the last pass's figure was wrong.** `coord-9c31` ran rule 13's
+    `git fsck --unreachable`, classified all 180 unreachable commits, and reported **two**
+    carrying unique unarchived content. This pass ran the same check and found **39**. The
+    difference is a spelling error of exactly the class standing rules 9, 14, 17 and 22
+    exist to prevent: **`git diff-tree -r <merge>` prints nothing**, because git does not
+    diff a merge commit against its first parent unless asked (`-m`, `--cc`,
+    `--first-parent`). The command exits 0 and reports an empty diff. **85 of the 180
+    unreachable commits are merges** — measured by word count on `git rev-list --parents
+    -n1` — and every one of them read as empty to a diff-based probe. A merge commit is
+    the *normal* shape of a `git stash` entry, so the class most likely to hold
+    uncommitted human work was the one the check was blindest to by construction. This is
+    now standing **rule 28**, and it is the sixth instance in this repository of a single
+    failure mode: **a check that cannot fail returns a clean, confident, wrong number.**
+
+  * **The correct probe, and the reason it is the right one.** Ask about a commit's
+    **tree**, not its **diff**: `git ls-tree -r <c> | awk '{print $3}'`, each blob tested
+    by `grep -qx` against `git rev-list --objects --all --reflog | cut -d' ' -f1` — field 1
+    per rule 17, and `--reflog` included so the stash class of rule 15 is inside the
+    comparison rather than outside it. A diff is a function of two commits *and* of git's
+    merge-handling policy; a tree is a property of the commit alone. Run over all 180, it
+    returns **138 with zero unique blobs** (85 merges, 53 non-merges) and **39 with content
+    that nothing else holds** — 33 distinct blobs, of which 32 are instrumented
+    `src/lib.rs` copies, 6 are `src/approx.rs`, and one is a `docs/work/items/w-3c5b18.md`
+    edit, spanning 2026-09-26 to 2026-09-28 and belonging to paused fronts (`w-1c3e77`,
+    `w-2b6a19`, `w-2f7a10`, `w-4b1e07`, `w-7b40d2`, `w-c1d3a7`, `w-9e2b41`, `w-e086cc`).
+    **All 180 are now classified**, which is a figure a pass can record rather than
+    "nothing found", which is unfalsifiable.
+
+  * **Archived and verified in three independent layers, harness shown able to fail first.**
+    `recovery/unreachable-merge-content-2026-09-28` = **`134c0ed`**, based on `6f3e563`,
+    pushed, **not merged**. It carries 39 patches (`git diff --binary <c>^1 <c>` — **not**
+    `format-patch`, per rule 12, because these are stash-shaped merges and `format-patch`
+    on a merge emits the index parent's side), the 39 unique files verbatim, and
+    `MANIFEST.tsv`. Verification, in increasing strength:
+    (1) each archived file's `git hash-object` equals `git rev-parse <commit>:<path>` —
+    **39/39 MATCH**; (2) each patch `git apply --check --cached` against a temporary index
+    read from its own parent — **39/39 apply**; (3) **the patch is actually applied** and
+    the resulting index entry compared with `<commit>:<path>` — **39/39 MATCH**. Layer 3 is
+    the one the first two do not give on their own, and it is also what confirms the rule-12
+    choice: with `format-patch` the patches would have failed at a plausible hunk. Per rules
+    14 and 18, the harness was shown able to fail before its clean result was believed — a
+    positive control (a known-covered commit's own diff reverse-applies: detected) and a
+    negative control (a truncated patch: rejected). The full recipe is in the archive README.
+
+  * **Cross-checks that could have stopped this pass and did not, recorded because they nearly
+    did.** The 40th candidate was first included and then excluded on evidence, not
+    assumption: **all 54 archived patches across the six existing `recovery/*` branches** were
+    compared by both raw bytes and stable patch-id, and **two** candidates are already
+    archived byte-identically (`0088d27c` by `coord-2b74`, `727eb36b` by `coord-11b9`), so
+    re-archiving them would have been duplication. A third, `202aef9f`, is excluded as the
+    known-deliberate `prof/` drop: 16 of its 18 unique blobs are the harness **outputs** of
+    standing rule 8 and the other two are the 30 MB instrumented binaries four prior passes
+    declined to archive, while its 24-file `prof/baseline/` set hashes identically to the
+    copy already on `recovery/probe-scaffolding-2026-09-28` (`1.out` = `a1ce1ad3` on both
+    sides). That exclusion is a judgement, so it is written down in the README rather than
+    made silently. Separately, every one of the 33 blobs was tested against all **11,358**
+    live worktree files as well as the 5,975-object reachable set: only one is present in a
+    live worktree at all, so the work is genuinely unreachable rather than merely unarchived.
+
+  * **Cheap checks, all clean and identical to the last seven passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails),
+    `post-milestone-acceptance` = `2caf438`, equal to local `HEAD` before this commit, 0 ahead
+    / 0 behind. All six prior `recovery/*` branches present on the remote and matching their
+    local refs — `2408c25`, `6b21857`, `cc666db`, `a91f71d`, `a1d7425`, `52b38c9` — so all
+    previously archived patches stay reconstructible; this pass's new branch joins them at
+    `134c0ed`. Worktree clean (`git status --porcelain -uall` empty). Census unchanged:
+    **87 `done`, 12 `superseded`, 2 `open` (the `TEMPLATE.md` placeholder and the
+    `work-items.md` protocol specification, neither claimable), 1 `working`** (this log),
+    0 `blocked`, 2 files carrying `work_item: true` with no `state:` key
+    (`docs/work/README.md`, `docs/work/items/README.md` — instructions, not items), so the
+    durable figure is still **88 / 12 / 0 claimable / 1 working** and the check is still
+    *"is any `state: open` item claimable?"*. `docs/work/items/w-0f3a17-shortlist-rule.md`
+    remains the one work-item-shaped document with no metadata, still deliberately untouched
+    under rule 1 (fifth pass to decline it). **Agents: no MadGab agent alive or claimable** —
+    the six `running` agents host-wide (`94e3`, `92c1`, `8a1`, `73f1`, `76a1`, `72a1`) all
+    belong to other repositories and were left alone, the only other nonterminal entry is
+    `a11d`, `idle` in `/tmp/cwd-7ze5eU` at its usual 20724-day age, and the two MadGab-cwd
+    entries (`3a8f01`, `3a8f02`) remain `stopped` on superseded items and were left stopped.
+    Nothing was compiled, no Cargo lock was contended, no binary was run, and no rebase,
+    stash or worktree state was touched.
+
+  * **The canonical-example instruction was read against the pause gate for the twenty-eighth
+    time and declined for the twenty-eighth time.** It restates the programme's standing
+    goal; reopening requires an explicit human instruction, which has not been given, and its
+    *no-hard-coding* half remains discharged on the merits by the accepted head's general
+    implementation. This pass's 39 recovered files are `src/lib.rs` and `src/approx.rs`
+    instrumentation from paused fronts and are archived **as evidence of past measurement,
+    not as proposed changes**; the archive README repeats the standing fence note — they
+    carry canonical phrases as probe literals, they now sit under `docs/`, which
+    `tests/no_phrase_hard_coding.rs` does not scan, `ALLOWLIST_CAPS` is unchanged, and **any
+    future promotion must strip the literals rather than waive them.** No phrase-specific
+    change was made or proposed.
+
+  * **Next useful action.** The saturation argument from `coord-9c31` is now settled in the
+    opposite direction from what it expected: the repository-side check was *not* saturated,
+    it was **under-powered**, and two runs of rule 13 in its diff-based spelling returned a
+    clean answer that was wrong by a factor of 20. So the standing sweep is not finished, but
+    its next increment is known and cheap: **re-run rule 28's tree-based probe rather than any
+    diff-based one**, and expect **0** unique blobs across all unreachable commits now that
+    the 39 are archived — which is the falsifiable figure to record, not "nothing found". If
+    a future pass finds that number non-zero, the archive is incomplete and the README's
+    reproduction recipe is the thing to run. The human gate question is unchanged and still
+    the only one a human can answer: **is MadGab development being reopened?** If yes,
+    `coord-1c8e`'s three measurement-infrastructure corrections are the first work, in its
+    stated order, and the named search direction is unchanged — a qualitatively different
+    whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic), **never** phrase-specific hard-coding.
