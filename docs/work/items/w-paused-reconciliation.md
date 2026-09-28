@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4b90
-updated: 2026-09-28T11:08:00Z
+owner: coord-7a3b
+updated: 2026-09-28T11:20:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -3792,8 +3792,15 @@ declined for the thirty-eighth time.
     - The same search rooted at **`docs/work/`** → **100 files** → 87 `done`, 11 `superseded`,
       **1** `open`, 1 `working`. The two lost are `docs/continuation-approximate-search.md`
       (`superseded`) and `docs/skills/work-items.md` (`open`), both outside `docs/work/`.
-    - The **forty-first pass recorded 92 `done`, 11 `superseded`, 5 `produced`, 1 `open`,
-      1 `working` = 110**, which is neither figure. It is the `docs/work/` denominator **plus**
+    - **[CORRECTED IN PLACE by `coord-7a3b`, 2026-09-28T11:19Z. The forty-first pass's
+      110 / `produced` census is WITHDRAWN and must not be cited.]** It recorded
+      92 `done`, 11 `superseded`, 5 `produced`, 1 `open`, 1 `working` = 110, which is neither
+      figure, and the `produced` state does not exist in the protocol. The population that this
+      log's census counts is therefore now fixed by **standing rule 34** below, and the correct
+      figure at the fortieth pass's commit is the one its own first bullet re-derived: **102
+      = 87 / 12 / 2 / 1**. Every other `produced` figure in this log (lines 693, 873, 917, 958,
+      1042) is withdrawn for the same reason. What it actually counted, for the record, is
+      the `docs/work/` denominator **plus**
       the 10 files that use `work_item: <id>` as a *back-reference* instead of the protocol
       marker, 5 of them carrying `state: produced` — a state
       [../../skills/work-items.md](../../skills/work-items.md) does not allow. So the most
@@ -3868,3 +3875,111 @@ declined for the thirty-eighth time.
     product tree**, and (iv) the named search direction — a qualitatively different whole-path
     algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
     suffix heuristic), **never** phrase-specific hard-coding.
+
+34. **A census must name its population in the same breath as its number, and a state the
+    protocol does not define is not a state.** Written after the fortieth pass correctly
+    diagnosed this exact defect and the forty-first pass then reintroduced it. The population
+    this log's census counts is fixed as:
+
+    ```sh
+    grep -rl '^work_item: true$' docs/     # key on the protocol marker, root at docs/
+    ```
+
+    Expected at `556977d`: **102 files = 87 `done` / 12 `superseded` / 2 `open` / 1 `working`**,
+    and the **2 `open` are `docs/work/TEMPLATE.md` and `docs/skills/work-items.md`** — the blank
+    placeholder and the protocol specification itself. So **0 claimable**, permanently, and
+    "2 open" has been misread as "something to claim" for fifteen passes. Two denials that are
+    *not* this population, and each has been mistaken for it: `docs/work/items/*.md` (98) and
+    `docs/work/*.md` alone. `state: produced` (lines 693, 873, 917, 958, 1042) is **fictitious** —
+    [../../skills/work-items.md](../../skills/work-items.md) allows exactly `open`, `working`,
+    `blocked`, `done`, `superseded` — and every census quoting it is withdrawn. The general form
+    is one level above rules 9/10/11/14/17/31/33: those are about a check returning a wrong
+    *number*; this is about a check returning the right number for a population nobody named,
+    which is defensible indefinitely. **A recorded figure is durable only if the set it counts
+    is written down beside it.**
+
+### `coord-7a3b` — forty-third pass, 2026-09-28T11:11Z–11:20Z
+
+**Both corrections the forty-second pass prescribed are done, and its one remaining clean
+result is re-measured — but the headline number it would have reported is wrong, and finding out
+why is this pass's only new fact.**
+
+  * **The forty-second pass's rule-10 result of 0 does not reproduce; the same query returns
+    321.** Recorded first as a discovery, then almost recorded as a *finding* — which would have
+    been wrong, and the log's own rule 9 is why: *"a sudden jump in unmatched files is far more
+    likely to be a broken filter than a discovery."* Broken filter, confirmed. The two
+    repositories of the at-risk object set were built differently by successive passes, and the
+    decisive measurement is the per-commit breakdown of the 7 local-only commits
+    (`git rev-list --all --not <every remote head>`, 188 audit heads fetched first per rule 10):
+
+    | commit | files touched | objects absent from remote |
+    |---|---|---|
+    | `3fdcbe7` (stash index) | 0 | 0 |
+    | `496826b` (stash WIP) | 0 | 0 |
+    | **`514ed91`** (`scratch-3f8c62-landed`) | **330** | **310** |
+    | `b4a3009` (`scratch/0f3a17-shortlist-probe`) | 1 | 0 |
+    | `c06953a` (same branch) | 1 | 0 |
+    | `cf44be7` (`scratch/4d1e93-f5f6`) | 2 | 0 |
+    | `fc3a930` (`phon-probe-d4e8b1`) | 2 | 0 |
+
+    **One commit accounts for 310 of the 321, and 329 of its 330 files are `target-base/` build
+    output** — a directory name that is neither `target/` nor matched by a leading `target-`
+    filter, so it is rule 9's exact trap in a new spelling, one the log's own recommended filter
+    (`*/target-*/*`) *does* catch and the previous pass evidently did not apply to *commit* paths
+    at all, only to `git status` paths. Filtering by path component over the at-risk set:
+    **229 blobs, 0 of them outside build output; 92 trees, which are structure, not content.**
+    The single non-build file is `514ed91:src/lib.rs` = `f86907c9`, and that blob is **already in
+    the remote set and in the recovery set** (`grep -cx` = 1 against both). So the corrected
+    result is **0 at-risk content**, consistent with the forty-second pass, and the 321 is
+    `target-base/` again.
+    **The rule 9 lesson needs one clause it did not have: the build-output filter must be
+    applied to the paths of at-risk objects, not only to `git status --porcelain` output, because
+    a commit-based check (rule 10's whole point) never produces `git status` lines at all.**
+  * **The positive control was run and it did not fire, which is itself the result.** The log's
+    standing control — remote set minus `recovery/local-only-held-2026-09-28`, which the
+    forty-first pass recorded as returning exactly 9 — returns **0** here, as does the analogous
+    control minus `recovery/unpushed-commits-2026-09-28`. Reason, and it is a genuine
+    improvement rather than a missing archive: **all ten `recovery/*` branches are now pushed to
+    `origin`**, so the remote set already contains them and removing one removes nothing. The
+    control is obsolete *because the archives it tested are durable* — `git ls-remote` returns a
+    hit for each of the ten. Rule 33's warning applies to the control itself: it is now a check
+    that cannot return non-zero, so it must not be reported as passing.
+  * **Census re-derived under standing rule 34 and written down: 102 = 87 `done` / 12
+    `superseded` / 2 `open` / 1 `working`, 0 claimable**, the 2 `open` being
+    `docs/work/TEMPLATE.md` and `docs/skills/work-items.md`, confirmed by reading each header.
+    The forty-first pass's 110 / `produced` figure is **withdrawn in place**, and so are the five
+    older `produced` censuses (lines 693, 873, 917, 958, 1042) — `produced` is not a state the
+    protocol allows. The fortieth pass's diagnosis was right and its own replacement was wrong.
+  * **Worktree and agent state: nothing at risk, nothing touched.** `git worktree prune -n`
+    reports nothing stale; the worktree is clean (`git status --porcelain -uall` empty, 0);
+    `post-milestone-acceptance` is 0/0 with `origin` after fetch. No MadGab agent was launched,
+    prompted, stopped or claimed — the nonterminal agents host-wide belong to other
+    repositories and were left running, per the contract. `main` untouched at `0267ade`.
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-ninth time and declined for the thirty-ninth time.** The prompt's "prioritize the
+    canonical approximate-search examples without phrase-specific hard-coding" and "recover or
+    assign work, split independent fronts, launch or prompt Antonina agents" restate the
+    programme's standing goal and ask for exactly the fronts, claims and agents that
+    [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) (`## Status: accepted and
+    paused`) forbids without an explicit human instruction, which has not been given. Its
+    *no-hard-coding* half is discharged on the merits: the only file this pass wrote is this
+    log, **no canonical phrase appears in it** — every artefact is named by path, marker, commit
+    or blob sha — and no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte changed.
+    Nothing was merged; nothing was pushed to `main`; this log entry and the rule-34 correction
+    are the pass's only commits, on `post-milestone-acceptance`.
+  * **Next useful action.** The gate question is unchanged and still only a human can answer it:
+    *is MadGab development being reopened?* A forty-fourth pass should (a) **re-run rule 10 with
+    the build-output filter applied to at-risk object paths**, not to `git status` lines, and
+    **replace the obsolete positive control** — since the archives are pushed, a control must now
+    be built by excluding a *scratch* or *local-only* holder rather than a `recovery/*` branch;
+    (b) check the one thing this pass could not settle cheaply — whether `target-base/` is
+    **gitignored** in the ten `recovery/*` branches, because if it is not, several GB of Cargo
+    output are sitting in pushed history and that is a real, actionable finding rather than
+    another census; and (c) if it wants a new fact, keep asking **new questions about the
+    accepted state** — the untried one from the forty-second pass is whether the 4 duplicated IDs
+    and 2 marker-without-`id` files change any *claim* decision. If the gate answer is ever yes,
+    the order is still (i) rule 29's binding check before any timing is quoted, (ii)
+    `coord-1c8e`'s three measurement corrections, (iii) **cut the branch from `main`**, and (iv)
+    the named direction — a qualitatively different whole-path algorithm (compact pronunciation
+    DAG with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+    phrase-specific hard-coding.
