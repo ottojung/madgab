@@ -3,7 +3,7 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9d2c
+owner: coord-1b8e
 updated: 2026-09-28T07:51:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
@@ -543,6 +543,55 @@ recorded as a priced negative.
   a human reopens MadGab development. Until then the expected result of every further pass is a
   single log line.
 
+* **`coord-1b8e` (this pass), 2026-09-28T07:49Z–07:51Z** — reconciliation only, **no recovery
+  needed; tenth consecutive clean sweep**, recorded in the short form the cadence advice permits.
+
+  * **Agents: none alive for MadGab.** The only nonterminal agents host-wide are `94b1` and
+    `94a1`, both `running` in `/workspace/assemblyp1-issue89-*`, plus `a11d`, `idle` in
+    `/tmp/cwd-7ze5eU` at its usual 20724-day age. None is MadGab's; all left alone. The two
+    paused fronts `3a8f01`/`3a8f02` remain `stopped`, deliberately left that way.
+  * **Worktrees: 27 unmatched files, same two known buckets plus the three large deliberate
+    drops.** All **125** worktrees swept with `git status --porcelain -uall`, 84 live
+    dirty/untracked files hashed against all **1519** reachable blob objects, Cargo `target*`
+    output excluded by path component per standing rule 9. The count reads 27 rather than the
+    previous nine passes' 24 for a benign reason: **this pass applied no size filter**, so the
+    three deliberately-dropped large artifacts also appear — `prof/madgab-prof` (30.1 MB) and
+    `prof/madgab-baseline` (30.1 MB), both instrumented binaries, and `c1d3a7-instr/m.txt`
+    (4.0 MB `ZZMETRICS` dump), whose head is archived as
+    `docs/work/probe-output/c1d3a7-m-head200.txt` at `3ce5262`. The remaining 24 are the two
+    buckets: **8** instrumented `src/lib.rs` copies and **16**
+    `madgab-approx-runtime/prof/{results,sum}*.txt` harness outputs.
+  * The 8 patches were re-verified a fifth time by `git apply --check --reverse` against their
+    `docs/work/probe-patches/*.diff` read out of `2408c25`, each matched to its own worktree by
+    name — all eight `OK`, so the `coord-9d2c` resolution of the worktree↔patch mapping holds.
+  * The 16 outputs were re-justified by re-reading the archived harness rather than by assertion
+    (standing rule 8): `run.sh` opens only `$BIN` and `prof/targets.txt`; `summarize.py` opens
+    only the results path `run.sh` writes. `targets.txt`, `scale.txt` and `scale-after.txt` are
+    present at `docs/work/probe-inputs/`, and the 24-file `prof/baseline/` output at
+    `docs/work/probe-output/approx-runtime-prof-baseline/`. Every input is durable.
+  * Durability re-confirmed with `git ls-remote`, not `git branch -a`: `main` = `0267ade`
+    (untouched, remote-only — no local `main` ref), `post-milestone-acceptance` = `b83dff9`
+    before this pass, `recovery/probe-scaffolding-2026-09-28` = `2408c25` — all matching local
+    refs. Census unchanged: 92 `done`, 11 `superseded`, 5 `produced`, 1 `open`
+    (`TEMPLATE.md` placeholder), this log the only `working` entry.
+  * Nothing launched, resumed, claimed or integrated; no scaffolding commit, because there is
+    nothing to put on it.
+
+  The instruction to prioritise the canonical approximate-search examples was read against the
+  itinerary's pause gate for the sixth time (see the `coord-c8e1` entry): it restates the
+  programme's standing goal, and reopening requires an explicit human instruction, which has not
+  been given. So no front was opened and no agent launched. The limitation stands as documented in
+  `docs/accepted-state-2026-09-27.md`; if it is ever reopened, the named direction is a
+  qualitatively different whole-path algorithm, **never** phrase-specific hard-coding.
+
+  **The saturation recommendation above is now at ten identical sweeps and is being escalated
+  rather than restated.** The repository-side check has a known floor on what it can return: it
+  confirms nothing has been *lost*, and it cannot report anything about work that was never
+  started. Nothing further in this repository can change the one open question, which is a human
+  gate. Until a human answers it, **the expected result of every further pass is a single log
+  line, and the scheduler is better served by asking the gate question than by scheduling an
+  eleventh sweep.**
+
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
@@ -564,6 +613,15 @@ If both checks are clean, **there is no work to do** — confirm the pause, reco
 further to avoid commit noise, and exit. Do not open a front. As of the `coord-9d2c` pass this
 condition has held for **nine consecutive sweeps** over a 125-worktree population, so a further
 pass may record a single line and exit without re-running the hash sweep at all.
+
+As of **`coord-1b8e`** that count is **ten**, and the "record a single line and exit" allowance
+should be read as licence to stop sweeping rather than to keep doing a shortened version of it.
+**Ask the human gate question** — is MadGab development being reopened? — rather than running an
+eleventh sweep. If the answer is yes, the reopened work must read
+`docs/accepted-state-2026-09-27.md` and the `docs/work/REPORT-*.md` history first, must not
+re-price any front already recorded as a priced negative, must work on a fresh focused branch
+from `main`, must validate general behaviour rather than hard-coding canonical phrases, and must
+not treat the historical `post-milestone-acceptance` branch as an automatic accumulation target.
 
 **Cadence advice for the scheduler.** `coord-9a3c` and `coord-2b7e` are now two consecutive
 clean passes over identical durable state, and the last four passes before them each ran in
