@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5f3b
-updated: 2026-09-28T09:51:00Z
+owner: coord-7e40
+updated: 2026-09-28T09:57:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -2330,5 +2330,84 @@ sweep's *one* uncovered object class, which produced **new standing rule 27**.
     one a human can answer: **is MadGab development being reopened?** If yes, `coord-1c8e`'s
     three measurement-infrastructure corrections are the first work, in its stated order, and the
     named search direction is unchanged — a qualitatively different whole-path algorithm (compact
+    pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+    **never** phrase-specific hard-coding.
+
+### `coord-7e40` — thirtieth pass, 2026-09-28T09:52Z–09:57Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** The pause gate is read and confirmed closed for the
+twenty-sixth time: itinerary `## Status: accepted and paused`, accepted-state operational status,
+and rule 1 all agree, and no human instruction to reopen has been given. This pass spent its whole
+budget on cheap checks plus rule 10's commit check, and produced **one correction to a figure this
+log has reported for a dozen passes**.
+
+  * **Cheap checks, all clean and identical to the last five passes.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `7d51614`, equal to local `HEAD`, 0 ahead / 0 behind. All five `recovery/*` branches present
+    on the remote and byte-identical to their local refs — `2408c25`, `6b21857`, `cc666db`,
+    `a91f71d`, `a1d7425` — so all fifteen archived patches stay reconstructible. Worktree clean
+    (`git status --porcelain -uall` empty). Agents: **no MadGab agent alive or claimable**; the two
+    MadGab-cwd nonterminal entries (`3a8f02`, `3a8f01`) remain `stopped` on superseded items and
+    were left stopped, and every other nonterminal agent host-wide belongs to another repository.
+    Nothing was compiled and no Cargo lock was contended.
+
+  * **Correction: the standing census figure was short by one `open`, and the missing one is the
+    protocol document itself.** The census, re-derived with a repo-wide `grep -rl 'work_item: true'`
+    over `docs/`, returns **87 `done`, 12 `superseded`, 2 `open`, 1 `working`** (this log), 0
+    `blocked`, and 2 files carrying the marker with no `state:` key (`docs/work/README.md`,
+    `docs/work/items/README.md` — instructions, not items). The population the previous passes
+    reported as "87 done / 12 superseded / **1** open" is missing `docs/skills/work-items.md`, which
+    carries `work_item: true` at line 13 and `state: open` at line 15, added by `740be55`
+    ("Add repository-native work item protocol"). **Neither of the two `open` markers is claimable
+    work**: `docs/work/TEMPLATE.md` is the blank placeholder every new item is copied from, and
+    `docs/skills/work-items.md` is the specification of the protocol itself — the two documents a
+    coordinator reads *before* claiming anything. Recording the census over the whole `docs/` tree
+    is right; counting a protocol and a template as open work items is not, and a reader who takes
+    "2 open" at face value would spend the next pass looking for work that does not exist. The
+    durable form of the figure is therefore **88 / 12 / 0 claimable / 1 working**, where the 88 is
+    87 `done` plus the 2 non-item `open` documents, and the check a pass should make is *"is any
+    `state: open` item claimable?"* — not *"how many are there?"*. This is the same shape as rules
+    9, 14 and 17: a filter that reports a cleaner number than the underlying set supports, and the
+    fix is to state the *question* the count answers rather than the raw tally.
+
+  * **The one work-item-shaped document with no metadata is unchanged and still deliberately
+    untouched.** `docs/work/items/w-0f3a17-shortlist-rule.md` remains the only file under
+    `docs/work/items/` without `work_item: true`. It is a measurement report for a superseded
+    front, so nothing is lost; `coord-5f3b` named it and declined the one-line fix, and this pass
+    declines it for the same stated reason — rule 1 forbids touching MadGab work items while the
+    human gate question is open. Both `open` documents above are likewise left exactly as they are.
+
+  * **Rule 10's commit check re-run, and the 9 it returns are all previously classified — no new
+    at-risk class.** `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` first, so the ref set is
+    the full 179 remote heads rather than the 19 the narrow refspec provides; then
+    `git rev-list --all --not --remotes='audit/*' --remotes='origin/*'` returns **9**: five held by
+    local `scratch/*` and `phon-probe-*` branches (`cf44be7`, `514ed91`, `fc3a930`, `b4a3009`,
+    `c06953a`), two held by `refs/stash` (`496826b`, `3fdcbe7`), and the two `ZZ_AXIS` commits
+    `a7f08ea`/`69b5a07`, which `git for-each-ref --contains` confirms are held by **no ref at all**
+    and survive only on the `tmp` worktree's reflog — rule 11's reflog-only class, already archived
+    and recorded as safe by rule 7's reverse-application test. Classified per rule 11 rather than
+    by branch, as rule 11 requires, which is why the count differs from the `coord-11b9` entry's 13:
+    that pass ran against the narrow refspec and counted stale `refs/remotes/origin/*` entries,
+    which rule 11 names as false positives. **No recovery performed, no branch created, no rebase
+    resumed or aborted, no rebase state touched.**
+
+  * **The canonical-example instruction was read against the pause gate for the twenty-sixth time
+    and declined for the twenty-sixth time.** It restates the programme's standing goal; reopening
+    requires an explicit human instruction, which has not been given, and its *no-hard-coding* half
+    remains discharged on the merits by the accepted head's general implementation and by
+    `coord-1c8e`'s evidence that the case-1 rank of 9 came from a **general** scoring axis rather
+    than a special-cased phrase. Nothing this pass found bears on that either way, and no
+    phrase-specific change was made or proposed.
+
+  * **On the escalation, now thirteen passes in a row superseded by a coverage gap rather than
+    confirmed.** This pass's gap is documentation-scale, not code-scale: the census figure the log
+    has been quoting was short by one document. It is recorded here rather than folded away because
+    the reusable part is the same one rule 9 states — a count that suddenly changes is more likely
+    to be a change in the *question* than a change in the *repository*, and the fix is to write down
+    which question the number answers. The gate question is unchanged and still the only one a
+    human can answer: **is MadGab development being reopened?** If yes, `coord-1c8e`'s three
+    measurement-infrastructure corrections are the first work, in its stated order, and the named
+    search direction is unchanged — a qualitatively different whole-path algorithm (compact
     pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
     **never** phrase-specific hard-coding.
