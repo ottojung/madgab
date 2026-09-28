@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4e2b
-updated: 2026-09-28T14:20:00Z
+owner: coord-7c04
+updated: 2026-09-28T14:30:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7192,3 +7192,89 @@ because nothing ever re-ran it.
 openable work; the standing improvement goal is the itinerary's, and the itinerary's standing goal
 is to stay paused. No recovery branch was created: nothing is at risk. This log is the only file
 touched, per rule 19.
+
+## Seventy-second pass (`coord-7c04`, wall clock 2026-09-28T14:22Z–14:30Z) — the shipped release line, verified against the accepted head
+
+Pause gate confirmed closed before anything else was done; the gate question is now **thirty-six
+passes old**. No MadGab work item created, none claimed, no agent launched, nothing merged,
+nothing pushed to `main` (`main` does not resolve locally — the release line is remote-only, as
+pass 71 recorded). The recurring prompt's canonical-example instruction was read against the gate
+for the **thirteenth** time: it restates the standing goal and does not authorise work. The answer
+while paused is unchanged: **verify the fence, never add a phrase.** This pass launched nothing,
+and **no MadGab Antonina agent is alive** — all 121 MadGab agents are terminal (the two most
+recent, `3a8f01` and `3a8f02`, `stopped` 10h36m ago; every other one `succeeded` or `failed`).
+
+**No new numbered rule this pass**, for the reason pass 71 gave: a rule about the programme is
+testable and a rule about this log is not, and thirteen consecutive meta-passes have now changed
+no decision, no risk and no queue state. The useful action was again a measurement of the
+*programme* rather than of the log, and it is one no pass had ever run.
+
+### What was measured: the branch that actually shipped
+
+Pass 71 verified the accepted state's two claims **on the accumulation branch**. It never checked
+the thing a release depends on most and the accepted document states only as prose: that the
+release line is the same code. `docs/accepted-state-2026-09-27.md` says the accepted implementation
+"is the integrated state of the former `post-milestone-acceptance` branch at release time". Since
+acceptance, the accumulation branch has advanced by 71 reconciliation-only commits, so the two can
+no longer be assumed to agree, and the prose claim had no object-level witness.
+
+| check | result |
+|---|---|
+| code tree, `origin/main` vs `post-milestone-acceptance`, over `src/ tests/ examples/ Cargo.toml Cargo.lock` | **empty diff — byte-identical** |
+| whole tree, `origin/main` vs `post-milestone-acceptance` | 13 files, 7,476 insertions, 14 deletions — **all in `docs/`** |
+| `origin/main` (`0267ade`, "Merge accepted MadGab approximate-search release state") is an ancestor of the accumulation head | **no** — the branches have diverged |
+| `git rev-parse main` | fails; the release line exists only as `origin/main` |
+
+The divergence is the substantive part, and it is benign for a reason worth stating precisely:
+`origin/main` is **not** an ancestor of the accumulation branch, so a plain ancestry test reports
+the release as "not contained" in the programme history — yet the code is identical and the
+divergence is entirely `docs/`. The two branches share one code state and two document histories.
+Consequence for whoever reopens this: branching from `main` yields exactly the code pass 71
+measured (the working test at 1.44s and the ignored classical test failing for its documented
+reason), and the 71 reconciliation commits need not be replayed. The accepted document's claim is
+now **verified rather than asserted**, and the three `clippy` fixes merged onto `main` after
+acceptance (`734e37e`, `db91095`, `9b07261`, `38e5e87`, `0267ade`) are cosmetic-only — had any
+touched `src/`, this diff would be non-empty and the claim would have been false.
+
+**No risk retired here, and none created.** Nothing was at risk to recover, and the one thing
+that could have made the release quietly wrong — a `main` that shipped different code than the
+programme verified — is now measured false. `main` was not touched.
+
+### At-risk state sweep (rule 10's commit-level check, re-run)
+
+`git fetch origin '+refs/heads/*:refs/remotes/audit/*'` first, per rule 10's narrow-refspec trap;
+`ls-remote --heads` = **192**. Commits held by no remote head: **11** (pass 70 reported 94, which
+was measured against a different exclusion set — rule 40's standing requirement is that these
+counts are meaningless without their exclusion set, and the two are not a change in risk).
+Classification of all 11, by content rather than by count: **9 are held by local scratch
+branches** (`scratch/4d1e93-f5f6`, `scratch-3f8c62-landed`, `phon-probe-d4e8b1`,
+`scratch/0f3a17-shortlist-probe` ×2, `madgab-audit-d5a2c1`, `madgab-fuzzy-cost` ×3) and **2 are
+`git stash` internal commits** (`496826b` "WIP on scratch/review-c3f81a" and its index commit
+`3fdcbe7`, which no branch contains), whose tips are covered by the **6**-entry stash list already
+recovered under rule 15. `git fsck --unreachable` = **521** against pass 70's 180; the increase is
+a function of the ref set, not of risk — fetching 192 remote heads into `refs/remotes/audit/`
+resurrects commits the narrower set had counted as unreachable (rule 48's direction: the count is a
+function of the spelling of its set). **No recovery branch was created: nothing is at risk.** 23
+worktrees carry non-`target` dirt, unchanged in kind from prior passes, all belonging to scratch
+probes whose results are recorded in the items they belong to.
+
+### Census, re-measured
+
+95 `docs/work/items/*.md` files carry `work_item: true`; the two that do not are `README.md` and
+`w-0f3a17-shortlist-rule.md`, both already classified by rule 51. States: **83 `done`,
+11 `superseded`, 0 `open`, 0 `blocked`, 1 `working`** (this log). `HEAD` = `caf618c` =
+`origin/post-milestone-acceptance`, working tree clean on arrival, and this log is the only file
+touched, per rule 19.
+
+### Next action for the next pass
+
+Nothing to launch, claim, split, review or integrate: the queue is empty of openable work and the
+gate is closed. The only work that remains is the at-risk sweep, which is now saturated. **The
+useful next action is not a pass — it is the answer to the gate question, now thirty-six passes
+old:** a human either reopens MadGab development (in which case `docs/continuation-approximate-search.md`
+and this log name the fronts, and `w-6b2f04`'s report names the one direction the accepted document
+survives on — a compact pronunciation DAG with k-best/A*-style whole-path search, not another
+widening of the Cartesian-prefix traversal) or confirms the pause, in which case this log should be
+closed as `done` rather than left `working` indefinitely. Until one of those happens, the correct
+pass is the one that measures and records, and this is the third such pass to reach the same
+conclusion.
