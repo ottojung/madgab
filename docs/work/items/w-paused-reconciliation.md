@@ -5557,3 +5557,109 @@ discharged on the merits and is unaffected by this pass: nothing under `src/`, `
     direction — a **qualitatively different whole-path algorithm** (compact pronunciation DAG
     with k-best / A*-style search, or a strong backward suffix heuristic) — and **never**
     hard-code the canonical phrases.
+
+## 46. **A symbolic ref is a two-word file, not a sha: this pass's own sweep reported 118
+## at-risk objects and all 118 were its own bug — the seventh instance of the same shape,
+## now caught inside the measuring instrument rather than the repository.**
+
+Pass 57 left a concrete, named next action: the *other* places a filter can hide content —
+`.git/info/exclude`, `core.excludesFile`, and `.git/worktrees/<name>/info/exclude`. All
+three are enumerated below and all three close at zero, which is the answer pass 57 asked
+for. But the way they were enumerated is the durable part.
+
+Following rule 45's technique (change the question, not the key) this pass swept the
+per-worktree admin directories, which no prior pass had touched: 126 directories under
+`.git/worktrees/`, each holding a `HEAD`. The sweep reported **118 at-risk** — every
+symbolic worktree, each with `fatal: invalid object name 'ref'`.
+
+The cause is that `.git/worktrees/<name>/HEAD` is **not a file containing a sha**. For 118
+of the 126 it is a two-line text file whose first line is the literal string
+`ref: refs/heads/<branch>`. Reading it with `cat` yields the string `ref: refs/heads/x`, and
+feeding that to `git rev-list` grep produces a garbage comparison that matches nothing —
+so every symbolic worktree is reported at risk, and `git log` on the string fails loudly
+in a way that looks like genuine corruption rather than a malformed probe.
+
+The correct read peels the ref:
+
+```sh
+# WRONG — reads the file as if it held a sha
+h=$(cat .git/worktrees/$n/HEAD)
+# RIGHT — lets git resolve the symbolic ref
+h=$(git -C .git/worktrees/$n rev-parse HEAD)
+```
+
+Re-run correctly: **0 at-risk** out of 126 admin `HEAD`s, against a control that shows both
+kinds are present and were both enumerated — **118 symbolic, 8 detached**. A sweep that
+had reported 0 without that control would have been indistinguishable from a sweep that
+never ran.
+
+This is the log's recurring failure shape, in its sharpest form yet, and it is a *new*
+variant: rules 6, 42, 44 and 45 all found real content that git was silently not reporting.
+This pass found **no** at-risk content, because the instrument was wrong. The general form:
+
+> **An enumeration that parses a file with the wrong parser does not report zero — it
+> reports a large, confident, well-formatted wrong answer.** Every prior instance of this
+> shape produced a *false negative* (real content, reported absent). This one produced a
+> *false positive* (118 reported at risk, 0 real), which is more dangerous for a recovery
+> pass: acting on it would archive 118 objects that are all already durably referenced,
+> while a genuine at-risk object in the same class would be indistinguishable from the
+> noise and would be missed.
+
+Note also the near-miss this invites: `118` is the exact same figure as rule 45's ignored
+`Cargo.lock` population, and both numbers were live in this pass's working context. Two
+independent classes cannot be 118 by coincidence, and had the 118 not been accompanied by
+`fatal: invalid object name 'ref'`, this pass could have reported the worktree-admin class
+as a rediscovery of rule 45. The stderr output is what disambiguated them; the count alone
+would have been actively misleading.
+
+### Pass 58 — 2026-09-28 12:47Z–12:53Z — coord-9e42 — the exclude-file and admin-ref classes
+
+**Gate answer: still no.** Nothing was created, claimed, resumed, launched, integrated or
+merged; `main` untouched at `0267ade`; no front branch touched; no agent launched, so there
+is nothing for a later pass to supervise. The prompt's canonical-example clause was read
+against the itinerary's pause gate for the **twenty-second** time and declined for the
+twenty-second time: it restates the programme's standing goal, and reopening requires an
+explicit human instruction that has not been given. The *no-hard-coding* half is discharged
+on the merits and is unaffected by this pass — nothing under `src/`, `tests/`, `web/`,
+`examples/` or `Cargo.toml` was touched.
+
+  * **The three filters pass 57 named: all closed at zero.** `.git/info/exclude` exists
+    (240 B) and contains **0** non-comment lines. `core.excludesFile` is **unset**, at both
+    repo and global scope. `.git/worktrees/*/info/exclude`: **0** files across all 126
+    admin directories. Rule 45's class is therefore the *only* live enumeration-filter
+    class on this repository, which is a real answer and not merely a null result.
+  * **Other object-store indirection: closed at zero.** No `objects/info/alternates`, no
+    replace refs, no `refs/notes`, no `shallow`/`grafts`, no `MERGE_HEAD`/`CHERRY_PICK_HEAD`/
+    `REVERT_HEAD`/`AUTO_MERGE`. `ORIG_HEAD` = `5b48fc3` (the `recovery/local-only-held-2026-09-28`
+    tip) is already in a ref, so it adds no at-risk state.
+  * **The one class found: the per-worktree admin `HEAD` dir**, 126 directories never
+    enumerated before — and 0 at risk, once parsed with `git rev-parse` instead of `cat`.
+    Rule 46 above records the false positive and why it matters more than a false negative.
+  * **Agents: nothing MadGab-owned is alive, nothing to prompt.** `antonina agent list` shows
+    four `running` agents — `98a1`, `94b2`, `92d1`, `76a1` — all under `/workspace/` paths
+    outside `/workspace/madgab*` and all belonging to other projects; per the contract they
+    were left running for their own owners. The paused fronts `3a8f01`/`3a8f02` remain
+    `stopped`, deliberately, by the pause rather than by failure.
+  * **Census: no claimable item exists.** Of 97 files in `docs/work/items/`, the only
+    non-terminal one is this log (83 `done`, 11 `superseded`, 1 `working`). All **13**
+    `recovery/*` branches are present on the remote. Worktree clean before and after.
+  * **No code to integrate.** `git diff origin/main post-milestone-acceptance -- src tests
+    web examples Cargo.toml README.md` is **0 lines**; the two branches are byte-identical
+    outside `docs/`. Pass 52's finding, unchanged. `main` remains remote-only
+    (`git rev-parse main` still fails), so no push to it was possible even by accident.
+  * **Next useful action.** (i) The gate question is now **twenty-two** passes old and
+    remains the only thing that can change this programme's status: *is MadGab development
+    being reopened?* (ii) Rule 46 is the sharpest tool this log has produced, and it is a
+    tool for auditing the **instrument**, not the repository: before the next pass sweeps a
+    class for the *seventh* time and reports a number, check that the number is a number
+    about the *subject* and not about the parser. Two concrete untried instances remain of
+    the filter technique, both outside `.git`: per-worktree `.git/info/exclude` content was
+    zero here, but a *global* `core.excludesFile` could be created on this host at any
+    moment and no pass re-checks it for that; and `/workspace` roots that are **not**
+    registered worktrees, which pass 56 named and no pass has enumerated. (iii) Never merge
+    or push to `main`; never integrate scratch instrumentation; never archive `target-after/`,
+    `target-base/`, `target-front-*` or the two oversize binaries. (iv) If the gate answer is
+    ever **yes**: cut a fresh branch from `main` (byte-identical for production code),
+    validate general behaviour, pursue the named direction — a **qualitatively different
+    whole-path algorithm** (compact pronunciation DAG with k-best / A*-style search, or a
+    strong backward suffix heuristic) — and **never** hard-code the canonical phrases.
