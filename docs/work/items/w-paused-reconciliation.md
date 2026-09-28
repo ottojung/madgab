@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c4a (pass 111; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:53:00Z
+owner: coord-6e2a (pass 112; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:00:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11422,5 +11422,63 @@ claimed, no agent launched, no branch cut, audit ref namespace untouched.
 
 1. Prefer no commit over a twenty-first entry; this one exists only to satisfy an explicit
    "record durable state" instruction.
+2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
+   pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction).
+
+## Pass 112 — 2026-09-28 18:57Z → 19:00Z — coord-6e2a — the twenty-first identical firing; the five facts re-verified, and one discovery-step false positive closed
+
+Gate answer unchanged from passes 92–111: **NO**. The invocation again carried the same three
+clauses that contradict the itinerary; the same reconciliation as passes 107–111 applies (rule 19).
+No new measurement class was opened, and no closed class was re-walked.
+
+### Confirmations (re-measured after `git fetch --all --prune`)
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Non-terminal work items | **1** — this one (`blocked`); 83 `done`, 11 `superseded` in `docs/work/items/` |
+| MadGab Antonina agents non-terminal | **0** (cwd-scoped over the full agent list) |
+| Dirty non-build content in `/workspace/madgab` | **0** |
+| `post-milestone-acceptance` vs upstream | 0/0, in sync; `origin/main` unchanged at `0267ade` |
+| Production fence vs `origin/main` | **0** production lines; 19 test-side (18 in `src/lib.rs`, all ≥ the `#[cfg(test)]` boundary at 381; 1 in `src/approx.rs` at 1040, boundary 464) and 2 `//!` usage lines in `src/main.rs` |
+
+The fence figures were re-derived rather than copied: each `src/` file's `#[cfg(test)]` line was
+located first and every canonical-phrase hit was classified by which side of it falls, so the "0"
+is a measurement of a stated scope rather than a repeated figure (rules 14, 25).
+
+### Declined, same three template clauses as passes 107–111
+
+Assigning or launching agents, splitting fronts, and prioritising the canonical examples are
+forbidden by the itinerary's paused status (rules 1–2); the `It's just a stupid game` gap is the
+deliberately preserved accepted limitation, and the no-hard-coding requirement that clause names is
+already satisfied by the fence measured above, so "prioritise it" would mean either a
+phrase-specific hard-code or a violation of the pause, not a third option. The third clause is
+contradicted by the itinerary's retired-accumulation-target note; this log entry is the only thing
+written. **Nothing pushed to `main`.** No work item created or claimed, no agent launched, no branch
+cut, no recovery sweep run (rules 12–41 closed), the `audit/*` ref namespace untouched.
+
+### One genuinely new fact: a naive work-item scan reports an `open` item that does not exist
+
+The standing discovery step — count the work items whose `state:` is not terminal — is normally run
+as a `grep -h '^state:'` over files matching `^work_item: true`. Run over `docs/**/*.md` rather than
+`docs/work/items/*.md`, that sweep returns **two** non-terminal items: this one, and a
+`state: open` that is the **example header inside `docs/skills/work-items.md` itself** — the
+protocol document's own illustration carries a literal YAML front matter, so the example is
+indistinguishable from a real item by that scan. `docs/continuation-approximate-search.md`
+(`w-7c4a91`, `superseded`) is likewise a work item outside `docs/work/items/`, so scoping the sweep
+to that directory alone is also wrong, in the opposite direction. The correct discovery is
+per-file, not a flattened count: for each file whose body is not a fenced example, take *that file's*
+own `state:`. Measured both ways here, the flattened sweep over-reports by exactly one.
+
+This is rule 9 and rule 37's shape once more — a check whose *input* is unfiltered returns a clean,
+confident, wrong number — and it is the first occurrence in a **discovery** step rather than in a
+preservation or measurement step. A future pass that found "an open MadGab work item" here would
+have been about to claim a file that documents the protocol.
+
+### Next action for the next pass
+
+1. Prefer no commit over a twenty-second entry; this one exists only to satisfy an explicit
+   "record durable state" instruction. Re-verify with the five facts above, using the per-file
+   state read, and stop.
 2. Only a human can fix the out-of-repo scheduler template, or close this item by confirming the
    pause (`done`) or reopening development (fresh branch from `main`, pass 78's direction).
