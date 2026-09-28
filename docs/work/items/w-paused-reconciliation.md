@@ -5335,3 +5335,106 @@ conclusion: the at-risk metric was being read as a recovery backlog, and it is n
     direction, a **qualitatively different whole-path algorithm** (compact pronunciation DAG
     with k-best / A*-style search, or a strong backward suffix heuristic), **never**
     phrase-specific hard-coding of the canonical phrases.
+
+## Pass 56 — 2026-09-28 12:37Z–12:52Z — coord-7a3e — one new class of at-risk state
+
+**Gate answer: still no.** Nothing was created, claimed, resumed, launched or integrated
+this pass. No MadGab Antonina agent exists (all `running` agents on the host are for
+other repositories). The prompt's instruction to accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" resolves to **not
+accumulating development work**: the itinerary says the programme is paused and that this
+branch is "no longer an automatic accumulation target". Durable *reconciliation* state is
+still accumulated here, and the only sanctioned recurring action (rule 4) was performed.
+
+### Rule 44 — a dirty worktree path is not at-risk state until you hash it
+
+Passes 51–55 each reported "no dirty-worktree state" and pass 55 went further: "**the
+recovery well is now empty on every axis this log knows how to measure — all five object
+keys swept**". That was wrong, and the error is worth a rule, because it is the same
+shape as rules 6, 42 and 43: **an enumeration that only queries the object store is
+structurally blind to content that was never written into it.**
+
+`git status --porcelain` does not record content, only path and status. A modified or
+untracked file's bytes live nowhere in `.git` until `git add`. The five object keys
+(commit / tree / ref / reflog / loose blob) are all *post-write* keys, so they can
+never see an uncommitted file. A worktree prune then deletes it and the content is gone
+**without any git operation ever having run** — the only trace would be the worktree's
+own admin file, which prune also removes.
+
+The test is one hash comparison per dirty path:
+
+```sh
+for d in $(git worktree list --porcelain | grep '^worktree ' | cut -d' ' -f2); do
+  git -C "$d" status --porcelain | while IFS= read -r l; do
+    f=${l:3}; p="$d/$f"; [ -f "$p" ] || continue
+    echo "$(git hash-object "$p")|$d/$f|$(stat -c%s "$p")"
+  done
+done | sort -u | while IFS='|' read -r h p s; do git cat-file -e "$h" 2>/dev/null || echo "ATRISK $h $p $s"; done
+```
+
+`git hash-object` without `-w` computes without writing, so the `cat-file -e` that
+follows is a genuine miss indicator; a `git hash-object -w` would have created the
+blob and made every path look durable.
+
+**Population, measured:** 21 worktrees dirty, **34** distinct dirty paths, **7** at risk.
+The other 27 hash to blobs a commit already holds and are durable for free. The control
+that makes the 7 believable is the same 27: if the hash test were returning 7 for
+everything, it would be returning 7 for the 27 as well.
+
+**Archived** to `recovery/at-risk-uncommitted-2026-09-28` (`addc283`), pushed, each blob
+verified byte-identical to the live file, layout `files/<worktree>/<relpath>`:
+
+| worktree | path | blob | size |
+|---|---|---|---|
+| `floor-5e2d42-baseprobe` | `src/lib.rs` | `1689c3f3` | 273689 |
+| `c1d3a7-instr` | `m.txt` | `41601446` | 3997607 |
+| `madgab-8a1d47-measure` | `src/lib.rs` | `6fc73603` | 192538 |
+| `madgab-rdp-0f3a17` | `src/lib.rs` | `773d6830` | 289531 |
+| `madgab-probe-5b1e93` | `src/lib.rs` | `afdfa8dd` | 267838 |
+| `probe-0f3a17` | `src/lib.rs` | `c4e1c156` | 266446 |
+| `floor-5e2d42-probe` | `src/lib.rs` | `e29128b1` | 280289 |
+
+All six `src/lib.rs` files are scratch instrumentation snapshots from fronts already
+closed or superseded; `m.txt` is a 21,020-line `ZZMETRICS` dump. **None is production
+code and none is proposed for integration** — durability only, exactly as rule 5 requires
+of a `recovery/*` branch.
+
+Note the two `floor-5e2d42*` entries share a diffstat (300 insertions) but have different
+blob shas (`1689c3f3` vs `e29128b1`): they are the *same probe* built on two different
+bases, and rule 6 forbids collapsing them by basename or diffstat. They are archived as
+two distinct blobs.
+
+### Everything else re-checked, unchanged
+
+  * **No MadGab agent alive.** `antonina agent list` shows five `running` agents, all in
+    other repositories (`skrynia-cat500`, `antonina-98-flake`, `volodyslav-92-plan`,
+    `assemblyp1-94-chords`, `kawun-int66-69`). Nothing to prompt, nothing to wait for,
+    nothing left running by this pass.
+  * **No claimable item.** Of 97 files in `docs/work/items/`, the only one in a
+    non-terminal state is this log.
+  * **No code to integrate.** `git diff origin/main post-milestone-acceptance -- src tests
+    web examples Cargo.toml README.md` is **0 lines**. Production code is byte-identical
+    on `main` and on the accumulation branch.
+  * **The prompt's canonical-example clause, re-run rather than cited.** The
+    `no_phrase_hard_coding` fence is green **9/9** against a binary bound to the current
+    `src/lib.rs` (`6c10290` on `main`, on the accumulation branch, and in the worktree).
+    Hard-coding `Hits Justice Dupe Hid Came` or `wreck a nice beach` would be caught by
+    that fence; the approximate-search limitation documented in
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) stands by
+    design and is not to be closed by any phrase-specific shortcut.
+
+### Next useful action
+
+  * (i) The gate question is now **twenty** passes old and remains the only thing that can
+    change this programme's status: *is MadGab development being reopened?* Until a human
+    says yes, the standing rules forbid every development action.
+  * (ii) The recovery well is **not** empty — it was empty *of classes this log had
+    already named*, and rule 44 shows how to manufacture a fresh class by changing the
+    question rather than the key. A pass looking for a new class should ask what is
+    **outside** the repository: the hosts' scratch directories, `target-*` aliases,
+    reflog of the *stash* ref beyond `refs/stash`, untracked files in `/workspace` roots
+    that are not worktrees, and any bind-mounted or ignored path.
+  * (iii) Never merge or push to `main`; never integrate scratch instrumentation.
+  * (iv) If the gate answer is ever **yes**: cut a fresh branch from `main` (byte-identical
+    for production code), validate general behaviour, never hard-code canonical phrases,
+    and pursue a qualitatively different whole-path algorithm.
