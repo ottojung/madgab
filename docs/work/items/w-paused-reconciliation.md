@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7b31 (pass 94; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:14:00Z
+owner: coord-4e19 (pass 95; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:10:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -9891,3 +9891,135 @@ pass skip this item in one read instead of re-deriving the census.
    automatic accumulation target". **A recurring template is not the explicit human reopening that
    the itinerary requires**, so it was not treated as one. A human who wants the work done should
    say so in the itinerary or a work item, not only in the scheduler prompt.
+
+## Pass 95 — 2026-09-28 17:01:51Z → 17:10Z — coord-4e19 — the standing 0 confirmed, and the probe's own "blobs only" filter is now written down
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no
+work item created or claimed; no production code read into or written; no `src/`, `tests/`, `web/`,
+`examples/` or `Cargo.toml` touched; `main` untouched (`origin/main` = `0267ade`, no local `main`
+ref); `main` never pushed to; **no `recovery/*` branch cut, because there was nothing to archive.**
+No agent launched, so nothing is left running for a successor to supervise.
+
+The prompt's canonical-example clause was **declined again**, now for the third consecutive pass
+(92, 93, 94) and by exactly the argument pass 94 wrote as standing next-action 3: it restates the
+programme's standing goal, and the itinerary requires an *explicit human* reopening that has not
+been given. A recurring scheduler template is not that. The *no-hard-coding* half of the clause is
+discharged on the merits and by identity rather than by a re-run, per rule 25:
+`git diff origin/main post-milestone-acceptance -- src tests web examples Cargo.toml README.md` is
+**0 lines**. Standing note, unchanged: **verify the fence, never add a phrase to make a case pass.**
+
+### 1. The named verification, run as verification: 0, with a control that can fail
+
+Pass 94's next-action 1 asked for a re-run against the standing **0**, treating a non-zero as a real
+signal about the method. It returned **0**, and the difference this time is that the check was
+*designed to be able to say non-zero* rather than merely hoped to be.
+
+| | |
+|---|---|
+| ref-held objects (`rev-list --objects --all`, field 1) | **6,558** |
+| reflog-held objects (`rev-list --objects --all --reflog`) | **6,877** |
+| reflog-only objects (set difference, both sides `sort -u` per rule 22) | **319** |
+| …by type: 82 commit / 166 tree / **71 blob** | |
+| reflog-only blobs under `target-after/` | **70** — rule 41 committed build output, durable by definition |
+| **reflog-only non-build blobs** | **0** |
+
+The single non-build entry is `docs/work/items/w-paused-reconciliation.md` — this log's own superseded
+draft, pass 84's known non-issue. Pass 94 found the same one; the `src/lib.rs` blob `9343e1d` it
+archived on `recovery/reflog-only-scratch-9c6f2b-2026-09-28` is now ref-held, which is why the count
+is 0 rather than 1.
+
+**Negative control (rule 33), and it is the reason the 0 is a measurement rather than an output.**
+One genuinely ref-held non-build blob (`Cargo.toml` at `HEAD`) was deleted from the exclusion set and
+the probe re-run: it appeared, **1 = 1 expected**. A sweep that cannot report its own subject is
+incapable of certifying its target's absence (rules 35, 37, 38).
+
+### 2. Rule 62 — `rev-list --objects` names **subtrees** as well as blobs, so "non-build objects" is not "non-build blobs", and the gap here was 162 against a true 71
+
+This pass tripped the log's one recurring failure mode **twice** in ninety seconds, both times with an
+alarming number, and both times with the truth being small and clean. Recording them together is the
+point: the ninth and tenth instances of "a check that could not fail returns a confident, wrong
+number", and the first two in this log that a *successor writing a fresh probe* would hit, because
+pass 94 used the phrase "blobs only" without recording **how** it isolated blobs.
+
+* **Rule 22, `comm` again — and this time it was the `cut` feeding it.** The first run differenced an
+  unsorted `rev-list` listing against a `sort -u`'d set, and `comm` printed
+  `input is not in sorted order` while still emitting a count: **1,080**. Rule 22 already says a
+  `comm` sort warning makes the output meaningless rather than approximate. It is *still* reachable
+  by piping raw `rev-list` output into `comm`, because the warning goes to stderr and a
+  count-taking pipeline does not read stderr. Correct form: `cut -d' ' -f1 … | sort -u` on **both**
+  sides first, and treat any stderr from `comm` as a failed run.
+* **Rule 17's cousin, and the one that is actually new.** Filtering the reflog-only set by *path
+  component* and calling the result "blobs" gives **162** non-build entries, of which 91 are `docs`
+  and subtree paths and only 1 is a real blob. `git rev-list --objects` emits **every object it walks
+  with a name** — commits are pathless, but **subtrees carry paths** (`docs`, `docs/work`,
+  `docs/work/items`, `src`, `tests`), so a path filter cannot separate a subtree from a blob. The
+  type census is the only correct separator, and it is one `git cat-file -t` per object. Without it
+  the probe reports a **2.3× inflation that reads as 90 at-risk source and documentation blobs on a
+  repository whose true figure is 0** — the same "looks like a major discovery, wrong in the
+  cheapest possible way" shape as rule 17's 297 `AUTO_MERGE` findings. Pass 94's own table
+  (`72 blob, 92 commit, 180 tree` of 344) shows it type-separated correctly; only the *method* was
+  undocumented. **Generalise rule 17 from "compare field 1" to "know what your enumeration is
+  enumerating": before counting objects of a kind, establish that the enumeration emits that kind
+  and no other.** A path-component filter is a content filter, not a type filter.
+
+Together with rules 9, 10, 11, 14, 17, 22, 27, 35, 37, 38 and 49, the tally is now **ten** instances,
+and the guard is unchanged and cheap: cross-check the count against a second formulation, and
+demonstrate the check can fail before believing it reports nothing.
+
+### 3. Standing counts, re-measured
+
+| | |
+|---|---|
+| `origin/main` | `0267ade`, no local `main` ref |
+| `post-milestone-acceptance` | `06ab206`, in sync with `origin` at pass entry |
+| production fence vs `origin/main` | **0 lines** over `src tests web examples Cargo.toml README.md` |
+| recovery branches | **20** local, **20** on the remote, in agreement |
+| non-`target` dirty paths in this worktree | **0** |
+| work-item census | 97 files, 95 `work_item: true`; **84 `done`, 11 `superseded`, 0 `open`, 1 `blocked`** |
+| reflog-only non-build blobs | **0** (standing value, confirmed with a control) |
+| MadGab agents alive | **0** |
+
+The census is unchanged from pass 93's correction, which is the intended result: a self-consistent
+queue should return the same numbers twice, and it does.
+
+**No MadGab Antonina agent is alive.** The host's four `running` agents — `104b3`, `104b2`,
+`a1b30d01`, `a1b30c01` — all have `cwd` outside `/workspace/madgab*` and belong to other projects
+(boards 104 and 94). They were left alone per rule 1. The only two MadGab agents that are not
+`succeeded` remain `3a8f01` and `3a8f02`, both `stopped` 13h16m ago, both on `state: superseded`
+items — closed history, not resumable fronts. **This pass launched nothing, so a fresh pass has no
+agent to inspect here.**
+
+### 4. This log stays `blocked`
+
+Unchanged from pass 94 and unchanged for the same reason. It is not `done` — nobody has confirmed the
+pause. It is not `working` — there is no work in it: both the durable-state half and the enumeration
+half are closed, and 95 passes now show that re-deriving either one manufactures a ninety-sixth
+thing to measure. **State is `blocked`, owner `coord-4e19`, blocker = the human reopen/confirm
+decision below.**
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** The at-risk sweep is at its standing **0** and is
+   now demonstrated to be a check that can report non-zero. A re-run is a one-line check against that
+   number, not a re-derivation. If a future pass finds no human instruction and no unpreserved state,
+   the correct outcome is a no-op. **Two passes have now done exactly that**, which is a result, not
+   a failure to find one.
+2. **The standing decision remains a human one, and it is the only thing left.** Either a human
+   **reopens** MadGab development — direction per pass 78, a compact pronunciation DAG with
+   k-best/A*-style whole-path search, on a fresh branch cut from `main`, validating the canonical
+   cases **generically**, never hard-coding `recognize speech` or `It's just a stupid game` — or the
+   pause is **confirmed**, in which case this log closes `done` and the front retires.
+3. **A stale scheduler prompt has now fired three times running (passes 92, 93, 94, 95) with the
+   same two false instructions** — that the itinerary "requires" accumulating on
+   `post-milestone-acceptance` (rule 19: it records that branch as release history and *no longer an
+   automatic accumulation target*), and that the canonical approximate-search examples should be
+   prioritised (the itinerary forbids creating work items, claiming superseded items and launching
+   agents while paused). Each pass declined both and re-derived the same discrepancy. **This is now
+   itself a thing worth fixing once, by a human, and not again by a scheduled pass**: the template
+   should be corrected, or the item closed `done` so the template stops selecting it. A recurring
+   prompt that contradicts the itinerary is a standing source of no-op work, and every future pass
+   will keep paying the ~8 minutes to decline it.
+4. If a probe is ever re-run here, use rule 62's type census and rule 33's negative control. Do not
+   re-walk the 85 dirty paths, the stash entries, the 180 unreachable commits, the per-worktree
+   `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs` enumeration; all are
+   closed, and the carry-forwards listing them is the standing reason not to.
