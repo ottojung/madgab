@@ -118,6 +118,21 @@ instruction.
     requirement is what caught this; treat a verification failure as a real signal about the
     archive method, never as a patch to nudge until it applies.
 
+13. **Rules 10 through 12 all assume a ref holds the thing you are looking for, and one
+    class of at-risk object has no ref at all.** `--all` enumerates refs; the file sweep
+    hashes live files against *reachable* blobs. An object held by neither a ref nor a
+    reflog is therefore invisible to all four checks, and it is the **first** thing
+    `git gc` prunes — strictly more fragile than the reflog-only case rule 11 flags, and
+    it has no branch, no `git log --all` entry and no worktree to stand in for it. The
+    check is one command: `git fsck --unreachable` (or `--dangling`), then for each listed
+    commit take `git diff-tree -r --root --name-only` and test every resulting blob against
+    the reachable set. On this repository `fsck` returns **180** unreachable commits against
+    13 that rule 10 can see, and exactly **2** of the 180 carry content no reachable object
+    has. Classify the whole 180 the way rules 6–8 classify a file sweep: most are
+    regenerable or still-live, and archiving all of them would be as wrong as archiving
+    2.7 GB of Cargo output. The general form of this is the same as rules 9, 10 and 11 —
+    *ask what class of object the existing checks were never asked about.*
+
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
 * Work items: **87 `done`, 12 `superseded`, 0 `open`, 0 `blocked`, 0 `working`.** The only
@@ -1107,3 +1122,85 @@ and found **eight more at-risk commits** that seventeen passes had missed.
   worktrees** `coord-11b9` flagged, which are still treated as settled history on the strength of
   local-only checks. The human gate question is still the only thing a human must answer; it is
   simply no longer the *only* thing left to do.
+
+### `coord-3d5f` — nineteenth pass, 2026-09-28T08:56Z–09:02Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass did what the eighteenth pass's closing note asked —
+it looked for the next uncovered object class rather than re-running the last check — and
+found **at-risk state held by nothing at all**.
+
+  * **Cheap checks first, all unchanged.** `git ls-remote`: `main` = `0267ade` (untouched,
+    remote-only, no local `main` ref), `post-milestone-acceptance` = `9f2f856` (0 ahead /
+    0 behind after fetch), and all three `recovery/*` branches on the remote —
+    `probe-scaffolding-2026-09-28` = `2408c25`, `unpushed-commits-2026-09-28` = `6b21857`,
+    `at-risk-refs-2026-09-28` = `cc666db`. Worktree clean (`git status --porcelain -uall`
+    empty). Census re-derived with the rule 10 parser (count an item only if
+    `work_item: true` is in its header): **87 `done`, 12 `superseded`, 2 `open`** (the two
+    protocol placeholders, neither claimable), **1 `working`** (this log), 0 `blocked`.
+    No MadGab agent alive: `3a8f01`/`3a8f02` remain `stopped` on superseded items, left
+    stopped deliberately. The nonterminal agents host-wide (`41a1`, `72a1`, `78c1`, `92a1`,
+    `47b1a001`, `71a1`) are all other repositories and were not touched.
+  * **Rule 10's check re-run unchanged returns the same 13**, every one already archived at
+    `6b21857` (5) or `cc666db` (8). Re-running it a third time expected nothing and produced
+    nothing, exactly as the eighteenth pass predicted. So the yield again came from a
+    **different question**, asked for the third pass running.
+  * **New standing rule 13, above.** Rules 6–12 all reason about objects that *something
+    holds* — a live file, a ref, a reflog, an archived diff. The one class with no holder is
+    the one none of them can see. `git fsck --unreachable` returns **180** unreachable
+    commits against the 13 rule 10 can see; 178 of them carry only content some reachable
+    object already has.
+  * **Two carry content nothing reachable has.**
+    * **`0088d27c`** — `w-b3e91a: correct the emission-ceiling funding claim and instrument
+      both ceilings`, 2026-09-27T05:43:50Z, one file, `src/lib.rs` +8.8 KB of
+      emission-ceiling instrumentation. `git for-each-ref --contains` returns **nothing** and
+      no reflog mentions it: it is held by no ref and no reflog, and was therefore the first
+      thing `gc` would have pruned. Its *result* is safe — `w-b3e91a` is closed at `04132a5`
+      as a priced negative and merged at `a49fed3` — so what was genuinely lost is the
+      instrumented source, not the finding.
+    * **`202aef9f`** — a 2026-09-26 stash untracked-files commit from
+      `madgab-approx-runtime` holding 18 blobs: the `prof/{results,sum}*.txt` harness
+      outputs and the two 30 MB instrumented binaries. **Deliberately not archived**, and
+      recorded as classified rather than left to be re-derived as a gap: those 16 text files
+      are regenerable because their inputs are durable at `docs/work/probe-inputs/`
+      (standing rule 8), and **all 18 files are still live in the worktree**, so nothing is
+      at risk from this object at all. Archiving it would be the error rules 8 and 9 warn
+      about, in the opposite direction from a 2.7 GB Cargo directory.
+  * **Recovery, on its own branch per standing rule 5.**
+    `recovery/unreachable-objects-2026-09-28` = **`a91f71d`**, pushed, **not merged**.
+    `docs/work/unreachable-patches/0088d27c-w-b3e91a-src-lib-rs.diff` plus a README with
+    per-commit provenance, the reasoning for the deliberate non-recovery of `202aef9f`, and
+    the usual fence note.
+  * **Verified by forward application.** A throwaway worktree at the parent `f2b2f1b`, the
+    patch applied with `git apply --binary`, the resulting blob compared by `git hash-object`
+    against `git rev-parse 0088d27c:src/lib.rs`: `105d9b3` both ways — **`APPLIES`/`MATCH`**.
+    The explicit two-dot form `git diff --binary f2b2f1b 0088d27c` is used rather than
+    `format-patch` per standing rule 12.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  fifteenth time and declined for the fifteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits: the fence-scanned surface
+  (`src/ tests/ web/ examples/ Cargo.toml`) is byte-identical to `a676176`, the head
+  `coord-4d31` ran green by execution, so that result holds by content and the fence was not
+  re-run. The pause and its documented limitation stand. If development is ever reopened, the
+  named direction is still a qualitatively different whole-path algorithm (compact
+  pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+  **never** phrase-specific hard-coding. The patch recovered here is itself an example of why
+  that qualifier is load-bearing: it contains canonical phrases as probe literals, it lives
+  under `docs/` which the fence does not scan, `ALLOWLIST_CAPS` is unchanged, and any
+  promotion must strip the literals rather than waive them.
+
+  **On the escalation, which is now three passes in a row to have been superseded by a
+  coverage gap rather than confirmed.** The eighteenth pass closed the `refs/heads/` blind
+  spot; this one closed the no-holder spot. Both were found by asking what the check could
+  not see, and both were cheap — two commands and one `fsck` respectively, against eighteen
+  passes of hash sweeping that found nothing at all. **A twentieth pass should not re-run
+  rule 10, the hash sweep, or the fence.** The remaining candidates `coord-11b9` flagged —
+  the 184 remote branches and 125 worktrees — are *held* objects, so rule 10 with a freshly
+  fetched ref set already covers them; they are lower-risk than what has just been found,
+  because they have holders. If a twentieth pass wants a new fact, the useful question is now
+  the reverse one: **which of the four `recovery/*` branches is itself reachable only from a
+  prunable ref** — the eighth risk `coord-11b9` listed and no pass has yet checked. The
+  human gate question is still the only thing only a human can answer; it is no longer the
+  only thing left to do.
