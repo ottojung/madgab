@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-c4d2
-updated: 2026-09-28T05:44:00Z
+owner: coord-7d3b
+updated: 2026-09-28T05:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -36,6 +36,12 @@ instruction.
    live worktree**, not by "was this path archived at all" — two different programs in this
    repo share the basename `examples/zz_5e2d42_spans.rs`, and two different files share
    `src/probe.rs`.
+7. **Hash-compare against blobs *and* against archived diffs.** A file archived as a
+   `*.diff` patch has no blob of its own, so a pure content-hash sweep reports all eight
+   instrumented `src/lib.rs` copies as "unarchived" even though
+   `docs/work/probe-patches/` already carries them. Verify those by diffing the live
+   worktree's `src/lib.rs` against its recorded patch before re-archiving, or a pass will
+   spend its whole budget re-saving state that is already durable.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -111,6 +117,34 @@ Deliberately **not** archived: `target-front-3a8f01/` (1.4 GB) and `target-front
 `prof/` binaries and `results-*.txt`/`sum-*.txt` (~2 MB), which the two kept markdown files
 already summarise.
 
+## Third recovery pass (`coord-7d3b`)
+
+`recovery/probe-scaffolding-2026-09-28` = **`0a12e33`**, pushed, not merged. Swept all 21
+worktrees and hashed every dirty and untracked file against every blob reachable in this
+repository. 51 live files had no matching blob. Of those:
+
+* 8 are the instrumented `src/lib.rs` copies **already durable as
+  `docs/work/probe-patches/*.diff`** — a false positive, now standing rule 7;
+* 46 are the `prof/` tree of `madgab-approx-runtime`, of which the two markdown write-ups
+  were already archived and the rest was deliberately dropped. Two of them were a real gap:
+  **`prof/run.sh` and `prof/summarize.py`**, the harness that produced every number in those
+  write-ups, had never been archived, so the second pass's findings were not reproducible.
+  Both are now at `0a12e33`, together with the 24-file `prof/baseline/` directory (92 KB)
+  that the `scale.txt` baseline column rests on. Provenance in
+  `docs/work/probe-artifacts/README.md`.
+* `c1d3a7-instr/m.txt` (4.0 MB `ZZMETRICS` dump) had already been covered by the
+  `probe-output/c1d3a7-m-head200.txt` head from `3ce5262` — verified, not re-archived.
+
+**Remaining unarchived live state, all deliberate and all reproducible:** the two 30 MB
+instrumented binaries `prof/madgab-baseline` and `prof/madgab-prof`, the ~2 MB
+`results-*.txt`/`sum-*.txt` summaries (superseded by the archived markdown), and the
+`target-front-3a8f01`/`3a8f02` Cargo directories (2.7 GB). Nothing at risk remains.
+
+One loose end, unchanged and not actionable while paused: `prof/README.md` documents a real
+`src/lib.rs` change in `prune_partials` (cache `metrics` instead of recomputing per
+comparison) that exists in no branch and no commit. The harness that measured it is now
+durable; the change itself still is not.
+
 ## The preserved limitation (do not re-litigate)
 
 Approximate mode generates `wreck a nice beach` for `recognize speech`. It does **not**
@@ -138,14 +172,23 @@ recorded as a priced negative.
   the dirty-worktree sweep **did** find unarchived state — the six files and one output head
   now at `3ce5262`. Census unchanged (87 done, 12 superseded, 0 open, 0 blocked, and the
   `w-paused-reconciliation` log itself as the only `working` entry). No agent launched, no
-  front resumed, nothing integrated, `main` untouched.
+  front resumed, nothing integrated,   `main` untouched.
+* **`coord-7d3b` (this pass), 2026-09-28T05:41Z–05:58Z** — reconciliation only. Both
+  prescribed checks run again: `antonina agent list` is entirely terminal (the two paused
+  fronts `3a8f01`/`3a8f02` are still `stopped`, deliberately left that way), and the
+  hash-level worktree sweep **did** find a real gap — the `prof/` harness and baseline raw
+  output, now at `0a12e33` on the recovery branch. Census unchanged (87 done, 12
+  superseded, 0 open, 0 blocked; this log the only `working` entry). No agent launched, no
+  front resumed, no item claimed, nothing integrated, `main` untouched.
 
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
 for anything alive, and every worktree's `git status --porcelain` for uncommitted `src/` or
 untracked `examples/`/`tests/`/`src/` files **and untracked directories** not already
-covered. Verify coverage by **content hash against the live file**, not by path or basename
-(standing rule 6 — two same-basename/different-content pairs have already been lost this
-way). If both checks are clean, **there is no work to do** — confirm the pause, record
-nothing further to avoid commit noise, and exit. Do not open a front.
+covered. Verify coverage by **content hash against the live file** — against blobs *and*
+against the archived diffs (standing rules 6 and 7; two same-basename/different-content
+pairs and eight diff-archived `src/lib.rs` copies have already tripped a naive check). If
+both checks are clean, **there is no work to do** — confirm the pause, record nothing
+further to avoid commit noise, and exit. Do not open a front.
+
