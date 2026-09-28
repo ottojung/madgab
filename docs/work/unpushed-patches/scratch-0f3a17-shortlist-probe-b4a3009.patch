@@ -1,0 +1,398 @@
+From b4a3009c1476d3d94d02ab903ca794e75e7b06af Mon Sep 17 00:00:00 2001
+From: Otto Jung <otto.jung@vauplace.com>
+Date: Sun, 27 Sep 2026 08:22:59 +0000
+Subject: [PATCH] w-0f3a17 probe: the traversal's own per-slot index, and each
+ pass's rank
+
+Adds the per-pass ranks (cost, familiarity, rarity, band, quality) for
+every candidate of a span, and a probe that reports, per canonical slot,
+the index the lexical walk actually reads -- slots[k] is edge.matches
+re-sorted by SlotAlt::contribution(word_count), not the shortlist's own
+quality order -- against cap = affordable_opening_width(depth, 4000).
+
+Still NOT FOR PUSH. --lib is 65 passed / 0 failed with the dump.
+---
+ src/lib.rs | 332 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 332 insertions(+)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 8cb5f44..1747cf5 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1274,6 +1274,113 @@ impl Generator {
+                             passed.insert(w, pass);
+                         }
+                     }
++                    let mut by_cost_all = by_q_all.clone();
++                    by_cost_all.sort_by(|a, b| {
++                        a.cost.partial_cmp(&b.cost).unwrap_or(
++                            std::cmp::Ordering::Equal,
++                        )
++                    });
++                    let mut cost_rank: HashMap<String, usize> =
++                        HashMap::new();
++                    for (i, m) in by_cost_all.iter().enumerate() {
++                        cost_rank.insert(
++                            self.fuzzy_lexicon
++                                .word(m.word_idx)
++                                .word
++                                .to_lowercase(),
++                            i,
++                        );
++                    }
++                    let mut by_fam_all = by_q_all.clone();
++                    by_fam_all.sort_by(|a, b| {
++                        cmp_desc(
++                            word_familiarity(
++                                self.fuzzy_lexicon
++                                    .word(a.word_idx)
++                                    .rarity,
++                            ),
++                            word_familiarity(
++                                self.fuzzy_lexicon
++                                    .word(b.word_idx)
++                                    .rarity,
++                            ),
++                        )
++                    });
++                    let mut familiarity_rank: HashMap<String, usize> =
++                        HashMap::new();
++                    for (i, m) in by_fam_all.iter().enumerate() {
++                        familiarity_rank.insert(
++                            self.fuzzy_lexicon
++                                .word(m.word_idx)
++                                .word
++                                .to_lowercase(),
++                            i,
++                        );
++                    }
++                    let mut by_rar_all = by_q_all.clone();
++                    by_rar_all.sort_by(|a, b| {
++                        rarity_rank(
++                            self.fuzzy_lexicon.word(a.word_idx).rarity,
++                        )
++                        .cmp(&rarity_rank(
++                            self.fuzzy_lexicon.word(b.word_idx).rarity,
++                        ))
++                        .then_with(|| {
++                            a.cost.partial_cmp(&b.cost).unwrap_or(
++                                std::cmp::Ordering::Equal,
++                            )
++                        })
++                    });
++                    let mut rarity_rank: HashMap<String, usize> =
++                        HashMap::new();
++                    for (i, m) in by_rar_all.iter().enumerate() {
++                        rarity_rank.insert(
++                            self.fuzzy_lexicon
++                                .word(m.word_idx)
++                                .word
++                                .to_lowercase(),
++                            i,
++                        );
++                    }
++                    let mut band: HashMap<String, usize> =
++                        HashMap::new();
++                    for m in &by_q_all {
++                        let bnd = (((m.cost / per_word_budget.max(1e-9))
++                            * 4.0)
++                            .floor()
++                            .clamp(0.0, 3.0)) as usize;
++                        band.insert(
++                            self.fuzzy_lexicon
++                                .word(m.word_idx)
++                                .word
++                                .to_lowercase(),
++                            bnd,
++                        );
++                    }
++                    let mut band_quality_rank: HashMap<String, usize> =
++                        HashMap::new();
++                    for bnd in 0..4usize {
++                        let mut bucket: Vec<&approx::FuzzyMatch> =
++                            by_q_all
++                                .iter()
++                                .filter(|m| band[&self.fuzzy_lexicon
++                                    .word(m.word_idx)
++                                    .word
++                                    .to_lowercase()] == bnd)
++                                .collect();
++                        bucket.sort_by(|a, b| {
++                            cmp_desc(quality(a), quality(b))
++                        });
++                        for (i, m) in bucket.iter().enumerate() {
++                            band_quality_rank.insert(
++                                self.fuzzy_lexicon
++                                    .word(m.word_idx)
++                                    .word
++                                    .to_lowercase(),
++                                i,
++                            );
++                        }
++                    }
+                     let mut insert_index: HashMap<String, usize> =
+                         HashMap::new();
+                     for (i, wi) in pre_sort_order.iter().enumerate() {
+@@ -1293,6 +1400,11 @@ impl Generator {
+                         in_shortlist,
+                         passed,
+                         insert_index,
++                        cost_rank,
++                        familiarity_rank,
++                        rarity_rank,
++                        band,
++                        band_quality_rank,
+                     );
+                 }
+ 
+@@ -2327,6 +2439,17 @@ mod shortlist_dump {
+         /// Word -> its index in the shortlist in *admission* order, i.e.
+         /// before the final quality sort.
+         pub insert_index: HashMap<String, usize>,
++        /// Word -> its rank in the span's by-cost order, over *all*
++        /// candidates offered for the span.
++        pub cost_rank: HashMap<String, usize>,
++        /// Word -> its rank in the span's by-familiarity order.
++        pub familiarity_rank: HashMap<String, usize>,
++        /// Word -> its rank in the span's by-rarity order.
++        pub rarity_rank: HashMap<String, usize>,
++        /// Word -> its cost band index, 0..=3.
++        pub band: HashMap<String, usize>,
++        /// Word -> its rank in its own cost band, by quality.
++        pub band_quality_rank: HashMap<String, usize>,
+     }
+ 
+     thread_local! {
+@@ -2362,6 +2485,11 @@ mod shortlist_dump {
+         in_shortlist: HashMap<String, usize>,
+         admitted_by: HashMap<String, &'static str>,
+         insert_index: HashMap<String, usize>,
++        cost_rank: HashMap<String, usize>,
++        familiarity_rank: HashMap<String, usize>,
++        rarity_rank: HashMap<String, usize>,
++        band: HashMap<String, usize>,
++        band_quality_rank: HashMap<String, usize>,
+     ) {
+         if !armed() {
+             return;
+@@ -2375,6 +2503,11 @@ mod shortlist_dump {
+                 in_shortlist,
+                 admitted_by,
+                 insert_index,
++                cost_rank,
++                familiarity_rank,
++                rarity_rank,
++                band,
++                band_quality_rank,
+             })
+         });
+     }
+@@ -5959,6 +6092,205 @@ mod tests {
+         }
+     }
+ 
++    /// w-0f3a17 probe: the index the *traversal* actually reads.
++    ///
++    /// The shortlist's own order is not the order the lexical walk
++    /// indexes into.  slots[k] is edge.matches -- the quality-sorted
++    /// shortlist -- re-sorted by SlotAlt::contribution(word_count),
++    /// which divides the familiarity, shape and closed-class terms by
++    /// the slot count and applies WORD_NOVELTY / word_count, and then
++    /// the walk reads 0..slots[k].len().min(cap).  So the index that cap
++    /// bounds is neither the admission index nor the shortlist index.
++    /// This measures all three, plus the span's own cost rank inside the
++    /// shortlist, for every slot of the canonical alignments.
++    ///
++    /// contribution is mirrored here rather than called: SlotAlt is local
++    /// to generate_approximate, and the mirror is the same expression,
++    /// transcribed.
++    #[test]
++    fn probe_0f3a17_traversal_index() {
++        use open_english_pronouncing_dictionary::CORPUS_JSON;
++
++        let g = Generator::from_json(
++            CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++
++        for (target, wordings) in reachability_corpus() {
++            let (ipa, _, _) =
++                transcribe_with_boundaries(g.corpus(), target, true).unwrap();
++            let chars: Vec<char> = ipa.chars().collect();
++            let n = chars.len();
++
++            shortlist_dump::arm();
++            let _pool = g.generate_pool(target);
++            let edges = shortlist_dump::take();
++
++            for wording in wordings {
++                let depth = wording.len();
++                let cap =
++                    affordable_opening_width(depth, 4_000);
++                let word_count = depth as f64;
++
++                // Cheapest slot-by-slot alignment of the wording.
++                let mut states: HashMap<
++                    (usize, usize),
++                    (f64, Vec<(usize, usize, String)>),
++                > = HashMap::new();
++                states.insert((0, 0), (0.0, Vec::new()));
++                for (k, wanted) in wording.iter().enumerate() {
++                    let mut next: HashMap<
++                        (usize, usize),
++                        (f64, Vec<(usize, usize, String)>),
++                    > = HashMap::new();
++                    for (&(pos, _), &(total, ref path)) in &states {
++                        if pos >= n {
++                            continue;
++                        }
++                        for m in
++                            g.fuzzy_lexicon.matches_at(&chars, pos, 0.5, 1)
++                        {
++                            let word = g.fuzzy_lexicon.word(m.word_idx);
++                            if !word.word.eq_ignore_ascii_case(wanted) {
++                                continue;
++                            }
++                            let acc = total + m.cost;
++                            if acc > 1.5 + 1e-9 {
++                                continue;
++                            }
++                            let q = pos + m.consumed;
++                            let mut p2 = path.clone();
++                            p2.push((pos, q, word.word.to_lowercase()));
++                            match next.get_mut(&(q, k + 1)) {
++                                Some(e) => {
++                                    if acc < e.0 {
++                                        *e = (acc, p2);
++                                    }
++                                }
++                                None => {
++                                    next.insert((q, k + 1), (acc, p2));
++                                }
++                            }
++                        }
++                    }
++                    states = next;
++                }
++                let Some((_, path)) = states.get(&(n, depth)).cloned() else {
++                    println!(
++                        "== {target:?} {:?}: not matchable",
++                        wording.join(" ")
++                    );
++                    continue;
++                };
++
++                println!(
++                    "== {target:?} {:?}  depth={depth} cap={cap}",
++                    wording.join(" ")
++                );
++                for (k, (p, e, w)) in path.iter().enumerate() {
++                    let Some(edge) =
++                        edges.iter().find(|x| x.p == *p && x.end == *e)
++                    else {
++                        println!("   slot {k} {w}: no span [{p},{e})");
++                        continue;
++                    };
++                    let phrase = TargetPhrase::new(target);
++                    // The shortlist, in shortlist (quality) order, with the
++                    // components SlotAlt would hold.
++                    let alts: Vec<(String, f64, f64)> = edge
++                        .quality_order
++                        .iter()
++                        .filter(|x| edge.in_shortlist.contains_key(*x))
++                        .map(|word| {
++                            let m = lattice_word(&g, &chars, *p, *e, word);
++                            let wc = g.fuzzy_lexicon.word(m.word_idx);
++                            let fam = word_familiarity(wc.rarity);
++                            let reused =
++                                usize::from(phrase.reuse.reuses(&wc.word));
++                            let contribution = -axes::SIMILARITY_PER_WORD
++                                * m.cost
++                                - axes::WORD_NOVELTY * reused as f64
++                                    / word_count
++                                + axes::FAMILIARITY * fam / word_count
++                                + axes::CLOSED_CLASS
++                                    * closed_class_penalty(
++                                        f64::from(wc.closed),
++                                        word_count,
++                                    )
++                                + axes::SHAPE
++                                    * lexical_shape_quality(&wc.word, fam)
++                                    / word_count;
++                            (word.clone(), m.cost, contribution)
++                        })
++                        .collect();
++                    let mut walk = alts.clone();
++                    walk.sort_by(|a, b| {
++                        cmp_desc(a.2, b.2).then_with(|| a.0.cmp(&b.0))
++                    });
++                    let trav = walk.iter().position(|x| x.0 == *w);
++                    let mut cheapest_cost = f64::INFINITY;
++                    let mut cheapest_rank = 0usize;
++                    for (i, x) in alts.iter().enumerate() {
++                        if x.1 < cheapest_cost {
++                            cheapest_cost = x.1;
++                            cheapest_rank = i;
++                        }
++                    }
++                    let shortlist_idx = edge.in_shortlist.get(w).copied();
++                    let admission = edge.insert_index.get(w).copied();
++                    let pass = edge.admitted_by.get(w).copied().unwrap_or("-");
++                    let tuple_cost =
++                        alts.iter().find(|x| x.0 == *w).map(|x| x.1);
++                    let best_pass_rank = [
++                        ("cost", edge.cost_rank.get(w).copied()),
++                        ("familiarity", edge.familiarity_rank.get(w).copied()),
++                        ("rarity", edge.rarity_rank.get(w).copied()),
++                        ("quality", edge.in_shortlist.get(w).copied()),
++                    ];
++                    println!(
++                        "   slot {k} depth1={} {w}: \
++                         traversal-index={trav:?} shortlist-index={shortlist_idx:?} \
++                         admission-index={admission:?} pass={pass} \
++                         tuple-cost={tuple_cost:?} cheapest-in-shortlist-cost={cheapest_cost} \
++                         shortest-list-word-at-cost-rank0={cheapest_rank} \
++                         per-pass-ranks={best_pass_rank:?} \
++                         pushed-at-cap={:?}",
++                        k == 0,
++                        trav.map(|i| i < cap),
++                    );
++                }
++            }
++        }
++    }
++
++    /// The candidate record for word on span [p, end).
++    fn lattice_word(
++        g: &Generator,
++        chars: &[char],
++        p: usize,
++        end: usize,
++        word: &str,
++    ) -> approx::FuzzyMatch {
++        g.fuzzy_lexicon
++            .matches_at(chars, p, 0.5, 1)
++            .into_iter()
++            .find(|m| {
++                p + m.consumed == end
++                    && g.fuzzy_lexicon
++                        .word(m.word_idx)
++                        .word
++                        .eq_ignore_ascii_case(word)
++            })
++            .unwrap_or_else(|| {
++                panic!("{word} is not a candidate on [{p},{end})")
++            })
++    }
++
+     /// P3 regression: the reuse test stems each word once and then serves
+     /// every repeat from the memo, so the hot path neither stems nor
+     /// allocates per call.
+-- 
+2.52.0
+

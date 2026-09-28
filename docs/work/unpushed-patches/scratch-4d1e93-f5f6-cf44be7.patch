@@ -1,0 +1,311 @@
+From cf44be7f0386060802f40c1ab7c2422a4b62c58d Mon Sep 17 00:00:00 2001
+From: Otto Jung <otto.jung@vauplace.com>
+Date: Sun, 27 Sep 2026 22:17:29 +0000
+Subject: [PATCH] w-4d1e93 probe (SCRATCH, unpushed): thread-local word-count
+ parsimony axis in the scorer and all three structural keys, plus the
+ pool/print sweep
+
+Scratch measurement harness only.  A thread-local lambda, shaped as the C1d
+axis of scratch-3f8c62-landed, read by Metrics::combined and by
+partial_span_score / complete_span_score / span_score_bound, so one sweep
+varies the whole axis family without editing a shipped call site.  Zero at
+every shipped path.
+---
+ src/lib.rs          |  54 ++++++++++++++++-
+ tests/probe_f5f6.rs | 143 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 195 insertions(+), 2 deletions(-)
+ create mode 100644 tests/probe_f5f6.rs
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 329168b..7010a0a 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -15,6 +15,13 @@ mod adjacency;
+ mod approx;
+ pub mod lexical;
+ 
++/// SCRATCH PROBE (w-4d1e93, probe branch only, never landed).  Exposes the
++/// scorer-side override so an integration probe can vary the final scorer
++/// without touching a shipped call site.
++pub mod objective_probe {
++    pub use super::axes::probe::{parsimony, set_parsimony};
++}
++
+ #[cfg(target_arch = "wasm32")]
+ pub mod wasm;
+ 
+@@ -1497,13 +1504,19 @@ impl Generator {
+         // * [`span_score_bound`] is the admissible one, and is the only
+         //   key allowed to discard a path outright.
+         let span_partial = |words: usize, s: &SegPath| -> f64 {
+-            partial_span_score(s.extremes, words, target_syllables)
++            partial_span_score(
++                s.extremes,
++                words,
++                target_boundaries.len(),
++                target_syllables,
++            )
+         };
+ 
+         let span_objective = |words: usize, s: &SegPath| -> f64 {
+             complete_span_score(
+                 s.extremes,
+                 words,
++                target_boundaries.len(),
+                 s.shared,
+                 target_inner_count,
+                 target_syllables,
+@@ -1518,6 +1531,7 @@ impl Generator {
+                 s.extremes,
+                 tail,
+                 words,
++                target_boundaries.len(),
+                 s.shared,
+                 n - at,
+                 target_inner_count,
+@@ -3074,7 +3088,8 @@ impl Partial {
+             + axes::RHYTHM * rhythm
+             + axes::SHAPE * shape_quality
+             + axes::CLOSED_CLASS * closed_penalty
+-            + axes::PUNCH * (punch - 1.0);
++            + axes::PUNCH * (punch - 1.0)
++            + axes::probe::axis(words, target_boundaries.len());
+ 
+         Metrics {
+             combined,
+@@ -3176,6 +3191,35 @@ const CLOSED_CLASS_WEIGHT: f64 = 0.15;
+ /// `CLOSED_CLASS` is signed and *subtracted*: a clue whose words are all
+ /// content words pays nothing.
+ mod axes {
++    /// SCRATCH PROBE (w-4d1e93 probe branch only, never landed): a
++    /// thread-local word-count parsimony axis, shaped exactly as the C1d
++    /// axis of `scratch-3f8c62-landed` is (`1 - |w_c - w_t| / max`), and
++    /// read in the final scorer *and* in all three structural keys, so one
++    /// lambda sweeps the whole axis family.  0.0 at every shipped path.
++    pub mod probe {
++        use std::cell::Cell;
++        thread_local! {
++            static PARSIMONY: Cell<f64> = const { Cell::new(0.0) };
++        }
++        pub fn parsimony() -> f64 {
++            PARSIMONY.with(|c| c.get())
++        }
++        pub fn set_parsimony(v: f64) {
++            PARSIMONY.with(|c| c.set(v));
++        }
++        pub fn axis(clue_words: usize, target_words: usize) -> f64 {
++            let lambda = parsimony();
++            if lambda == 0.0 {
++                return 0.0;
++            }
++            let t = target_words.max(1);
++            lambda
++                * (1.0
++                    - clue_words.abs_diff(t) as f64
++                        / clue_words.max(t) as f64)
++        }
++    }
++
+     /// Phonetic similarity of the clue's word sequence to the target.
+     pub const SIMILARITY: f64 = 0.25;
+     /// Boundary novelty against the target's own word boundaries.
+@@ -3759,6 +3803,7 @@ fn novelty_upper_bound(
+ fn partial_span_score(
+     ext: SpanExtremes,
+     words: usize,
++    probe_target_words: usize,
+     target_syllables: usize,
+ ) -> f64 {
+     let denom = words.max(1) as f64;
+@@ -3774,6 +3819,7 @@ fn partial_span_score(
+         + axes::SHAPE * ext.max_shape / denom
+         + axes::CLOSED_CLASS
+             * closed_class_penalty(ext.min_closed as f64, denom)
++        + axes::probe::axis(words, probe_target_words)
+ }
+ 
+ /// Score of a *finished* span path, where boundary novelty is exact.
+@@ -3783,6 +3829,7 @@ fn partial_span_score(
+ fn complete_span_score(
+     ext: SpanExtremes,
+     words: usize,
++    probe_target_words: usize,
+     shared: usize,
+     target_inner: usize,
+     target_syllables: usize,
+@@ -3806,6 +3853,7 @@ fn complete_span_score(
+             )
+         + axes::SHAPE * ext.max_shape / denom
+         + axes::CLOSED_CLASS * closed_class_penalty(ext.min_closed as f64, denom)
++        + axes::probe::axis(words, probe_target_words)
+ }
+ 
+ /// Admissible upper bound on the final score of *every* alignment
+@@ -3837,6 +3885,7 @@ fn span_score_bound(
+     head: SpanExtremes,
+     tail: SpanExtremes,
+     words: usize,
++    probe_target_words: usize,
+     shared: usize,
+     still_possible: usize,
+     target_inner: usize,
+@@ -3866,6 +3915,7 @@ fn span_score_bound(
+         + axes::SHAPE * ext.max_shape / denom
+         + axes::CLOSED_CLASS
+             * closed_class_penalty(ext.min_closed as f64, widest)
++        + axes::probe::axis(words, probe_target_words)
+ }
+ 
+ // -----------------------------------------------------------------
+diff --git a/tests/probe_f5f6.rs b/tests/probe_f5f6.rs
+new file mode 100644
+index 0000000..5178bf6
+--- /dev/null
++++ b/tests/probe_f5f6.rs
+@@ -0,0 +1,143 @@
++//! SCRATCH PROBE for w-4d1e93 (probe branch only; never landed).
++//!
++//! Sweeps the word-count parsimony axis in the scorer *and* all three
++//! structural keys, and at each point records what the two pool/print
++//! fences read: the alignment's pool membership, the per-word membership
++//! the fence's second assertion makes, the golden-lock target's head
++//! score, the weight-free invariants, and whether the pool is closed under
++//! word-level recombination of its own printed proposals.
++//!
++//! The word sequence named here is the same fixture the `emit_coverage`
++//! fence names; this file exists to measure it under a weight, and `src/`
++//! still contains no mention of it.
++
++use madgab::objective_probe::set_parsimony;
++use madgab::{Clue, Generator, GeneratorConfig, SearchMode};
++use open_english_pronouncing_dictionary::CORPUS_JSON;
++
++fn default_approximate() -> GeneratorConfig {
++    GeneratorConfig {
++        mode: SearchMode::Approximate {
++            per_word_budget: 0.5,
++            total_budget: 1.5,
++        },
++        top_n: 50,
++        ..GeneratorConfig::default()
++    }
++}
++
++fn words_of(clue: &Clue) -> Vec<String> {
++    clue.words.iter().map(|w| w.word.to_lowercase()).collect()
++}
++
++fn rank_in(clues: &[Clue], words: &[String]) -> Option<usize> {
++    clues.iter().position(|c| words_of(c) == words).map(|i| i + 1)
++}
++
++fn vocab(clues: &[Clue]) -> std::collections::HashSet<String> {
++    clues
++        .iter()
++        .flat_map(words_of)
++        .collect::<std::collections::HashSet<_>>()
++}
++
++fn has_vocab(clues: &[Clue], word: &str) -> bool {
++    clues.iter().any(|c| words_of(c).iter().any(|w| w == word))
++}
++
++#[test]
++fn probe_parsimony_sweep() {
++    let target = "It's just a stupid game";
++    let alignment: Vec<String> = ["hits", "justice", "dupe", "hid", "came"]
++        .iter()
++        .map(|s| s.to_string())
++        .collect();
++    let lock_target = "I love you";
++    let golden_head = "0.933655 isle uhh view";
++    let golden_tail = "0.906023 isle of ooh";
++
++    let g = Generator::from_json(CORPUS_JSON, default_approximate()).unwrap();
++    for lambda in [0.0f64, 0.001, 0.005, 0.02, 0.05, 0.10, 0.15, 0.25, 0.4, 1.0] {
++        set_parsimony(lambda);
++        let pool = g.generate_pool(target);
++        let (printed, pool_size) = g.generate_with_pool(target);
++        let lg = Generator::from_json(
++            CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 10,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        let lock = lg.generate(lock_target);
++        let lock_str: Vec<String> = lock
++            .iter()
++            .map(|c| format!("{:.6} {}", c.score, c.phrase))
++            .collect();
++
++        let printed_in_pool = printed
++            .iter()
++            .filter(|c| rank_in(&pool, &words_of(c)).is_some())
++            .count();
++        let pv = vocab(&pool);
++        let printed_words_present = printed
++            .iter()
++            .flat_map(words_of)
++            .filter(|w| pv.contains(w))
++            .count();
++        let printed_words_total: usize = printed.iter().map(|c| c.words.len()).sum();
++
++        // Is the pool closed under recombining the words of its own
++        // printed proposals?  Every one- versus two-printed-clue splice
++        // is a word sequence drawn entirely from pool vocabulary.
++        let mut splices = 0usize;
++        let mut splices_absent = 0usize;
++        for a in printed.iter().take(6) {
++            for b in printed.iter().take(6) {
++                let aw = words_of(a);
++                let bw = words_of(b);
++                for k in 1..aw.len().min(bw.len()) {
++                    let mut w = aw[..k].to_vec();
++                    w.extend_from_slice(&bw[k..]);
++                    splices += 1;
++                    if rank_in(&pool, &w).is_none() {
++                        splices_absent += 1;
++                    }
++                }
++            }
++        }
++
++        let descending = printed.windows(2).all(|w| w[0].score >= w[1].score);
++        let mut phrases: Vec<String> =
++            printed.iter().map(|c| c.phrase.to_lowercase()).collect();
++        let uniq = {
++            let n = phrases.len();
++            phrases.sort();
++            phrases.dedup();
++            phrases.len() == n
++        };
++
++        println!(
++            "lambda={lambda:<6} pool={pool_size:<6} printed={} pin={printed_in_pool}/{} \
++             words_in_pool={printed_words_present}/{printed_words_total} vocab={} \
++             align_pool={} hid_in_pool={} lock_head={} lock_green={} desc={descending} uniq={uniq} \
++             splices_absent={splices_absent}/{splices}",
++            printed.len(),
++            lock_str.first().cloned().unwrap_or_default(),
++            pv.len(),
++            rank_in(&pool, &alignment)
++                .map(|r| format!("rank {r}"))
++                .unwrap_or_else(|| "ABSENT".into()),
++            has_vocab(&pool, "hid"),
++            lock_str
++                .first()
++                .map(String::as_str)
++                .unwrap_or("")
++                .to_string(),
++            lock_str.first().map(String::as_str) == Some(golden_head)
++                && lock_str.last().map(String::as_str) == Some(golden_tail),
++        );
++    }
++    set_parsimony(0.0);
++}
+-- 
+2.52.0
+

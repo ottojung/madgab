@@ -1,0 +1,892 @@
+From fc3a9306300943211ac81bd0232b12c539de8213 Mon Sep 17 00:00:00 2001
+From: Otto Jung <otto.jung@vauplace.com>
+Date: Sun, 27 Sep 2026 20:51:44 +0000
+Subject: [PATCH] w-d4e8b1: probe instrumentation for the phonetic-cost pricing
+ front (scratch, unpushed)
+
+front_d4e8b1 in src/lib.rs: prices an arbitrary clue word sequence over a
+target through the production fuzzy lattice and the production
+Partial -> Clue conversion, decomposes the eight axes (asserted to reproduce
+Clue::score on every pool clue of both canonical targets), and prices five
+phrase-free counterfactual cost models x two normalisers over both canonical
+cases and ten ordinary targets.  Two cfg(test) accessors in src/approx.rs.
+All behind #[cfg(test)]; no production line changed.
+---
+ src/approx.rs |  28 ++
+ src/lib.rs    | 807 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 834 insertions(+), 1 deletion(-)
+
+diff --git a/src/approx.rs b/src/approx.rs
+index bcc71f1..46f8b8d 100644
+--- a/src/approx.rs
++++ b/src/approx.rs
+@@ -4,9 +4,15 @@ use phonetics::transcriptions::Corpus;
+ use serde::Deserialize;
+ 
+ /// Cost of inserting or deleting one IPA character while aligning a
++
+ /// clue word to a target span.
+ const GAP_COST: f64 = 0.20;
+ 
++/// Measurement accessor for the gap cost, so a probe can price a
++/// counterfactual cost model against the shipped one.  Test builds only.
++#[cfg(test)]
++pub(crate) const GAP_COST_FOR_TEST: f64 = GAP_COST;
++
+ /// Bound the number of word alternatives exposed for any one target
+ /// span after trie traversal. Search still sees multiple acoustic and
+ /// lexical alternatives, but pathological homophone clusters cannot
+@@ -70,6 +76,28 @@ impl FuzzyLexicon {
+         &self.words[index]
+     }
+ 
++    /// The substitution cost `matches_at` charges for one target
++    /// segment read as one clue segment.  Measurement accessor only,
++    /// behind `#[cfg(test)]`: it lets a probe price *which* component of
++    /// a word's edit cost - insertion, deletion, substitution - carries a
++    /// score, without re-deriving the cost model.
++    #[cfg(test)]
++    pub(crate) fn substitution_cost(&self, target_char: char, clue_char: char) -> f64 {
++        if target_char == clue_char {
++            0.0
++        } else {
++            self.substitution_costs
++                .get(&(target_char, clue_char))
++                .copied()
++                .unwrap_or_else(|| {
++                    phonetics::distance(
++                        &target_char.to_string(),
++                        &clue_char.to_string(),
++                    )
++                })
++        }
++    }
++
+     /// Find all words whose pronunciation is within the edit budget of
+     /// a target prefix at start.
+     ///
+diff --git a/src/lib.rs b/src/lib.rs
+index e061551..85c3562 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -4786,7 +4786,7 @@ mod tests {
+     // is allowed to drop.
+     // -----------------------------------------------------------------
+ 
+-    fn approximate_generator(top_n: usize) -> Generator {
++    pub(crate) fn approximate_generator(top_n: usize) -> Generator {
+         Generator::from_json(
+             open_english_pronouncing_dictionary::CORPUS_JSON,
+             GeneratorConfig {
+@@ -8547,3 +8547,808 @@ mod front_5d9c04 {
+         }
+     }
+ }
++
++
++// ---- w-d4e8b1: pricing the phonetic-cost term ----
++//
++// Measurement apparatus only, behind `#[cfg(test)]` and unreachable
++// from a release build.  It prices an arbitrary clue word sequence over a
++// target through the production fuzzy lattice and the production
++// `Partial` -> `Clue` conversion, so the `SIMILARITY` term can be
++// decomposed term by term and per word without re-deriving any other
++// axis, and it exposes the per-word lattice match list so a counterfactual
++// cost model can be priced over the same alignments.
++#[cfg(test)]
++mod front_d4e8b1 {
++    use super::approx::FuzzyWord;
++    use std::collections::BTreeMap;
++    use super::tests::approximate_generator;
++    use super::*;
++
++    const CANON_T2: [&str; 5] = ["hits", "justice", "dupe", "hid", "came"];
++    const GREEN_T1: [&str; 4] = ["wreck", "a", "nice", "beach"];
++
++    fn generator(top_n: usize) -> Generator {
++        approximate_generator(top_n)
++    }
++
++    /// Every alternative the production lattice offers for one clue word
++    /// over one target span, cheapest first.  Same `matches_at` call, same
++    /// budget, same `MATCHES_PER_SPAN` truncation as the search.
++    fn alternatives(
++        gen: &Generator,
++        chars: &[char],
++        start: usize,
++        word: &str,
++    ) -> Vec<approx::FuzzyMatch> {
++        let budget = match gen.config.mode {
++            SearchMode::Approximate { per_word_budget, .. } => per_word_budget,
++            SearchMode::Exact => f64::INFINITY,
++        };
++        gen.fuzzy_lexicon
++            .matches_at(chars, start, budget, gen.config.min_word_ipa_chars)
++            .into_iter()
++            .filter(|m| gen.fuzzy_lexicon.word(m.word_idx).word == word)
++            .collect()
++    }
++
++    /// A lattice alternative, with the word the lexicon actually holds.
++    fn alt_of(gen: &Generator, m: approx::FuzzyMatch) -> (approx::FuzzyMatch, FuzzyWord) {
++        let m = approx::FuzzyMatch {
++            consumed: m.consumed,
++            word_idx: m.word_idx,
++            cost: m.cost,
++        };
++        let w = gen.fuzzy_lexicon.word(m.word_idx);
++        (
++            m,
++            FuzzyWord {
++                word: w.word.clone(),
++                ipa: w.ipa.clone(),
++                ipa_len: w.ipa_len,
++                syllables: w.syllables,
++                rarity: w.rarity,
++                closed: w.closed,
++            },
++        )
++    }
++
++    /// Least-cost alignment of `words` over `target`'s phone stream,
++    /// through the production lattice, then the production
++    /// `Partial` -> `Clue` conversion.  `None` if the words do not tile the
++    /// phone stream inside the per-word budget the shipped mode uses.
++    fn price(gen: &Generator, target: &str, words: &[&str]) -> Option<Priced> {
++        price_with(gen, target, words, &CostModel::AsScored, None)
++    }
++
++    /// How a probe re-prices a word's edit cost.  `AsScored` is the
++    /// shipped number; the others are the counterfactual cost models the
++    /// report prices, each a function of the span, the word's phone
++    /// string and the target's phone string only.
++    #[derive(Clone, Copy)]
++    enum CostModel {
++        /// The shipped cost, straight off the lattice.
++        AsScored,
++        /// Every alignment, at the lattice's own segment costs.
++        MinAlignment,
++        /// Insertions and deletions free: only segment substitutions
++        /// charge.  The connected-speech reading - material that only
++        /// appears because the clue cut the target differently is not a
++        /// mispronunciation.
++        SubstitutionsOnly,
++        /// Insertions and deletions at half the shipped gap cost: a
++        /// middle reading between `AsScored` and `SubstitutionsOnly`.
++        HalfGap,
++        /// The shipped cost model, recomputed from the two phone strings
++        /// rather than read off the lattice.  Agreement with
++        /// `AsScored` is what makes the counterfactual models above
++        /// comparable to the number the production scorer charged.
++        Recomputed,
++        /// Asymmetric half of the shipped model: only a *target* phone
++        /// the clue word fails to pronounce is charged.  Material the
++        /// clue adds is free, which is the connected-speech reading of a
++        /// resegmentation and the one asymmetry the shipped model does
++        /// not have.
++        DeletionsOnly,
++        /// The mirror image: only a *clue* phone the target span does
++        /// not have is charged.
++        InsertionsOnly,
++    }
++
++    impl CostModel {
++        fn name(self) -> &'static str {
++            match self {
++                CostModel::AsScored => "as-scored",
++                CostModel::MinAlignment => "min-alignment",
++                CostModel::SubstitutionsOnly => "substitutions-only",
++                CostModel::HalfGap => "half-gap",
++                CostModel::Recomputed => "recomputed",
++                CostModel::DeletionsOnly => "deletions-only",
++                CostModel::InsertionsOnly => "insertions-only",
++            }
++        }
++    }
++
++    struct Priced {
++        clue: Clue,
++        /// Cheapest alternative per word under this model, in clue order:
++        /// what the model would actually put in the clue.
++        alts: Vec<Alt>,
++        /// Phone offsets each clue word ends at, in clue order.
++        cuts: Vec<usize>,
++    }
++
++    /// One lattice alternative with the word the lexicon holds.
++    #[derive(Clone)]
++    struct Alt {
++        consumed: usize,
++        cost: f64,
++        word: FuzzyWord,
++    }
++
++    /// Cost of aligning a clue word's phone string to a target span under
++    /// `model`.  A free function of the two phone strings and the shipped
++    /// segment costs, which is what makes every counterfactual model here
++    /// phrase-free: it reads no word, no clue and no target.
++    fn cost_of(
++        gen: &Generator,
++        word_ipa: &str,
++        span: &[char],
++        model: CostModel,
++    ) -> f64 {
++        let clue_chars: Vec<char> = word_ipa.chars().collect();
++        // dp[i][j] = cheapest cost of aligning clue[0..i) to span[0..j).
++        let mut dp = vec![f64::INFINITY; (clue_chars.len() + 1) * (span.len() + 1)];
++        let at = |i: usize, j: usize| i * (span.len() + 1) + j;
++        dp[at(0, 0)] = 0.0;
++        let (del, ins) = match model {
++            CostModel::Recomputed => (
++                approx::GAP_COST_FOR_TEST,
++                approx::GAP_COST_FOR_TEST,
++            ),
++            CostModel::HalfGap => (
++                approx::GAP_COST_FOR_TEST / 2.0,
++                approx::GAP_COST_FOR_TEST / 2.0,
++            ),
++            CostModel::DeletionsOnly => (approx::GAP_COST_FOR_TEST, 0.0),
++            CostModel::InsertionsOnly => (0.0, approx::GAP_COST_FOR_TEST),
++            _ => (0.0, 0.0),
++        };
++        for i in 0..=clue_chars.len() {
++            for j in 0..=span.len() {
++                if i == 0 && j == 0 {
++                    continue;
++                }
++                let mut best = f64::INFINITY;
++                if i > 0 {
++                    best = best.min(dp[at(i - 1, j)] + ins);
++                }
++                if j > 0 {
++                    best = best.min(dp[at(i, j - 1)] + del);
++                }
++                if i > 0 && j > 0 {
++                    let sub =
++                        gen.fuzzy_lexicon.substitution_cost(span[j - 1], clue_chars[i - 1]);
++                    best = best.min(dp[at(i - 1, j - 1)] + sub);
++                }
++                dp[at(i, j)] = best;
++            }
++        }
++        dp[at(clue_chars.len(), span.len())]
++    }
++
++    /// Price `words` over `target` under `model`, letting the alignment
++    /// itself move (`None`) or holding the shipped one (`Some(cuts)`).
++    /// Price `words` over `target` under `model`, letting the alignment
++    /// itself move (`pins = None`, the *least-cost* tiling, which is the
++    /// best any phonetic-cost rule could pick for this wording) or
++    /// holding the shipped one (`pins = Some(cuts)`).
++    fn price_with(
++        gen: &Generator,
++        target: &str,
++        words: &[&str],
++        model: &CostModel,
++        pins: Option<&[usize]>,
++    ) -> Option<Priced> {
++        let (target_ipa, target_boundaries, target_syllables) =
++            transcribe_with_boundaries(&gen.corpus, target, true)?;
++        let phrase = TargetPhrase::new(target);
++        let chars: Vec<char> = target_ipa.chars().collect();
++        let n = chars.len();
++        let w = words.len();
++
++        // span_table[p][len] = every lattice alternative for `words[k]`
++        // at phone offset `p` covering `len` target phones, priced
++        // under this model.
++        let mut span_table: Vec<Vec<Vec<Alt>>> = vec![Vec::new(); n + 1];
++        for p in 0..=n {
++            if p == n {
++                continue;
++            }
++            span_table[p] = vec![Vec::new(); n - p + 1];
++            for k in 0..w {
++                for m in alternatives(gen, &chars, p, words[k]) {
++                    let end = p + m.consumed;
++                    if end > n {
++                        continue;
++                    }
++                    let (_, fw) = alt_of(gen, m);
++                    let cost = match model {
++                        CostModel::AsScored => m.cost,
++                        _ => cost_of(gen, &fw.ipa, &chars[p..end], *model),
++                    };
++                    span_table[p][m.consumed].push(Alt {
++                        consumed: m.consumed,
++                        cost,
++                        word: fw,
++                    });
++                }
++            }
++        }
++
++        // Least-cost tiling of the phone stream by exactly `w` words, in
++        // order.  A greedy per-position choice is not this: a dearer
++        // span now can leave a cheaper one later, and the shipped
++        // scorer charges the total, so the choice has to be global.
++        let mut dp: Vec<Vec<Option<(f64, usize, usize)>>> = vec![vec![None; w + 1]; n + 1];
++        dp[0][0] = Some((0.0, 0, 0));
++        for p in 0..=n {
++            for k in 0..=w {
++                let Some((total, _, _)) = dp[p][k] else {
++                    continue;
++                };
++                if p == n || k == w {
++                    continue;
++                }
++                if let Some(pins) = pins {
++                    let end = pins[k];
++                    if end <= p {
++                        continue;
++                    }
++                    for a in span_table[p][end - p].iter() {
++                        relax(&mut dp, p, k, end, total + a.cost, a);
++                    }
++                    continue;
++                }
++                for len in 1..=(n - p) {
++                    for a in span_table[p][len].iter() {
++                        relax(&mut dp, p, k, p + len, total + a.cost, a);
++                    }
++                }
++            }
++        }
++        let Some((_, _, _)) = dp[n][w] else {
++            return None;
++        };
++
++        let mut picks: Vec<Alt> = vec![
++            Alt { consumed: 0, cost: 0.0, word: FuzzyWord { word: String::new(), ipa: String::new(), ipa_len: 0, syllables: 0, rarity: None, closed: false } };
++            w
++        ];
++        let mut spans: Vec<usize> = vec![0; w];
++        let (mut p, mut k) = (n, w);
++        while k > 0 {
++            let (_, prev_p, alt) = dp[p][k].expect("on the priced path");
++            let a = span_table[prev_p][p - prev_p]
++                .iter()
++                .find(|a| a.consumed == alt)
++                .expect("path alternative is in the table")
++                .clone();
++            picks[k - 1] = a;
++            spans[k - 1] = p;
++            p = prev_p;
++            k -= 1;
++        }
++
++        let mut partial = Partial::empty();
++        for (i, alt) in picks.iter().enumerate() {
++            let consumed = if i == 0 { spans[0] } else { spans[i] - spans[i - 1] };
++            partial = partial.extend_fuzzy(&phrase, &alt.word, consumed, alt.cost);
++        }
++        let clue = partial.into_clue(&target_ipa, &target_boundaries, target_syllables);
++        Some(Priced { clue, alts: picks, cuts: spans })
++    }
++
++    /// One DP relaxation, keeping the cheapest way to reach `q` with one
++    /// more word placed.
++    fn relax(
++        dp: &mut [Vec<Option<(f64, usize, usize)>>],
++        p: usize,
++        k: usize,
++        q: usize,
++        cost: f64,
++        alt: &Alt,
++    ) {
++        let slot = &mut dp[q][k + 1];
++        if slot.is_none() || cost < slot.expect("checked").0 - 1e-12 {
++            *slot = Some((cost, p, alt.consumed));
++        }
++    }
++    /// The eight production axes of any clue, raw and weighted, read off
++    /// the clue's own words and cuts against the target.  The sum is
++    /// asserted against `Clue::score` on every pool clue the probe
++    /// touches, so this decomposes the production number rather than
++    /// re-deriving one.
++    fn terms(clue: &Clue, target: &str, gen: &Generator) -> Vec<(&'static str, f64, f64)> {
++        let (target_ipa, target_boundaries, target_syllables) =
++            transcribe_with_boundaries(&gen.corpus, target, true).expect("target transcribes");
++        let total_len = target_ipa.chars().count();
++        let words = clue.words.len() as f64;
++        let total_cost: f64 = clue.words.iter().map(|w| w.sub_cost).sum();
++        let similarity =
++            (1.0 - total_cost / total_len as f64 / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0);
++        let novelty = boundary_novelty(&clue.cuts, &target_boundaries, total_len, false);
++        let tp = TargetPhrase::new(target);
++        let reused = clue
++            .words
++            .iter()
++            .filter(|w| tp.reuse.reuses(&w.word))
++            .count() as f64;
++        let word_novelty = 1.0 - reused / words.max(1.0);
++        let familiarity = clue
++            .words
++            .iter()
++            .map(|w| word_familiarity(w.rarity))
++            .sum::<f64>()
++            / words;
++        let syll = clue
++            .words
++            .iter()
++            .map(|w| approx::ipa_syllables(&w.ipa))
++            .sum::<usize>();
++        let rhythm = rhythm_match(syll, target_syllables);
++        let shape = clue
++            .words
++            .iter()
++            .map(|w| lexical_shape_quality(&w.word, word_familiarity(w.rarity)))
++            .sum::<f64>()
++            / words;
++        let closed = clue
++            .words
++            .iter()
++            .filter(|w| lexical::is_closed_class(&w.word))
++            .count() as f64;
++        let closed_penalty = closed_class_penalty(closed, words);
++        let punch = clue
++            .words
++            .iter()
++            .filter(|w| approx::ipa_syllables(&w.ipa) == 1)
++            .count() as f64
++            / words;
++        vec![
++            ("SIMILARITY", similarity, axes::SIMILARITY * similarity),
++            ("NOVELTY", novelty, axes::NOVELTY * novelty),
++            ("WORD_NOVELTY", word_novelty, axes::WORD_NOVELTY * word_novelty),
++            ("FAMILIARITY", familiarity, axes::FAMILIARITY * familiarity),
++            ("RHYTHM", rhythm, axes::RHYTHM * rhythm),
++            ("SHAPE", shape, axes::SHAPE * shape),
++            ("CLOSED_CLASS", closed_penalty, axes::CLOSED_CLASS * closed_penalty),
++            ("PUNCH", punch, axes::PUNCH * (punch - 1.0)),
++        ]
++    }
++
++    fn check_terms(clue: &Clue, target: &str, gen: &Generator) -> Vec<(&'static str, f64, f64)> {
++        let t = terms(clue, target, gen);
++        let sum: f64 = t.iter().map(|x| x.2).sum();
++        assert!(
++            (sum - clue.score).abs() < 1e-12,
++            "axis decomposition {sum} does not reproduce the production score {}",
++            clue.score
++        );
++        t
++    }
++
++    fn ranked(mut pool: Vec<Clue>) -> Vec<Clue> {
++        pool.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
++        pool
++    }
++
++    /// The denominator the phonetic term normalises its cost by.  Both
++    /// readings are functions of phone strings only.
++    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
++    enum Norm {
++        /// Shipped: the target's own phone count.
++        TargetPhones,
++        /// The mean of the target's and the clue's phone counts, i.e.
++        /// symmetric normalised edit distance, the standard reading.
++        SymmetricMean,
++    }
++
++    /// Re-score a clue under a counterfactual cost model and a
++    /// counterfactual normaliser, holding the alignment, the wording and
++    /// the seven non-phonetic axes exactly where they are.  This is the
++    /// axis-side counterfactual: the pool's *membership* is unchanged by
++    /// construction, so any rank movement is the phonetic term's alone.
++    fn rescore(
++        gen: &Generator,
++        clue: &Clue,
++        target: &str,
++        model: CostModel,
++        norm: Norm,
++    ) -> f64 {
++        let (target_ipa, _, _) =
++            transcribe_with_boundaries(&gen.corpus, target, true).expect("target transcribes");
++        let chars: Vec<char> = target_ipa.chars().collect();
++        let t = check_terms(clue, target, gen);
++        let mut total = 0.0;
++        let mut clue_phones = 0usize;
++        let mut start = 0usize;
++        for (i, w) in clue.words.iter().enumerate() {
++            let end = clue.cuts[i];
++            let cost = match model {
++                CostModel::AsScored => w.sub_cost,
++                _ => cost_of(gen, &w.ipa, &chars[start..end], model),
++            };
++            total += cost;
++            clue_phones += w.ipa.chars().count();
++            start = end;
++        }
++        let denom = match norm {
++            Norm::TargetPhones => chars.len() as f64,
++            Norm::SymmetricMean => (chars.len() + clue_phones) as f64 / 2.0,
++        };
++        let similarity =
++            (1.0 - total / denom.max(1.0) / axes::SIMILARITY_COST_PER_PHONE).clamp(0.0, 1.0);
++        let others: f64 = t
++            .iter()
++            .filter(|x| x.0 != "SIMILARITY")
++            .map(|x| x.2)
++            .sum();
++        others + axes::SIMILARITY * similarity
++    }
++
++    /// The spread of ordinary targets the counterfactuals are priced
++    /// over.  Ordinary phrases, no canonical case among them.
++    const SPREAD: [&str; 10] = [
++        "a quick brown fox",
++        "the old man and the sea",
++        "she sells sea shells",
++        "my grandmother started to sing",
++        "the rain in spain falls mainly on the plain",
++        "pack my box with five dozen liquor jugs",
++        "there is no place like home",
++        "open the door and come inside",
++        "he bought a new pair of shoes",
++        "the train leaves at noon tomorrow",
++    ];
++
++    #[test]
++    #[ignore]
++    fn d4e8b1_is_the_phonetic_term_general() {
++        let gen = generator(50);
++        // --- 1. how the term behaves across the pool -------------------
++        let pool = ranked(gen.generate_pool("it's just a stupid game"));
++        let mut by_words: BTreeMap<usize, (usize, f64, f64, f64)> = BTreeMap::new();
++        for clue in &pool {
++            let t = terms(clue, "it's just a stupid game", &gen);
++            let e = by_words
++                .entry(clue.words.len())
++                .or_insert((0, 0.0, f64::MAX, f64::MIN));
++            e.0 += 1;
++            e.1 += t[0].1;
++            e.2 = e.2.min(t[0].1);
++            e.3 = e.3.max(t[0].1);
++        }
++        println!("raw SIMILARITY by clue word count, case 2:");
++        for (n, (count, sum, lo, hi)) in &by_words {
++            println!(
++                "  {n} words: n {count:>6} mean {:.6} min {:.6} max {:.6}",
++                sum / *count as f64,
++                lo,
++                hi
++            );
++        }
++        let canon_sim = terms(
++            &price(&gen, "it's just a stupid game", &CANON_T2).unwrap().clue,
++            "it's just a stupid game",
++            &gen,
++        )[0]
++            .1;
++        let five: Vec<f64> = pool
++            .iter()
++            .filter(|c| c.words.len() == 5)
++            .map(|c| terms(c, "it's just a stupid game", &gen)[0].1)
++            .collect();
++        let better = five.iter().filter(|s| **s > canon_sim).count();
++        println!(
++            "canonical raw similarity {canon_sim:.6}; {better} of {} five-word pool clues score higher (percentile {:.4})",
++            five.len(),
++            1.0 - better as f64 / five.len() as f64
++        );
++        let all: Vec<f64> = pool.iter().map(|c| terms(c, "it's just a stupid game", &gen)[0].1).collect();
++        let better_all = all.iter().filter(|s| **s > canon_sim).count();
++        println!("  whole pool: {} of {} higher", better_all, all.len());
++
++        // --- 2. is the shipped cost the least possible? ----------------
++        let p = price(&gen, "it's just a stupid game", &CANON_T2).unwrap();
++        println!("canonical cuts {:?} costs {:?}", p.cuts, p.clue.words.iter().map(|w| w.sub_cost).collect::<Vec<_>>());
++        let (t2ipa, _, _) = transcribe_with_boundaries(&gen.corpus, "it's just a stupid game", true).unwrap();
++        let chars: Vec<char> = t2ipa.chars().collect();
++        let mut comp = 0.0;
++        let mut start = 0usize;
++        for (i, w) in p.clue.words.iter().enumerate() {
++            let end = p.cuts[i];
++            let span: String = chars[start..end].iter().collect();
++            let gapped = cost_of(&gen, &w.ipa, &chars[start..end], CostModel::Recomputed);
++            let subs = cost_of(&gen, &w.ipa, &chars[start..end], CostModel::SubstitutionsOnly);
++            println!(
++                "  {} ipa {} vs span {span}: shipped {:.10} = recomputed {:.10} = gaps {:.10} + substitutions {:.10}, clue phones {} span phones {}",
++                w.word, w.ipa, w.sub_cost, gapped, gapped - subs, subs, w.ipa.chars().count(), end - start
++            );
++            comp += gapped;
++            start = end;
++        }
++        println!("  component total {comp:.10}");
++
++        // What share of the whole pool's cost is length mismatch rather
++        // than segment substitution?  This is what decides whether a
++        // substitution-only phonetic term measures anything at all.
++        let (mut gap_total, mut sub_total, mut clues) = (0.0, 0.0, 0usize);
++        for clue in pool.iter() {
++            let mut s = 0usize;
++            for (i, w) in clue.words.iter().enumerate() {
++                let e = clue.cuts[i];
++                let g = cost_of(&gen, &w.ipa, &chars[s..e], CostModel::Recomputed);
++                let u = cost_of(&gen, &w.ipa, &chars[s..e], CostModel::SubstitutionsOnly);
++                gap_total += g - u;
++                sub_total += u;
++                s = e;
++            }
++            clues += 1;
++        }
++        println!(
++            "pool component split over {clues} clues: length-mismatch {:.6}, segment substitution {:.6} ({:.4}% mismatch)",
++            gap_total,
++            sub_total,
++            100.0 * gap_total / (gap_total + sub_total)
++        );
++
++        // --- 3. the counterfactual spread -------------------------------
++        for (model, norm) in [
++            (CostModel::AsScored, Norm::TargetPhones),
++            (CostModel::SubstitutionsOnly, Norm::TargetPhones),
++            (CostModel::DeletionsOnly, Norm::TargetPhones),
++            (CostModel::InsertionsOnly, Norm::TargetPhones),
++            (CostModel::HalfGap, Norm::TargetPhones),
++            (CostModel::AsScored, Norm::SymmetricMean),
++        ] {
++            println!(
++                "-- model {} / norm {:?}",
++                model.name(),
++                norm
++            );
++            let canon = price_with(&gen, "it's just a stupid game", &CANON_T2, &model, None).unwrap();
++            let green = price_with(&gen, "recognize speech", &GREEN_T1, &model, None).unwrap();
++            let canon_score = if norm == Norm::TargetPhones {
++                canon.clue.score
++            } else {
++                rescore(&gen, &canon.clue, "it's just a stupid game", model, norm)
++            };
++            let green_score = if norm == Norm::TargetPhones {
++                green.clue.score
++            } else {
++                rescore(&gen, &green.clue, "recognize speech", model, norm)
++            };
++            let p1 = ranked(gen.generate_pool("recognize speech"));
++            let green_rank = p1
++                .iter()
++                .position(|c| c.phrase == "wreck a nice beach")
++                .map_or(-1, |i| i as i64 + 1);
++            let mut rescored1: Vec<f64> = p1
++                .iter()
++                .map(|c| rescore(&gen, c, "recognize speech", model, norm))
++                .collect();
++            let mut idx: Vec<usize> = (0..rescored1.len()).collect();
++            idx.sort_by(|&a, &b| {
++                rescored1[b].partial_cmp(&rescored1[a]).unwrap_or(std::cmp::Ordering::Equal)
++            });
++            let green_rank2 = idx
++                .iter()
++                .position(|&i| p1[i].phrase == "wreck a nice beach")
++                .map_or(-1, |i| i as i64 + 1);
++            let cutoff2 = rescored1[idx[49]];
++            rescored1.sort_by(|a, b| b.partial_cmp(a).unwrap());
++            let mean_sim_shift = {
++                let base: f64 = p1
++                    .iter()
++                    .map(|c| terms(c, "recognize speech", &gen)[0].2)
++                    .sum::<f64>();
++                let now: f64 = p1
++                    .iter()
++                    .map(|c| rescore(&gen, c, "recognize speech", model, norm) - c.score + terms(c, "recognize speech", &gen)[0].2)
++                    .sum::<f64>();
++                (now - base) / p1.len() as f64
++            };
++            println!(
++                "   case2 canonical {:.10} (delta {:+.10}) ceiling-gap {:.10}",
++                canon_score,
++                canon_score - 0.8207695329,
++                0.9151215745 - canon_score
++            );
++            println!(
++                "   case1 green {:.10} rank {} -> {} under rescoring, cutoff {:.10}, mean axis shift {:+.10}",
++                green_score, green_rank, green_rank2, cutoff2, mean_sim_shift
++            );
++            for target in SPREAD {
++                let pool = gen.generate_pool(target);
++                if pool.len() < 50 {
++                    println!("   {target}: pool {} too small", pool.len());
++                    continue;
++                }
++                let base = ranked(pool.clone());
++                let mut scores: Vec<f64> = base
++                    .iter()
++                    .map(|c| rescore(&gen, c, target, model, norm))
++                    .collect();
++                let mut order: Vec<usize> = (0..scores.len()).collect();
++                order.sort_by(|&a, &b| {
++                    scores[b].partial_cmp(&scores[a]).unwrap_or(std::cmp::Ordering::Equal)
++                });
++                let mut head_changes = 0usize;
++                for i in 0..50 {
++                    if base[i].phrase != base[order[i]].phrase {
++                        head_changes += 1;
++                    }
++                }
++                let cutoff = scores[order[49]];
++                let mut deltas: Vec<f64> = base
++                    .iter()
++                    .map(|c| rescore(&gen, c, target, model, norm) - c.score)
++                    .collect();
++                deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
++                let mid = deltas.len() / 2;
++                println!(
++                    "   {target:<44} pool {:>5} cutoff {:.10} ({:+.10}) median delta {:+.10} head changes {head_changes}/50",
++                    base.len(),
++                    cutoff,
++                    cutoff - base[49].score,
++                    deltas[mid]
++                );
++            }
++        }
++    }
++
++    // -----------------------------------------------------------------
++    // 1. Baseline.
++    // -----------------------------------------------------------------
++
++    #[test]
++    #[ignore]
++    fn d4e8b1_baseline_is_reproduced() {
++        let gen = generator(50);
++        let pool = ranked(gen.generate_pool("it's just a stupid game"));
++        let pool1 = ranked(gen.generate_pool("recognize speech"));
++        let c = price(&gen, "it's just a stupid game", &CANON_T2).expect("canonical aligns");
++        let g = price(&gen, "recognize speech", &GREEN_T1).expect("green aligns");
++        println!("case2 pool {}", pool.len());
++        println!("case1 pool {}", pool1.len());
++        println!("canonical {:.10} costs {:?}", c.clue.score, c.clue.words.iter().map(|w| w.sub_cost).collect::<Vec<_>>());
++        println!("case2 cutoff {:.10} `{}`", pool[49].score, pool[49].phrase);
++        println!(
++            "gap {:.10}",
++            pool[49].score - c.clue.score
++        );
++        println!("green {:.10} costs {:?}", g.clue.score, g.clue.words.iter().map(|w| w.sub_cost).collect::<Vec<_>>());
++        println!("case1 cutoff {:.10} `{}`", pool1[49].score, pool1[49].phrase);
++        let rank = |pool: &[Clue], phrase: &str| -> i64 {
++            pool.iter()
++                .position(|c| c.phrase == phrase)
++                .map_or(-1, |i| i as i64 + 1)
++        };
++        println!("green rank {} canonical rank {}", rank(&pool1, "wreck a nice beach"), rank(&pool, "hits justice dupe hid came"));
++        // The decomposition reproduces the production score on the whole
++        // pool, not just on the two canonical clues.
++        for clue in pool.iter() {
++            check_terms(clue, "it's just a stupid game", &gen);
++        }
++        for clue in pool1.iter() {
++            check_terms(clue, "recognize speech", &gen);
++        }
++        println!("axis decomposition reproduces all {} + {} pool scores", pool.len(), pool1.len());
++    }
++
++    // -----------------------------------------------------------------
++    // 2. Term-by-term, both cases, and the phonetic term's ceiling.
++    // -----------------------------------------------------------------
++
++    fn report_case(gen: &Generator, target: &str, words: &[&str], pool: &[Clue]) {
++        println!("== {target} :: `{}`", words.join(" "));
++        let p = price(gen, target, words).expect("aligns");
++        let canon = check_terms(&p.clue, target, gen);
++        let cutoff = &pool[49];
++        let cut = check_terms(cutoff, target, gen);
++        let (target_ipa, _, _) = transcribe_with_boundaries(&gen.corpus, target, true).unwrap();
++        let phones = target_ipa.chars().count();
++        println!("phones {phones} total cost {:.10}", p.clue.words.iter().map(|w| w.sub_cost).sum::<f64>());
++        let mut prev = 0usize;
++        for (i, w) in p.clue.words.iter().enumerate() {
++            println!(
++                "  word {} span [{},{}) ipa {} cost {:.10} share of axis {:.10}",
++                w.word, prev, p.cuts[i], w.ipa, w.sub_cost,
++                axes::SIMILARITY * w.sub_cost / phones as f64 / axes::SIMILARITY_COST_PER_PHONE
++            );
++            prev = p.cuts[i];
++        }
++        println!("{:<14} {:>12} {:>14} | {:>12} {:>14} | {:>14}", "term", "canon raw", "canon w", "cut raw", "cut w", "delta");
++        for ((n, ra, wa), (_, rb, wb)) in canon.iter().zip(cut.iter()) {
++            println!("{n:<14} {ra:>12.6} {wa:>14.10} | {rb:>12.6} {wb:>14.10} | {:>+14.10}", wb - wa);
++        }
++        println!("{:<14} {:>12} {:>14.10} | {:>12} {:>14.10} | {:>+14.10}", "TOTAL", "", p.clue.score, "", cutoff.score, cutoff.score - p.clue.score);
++        // The maximum any phonetic-cost rule can reach on this alignment.
++        let perfect = price_with(gen, target, words, &CostModel::AsScored, Some(&p.cuts)).unwrap();
++        let _ = perfect;
++        let ceiling = ceiling_of(gen, target, words, &p.cuts);
++        println!(
++            "perfect-pronunciation ceiling {:.10} (max phonetic gain {:+.10}) residual gap {:.10}",
++            ceiling.0, ceiling.0 - p.clue.score, cutoff.score - ceiling.0
++        );
++        for i in 0..words.len() {
++            let c = ceiling_of_one(gen, target, words, &p.cuts, i);
++            println!(
++                "  free only word {} ({}) ceiling {:.10} gain {:+.10}",
++                i, words[i], c, c - p.clue.score
++            );
++        }
++    }
++
++    /// Rebuild the same alignment with the listed words' cost set to zero: a
++    /// *perfect* pronunciation of the same wording at the same cuts.  No
++    /// phonetic-cost rule can beat this on this alignment.
++    fn ceiling_of(
++        gen: &Generator,
++        target: &str,
++        words: &[&str],
++        cuts: &[usize],
++    ) -> (f64, Vec<f64>) {
++        ceiling_of_one_vec(gen, target, words, cuts, &(0..words.len()).collect::<Vec<_>>())
++    }
++
++    fn ceiling_of_one(
++        gen: &Generator,
++        target: &str,
++        words: &[&str],
++        cuts: &[usize],
++        only: usize,
++    ) -> f64 {
++        ceiling_of_one_vec(gen, target, words, cuts, &[only]).0
++    }
++
++    fn ceiling_of_one_vec(
++        gen: &Generator,
++        target: &str,
++        words: &[&str],
++        cuts: &[usize],
++        free: &[usize],
++    ) -> (f64, Vec<f64>) {
++        let (target_ipa, target_boundaries, target_syllables) =
++            transcribe_with_boundaries(&gen.corpus, target, true).unwrap();
++        let phrase = TargetPhrase::new(target);
++        let chars: Vec<char> = target_ipa.chars().collect();
++        let mut partial = Partial::empty();
++        let mut start = 0usize;
++        let mut costs = Vec::new();
++        for (i, (word, &end)) in words.iter().zip(cuts.iter()).enumerate() {
++            let m = *alternatives(gen, &chars, start, word)
++                .iter()
++                .find(|m| start + m.consumed == end)
++                .expect("pinned span is in the lattice");
++            let (_, w) = alt_of(gen, m);
++            let cost = if free.contains(&i) { 0.0 } else { m.cost };
++            partial = partial.extend_fuzzy(&phrase, &w, end - start, cost);
++            costs.push(cost);
++            start = end;
++        }
++        let clue = partial.into_clue(&target_ipa, &target_boundaries, target_syllables);
++        (clue.score, costs)
++    }
++
++    #[test]
++    #[ignore]
++    fn d4e8b1_term_by_term_both_cases() {
++        let gen = generator(50);
++        let pool = ranked(gen.generate_pool("it's just a stupid game"));
++        let pool1 = ranked(gen.generate_pool("recognize speech"));
++        report_case(&gen, "it's just a stupid game", &CANON_T2, &pool);
++        report_case(&gen, "recognize speech", &GREEN_T1, &pool1);
++    }
++}
+-- 
+2.52.0
+
