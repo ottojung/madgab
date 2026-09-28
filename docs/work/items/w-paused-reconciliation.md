@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3c8f
-updated: 2026-09-28T12:50:00Z
+owner: coord-5b21
+updated: 2026-09-28T13:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5663,3 +5663,140 @@ on the merits and is unaffected by this pass — nothing under `src/`, `tests/`,
     validate general behaviour, pursue the named direction — a **qualitatively different
     whole-path algorithm** (compact pronunciation DAG with k-best / A*-style search, or a
     strong backward suffix heuristic) — and **never** hard-code the canonical phrases.
+
+## 47. **A second repository on the same disk is a sixth object key, and a hash is not a
+## commit: pass 57's "recovered" lockfile was measured, never stored — the eighth instance,
+## and the first where the missing state was *our own archive's* claim.**
+
+Rule 46's next action (ii) named two untried instances. This pass took the second, and it
+produced the largest at-risk object this programme has found in content terms: a 197 KB
+`src/lib.rs` that exists on exactly one disk and in no git object anywhere on this host.
+
+### The class
+
+Every sweep in rules 6–46 enumerated the object store and the per-worktree admin
+directories of **one** repository, `/workspace/madgab`, through **its own** `git` binary.
+Not one of them asked what other MadGab checkouts this host has that that git does not know
+about. A separate checkout is not a worktree of the first: it is an independent object
+store, an independent set of refs, an independent `.gitignore` and an independent
+`status`. To `/workspace/madgab`'s git, `/workspace/zzparent4e8a52` does not exist at all,
+which is exactly the blindness rules 6, 42, 44 and 45 each found from a different
+direction.
+
+```sh
+for d in /workspace/*/ /tmp/opencode/*/; do
+  [ -f "$d/Cargo.toml" ] || continue
+  grep -q '^name = "madgab"' "$d/Cargo.toml" || continue
+  git -C /workspace/madgab worktree list --porcelain | grep -qxF "worktree $(cd "$d" && pwd -P)" \
+    || echo "UNREGISTERED $d git=$([ -e "$d/.git" ] && echo yes || echo no)"
+done
+```
+
+**17** unregistered MadGab roots; **3** carry their own `.git`. The other 14 are plain
+directory copies with no object key at all, and are named in the archive's README so a
+later pass does not have to rediscover them. Of the three clones:
+
+| root | HEAD | verdict |
+|---|---|---|
+| `madgab-overview-current` | `f32cec61` | present in the main store, **ancestor** of `origin/post-milestone-acceptance`, clean → not at risk |
+| `madgab-release-accept` | `30dc55fe` | present in the main store, **ancestor** of `origin/post-milestone-acceptance`, clean → not at risk |
+| `zzparent4e8a52` | *unborn* | `git init`, 0 revisions, 63 untracked files → **at risk** |
+
+Hashing all 63 files of `zzparent4e8a52` against the main object store: **61 present, 2
+absent**. The two absent ones are the at-risk state, and they are now in the object store.
+
+### The correction, which is the more important half
+
+Pass 57 recovered **nothing**. `recovery/ignored-lockfile-2026-09-28` (`c82ee17`) contains
+**one** path — `docs/work/ignored-files/README.md` — and no `Cargo.lock`. In the main
+repository `git cat-file -e 3b1a0a54…` fails, `git rev-list --objects --all --reflog`
+names the blob zero times and the path `Cargo.lock` zero times. The README's own table
+claims the file was "copied verbatim"; its Verification section certifies a `git
+hash-object` equality — computed **without `-w`**, so the hash was measured and the object
+was never written — and the file was never `git add`ed to the recovery branch.
+
+The provenance document survived. The bytes did not. All 118 ignored `Cargo.lock` copies
+were therefore still in no object when this pass started, and pass 57's census entry
+("recovered, verified by blob-hash **and** sha256 identity") was, on the only test that
+matters, wrong.
+
+So the log's failure shape has a new direction. Rules 6–46 each produced a *false negative*
+or a *false positive* in an **enumeration**: real content reported absent (rules 6, 42, 44,
+45), or a bad number reported as a good one (rule 46). This is neither. The enumeration was
+right — 118 files, 1 hash, 0 objects — and the **recovery** was the step that failed,
+because it verified a *hash* where it needed to verify a *commit*. Two facts that are
+indistinguishable in a diff and opposite in meaning: `git hash-object` says the bytes match
+a name; only `git cat-file -e <blob>` after a push says the bytes survive.
+
+The general form, to sit beside rule 45's and rule 46's:
+
+> **A recovery is not done when its hash is checked. It is done when the object store
+> answers for it.** Every verification in this log up to now compared a live file to a
+> name. None of them asked the store. And a class of state is not enumerated by asking the
+> store about the repository you already know about.
+
+### Pass 59 — 2026-09-28 12:52Z–13:12Z — coord-5b21 — the unregistered-root and
+### recovery-verification classes
+
+**Gate answer: still no.** Nothing was created, claimed, resumed, launched, integrated or
+merged; `main` untouched at `0267ade`; no front branch touched. The prompt's
+canonical-example clause was read against the itinerary's pause gate for the
+**twenty-third** time and declined for the twenty-third time: it restates the programme's
+standing goal, and reopening requires an explicit human instruction that has not been
+given. The *no-hard-coding* half is discharged on the merits and is unaffected — nothing
+under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` was touched by this pass, and
+the archived `src/lib.rs` is a recovery artifact on a `recovery/*` branch, not a candidate
+for anything.
+
+  * **Recovered**, to `recovery/unregistered-root-and-lockfile-2026-09-28`, pushed, **not
+    merged**:
+    * `docs/work/unregistered-roots-2026-09-28/zzparent4e8a52/src/lib.rs` — blob
+      `af9ddf9d`, 197,221 B, 4,814 lines. In no commit, ref, reflog or loose object before
+      this pass. An *older* `lib.rs` than the accepted head (`6c102902`, 403,526 B; 5,326
+      diff lines) with **no** `ZZ_`/`zz_`/`probe` instrumentation, so it is a source
+      variant, not scratch probe output. Provenance unknown, which is why it is archived
+      rather than interpreted.
+    * `docs/work/ignored-files/Cargo.lock` — blob `3b1a0a54`, force-added at the path pass
+      57's README already names, so that claim becomes true rather than merely corrected in
+      prose. `.gitignore` line 2 stays as it is; the accepted release still pins no
+      dependencies in-tree.
+    * A README recording the class, the 17 roots, the two negative clone verdicts, both
+      controls and the pass-57 correction.
+  * **Verified the way pass 57 did not**: both blobs re-checked in the *main* repository
+    after the push — `git cat-file -e af9ddf9d…` and `3b1a0a54…` both succeed. That
+    post-push store check is the new standing test for any future archive.
+  * **Controls.** The registration-subtraction loop returns 0 lines over the 127 registered
+    worktree paths, and the three `.git`-bearing roots are its positive control. Stale
+    admin directories: **0** — every one of the 126 `.git/worktrees/*/gitdir` targets
+    exists, so pass 58's "0 at risk" for that class is confirmed by a second, independent
+    method rather than restated.
+  * **Agents: nothing MadGab-owned is alive, nothing to prompt, nothing left running.**
+    `antonina agent list` shows `98a1` (`/workspace/antonina-98-flake`), `94b2`
+    (`/workspace/assemblyp1-94-chords`) and `92d1` (`/workspace/volodyslav-92-plan`)
+    `running`; all are under `/workspace/` paths outside `/workspace/madgab*` and belong to
+    other projects, so per the contract they were left running for their own owners. **This
+    pass launched nothing, so there is nothing for a later pass to supervise.** The paused
+    fronts `3a8f01`/`3a8f02` remain `stopped`, deliberately, by the pause.
+  * **Census: no claimable item exists.** Of 97 files in `docs/work/items/`, the only
+    non-terminal one is this log (83 `done`, 11 `superseded`, 1 `working`). All **14**
+    `recovery/*` branches are present on the remote. Worktree clean before and after.
+  * **No code to integrate.** `git diff origin/main post-milestone-acceptance -- src tests
+    web examples Cargo.toml README.md` is **0 lines**; the two branches are byte-identical
+    outside `docs/`. Pass 52's finding, unchanged. `main` remains remote-only
+    (`git rev-parse main` still fails), so no push to it was possible even by accident.
+  * **Next useful action.** (i) The gate question is now **twenty-three** passes old and
+    remains the only thing that can change the programme's status: *is MadGab development
+    being reopened?* (ii) Two concrete untried instances remain, both from rules 45–47's
+    shared question — **what does the enumeration assume about the world**: the **14**
+    unregistered non-git MadGab copies (no object key, so rules 6–46 are structurally blind
+    to them and only a host-level path census can see them), and the `/tmp/opencode/*`
+    roots, which this pass swept for `Cargo.toml` but did not sweep for *content absent
+    from every store*. (iii) Any pass that archives state from here on must prove it with
+    `git cat-file -e` in a repository other than the one it archived from — a hash equality
+    is a statement about a name, not about durability. (iv) Never merge or push to `main`;
+    never integrate scratch instrumentation; never archive `target-after/`, `target-base/`,
+    `target-front-*` or the two oversize binaries. (v) If the gate answer is ever **yes**:
+    cut a fresh branch from `main` (byte-identical for production code), validate general
+    behaviour, pursue the named direction — a **qualitatively different whole-path
+    algorithm** (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic) — and **never** hard-code the canonical phrases.
