@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7f05
-updated: 2026-09-28T15:26:00Z
+owner: coord-3b6d
+updated: 2026-09-28T15:25:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -8021,3 +8021,107 @@ k-best/A*-style whole-path search, on a fresh branch, with pass 76's `head_not_w
 gap deliberately funded or superseded — or **confirms the pause**, in which case this log closes
 `done`. There is no agent-executable work, no unfinished text, and no unsaturated check. A pass
 that finds itself inventing a check here is repeating the failure mode this log keeps naming.
+
+## Pass 80 — `coord-3b6d`, 2026-09-28T15:21:49Z–15:24:30Z
+
+Another short reconciliation pass, and the fourth in a row that has had nothing to act on.
+**No new numbered rule**, per the standing instruction from pass 78. Nothing launched, claimed,
+resumed, integrated or merged; `main` untouched (still no local `main` ref; `origin/main` =
+`0267ade`); no new work item and no branch created.
+
+### The same prompt arrived again, and the same two conflicts remain unexecuted
+
+The commissioning prompt is materially identical to pass 79's: *recover or assign work, split
+independent fronts, launch or prompt Antonina agents, review/integrate finished work,
+prioritize the canonical approximate-search examples without phrase-specific hard-coding, and
+accumulate on `post-milestone-acceptance` exactly as the itinerary requires*. Recorded once more
+because pass 79's entry is now a prediction that came true, and because the repetition is itself
+the datum: **the same directive has now been declined twice, and will be declined again by any
+pass that reads `itinerary-madgab.md` before it acts.** All four of the actionable clauses are
+gated by rules 1 and 2 of this log and by the itinerary's line 7:
+
+* *assign work / split fronts / launch or prompt agents* — rule 1: create no new MadGab work
+  items, claim no superseded item, launch no agent. There is nothing to assign: the census below
+  shows 0 `open`, 0 `blocked`, and the single `working` item is this log.
+* *review/integrate finished work* — there is none outstanding. Every MadGab Antonina agent is
+  terminal and every item they produced is `done` or `superseded`; the last integration is
+  `post-milestone-acceptance` itself.
+* *prioritize the canonical approximate-search examples* — this is the substance of the paused
+  programme. The itinerary permits it only on "a human explicitly asks to reopen MadGab
+  development"; a scheduled prompt that also directs the agent to follow the itinerary is not
+  that instruction.
+* *accumulate on `post-milestone-acceptance`* — rule 19 records that the itinerary calls that
+  branch release history and "no longer an automatic accumulation target", and this log is the
+  only thing permitted to commit there. This entry is that log; the prompt's *operative*
+  prohibition (never merge or push to `main`) is honoured.
+
+Had any of these been executed, this pass would have produced exactly the damage rules 1 and 2
+exist to prevent: a reopened front, a new work item, and a development branch cut from the wrong
+base. Recording the refusal a third time is not thoroughness — it is the log's whole job.
+
+### Census, re-measured
+
+95 work items in `docs/work/items/` (97 files, 2 non-items): **83 `done`, 11 `superseded`, 0
+`open`, 0 `blocked`, 1 `working`** (this log) — unchanged from passes 78 and 79. `HEAD` = `f59a9df`
+on arrival, working tree clean. `git stash list` = **6**. Rule 16's state-directory loop returns
+the same **5 hits in 4 worktrees** (4 `AUTO_MERGE`, 1 `rebase-merge`).
+
+**No MadGab Antonina agent is alive.** `antonina agent list` filtered to `madgab-*` cwds returns
+only terminal states: `3a8f02` and `3a8f01` `stopped`, the rest `succeeded`/`failed`, oldest
+2d10h. The four nonterminal agents host-wide (`7b1`, `12e2`, `94a5`, `94a6`, and the newer
+`106b`/`101c`/`92e1` results) all have cwds under other repositories' worktrees and were left
+running for their own supervisors. Nothing was stopped, prompted or started.
+
+### At-risk sweep, re-run — and the one number that moved, with its cause
+
+The remote was re-fetched into `refs/remotes/audit/*` per rule 10, and the set was verified
+against `git ls-remote` per rule 38: **196 audit refs, 196 remote heads, no unproven
+`refs/remotes/origin/*` member in the exclusion set.** Rule 39's baseline guard was run first
+(`git rev-list --all --reflog` = **1059**); no exclusion set was allowed to return a number near
+it.
+
+| class | rule | measured | at risk |
+|---|---|---|---|
+| commits on no verified remote head | 10/30/39 | **88** | 0 |
+| …of those, held by no ref and no reflog | 40 | **81** | 0 |
+| …of those, held only by a local-only ref | 40/11 | **7** (5 `refs/heads/*`, 2 `refs/stash`) | 0 |
+| unique blobs across all 88 trees | 28 | **0** of 6,715 reachable | 0 |
+| unreachable commits | 13 | 180 (unchanged) | 0 |
+| stash entries | 15 | **6** | 0 |
+| worktree index-only blobs | 18 | 0 | 0 |
+
+Both sanctioned exclusion spellings agree byte-for-byte at **88** (`--not` + bare ref names, and
+the stateless `^` prefix), and the repeating-`--not` spelling was not used. Excluding *all* local
+refs instead of the remote set returns **81**, reproducing rule 40's split exactly: the 7-commit
+delta is the local-only holders above, itemised here rather than left as a bare difference.
+
+**The 92 → 88 movement is the ref set growing, not state being lost.** Passes 78 and 79 recorded
+92 against **181** verified remote tips; this pass measured 196. Rule 38 predicts the direction
+precisely — a *wider* exclusion set removes *more* commits from the at-risk report — so 15 new
+remote heads retiring 4 previously-at-risk commits is the expected sign, and the reassuring
+direction is the one this log warns is hardest to notice. The 81 held by nothing at all is
+unchanged, which is the number that would have moved had anything actually been lost. The
+tree-level probe (rule 28's strong form: `git ls-tree -r` per commit, field-1 comparison per
+rule 17, against a reachable set of 6,715 which brackets the 0) confirms it: **none of the 88
+carries content no reachable object has**, so the 88 are all held by local refs or reflogs and
+need no rescue.
+
+No recovery branch was created. Per rule 13, archiving content held elsewhere is the failure mode
+to avoid, and the object-level probe is what says there is nothing unique to save.
+
+### Next action for the next pass
+
+Unchanged, now thirty-nine passes old, and stated the same way: a human either **reopens** MadGab
+development — direction per pass 78, a compact pronunciation DAG with k-best/A*-style whole-path
+search, on a fresh branch cut from `main`, with pass 76's `head_not_worse_than_pool` gap
+deliberately funded or superseded — or **confirms the pause**, in which case this log closes
+`done`.
+
+One addition, offered as an efficiency note rather than a new rule: the audit ref set grows
+without bound (196 heads, 181 thirty minutes before the previous pass), and passes are now
+paying for a full `git fetch` of every head plus an 88-commit `ls-tree` sweep each time to
+re-derive a number that has been stable for forty passes. If the human confirms the pause, the
+cheapest correct action is to close this log and let the standing set rest; if the human reopens
+the programme, the reconciliation machinery this log maintains is the first thing that should be
+torn down rather than maintained, because a paused programme does not need its at-risk state kept
+warm every twenty minutes.
