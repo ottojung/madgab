@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-1c8e
-updated: 2026-09-28T09:47:00Z
+owner: coord-5f3b
+updated: 2026-09-28T09:51:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -324,7 +324,43 @@ instruction.
     it.* Corollary for the same reason rule 23 required: **forcing the ignored case-2 test to run
     (`--ignored`) makes it genuinely fail, 0 passed / 1 failed.** So the documented limitation is a
     live assertion, not a masked one, and no attribute flip will close it. Do not perform that flip
-    while paused; it turns the release suite red on purpose and that is a human release decision.
+     while paused; it turns the release suite red on purpose and that is a human release decision.
+
+27. **Rule 21 checked the *main* worktree's `ORIG_HEAD` and stopped there; the 125 linked worktrees
+    each carry their own, and so does each of the 3 with a `REBASE_HEAD`.** Rule 21 is right that
+    `ORIG_HEAD` is the pseudoref to check first, and it enumerated `.git/ORIG_HEAD` — the primary
+    worktree's, per rule 20. Rule 20's own conclusion says the per-worktree form is
+    `git rev-parse --git-dir` per worktree, and rule 16's loop reads each state directory's
+    *contents*, but neither ever applied the reachability test to `ORIG_HEAD`/`REBASE_HEAD` in
+    `.git/worktrees/*/`. A census of those directories by filename makes the gap plain, and it is
+    the same shape as rules 9, 10, 11 and 14: **a check that was correct about its scope and
+    silent about the scope's complement.** Measured here, over all 125:
+    * `ORIG_HEAD` in **125** worktree admin directories, `REBASE_HEAD` in **3**
+      (`madgab-clue-objective`, `madgab-parsimony-9b4a15`, `madgab-scorespread-measure`),
+      `FETCH_HEAD` in **40** — a filename census of the directories, not a guess about which
+      pseudorefs exist.
+    * **105 distinct** `ORIG_HEAD`/`REBASE_HEAD` shas, **0** of them outside
+      `git rev-list --all --reflog`, and **43 distinct** per-worktree `FETCH_HEAD` shas, **0**
+      outside it either. Cross-checked per rule 14 with a second formulation
+      (`merge-base --is-ancestor` against `post-milestone-acceptance`) and per rule 17 by comparing
+      field 1, not the whole line. **Nothing is at risk**, so no recovery was performed and no
+      branch was created — this is a *closure*, and the value is that the standing sweep can now
+      say it has looked rather than implying it.
+    * The three `REBASE_HEAD` files are the visible tail of rule 16's rebase finding: only
+      `madgab-scorespread-measure` has a live `rebase-merge/` directory, and its `orig-head`
+      (`fb6a9c6`) and `onto` (`a8bfc27`) are both reachable. The other two are leftovers of a
+      finished or dropped rebase and pin nothing. Neither is resumed — that would be resuming a
+      superseded front.
+    * **Self-correction worth recording, because it is rule 9/14/17 a fifth time.** The first
+      version of this pass's check reported **119 of 125 "NOT-ANCESTOR"** and looked like a
+      major finding. The cause: `.git/worktrees/*/HEAD` holds `ref:refs/heads/…`, a *symref*, and
+      the check fed it to `merge-base` as if it were a sha. Every one of the 119 was a branch
+      name, not a commit. A number this large from a one-line mistake is the exact failure mode
+      rules 9, 14 and 17 were written about, and the only reason it was caught is that a class
+      already believed to be clean (rules 16 and 20) suddenly reported mass failure. **When a
+      check over a class that many prior passes called clean returns a large number, the check
+      is wrong before the class is.** `git worktree list --porcelain` prints the resolved sha for
+      `HEAD`; the raw admin file does not.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -2214,3 +2250,85 @@ sweeps **4 of the 9** documented public flags while its name promises all of the
     a smooth dial. None of the three is the search-side work the limitation needs; they are the
     measurement-infrastructure corrections that would otherwise make the first search-side
     measurement untrustworthy.
+
+### `coord-5f3b` — twenty-ninth pass, 2026-09-28T09:47Z–09:51Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** The pause gate is read and confirmed closed: itinerary
+`## Status: accepted and paused`, accepted-state operational status, and this log's rule 1 all
+agree, and no human instruction to reopen has been given. Cheap checks first, then the standing
+sweep's *one* uncovered object class, which produced **new standing rule 27**.
+
+  * **Cheap checks, all clean and identical to the last four passes.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `2a2f5fb`, equal to local `HEAD`, 0 ahead / 0 behind. All five `recovery/*` branches present
+    on the remote and matching their local refs — `2408c25`, `6b21857`, `cc666db`, `a91f71d`,
+    `a1d7425` — so all fifteen archived patches stay reconstructible. Worktree clean
+    (`git status --porcelain -uall` empty). Census re-derived with a repo-wide `grep -rl
+    'work_item: true'` over `docs/` (not just `docs/work/items/`, which undercounts by four):
+    **87 `done`, 12 `superseded`, 1 `open`** (`docs/work/TEMPLATE.md`, the placeholder, not
+    claimable), **1 `working`** (this log), 0 `blocked`, and 2 files carrying the marker with no
+    `state:` key at all — `docs/work/README.md` and `docs/work/items/README.md`, which are
+    instructions, not items. Agents: **no MadGab agent alive or claimable**; the two MadGab-cwd
+    nonterminal entries remain `stopped` on superseded items and were left stopped, and every other
+    nonterminal agent host-wide belongs to another repository. Nothing was compiled and no Cargo
+    lock was contended — this pass ran no binary at all.
+
+  * **The ref-name census, run once, closes two standing questions at once.** `for-each-ref` reports
+    364 refs in four classes — 161 `heads/`, 202 `remotes/`, 1 `tags/`, and `refs/stash` — and
+    **`refs/stash` is the only ref under no `refs/heads|tags|remotes/` prefix**, so rule 15's
+    "stash is one ref, not six" has exactly one instance here and the 125 `ORIG_HEAD` sweep below
+    is not competing with another stash-shaped holder. There is **no `refs/bisect/`, no
+    `refs/notes/`, no `refs/replace/`, no `.git/rr-cache`, and no `.git/modules`** — the four
+    remaining ref namespaces and the three remaining rebase/submodule state locations are empty,
+    so this pass can say the enumerated set is complete rather than that the interesting parts
+    happen to be clean. That was worth one command and no follow-up.
+
+  * **The uncovered class: per-worktree pseudorefs — 0 at risk, and that is the finding.** Rule 27
+    records it in full. In short: a filename census of all 125 `.git/worktrees/*/` directories finds
+    `ORIG_HEAD` ×125, `REBASE_HEAD` ×3, `FETCH_HEAD` ×40, `AUTO_MERGE` ×4, `rebase-merge/` ×1 —
+    and only `AUTO_MERGE` and `rebase-merge/` were ever enumerated, by rule 16. Testing all 105
+    distinct `ORIG_HEAD`/`REBASE_HEAD` shas and all 43 distinct `FETCH_HEAD` shas against
+    `git rev-list --all --reflog` returns **0 misses**, cross-checked with a second formulation per
+    rule 14. The rebase already classified by `coord-8f4a` is unchanged: `head-name` = `refs/heads/tmp`
+    (a branch that **does** exist and **is** pushed — `ls-remote` confirms `fb6a9c6`),
+    `orig-head` = `fb6a9c6`, `onto` = `a8bfc27`, worktree `HEAD` = `a7f08ea`, `msgnum` = 1, `end` = 1,
+    and the worktree's `git status` is clean. Its two output commits `a7f08ea`/`69b5a07` are still
+    held by nothing but that worktree's reflog — `for-each-ref --contains a7f08ea` returns **0** —
+    and are still safe by rule 7's reverse-application test against the archived patch, as recorded.
+    **No recovery performed, no branch created, no rebase resumed or aborted.**
+
+  * **This pass made the same mistake rules 9, 14 and 17 exist to prevent, on itself, and caught
+    it.** The first form of the check read `.git/worktrees/*/HEAD` as a commit and reported
+    **119 of 125 NOT-ANCESTOR** — a spectacular-looking finding that was entirely an artifact of
+    `HEAD` holding `ref:refs/heads/…` rather than a sha. It is recorded in rule 27 rather than
+    quietly dropped, because the reason it was caught is the reusable part: a class that rules 16
+    and 20 already declared clean cannot suddenly be 92% broken, so the check is wrong before the
+    class is. That is now the fifth instance of a confident-wrong count in this repository, and it
+    is the strongest available argument for the standing requirement that every count be
+    cross-checked against a second formulation before it is written down.
+
+  * **The canonical-example instruction was read against the pause gate for the twenty-fifth time
+    and declined for the twenty-fifth time.** It restates the programme's standing goal; reopening
+    requires an explicit human instruction, which has not been given, and the no-hard-coding half
+    of it remains discharged on the merits by the accepted head's general implementation and by
+    rule 26's evidence that the case-1 rank of 9 came from a general scoring axis. Nothing in this
+    pass bears on that either way, and no phrase-specific change was made or proposed.
+
+  * **On the escalation, now twelve passes in a row superseded by a coverage gap rather than
+    confirmed.** The standing sweep's uncovered-object-class list is shorter than it was: the
+    184 remote branches were closed by `coord-11b9`, the 125 worktrees by rules 16/18/20/27, and
+    this pass empties the last named namespaces. **What remains unasked is no longer a class of
+    git object — it is `docs/work/items/w-0f3a17-shortlist-rule.md`, the one work-item-shaped
+    document in the tree with no `work_item: true` metadata and therefore invisible to the census
+    every pass runs.** It is a measurement report for a superseded front, so nothing is lost, but
+    it means the "87 done / 12 superseded / 1 open" figure this log has reported for a dozen passes
+    has been counting a population that excluded one real document. Correcting the *item* to
+    `state: superseded` is a one-line edit and would be a legitimate reconciliation action — it is
+    deliberately **not** made here, because rule 1 forbids touching MadGab work items while paused
+    and the human gate question is still open. The gate question is unchanged and still the only
+    one a human can answer: **is MadGab development being reopened?** If yes, `coord-1c8e`'s
+    three measurement-infrastructure corrections are the first work, in its stated order, and the
+    named search direction is unchanged — a qualitatively different whole-path algorithm (compact
+    pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+    **never** phrase-specific hard-coding.
