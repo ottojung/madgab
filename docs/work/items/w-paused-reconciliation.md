@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5e11
-updated: 2026-09-28T09:24:00Z
+owner: coord-7d3a
+updated: 2026-09-28T09:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -220,6 +220,48 @@ instruction.
       local `main` ref, so a push to it would require creating one).
     Eighteen prior passes recorded the pause gate but never recorded *this* discrepancy, which means
     a future pass reading the same prompt will re-derive it. That is what a standing rule is for.
+
+20. **Rules 16 and 18 both loop `.git/worktrees/*/`, which by construction cannot see the *main*
+    worktree — and the main worktree is the one place this programme actually commits.** Rule 16
+    enumerates per-worktree pseudorefs and rule 18 per-worktree `index` files, both by the same
+    shell glob, and both are correct about what they cover. `.git/worktrees/` contains only
+    **linked** worktrees; the primary worktree's administrative state lives directly in `.git/`
+    and is at **`.git/index`**, `.git/ORIG_HEAD`, `.git/FETCH_HEAD`, with no
+    `.git/worktrees/<name>/` entry of its own. A check that is correct about its scope and silent
+    about the scope's complement is the same failure as rules 9, 10, 11 and 14, one level up: it
+    cannot fail, and the object it misses is the one that matters most. The form that sees both
+    is `git rev-parse --git-dir` per worktree from `git worktree list`, or simply check
+    `.git/index` in addition to `.git/worktrees/*/index`. Measured on this repository: 125 linked
+    state directories, and **3** main-worktree administrative files
+    (`index` 16,965 B, `ORIG_HEAD` 41 B, `FETCH_HEAD` 19,333 B).
+
+21. **`ORIG_HEAD` and `FETCH_HEAD` are holders that `--all` does not enumerate, and they are
+    classified differently from each other — do not sweep them as one class.** Neither is under
+    `refs/`, so neither appears in `git rev-list --all`; but they are not equally safe.
+    * `FETCH_HEAD` is a **list of tips of refs that exist on the remote**. Every one of its **176**
+      distinct shas is present in `git rev-list --all --reflog` on this repository, so it pins
+      nothing new. The check is one `comm` of column 1 against the reachable set.
+    * `ORIG_HEAD` is a **single commit** and is the only one of the three that can be the sole
+      holder of anything. Here it is `7be1922` (`w-3a8f01`, the `coord-a1c4` recovery note), and it
+      is held by **nine** refs — `post-milestone-acceptance`, all five `recovery/*` branches, and
+      matching `refs/remotes/audit/*` entries — so it is durable five times over. **`ORIG_HEAD` is
+      the pseudoref to check first**, because unlike `FETCH_HEAD` its content is not implied by
+      anything else. Note it is also a *tree*-adjacent risk class: it records the pre-reset head of
+      any interrupted `reset --hard`, `rebase` or `merge`, so it is exactly where an in-flight
+      operation's output would land.
+
+22. **`comm` needs both inputs sorted, and this repository has already produced three wrong counts
+    from a filter bug (rules 9, 14, 17) — the fourth is one `sort` away.** Rule 14's lesson
+    ("never accept a bare count from a generated command line without one cheap independent
+    recomputation") generalises to the *set* operations this log's standing sweep is now built
+    from. `git ls-files -s | awk '$3==0{print $2}'` emits index order, which is path order, not
+    sha order; feeding that straight to `comm -23` produces
+    `comm: file 1 is not in sorted order` and then a **confident, wrong** count. This pass hit it
+    and caught it only because the control experiment was expected to return exactly 1 and
+    returned 170. **`sort -u` both sides of every `comm`; if `comm` prints a sort warning, its
+    output is meaningless, not approximate.** The lesson is the same one three times over and is
+    now worth stating as a rule rather than a footnote: on this repository *every* wrong count so
+    far has been a check that could not fail, not a repository defect.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1605,3 +1647,86 @@ instruction in the recurring prompt itself, in the six commands the log's own me
   it should ask a new question, because that is the only thing that has produced one in seven
   passes. **The human gate question is unchanged and is still the only thing only a human can
   answer: is MadGab development being reopened?**
+
+### `coord-7d3a` — twenty-fourth pass, 2026-09-28T09:22Z–09:31Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass asked what object class rules 16 and 18 — the two
+newest rules, both about worktree administrative state — were **not** asked about, and found the
+answer was the primary worktree itself.
+
+  * **Cheap checks, all clean and identical to `coord-5e11`.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only — `git rev-parse main` still fails), `post-milestone-acceptance`
+    = `6793cf4`, equal to local `HEAD`: 0 ahead / 0 behind. All five `recovery/*` branches are
+    present on the remote and **every one matches its local ref exactly** — `2408c25`,
+    `6b21857`, `cc666db`, `a91f71d`, `a1d7425` — so all fifteen archived patches remain
+    reconstructible. Worktree clean. Census re-derived with the rule 10 parser: **87 `done`,
+    12 `superseded`, 2 `open`** (the `TEMPLATE.md` placeholder and the fenced example header in
+    `docs/skills/work-items.md`; neither real, neither claimable), **1 `working`** (this log),
+    0 `blocked`. Agents: no MadGab agent alive or claimable. The eleven nonterminal agents
+    host-wide (`41b1`, `96b1`, `76a1`, `7a1`, `92b1`, `94c2`, `72a1`, `47b1a001`, `71a1` running;
+    `94c1`, `52b1a001` stopped) are all other repositories and were not touched, and the two
+    paused MadGab fronts `3a8f01`/`3a8f02` remain `stopped` on superseded items, deliberately
+    left so.
+  * **New standing rule 20, above — the finding of this pass.** Rules 16 and 18 are the only two
+    rules that look at worktree administrative state, and both find it by the **same glob**,
+    `.git/worktrees/*/`. That directory holds only **linked** worktrees: **125** of them here. The
+    primary worktree has no entry in it, and its own state lives directly in `.git/`. So both rules
+    are correct about their scope and silent about its complement — and the complement is where
+    this programme actually commits, which makes it the worst possible thing to miss. Three files
+    are there and uncovered: **`.git/index`**, **`.git/ORIG_HEAD`**, **`.git/FETCH_HEAD`**.
+  * **The main worktree's index holds nothing unreferenced.** 175 stage-0 blobs against the
+    **5,910**-entry `rev-list --objects --all --reflog` set: **0** absent. This is the same 0 that
+    rule 18 reports for the 125 linked worktrees, and it is a real answer, not an absence, because
+    per rule 22 the check was **shown to fire**: a throwaway worktree with one
+    staged-but-uncommitted file returned exactly **1** (that file's blob), and un-staging it
+    returned the count to **0**. Control worktree removed; `git worktree list` back to 126 and
+    `git status --porcelain -uall` empty. Rule 18's negative result is therefore now confirmed to
+    extend to the one worktree it had not been shown to cover.
+  * **New standing rule 21, above: `ORIG_HEAD` and `FETCH_HEAD` are both uncovered holders and must
+    be classified differently.** Neither is under `refs/`, so neither appears in `--all`; neither
+    is a reflog entry, so neither is rooted for `fsck`. But `FETCH_HEAD` is a list of tips of
+    remote refs — all **176** of its distinct shas are already in `--all --reflog`, so it pins
+    nothing — whereas **`ORIG_HEAD` is a single commit and is the only one of the three that can be
+    a sole holder.** Here it is `7be1922` (`w-3a8f01`, `coord-a1c4`'s recovery note) and it is held
+    by **nine** refs: `post-milestone-acceptance`, all five `recovery/*` branches, and the matching
+    `refs/remotes/audit/*` entries. Durable five times over. Check `ORIG_HEAD` first in any future
+    pass, because its content — the pre-reset head of an interrupted `reset --hard`, `rebase` or
+    `merge` — is not implied by anything else.
+  * **New standing rule 22, above: an unsorted `comm` produced a confident wrong count, and the
+    control is what caught it.** The first control run returned **170** where exactly 1 was
+    expected, because `git ls-files -s` emits path order and it was passed to `comm -23` un-sorted;
+    `comm` printed `file 1 is not in sorted order` and produced a number anyway. This is the fourth
+    wrong count on this repository from a check that could not fail (after rules 9, 14 and 17), and
+    the second to be caught only by cross-checking against a known-correct value. Recorded as a
+    rule because the standing sweep is now built from `comm`, and the general form is worth more
+    than the instance: **if a check warns and still prints a number, the number is meaningless, not
+    approximate.**
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  twentieth time and declined for the twentieth time.** It restates the programme's standing goal;
+  reopening requires an explicit human instruction, which has not been given. Its *no-hard-coding*
+  half remains discharged on the merits, by content rather than by re-running the fence: this pass
+  changed nothing under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` — the only change is
+  this `docs/work/items/` file — so `coord-4d31`'s green fence result still holds, and
+  `ALLOWLIST_CAPS` is unchanged. The pause and its documented limitation stand. If development is
+  ever reopened, the named direction is still a qualitatively different whole-path algorithm
+  (compact pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+  **never** phrase-specific hard-coding.
+
+  **On the escalation, now eight passes in a row superseded by a coverage gap rather than
+  confirmed, and the shape of the gap is now visible.** Each of the last eight passes found
+  something by asking *what the standing check was never asked about*, and this pass's answer came
+  from the two newest rules rather than from the repository: rules 16 and 18 were written last
+  pass, both found real state, and both were scoped to a glob whose complement is the primary
+  worktree. **A standing rule is only as good as the class of object it was not asked about, and
+  writing a rule is itself an opportunity to introduce a new blind spot.** The rule set now covers
+  — and each has been shown to *fire*, not merely to return zero — uncommitted file content (6–9),
+  unpushed commits (10), non-`refs/heads` holders (11), no-holder objects (13), reflog entries
+  including `refs/stash` (15), linked-worktree pseudorefs (16), linked-worktree indexes (18), and
+  now the **primary** worktree's index, `ORIG_HEAD` and `FETCH_HEAD` (20–21). A twenty-fifth pass
+  should not re-run any of them; if it wants a new fact, the useful question is now about the
+  *other* direction — whether the accepted state's own claims still hold under execution — rather
+  than about one more object class, because the object classes are enumerable and nearly exhausted.
+  **The human gate question is unchanged and is still the only thing only a human can answer: is
+  MadGab development being reopened?**
