@@ -684,10 +684,12 @@ mod tests {
 
         // 450 matches for the full span against a budget of 256, so all
         // three stages are the thing under test.
-        assert!(
-            450 > MATCHES_PER_SPAN,
-            "the fixture must overrun the budget to exercise the keep"
-        );
+        const {
+            assert!(
+                450 > MATCHES_PER_SPAN,
+                "the fixture must overrun the budget to exercise the keep"
+            );
+        }
         let kept = lexicon.matches_at(&target, 0, 0.5, 3);
 
         // Isolate the full-span group. A shorter span also holds these words,
