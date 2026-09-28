@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3e10
-updated: 2026-09-28T15:05:00Z
+owner: coord-7b3d
+updated: 2026-09-28T15:05:10Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7698,3 +7698,116 @@ case this log should be closed `done` rather than left `working` indefinitely. N
 now inherits the correction made this pass: `w-3f8c62` closed HOLD with the parsimony axis
 un-landed, so the `head_not_worse_than_pool` fence is an **open gap with no owner**, and whoever
 reopens should decide deliberately whether to fund it or to supersede it.
+
+## Seventy-seventh pass (`coord-7b3d`, measured wall clock 2026-09-28T15:02:47Z–15:05:02Z) — the accepted state's own claims re-measured, and one of them is environment-dependent
+
+Pause gate confirmed closed before anything else was done; the gate question is now **forty-one
+passes old**. No MadGab work item created, none claimed, no agent launched, no front resumed,
+nothing merged, nothing pushed to `main` (`origin/main` = `0267ade`, verified by `ls-remote` this
+pass). The recurring prompt's canonical-example instruction was read against the gate for the
+**eighteenth** time and declined for the eighteenth time as *development*; its *no-hard-coding* half
+is discharged on the merits by **running** the fence, and its *measure-the-canonical-examples* half
+turned out to be answerable **inside** the pause, which is what this pass did.
+
+Pass 76 ended by saying a pass that runs now should expect to find nothing. That is right about
+*unfinished text* — there is none — and wrong about the corpus of **measured claims**, which is a
+different object: it is not "something left to do" but "a number a successor will read as a bound".
+So this pass re-measured the two claims the pause exists to protect, and one of them did not survive
+contact with the machine.
+
+### Both canonical examples reproduce exactly, at the accepted head
+
+| accepted claim | this pass | verdict |
+|---|---|---|
+| `recognize speech` → `wreck a nice beach` is generated and passes (`tests/corpus_integration.rs:143`) | **passes**, 7.92 s | claim holds |
+| `It's just a stupid game` → `Hits Justice Dupe Hid Came` is absent from the production pool; the limitation is the accepted known one (`tests/corpus_integration.rs:133`, `#[ignore]`d) | **fails for the documented reason**, 6.86 s | claim holds |
+
+The case-2 failure is not merely the same verdict, it is the *same 12-entry pool*, byte for byte,
+headed by `it said thus test oop dame`, then `eat said thus test oop dame`, `it sad thus test oop
+dame`, `shit said thus test oop dame`, … — identical to the list this log recorded at the seventy-first
+pass. Nothing about the accepted
+limitation has drifted, loosened or widened, and the release binary was not rebuilt during the run
+(`Finished release profile in 0.10s`), so the code measured is the code `main` ships.
+
+The fence was run rather than asserted: `cargo test --release --test no_phrase_hard_coding` = **9
+passed; 0 failed; 0 ignored**, 0.06 s, on the same head. The prompt's "without phrase-specific
+hard-coding" is therefore a measurement, not a promise.
+
+### The one defect this pass found: the accepted state's timings are host-load artifacts
+
+`docs/accepted-state-2026-09-27.md:19` states the two tests "take about **1.8 seconds each** in an
+already-built release test binary". This pass measured **7.92 s** and **6.86 s** — a factor of ~4.
+The seventy-first pass measured 1.44 s and 1.47 s, so the number has moved by 4x in six passes while
+the *behaviour* has not moved at all.
+
+The cause is not a code change and must not be recorded as one: five nonterminal Antonina agents were
+running **host-wide on other repositories** during this pass (`92e1`, `106a1`, `94a5`, `94a6`, plus a
+board pass), all in `/workspace/volodyslav-*`, `/workspace/kawun-*` and `/workspace/assemblyp1-*`,
+and the tests are wall-clock-timed. The behavioural half of the accepted state is therefore a
+*property of the code* and reproduces; the timing half is a *property of the machine* and does not.
+
+That distinction is the finding, and it is the reason this is not a one-line correction. "About 1.8
+seconds" is recorded in a **human acceptance document** and reads, to a successor, as a regression
+bound: a future pass seeing 7 s could reasonably conclude the release had slowed fivefold, and a
+future pass seeing 1.8 s on a quiet host could reasonably conclude nothing at all. Both inferences
+would be wrong. Repairing it means rewording an accepted document, which is a human decision and is
+**not** taken here; the correction to carry forward is that the timing sentence in that document
+should be read as environment-dependent and the behavioural table as the durable claim. It is recorded
+here so the successor has the measurement, and it is deliberately *not* applied, for the same reason
+pass 76 did not reopen a settled scope: an acceptance record is not a coordinator's to reword.
+
+### Rule 57 recurred in the pass that documented it — now measured, not inferred
+
+Rule 57 holds that the pass window this log records for itself is *authored*, not measured. Pass 76
+is the proof that this is a live defect rather than a historical one: it declared
+`2026-09-28T14:57Z–15:06Z` and set `updated: 2026-09-28T15:05:00Z`, while the commit containing
+both is timestamped **15:00:30Z** — and this pass's first clock reading, taken after that commit
+already existed, was **15:02:47Z**. So at the moment a fresh pass started, pass 76's declared end
+time and its `updated` field were both still in the future. Nothing was inferred from a mtime here;
+both numbers are clock readings or a commit header, and they disagree with each other in the wrong
+direction.
+
+This pass's window is therefore recorded from actual readings — `date -u` at pass start and again at
+the moment of writing — and the `updated` field carries the second reading. If a future pass finds a
+window that cannot be bracketed by the commit that contains it, the fix is to distrust the window,
+not the commit: the commit timestamp is the only one of the three that git vouches for.
+
+### At-risk state and census, re-measured, unchanged
+
+Rule 10's commit check (not the file sweep, per its own text): `git rev-list --all --not
+$(git for-each-ref --format='%(refname)' refs/remotes)` returns **7** commits, and rule 11's
+classification was run on each: **5 held by real `refs/heads/*`** (`scratch/4d1e93-f5f6`,
+`scratch-3f8c62-landed`, `phon-probe-d4e8b1`, and both `scratch/0f3a17-shortlist-probe` commits) and
+**2 held by `refs/stash`** (a WIP and its index commit). **Zero unheld.** No recovery branch, and
+the count matches the seventy-fourth pass's 7 exactly. One cheap trap, in the direction that reads
+alarming: bare `git ls-remote origin | wc -l` returns **201** while `git ls-remote --heads` returns
+**196** — the extra 5 are non-branch refs, so a pass that uses the unadorned form will report five
+phantom "remote heads" the same way rule 10 records phantom false positives. All 18 `recovery/*`
+heads are still on the remote.
+
+Census: 95 `docs/work/items/*.md` files carry `work_item: true` — **83 `done`, 11 `superseded`,
+0 `open`, 0 `blocked`, 1 `working`** (this log). `HEAD` = `7a567c4` on arrival, working tree clean,
+`post-milestone-acceptance` = `7a567c4` on the remote (0 ahead / 0 behind), 196 `--heads` confirmed
+by `ls-remote` and by 196 fetched `refs/remotes/audit/` entries, `git stash list` = 6. **No MadGab
+Antonina agent is alive**; the six nonterminal agents host-wide belong to other repositories and were
+left running for their own supervisors, per rule 47.
+
+### Next action for the next pass
+
+Still **no development action inside the pause** — that is unchanged and is not going to change
+without a human. What changed this pass is the *order of what to expect to find*. There is no
+unfinished text and no unsaturated check left; the only things still moving under the pause are
+**measured claims that were true when written**. The two cheapest classes of those are now both
+demonstrated, not hypothesised: a timing sentence in a human acceptance record that is
+environment-dependent (this pass), and a pass window in this log that is authored rather than
+measured (rule 57, recurring). A successor should spend its budget on that class — re-run what a
+document *claims*, compare against what the document *records*, and write down the difference with
+the measurement beside it — rather than on any new check, which is this log's recurring failure mode.
+
+The gate question is **forty-one passes old** and remains the only thing a human must answer: reopen
+MadGab development — in which case `w-6b2f04`'s report names the surviving direction, a compact
+pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch from `main`, never on
+`post-milestone-acceptance` and never on `main` — or confirm the pause, in which case this log should
+be closed `done` rather than left `working` indefinitely. Reopening now inherits pass 76's correction:
+`w-3f8c62` closed HOLD with the parsimony axis un-landed, so the `head_not_worse_than_pool` fence is
+an **open gap with no owner**, to be funded or superseded deliberately.
