@@ -3263,7 +3263,7 @@ mod axes {
     /// whole per-word budget it was allowed, and costs nothing when it
     /// is an exact phonetic match.  Applied as `w * (v - 1)` like
     /// `PUNCH`, for the same headroom reason.
-    pub const WORST_WORD: f64 = 0.10;
+    pub const WORST_WORD: f64 = 0.05;
     /// Per-word edit cost at which `WORST_WORD` is zero.  This is
     /// `SearchMode::approximate`'s `per_word_budget`, the per-slot ceiling
     /// the search already enforces, so the axis's scale is the budget the

@@ -46,13 +46,13 @@ fn the_axis_moves_the_canonical_out_of_the_near_tie_band() {
         .expect("canonical should be in the pool");
 
     // At base the canonical was pool rank 26 = display 27, 0.0019 below the
-    // 10th displayed clue. With the worst-word axis it is rank 6 = display
-    // 7, inside the band the previous front measured as unreachable. This
+    // 10th displayed clue. With the worst-word axis it is rank 8 = display
+    // 10, inside the band the previous front measured as unreachable. This
     // is the load-bearing number of the front: the ordering key's own input
     // moved, not the ordering.
     assert_eq!(
-        rank, 6,
-        "canonical should be pool rank 6 = display 7, was 26 = display 27"
+        rank, 8,
+        "canonical should be pool rank 8 = display 9, was 26 = display 27"
     );
     assert_eq!(structure(&pool[rank]), CANON_STRUCTURE);
 }
@@ -110,16 +110,16 @@ fn total_cost_cannot_see_the_allocation_and_the_maximum_can() {
     );
 
     // The axis's own transformation of the two shapes, at the shipped
-    // constants: `0.10 * (min(1, 1 - worst / 0.5) - 1)`.
+    // constants: `0.05 * (min(1, 1 - worst / 0.5) - 1)`.
     let axis = |v: &[f64]| {
         let worst = v.iter().cloned().fold(0.0, f64::max);
-        0.10 * ((1.0 - worst / 0.5).clamp(0.0, 1.0) - 1.0)
+        0.05 * ((1.0 - worst / 0.5).clamp(0.0, 1.0) - 1.0)
     };
     assert!(
-        (axis(&flat) - (-0.02)).abs() < 1e-12,
-        "an even 0.10-per-word clue is charged 0.10 * (0.8 - 1)"
+        (axis(&flat) - (-0.01)).abs() < 1e-12,
+        "an even 0.10-per-word clue is charged 0.05 * (0.8 - 1)"
     );
-    assert!((axis(&peaked) - (-0.08)).abs() < 1e-12, "a clue with a word at 0.4 of the 0.5 per-word budget pays 0.10 * (0.2 - 1)");
+    assert!((axis(&peaked) - (-0.04)).abs() < 1e-12, "a clue with a word at 0.4 of the 0.5 per-word budget pays 0.05 * (0.2 - 1)");
 
     // And the same contrast on two real clues from the pool, where the
     // total is *not* equal and the ordering is decided by the maximum.
@@ -142,15 +142,15 @@ fn the_axis_is_anchored_to_the_per_word_budget_and_is_non_positive() {
     for worst in [0.0f64, 0.05, 0.1, 0.2, 0.25, 0.4, 0.5, 0.7, 2.0] {
         let v = (1.0 - worst / 0.5).clamp(0.0, 1.0);
         assert!((0.0..=1.0).contains(&v), "worst={worst} gives out-of-range {v}");
-        let term = 0.10 * (v - 1.0);
+        let term = 0.05 * (v - 1.0);
         assert!(term <= 1e-12, "the axis must never add score (worst={worst}, term={term})");
-        assert!(term >= -0.10 - 1e-12, "the axis must never cost more than its weight");
+        assert!(term >= -0.05 - 1e-12, "the axis must never cost more than its weight");
     }
     // Charge is monotone non-increasing in the worst word, and is exactly
     // zero at an exact match and exactly the full weight at the budget.
-    let charge = |worst: f64| 0.10 * ((1.0 - worst / 0.5).clamp(0.0, 1.0) - 1.0);
+    let charge = |worst: f64| 0.05 * ((1.0 - worst / 0.5).clamp(0.0, 1.0) - 1.0);
     assert!((charge(0.0) - 0.0).abs() < 1e-12);
-    assert!((charge(0.5) - (-0.10)).abs() < 1e-12);
+    assert!((charge(0.5) - (-0.05)).abs() < 1e-12);
     let mut prev = f64::INFINITY;
     for worst in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 1.0] {
         let c = charge(worst);
@@ -180,7 +180,7 @@ fn the_axis_costs_no_headroom_because_it_is_shifted_by_its_own_maximum() {
 /// ordering key: the axis promotes the canonical's *own* structure
 /// `[3,5,10]` to the whole head of the pool, and `select_diverse`'s
 /// per-structure share cap then holds the structure to a small number of
-/// slots, of which the canonical is seventh. It is excluded by the cap,
+/// slots, of which the canonical is the ninth. It is excluded by the cap,
 /// not by the score cutoff. w-c31a07 and `REPORT-a4d10c.md` priced the
 /// ordering and selection surfaces; this is a recorded interaction, not a
 /// new front.
@@ -191,7 +191,7 @@ fn the_canonical_is_in_the_pool_but_still_outside_the_default_display() {
     let canon_pool = pool.iter().position(|c| c.phrase == CANON).expect("in pool");
     let canon_shown = shown.iter().position(|c| c.phrase == CANON);
 
-    assert_eq!(canon_pool, 6, "pool rank 6 after the axis, 26 before it");
+    assert_eq!(canon_pool, 8, "pool rank 9 after the axis, 27 before it");
     assert!(
         canon_shown.is_none(),
         "STILL excluded from the default display; if this now passes, the \
@@ -207,13 +207,13 @@ fn the_canonical_is_in_the_pool_but_still_outside_the_default_display() {
         "expected the axis to concentrate the head in [3,5,10], got {same}/20"
     );
     // 20 of the 20 are the canonical's own structure, so the structure is
-    // already at the cap long before the canonical is reached at rank 7.
+    // already at the cap long before the canonical is reached at rank 9.
     let members_above = pool[..canon_pool]
         .iter()
         .filter(|c| structure(c) == CANON_STRUCTURE)
         .count();
     assert!(
-        members_above >= 3,
+        members_above >= 5,
         "at least three better members of its own structure precede it"
     );
 }
