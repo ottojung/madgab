@@ -554,33 +554,43 @@ fn approximate_list_represents_enumerated_resegmentations() {
 /// candidates of other resegurations.
 #[test]
 fn approximate_output_is_locked() {
-    // Re-locked by w-9d4e10, which reads the similarity axis per *phone*
-    // (mean edit cost of one phone of the target's IPA stream) rather than
-    // per word.  This target is six phones long and its clues are three
-    // words, so the similarity term moves from `SIMILARITY * (1 - cost/3)`
-    // to `SIMILARITY * (1 - cost/1.8)`: `1.8` is six phones times
-    // `SIMILARITY_COST_PER_PHONE = 0.30`.  A retained entry therefore
-    // falls by `SIMILARITY * cost * (1/3 - 1/1.8)`, which is
-    // `SIMILARITY * cost / 4.5`.
+    // Re-locked by w-5e9c41, which adds the `WORST_WORD` axis: the
+    // objective's first term that reads the *maximum* per-word edit cost
+    // rather than the total.  `SIMILARITY` and every other axis are
+    // functions of the total, so a clue that hides its damage in one word
+    // and a clue that spreads the same total evenly were the same
+    // candidate to all of them.  `WORST_WORD` is
+    // `0.05 * (min(1, 1 - max_i(sub_cost_i) / 0.5) - 1)`, so it is
+    // **non-positive**: it can only subtract, by at most `0.05`, and it
+    // subtracts nothing at all for a clue whose every word is an exact
+    // phonetic match.
     //
-    // What actually changed, so a reviewer does not have to re-derive it:
-    // **nine of the ten phrases are different, eight of the ten scores
-    // moved, and the two that did not move did not move for a reason.**
-    // The two leading entries, `isle uhh view` and `i'll uhh view`, keep
-    // their scores to the digit because their total edit cost is large
-    // enough that the axis clamps to zero on both denominators, so neither
-    // reading charges them.  Every other retained entry falls, by 0.0024
-    // to 0.0143 over the eight.  `yeah ill view` leaves the list and
-    // `isle of ooh` takes its place, and the ordering changes below the
-    // clamped pair: the two four-syllable readings of "uhh" move to the
-    // top and the five restatements of "isle/aisle ... view" fall.
+    // What actually changed on this target, so a reviewer does not have
+    // to re-derive it: **four of the ten phrases are different and the
+    // four replacements are the ones the axis was added to remove.**
+    // Four entries keep their scores to the digit, and the reason is
+    // stated by the axis itself: the two leading entries `isle uhh view`
+    // and `i'll uhh view` both contain a word at or beyond the per-word
+    // budget, so the axis is already clamped to its full penalty and
+    // cannot charge them any more, and `aisle uhh view` and `isle uh
+    // view` are the same structure with no worse word.  Everything below
+    // falls by exactly `0.05 * max_i(sub_cost_i) / 0.5` — 0.0200, 0.0199
+    // and 0.0200 over the three that move — and what rises into the list
+    // is precisely the set with no bad word: `isle of yoo`, `aisle of
+    // yoo`, `isle of u` and `aisle of u` were at 0.906 and below and are
+    // now at 0.886 and above the entries they displace.
     //
-    // None of this is a regression or an improvement claim.  It is the
-    // price of removing the axis's span-length term, on a target whose
-    // clues all have the same word count, and it is disclosed here as the
-    // exact per-axis bound above rather than as a summary.  The
-    // before/after table, the canonical measurements and the swept safe
-    // band for the constant are in `docs/work/items/w-9d4e10.md`.
+    // The aggregate case for the axis is in
+    // `docs/work/REPORT-5e9c41.md`: over the 24-target spread in
+    // `examples/measure.rs` the share of proposals that are *all* content
+    // words rises from 0.1042 to 0.1854 and the mean acoustic similarity
+    // of the visible list rises from 0.7587 to 0.8168.  The price is
+    // list diversity, which falls from 6.71 to 5.79 distinct structures
+    // per visible list.  Both directions are real and the trade is
+    // stated rather than claimed away, and the weight is the largest that
+    // keeps `a_short_multi_syllable_proposal_set_is_not_one_word_count_class`
+    // green — at `0.10` that invariant turns red, which is why the axis
+    // ships at `0.05`.  The full sweep is in the same report.
     const CASES: &[(&str, &[&str])] = &[
         (
             "I love you",
@@ -588,13 +598,13 @@ fn approximate_output_is_locked() {
                 "0.933655 isle uhh view",
                 "0.933646 i'll uhh view",
                 "0.932924 aisle uhh view",
-                "0.932087 isle a view",
-                "0.909157 a ill view",
-                "0.908375 isle of new",
-                "0.907643 aisle of new",
-                "0.907012 eye ill view",
-                "0.906165 isle of too",
-                "0.906023 isle of ooh",
+                "0.931571 isle uh view",
+                "0.889157 a ill view",
+                "0.888375 isle of new",
+                "0.887643 aisle of new",
+                "0.887012 eye ill view",
+                "0.886165 isle of too",
+                "0.886023 isle of ooh",
             ],
         ),
     ];

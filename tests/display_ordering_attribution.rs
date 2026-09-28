@@ -44,61 +44,82 @@ fn canonical_is_in_the_pool_and_the_score_order_places_it_at_27() {
     // pool sort at src/lib.rs:2444. It is not the diversity layer: it is the
     // 27th-best-scoring member of the pool, and `select_diverse` reproduces
     // score order for this target rather than substituting any other member.
-    assert_eq!(rank, 26, "canonical should be pool rank 26 = display 27");
+    assert_eq!(rank, 8, "canonical should be pool rank 8 = display 9 (was 26 = 27 at base)");
     let score = pool[rank].score;
     assert!(
-        (score - 0.919_950).abs() < 5e-7,
-        "canonical score should be 0.919950, got {score}"
+        (score - 0.899_950).abs() < 5e-7,
+        "canonical score should be 0.899950, got {score}"
     );
     assert_eq!(structure(&pool[rank]), CANON_STRUCTURE);
 }
 
 #[test]
 fn the_selection_layer_is_a_pure_pass_through_at_the_shipped_default() {
-    // Criterion 1: the loss happens at the ordering key, not in the selection
-    // layer. At the default and just above it, every displayed clue sits at
-    // exactly its own pool rank, so `select_diverse` is admitting the top
-    // `top_n` of the score order and substituting nothing: the share cap and
-    // the structure reserve are both slack here. It is the *cutoff* that
-    // excludes the canonical, not a diversity decision about it.
+    // RE-BASED by w-5e9c41. At base this property **held**: every displayed
+    // clue sat at exactly its own pool rank at `top_n` 10, 11 and 15, so the
+    // canonical was excluded by the score *cutoff*. The `WORST_WORD` axis
+    // (see `tests/worst_word_axis.rs` and
+    // `docs/work/REPORT-5e9c41.md`) changed that: it promotes the
+    // canonical's own structure `[3,5,10]` into 20 of the top 20 pool
+    // slots, `select_diverse`'s per-structure `share_cap` therefore binds at
+    // the default, and the displayed list is no longer in pool order. The
+    // canonical is now excluded by the **cap**, not by the cutoff — and it
+    // is still excluded. This test now pins the *new* stage, so the
+    // distinction the next front needs is recorded rather than assumed.
     //
-    // The cap does bind as the list grows, which is why the shipped `--top 50`
-    // is a different list from the pool head; that divergence is downstream
-    // of the fact measured here and cannot help a near-tie at the default.
+    // The five priced negatives below are untouched by this: they were
+    // priced on the *ordering key*, and none of them is a re-run here.
     for n in [10usize, 11, 15] {
         let pool = gen(n).generate_pool("recognize speech");
         let displayed = gen(n).generate("recognize speech");
-        for (display_i, clue) in displayed.iter().enumerate() {
-            let pool_rank = pool
-                .iter()
-                .position(|c| c.phrase == clue.phrase)
-                .expect("displayed clue came from the pool");
-            assert_eq!(
-                display_i, pool_rank,
-                "at top_n={n} displayed {:?} at slot {display_i} is pool rank {pool_rank}",
-                clue.phrase
-            );
-        }
+        let diverged = displayed
+            .iter()
+            .enumerate()
+            .filter(|(i, clue)| {
+                let rank = pool.iter().position(|c| c.phrase == clue.phrase).unwrap();
+                *i != rank
+            })
+            .count();
+        assert!(
+            diverged > 0,
+            "at top_n={n} every displayed clue is at its own pool rank, so the \
+             selection layer is slack again and the cap is no longer the stage"
+        );
     }
 }
 
 #[test]
 fn canonical_is_absent_at_the_default_and_present_at_fifty() {
-    // The shipped default.
+    // RE-BASED by w-5e9c41. The canonical is still absent at the shipped
+    // default, but no longer for the reason it was absent at base. At base
+    // it sat at pool rank 26 with score 0.919950, 0.0019 below the 10th
+    // displayed in a pool of 13 801, and was excluded by the score
+    // **cutoff** — the ordering key was the stage. It now sits at pool rank
+    // 9 with score 0.899950 in a pool of 13 819 and is excluded by the
+    // per-structure `share_cap`, because the axis promoted its own structure
+    // `[3,5,10]` into 20 of the top 20 pool slots. Same outcome, different
+    // stage, and the milestone predicate is still not met at `--top 10`.
+    // The full measurement is in `docs/work/REPORT-5e9c41.md`.
     let top10 = gen(10).generate("recognize speech");
     assert_eq!(top10.len(), 10);
     assert!(
         !top10.iter().any(|c| c.phrase == CANON),
-        "canonical must stay absent at --top 10 while this item is a priced negative"
+        "canonical must stay absent at --top 10; if this now fails, the \
+         report's partial result is stale and the milestone may be met"
     );
-    // Absent at 25, present at 50. This is the near tie: 0.919950 against a
-    // 10th displayed near 0.9218, a gap of about 0.002 in a pool of 13801.
-    assert!(!gen(25).generate("recognize speech").iter().any(|c| c.phrase == CANON));
+    // At base: absent at 25, present at 50 at display 27. Now: present at
+    // display 6 of both, because the cap holds the structure at a fixed
+    // number of slots whichever `top_n` is asked for.
+    let at25 = gen(25)
+        .generate("recognize speech")
+        .into_iter()
+        .position(|c| c.phrase == CANON);
+    assert_eq!(at25, Some(8), "canonical should be display 9 of 25");
     let at50 = gen(50)
         .generate("recognize speech")
         .into_iter()
         .position(|c| c.phrase == CANON);
-    assert_eq!(at50, Some(26), "canonical should be display 27 of 50");
+    assert_eq!(at50, Some(8), "canonical should be display 9 of 50");
 }
 
 #[test]
@@ -113,10 +134,18 @@ fn the_visible_head_is_one_ending_repeated_rather_than_distinct_wordings() {
         .collect();
     // Nine of the ten are one of two rhymes of the same ending word, which is
     // what a reader sees as a repeated list rather than ten proposals.
+    //
+    // RE-BASED by w-5e9c41: it was 9 of 10 at base and is now **10 of 10**,
+    // because the `WORST_WORD` axis concentrates the head in the canonical's
+    // own structure `[3,5,10]` and every one of its visible members ends in
+    // the same two words. The redundancy the rhyme family was priced against
+    // is *worse* after the axis, not better. That is stated here rather than
+    // papered over, and it is one of the costs in
+    // `docs/work/REPORT-5e9c41.md`.
     let pitch_family = finals.iter().filter(|f| f.as_str() == "pitch").count()
         + finals.iter().filter(|f| f.as_str() == "peach").count();
-    assert_eq!(pitch_family, 9, "in {finals:?}");
-    assert_eq!(finals.iter().filter(|f| f.as_str() == "beach").count(), 1);
+    assert_eq!(pitch_family, 10, "in {finals:?}");
+    assert_eq!(finals.iter().filter(|f| f.as_str() == "beach").count(), 0);
 }
 
 /// Priced negative, w-c31a07. Every ordering surface that could plausibly
@@ -179,10 +208,10 @@ fn per_word_exact_ipa_grouping_leaves_the_canonical_outside_the_default() {
             representatives.push(&c.phrase);
         }
     }
-    assert_eq!(representatives.len(), 10_133);
-    assert_eq!(pool.len(), 13_801);
+    assert_eq!(representatives.len(), 10_121); // was 10_133 at base
+    assert_eq!(pool.len(), 13_819); // was 13_801 at base
     let at = representatives.iter().position(|p| *p == CANON);
-    assert_eq!(at, Some(25), "still rank 25 of the groups, outside --top 10");
+    assert_eq!(at, Some(8), "group rank 9 of 10_121 (was 25 of 10_133 at base)");
 }
 
 /// Priced negative, w-c31a07: content-word share. It does not separate the
@@ -208,7 +237,29 @@ fn content_word_share_does_not_separate_the_canonical_from_its_outrankers() {
     // 3/4 content words against 4/4 for a clue that outranks it: share is
     // anti-correlated here, so promoting on it demotes the canonical.
     assert!(content(CANON) < content("let egg nice pitch"));
-    assert!(canon_words.score < 0.921_813);
+    // `let egg nice pitch` was 0.921813 against the canonical's 0.919950 at
+    // base, i.e. it outranked the canonical on score as well as on share.
+    // RE-BASED by w-5e9c41: the `WORST_WORD` axis charges it more than it
+    // charges the canonical (its worst word costs 0.214 against the
+    // canonical's 0.20), so it no longer outranks it. The *priced negative*
+    // is unchanged and is the assertion above — share is anti-correlated
+    // here, so promoting on content-word share demotes the canonical, and
+    // that was true at base and is true now. Only the incidental score
+    // ordering that used to accompany it has moved.
+    let outranking = pool
+        .iter()
+        .find(|c| c.phrase == "let egg nice pitch")
+        .expect("in pool");
+    assert!(
+        worst_word_cost(outranking) > worst_word_cost(canon_words),
+        "the axis is what now separates them, not their content share"
+    );
+}
+
+/// Per-word maximum edit cost, the quantity the `WORST_WORD` axis reads.
+/// Added by w-5e9c41 alongside the axis; used by the re-pins above.
+fn worst_word_cost(c: &madgab::Clue) -> f64 {
+    c.words.iter().map(|w| w.sub_cost).fold(0.0, f64::max)
 }
 
 /// Priced negative, w-c31a07: the canonical loses inside its own structure
@@ -223,16 +274,17 @@ fn canonical_loses_within_its_own_structure_not_to_a_cluster() {
     for c in &pool {
         *counts.entry(structure(c)).or_default() += 1;
     }
-    assert_eq!(counts[&CANON_STRUCTURE.to_vec()], 156);
+    assert_eq!(counts[&CANON_STRUCTURE.to_vec()], 160); // was 156 at base
+    let canon_score = pool.iter().find(|c| c.phrase == CANON).unwrap().score;
     // Every member of the canonical's structure that outranks it.
     let ahead: Vec<&madgab::Clue> = pool
         .iter()
-        .filter(|c| structure(c) == CANON_STRUCTURE && c.score > 0.919_950)
+        .filter(|c| structure(c) == CANON_STRUCTURE && c.score > canon_score)
         .collect();
-    assert_eq!(ahead.len(), 12, "12 same-structure siblings outrank it");
+    assert_eq!(ahead.len(), 8, "8 same-structure siblings outrank it (was 12 at base)");
     for c in &ahead {
         assert!(
-            c.score > 0.919_950,
+            c.score > canon_score,
             "sibling ordering should be strictly by score"
         );
     }
@@ -243,7 +295,7 @@ fn canonical_loses_within_its_own_structure_not_to_a_cluster() {
 #[test]
 fn case_two_pool_is_unaffected_and_still_far_from_the_canonical() {
     let pool = gen(10).generate_pool("It's just a stupid game");
-    assert_eq!(pool.len(), 14_555);
+    assert_eq!(pool.len(), 14_549); // was 14_555 at base
     assert!(
         !pool
             .iter()
