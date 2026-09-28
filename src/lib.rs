@@ -3129,9 +3129,9 @@ impl Partial {
             closed_penalty,
             #[cfg(test)]
             punch,
-            /// The `WORST_WORD` axis on its own, kept so a test can assert
-            /// that it reads the *maximum* per-word cost and therefore
-            /// is not a function of the total the other axes read.
+            // The `WORST_WORD` axis on its own, kept so a test can assert
+            // that it reads the *maximum* per-word cost and therefore
+            // is not a function of the total the other axes read.
             #[cfg(test)]
             worst_word: worst_word,
             #[cfg(test)]
@@ -7385,8 +7385,10 @@ mod slot_probe {
     #[derive(Clone, Debug)]
     pub struct Seg {
         pub rank: usize,
+        #[allow(dead_code)]
         pub spans: Vec<(usize, usize)>,
         pub cap: usize,
+        #[allow(dead_code)]
         pub widths: Vec<usize>,
         pub slots: Vec<Vec<Alt>>,
     }
@@ -7398,6 +7400,7 @@ mod slot_probe {
         pub which: &'static str,
         pub tuple: Vec<usize>,
         pub cap: usize,
+        #[allow(dead_code)]
         pub widths: Vec<usize>,
     }
 
@@ -7431,6 +7434,7 @@ mod slot_probe {
         });
     }
 
+    #[allow(dead_code)]
     pub fn disarm() {
         STATE.with(|s| *s.borrow_mut() = None);
     }
@@ -7669,6 +7673,7 @@ mod front_1c7d40 {
         ms1: u128,
         reserve: usize,
         traversal: usize,
+        #[allow(dead_code)]
         adjacency: usize,
     }
 
@@ -9383,7 +9388,7 @@ mod head_not_worse_than_pool {
         let mut checked = 0usize;
         for target in TARGETS {
             let pool = generator().generate_pool(target);
-            let mut rows = counters::drain_scored();
+            let rows = counters::drain_scored();
             assert!(
                 rows.len() >= pool.len(),
                 "fewer candidates were captured ({}) than the pool returned \
