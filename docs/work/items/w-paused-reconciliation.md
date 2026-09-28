@@ -10544,3 +10544,100 @@ work in it. The durable half remains closed by execution.
    class, the 85 unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/`
    classes, or the `--include-root-refs` enumeration; all are closed, and listing them is the standing
    reason not to.
+
+## Pass 101 — 2026-09-28 17:46:54Z → 17:53Z — coord-4b81 — the exclusion set is 202 refs and pass 100's 203 counted a `HEAD` symref, and rule 65's carry-forward is discharged by measurement
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, tenth pass running, on the ground recorded in passes
+92–100: the itinerary's `## Status: accepted and paused` forbids a scheduled orchestrator from creating
+MadGab work, claiming historical items, launching agents or resuming fronts without an explicit human
+reopening, and records `post-milestone-acceptance` as release history that is "no longer an automatic
+accumulation target" (rule 19). A recurring template is not that human. The no-hard-coding half is
+discharged by identity: the production fence against `origin/main` over
+`src tests web examples Cargo.toml README.md` is **0 lines**.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `cf1f9cd` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** total, **0** non-`target` |
+| recovery branches | **20** local, **20** remote, `comm -3` **0 lines** (agreement) |
+| remote, by namespace (rule 65, run first) | 198 `refs/heads` + 3 `refs/pull` + 1 `refs/tags` + 1 `HEAD` = **203 lines** |
+| audit exclusion set, fetched and enumerated | **202** refs |
+| MadGab Antonina agents alive | **0** (the 3 `running` agents are `94e5`, `98c1`, `a1b30c01`, all outside `/workspace/madgab*`) |
+
+### 2. At-risk sweep, re-run per rule 65 → 66 → 62 → 64, with controls on the side that changed
+
+| probe | result |
+|---|---|
+| exclusion-set size (rule 37: 0 would mean the fetch failed) | **202** |
+| baseline, `rev-list --all --reflog`, no exclusion (rule 39) | **1,094** |
+| at-risk commits, `--all --reflog --not <202 refs>` | **89** |
+| cross-check, stateless `^` spelling (rule 14/30) | **89** |
+| **control**: `recovery/reflog-held-2026-09-28` dropped from the *exclusion* side | **90** — fires |
+| objects from refs only (`--all`) / with reflog (`--all --reflog`) | 6,600 / 6,919 |
+| reflog-only objects (`comm -13`, `sort -u` both sides, stderr **0 bytes**) | **319** |
+| …by type (`cat-file --batch-check`, before any path filter — rule 62) | 82 commit / 166 tree / **71 blob** |
+| …reflog-only **blob**s, non-build by path **component** (rule 66's `awk`) | **1** — `3daf061`, this log's own superseded draft, in **0** refs |
+| **control**: same filter with the `^target-` branch deleted | **71** — fires |
+| rule 65's re-test: at-risk with vs without the 3 `refs/pull` refs | 89 / 89 — reach-null, again |
+
+**Standing value: 0 at-risk non-build content**, re-measured by execution, unchanged from passes 98–100.
+No recovery was performed and no branch was cut, because there is nothing to recover.
+
+### 3. Rule 67 — the namespace census and the exclusion-set size have different denominators, and the extra line is a `HEAD` symref
+
+Rule 65 (pass 100) established that `git ls-remote origin` returns **203** lines in four shapes, not
+three: 198 `refs/heads/*`, 3 `refs/pull/*/head`, 1 `refs/tags/*` — and a bare **`HEAD`**. Pass 100
+reported the exclusion set as **"203 remote refs"**, and the arithmetic does not close:
+198 + 3 + 1 = **202**. The 203rd line is `HEAD`, i.e. `0267ade` — which is `origin/main`, already
+present in the set as `refs/remotes/audit/main`. It is a **symref**, not a ref: no
+`+refs/…:refs/remotes/audit/*` refspec can fetch it, `origin/HEAD` does not exist in this repository
+(`fatal: ambiguous argument`), and `git for-each-ref` will not list it. So it is a line of *output*
+being counted as a line of the *set*, which is exactly the denominator error rule 63 was written for,
+one level up from a per-type census to a namespace census.
+
+**No figure this pass reports is wrong, and the at-risk count is unaffected.** The 202-ref set returns
+**89**, byte-identical to pass 100's, and rule 65's own re-test still shows `refs/pull/*` is
+reach-null: all three pull tips (`d80163d`, `5e7f37f`, `734e37e`) are ancestors of
+`post-milestone-acceptance`, so they add no object to the durable set — 6,272 objects with them, the
+same 6,272 without. The finding is about the check, as rule 65's was. **Carry-forward 1 of pass 100 is
+discharged by measurement**: `+refs/pull/*:refs/remotes/audit-pull/*` is now fetched alongside heads
+and tags, the namespace census is printed *before* the set size, and the size is 202.
+
+The general form is rule 63 restated in the one place the log had not yet applied it: **a census and a
+set drawn from it must share a denominator, and `ls-remote` deliberately emits one line that is not a
+ref.** Prefer the *fetched* set (`for-each-ref` over the audit namespaces) as the figure of record and
+treat `ls-remote`'s line count as an upper bound that must be ≥ it; here 203 ≥ 202, and a set that
+equalled the line count would have meant a `HEAD` had been smuggled in.
+
+### 4. This log stays `blocked`
+
+Unchanged from passes 94–100. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it. The durable half remains closed by execution, and rule 65's only open carry-forward is
+closed with it.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Eight passes have now reached this same result.
+2. **The item should be closed by a human, not extended.** The remaining question is a human's: reopen
+   MadGab development, or confirm the pause. Confirming means setting this item `done` and retiring the
+   front; reopening means a fresh branch from `main` and pass 78's direction (compact pronunciation DAG
+   with k-best/A*-style whole-path search, canonical cases validated **generically**, never
+   hard-coding `recognize speech` or `It's just a stupid game`).
+3. **The scheduler template is the thing to fix.** It has now fired **ten** times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
+   or closing this item `done` so it stops being selected, is worth more than a hundred-and-second
+   declining pass.
+4. If the sweep is ever re-run: rule 65's namespace census **first** and the exclusion-set size taken
+   from the fetched set (**202**), never from `ls-remote`'s line count (203, rule 67); rule 66's `awk`
+   component filter instead of any `grep` variant; rule 62's type census before any path filter;
+   rule 64's type column printed next to every path; a control on whichever side of the subtraction
+   the change lands. Do **not** re-walk the dirty-path class, the 85 unreachable commits, the
+   per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs`
+   enumeration; all are closed, and listing them is the standing reason not to.
