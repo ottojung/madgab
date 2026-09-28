@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3e17
-updated: 2026-09-28T15:13:20Z
+owner: coord-4a82
+updated: 2026-09-28T15:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7943,3 +7943,81 @@ the measurements above. `git diff --name-only | grep -v '^docs/'` = **0**, so no
 document that reports a measurement of it is the opposite of the failure mode the fence exists to
 catch; a reader who greps this file for the phrase and finds it is looking at this table, not at
 production logic.
+
+## Pass 79 — `coord-4a82`, 2026-09-28T15:17Z–15:24Z
+
+A short reconciliation pass. **No new numbered rule**, per the standing instruction at the end of
+pass 78 that a pass must not invent a check to look thorough. Nothing was launched, claimed,
+resumed or integrated; `main` untouched.
+
+### Census, re-measured
+
+97 files in `docs/work/items/`, 95 of them carrying `work_item: true`: **83 `done`, 11
+`superseded`, 0 `open`, 0 `blocked`, 1 `working`** (this log) — unchanged from pass 78. `HEAD` =
+`c3b8260` on arrival, working tree clean, and `post-milestone-acceptance` = `c3b8260` on the
+remote (0 ahead / 0 behind). There is still **no local `main` ref**; `origin/main` remains
+`0267ade`, the accepted release merge. `git stash list` = **6**.
+
+**No MadGab Antonina agent is alive.** Every agent whose cwd is a `madgab-*` worktree is terminal
+(`3a8f02` and `3a8f01` `stopped`, the rest `succeeded`/`failed`, oldest 2d10h). The nonterminal
+agents host-wide belong to other repositories and were left running for their own supervisors. Both
+MadGab board issues, #48 and #87, are `closed`.
+
+### At-risk sweep — the whole standing set, re-run, nothing found
+
+Rules 9–18's classes were re-measured rather than assumed, using the reflog-inclusive form:
+
+| class | rule | measured | at risk |
+|---|---|---|---|
+| commits not held by any branch | 10/11/14 | **81** | 0 — all reflog-only, and the object-level probe closed this class at 0 of 626 blobs |
+| commits not on a remote head | 10 | 0 beyond the 81 | 0 |
+| unreachable commits | 13 | **180** | 0 — only 2 of 180 ever carried unique content, and both are archived |
+| stash entries | 15 | **6** | 0 — all on `refs/stash`'s reflog, archived to `recovery/stash-reflog-2026-09-28` |
+| worktree state dirs | 16 | **5 hits in 4 worktrees** (4 `AUTO_MERGE`, 1 `rebase-merge`) | 0 — 0 unique blobs of 57/56/91/93 |
+| worktree index-only blobs | 18 | 0 | 0 |
+
+**Rule 14's cross-check was run and it caught a real spelling error in this pass's first attempt.**
+`git rev-list --all --reflog --not $(git for-each-ref --format='^%(refname)')` returned **1057**,
+7× the true figure, because `--not` is a stateful prefix and each subsequent `^<ref>` flips the
+sense back. Dropping the `--not` — the stateless spelling the rule names — returns **81**, matching
+the `--not` + bare-ref-name spelling exactly. Both independent formulations agree at **81**, and
+81 is the number passes 40 through 78 have all recorded, so the set has not moved. This is the rule
+working as written, and it is the reason the number is believed rather than recomputed.
+
+No recovery branch was created: there was nothing new to recover. The one thing this pass would
+have committed — a recovery branch holding the 81 reflog-only commits — is **wrong to do**, because
+the object-level probe already established that none of their content is unique, and archiving
+content that is held elsewhere is rule 13's stated failure mode in its purest form.
+
+### The conflict between this invocation and the itinerary, recorded rather than resolved silently
+
+The prompt that commissioned this pass instructed: *accumulate work on `post-milestone-acceptance`
+exactly as the itinerary requires*, *prioritize the canonical approximate-search examples*, and
+*launch or prompt Antonina agents*. Two of those three are in direct conflict with the durable
+state, and this pass did not act on either without a human:
+
+1. **The accumulation branch.** `itinerary-madgab.md` line 17 states that the historical
+   `post-milestone-acceptance` branch "is release history after this acceptance and is no longer an
+   automatic accumulation target". The prompt asserts the itinerary requires it. The prompt's
+   *operative* instruction — never merge or push to `main` — is honoured and is also this log's
+   rule 3; the branch named as its target is not. **Resolution taken: nothing was pushed to `main`,
+   and no development branch was created**, because there was no development to accumulate.
+2. **The canonical examples.** Prioritizing them is the substance of the work this log exists to
+   *prevent* resuming. `itinerary-madgab.md` line 7 permits it only on "a human explicitly asks to
+   reopen MadGab development". A scheduled prompt that also tells the agent to follow the itinerary
+   is not that instruction, so the pause gate stayed closed and the directive was not executed.
+
+The two gate questions pass 78 identified remain the only things that can change this repository's
+status, and both are human decisions. The prompt for this pass is recorded here so that the next
+pass, and the human who reads it, can see the directive that arrived and was not executed — the
+alternative is that the same prompt arrives again, or that a later pass reads a bare "reconcile"
+instruction and assumes somebody reopened the programme when nobody did.
+
+### Next action for the next pass
+
+Unchanged and now thirty-eight passes old: a human either **reopens** MadGab development — in
+which case the direction is the one pass 78 names, a compact pronunciation DAG with
+k-best/A*-style whole-path search, on a fresh branch, with pass 76's `head_not_worse_than_pool`
+gap deliberately funded or superseded — or **confirms the pause**, in which case this log closes
+`done`. There is no agent-executable work, no unfinished text, and no unsaturated check. A pass
+that finds itself inventing a check here is repeating the failure mode this log keeps naming.
