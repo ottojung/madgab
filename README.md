@@ -19,6 +19,12 @@ IPA:    /itsdʒəstəstupidgeɪm/
 generator can land on that exact one depends on the corpus — see *Quality
 notes* below.)
 
+## Current status and known limitation
+
+The September 27, 2026 approximate-search state is accepted for release. Approximate mode can generate **`wreck a nice beach`** for **`recognize speech`** and the release implementation includes the general search/scoring improvements developed during that work.
+
+One classical case remains unresolved: **`Hits Justice Dupe Hid Came`** is not currently generated for **`It's just a stupid game`** by the production candidate pool. This is a known accepted limitation, not a hidden passing claim. See [docs/accepted-state-2026-09-27.md](docs/accepted-state-2026-09-27.md) for the measured state and the recommended future direction if research is reopened.
+
 ## How it works
 
 1. **Transcribe** the target into IPA via the 140k-word corpus that ships
