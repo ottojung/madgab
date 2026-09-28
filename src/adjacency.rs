@@ -248,11 +248,11 @@ pub(crate) fn admit(
             }
         }
 
-        for slot in 0..depth {
+        for (slot, &width) in widths.iter().enumerate().take(depth) {
             for child in best_children(
                 &node,
                 slot,
-                widths[slot],
+                width,
                 plan.per_slot,
                 bound,
             ) {
