@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4f7a
-updated: 2026-09-28T07:29:00Z
+owner: coord-8c13
+updated: 2026-09-28T07:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -418,6 +418,36 @@ recorded as a priced negative.
   time was written forward of when its work actually happened. Harmless, but the same class of
   drift as the `coord-2b7e` filter bug, so it is recorded rather than repeated: this entry's
   window is the real one.
+
+* **`coord-8c13` (this pass), 2026-09-28T07:28Z–07:31Z** — reconciliation only, **no recovery
+  needed; sixth consecutive clean sweep**. Recorded as a short entry per the cadence advice
+  below. `antonina agent list`: no MadGab agent alive or claimable — the only `running` agents
+  host-wide are `a45f001` (`/workspace/skrynia-45-remove`), `a94fa7e4`
+  (`/workspace/assemblyp1-issue89-crossing-coalesce2`) and `a78fa7e2` (`/workspace/qai-proviral-78`),
+  all other repositories, left alone. Worktree sweep over all 21 worktrees, all dirty and
+  untracked files under 2 MB hashed against **1514** reachable blobs (Cargo `target*` output
+  excluded by path component per standing rule 9): **24** unmatched files, byte-for-byte the
+  same two known buckets as the previous five passes — 8 instrumented `src/lib.rs` copies
+  (diff-archived, standing rule 7) and 16 `madgab-approx-runtime/prof/{results,sum}*.txt`
+  regenerable harness outputs. Nothing new, so the archived-patch re-verification and the
+  harness re-read were *not* repeated a sixth time; standing rules 7 and 8 are inherited from
+  five passes of direct confirmation. Durability re-confirmed with `git ls-remote`:
+  `main` = `0267ade` (untouched, remote-only — there is no local `main` ref), this branch =
+  `217e736` before this pass, `recovery/probe-scaffolding-2026-09-28` = `2408c25`.
+
+  The instruction to prioritise the canonical approximate-search examples was read against the
+  itinerary's pause gate for the second time (see the `coord-c8e1` entry): it restates the
+  programme's standing goal, and reopening it requires an explicit human instruction, which has
+  not been given. So no front was opened, no item claimed, no agent launched, nothing
+  integrated, and `main` untouched. The canonical-example limitation stands as documented in
+  `docs/accepted-state-2026-09-27.md`; if it is ever reopened, the named direction is a
+  qualitatively different whole-path algorithm, never phrase-specific hard-coding.
+
+  **Sampling note for the scheduler:** six consecutive passes have now re-confirmed identical
+  durable state. This pass is the point at which the sweep has stopped being able to
+  distinguish "nothing left" from "the check has stopped working" on its own. If a future pass
+  wants real signal rather than confirmation, the cheap way to get it is a human gate — ask
+  whether MadGab development is being reopened — not a seventh identical sweep.
 
 ## Next action for a fresh pass
 
