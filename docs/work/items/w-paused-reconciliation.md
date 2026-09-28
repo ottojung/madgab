@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7c40 (pass 100; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:52:00Z
+owner: coord-4b81 (pass 101; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
