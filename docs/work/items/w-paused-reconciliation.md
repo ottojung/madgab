@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3c17
-updated: 2026-09-28T08:03:00Z
+owner: coord-4d31
+updated: 2026-09-28T08:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -726,4 +726,57 @@ repository. Keep the cadence, but a pass that finds a third clean sweep may reas
 a single line and exit rather than re-verifying the eight patches a fourth time. What a fresh
 pass should stop doing unconditionally is re-running the sweep *narrowed to whatever the last
 pass looked for*, which is the failure mode of rules 6 through 9 taken together.
+
+### `coord-4d31` — thirteenth pass, 2026-09-28T08:04Z–08:12Z
+
+Hash sweep **deliberately not run**, per the escalation above. Cheap checks only, plus one
+question thirteen prior passes never asked: *is the accepted state's own central claim true when
+executed, rather than only when cited?* Every prior pass confirmed the no-hard-coding property
+by reading reports and work items. None of them ever ran the fence. So this pass did.
+
+* **Cheap checks, all unchanged.** `git ls-remote`: `main` = `0267ade` (untouched, remote-only,
+  no local `main` ref), `post-milestone-acceptance` = `a676176`, in sync with local after fetch
+  (0 ahead / 0 behind), `recovery/probe-scaffolding-2026-09-28` = `2408c25` — confirming that
+  branch is genuinely on the remote, which is the durability fact `coord-3c17` flagged and did not
+  itself assert. Worktree clean (`git status --porcelain -uall` empty). Item census unchanged at
+  **87 `done`, 12 `superseded`, 2 `open`** (the two protocol examples, neither real), **1
+  `working`** (this log). No MadGab agent alive: `3a8f01`/`3a8f02` remain `stopped` and belong to
+  `superseded` items, left stopped deliberately. All other nonterminal agents host-wide are other
+  repositories; none touched.
+* **New datum — the accepted head was verified by execution, not citation.** All three runs on
+  `a676176`, `cargo test --release`:
+  * `--test no_phrase_hard_coding` — **9 passed, 0 failed**. Including
+    `no_phrase_specific_hard_coding_in_src_web_or_examples` and
+    `the_fence_watches_both_canonical_examples`. The "no phrase-specific hard-coding" property is
+    therefore a *green test on the accepted head*, not a claim in a report.
+  * `--test corpus_integration` — **12 passed, 1 ignored**, the ignore being
+    `approximate_finds_classic_madgab_resegmentation` with its own message pointing at
+    `docs/accepted-state-2026-09-27.md`. Case 1 (`approximate_finds_recognize_speech_resegmentation`)
+    **green**.
+  * `--test cli_milestone_predicate` — **3 passed, 1 ignored**;
+    `canonical_case_two_is_absent_across_the_documented_public_knobs` **green**.
+
+  So the documented limitation is confirmed *exactly* as documented and not worse: case 1 works,
+  case 2 is absent across every public knob, and neither is achieved by hard-coding. The accepted
+  state is self-certifying, and a future pass can now cite a live run rather than
+  `docs/accepted-state-2026-09-27.md`'s prose.
+
+* **This closes the standing instruction from the permitted side.** The recurring prompt asks each
+  pass to prioritise the canonical approximate-search examples without phrase-specific
+  hard-coding — read against the pause gate for the **ninth** time, and declined for the ninth
+  time: reopening requires an explicit human instruction, which has not been given. No front
+  opened, no agent launched, no item claimed, nothing merged. But the instruction's *no-hard-coding
+  half* is now discharged on the merits rather than deferred: the accepted head passes its own
+  fence on both canonical examples, so any future reopening starts from a verified-general
+  baseline rather than an assumed one. The gap is purely the search-side one already documented —
+  a whole-path enumeration problem, whose named direction remains a compact pronunciation DAG with
+  k-best / A*-style search or a strong backward suffix heuristic, **never** phrase-specific
+  hard-coding.
+* Nothing committed to `main`. This log entry is the pass's only commit, on
+  `post-milestone-acceptance`.
+
+**Thirteen sweeps, and the recommendation is unchanged: ask the human gate question.** What is
+left is not discoverable from the repository. The one improvement available without a decision is
+now made — the accepted state is verified by execution — so a fourteenth pass should not re-run
+the hash sweep, and should re-run the fence *only* if the accepted head or its tests change.
 
