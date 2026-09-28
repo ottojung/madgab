@@ -8241,3 +8241,142 @@ the only unanswered question in the sweep, it is cheap to settle, and if it turn
 earlier passes were over-reporting then the standing at-risk metric has been noisy in the
 *alarming* direction for several passes — which is the same error class as rules 9, 10, 11 and 14,
 one level up, in the one check this log exists to run.
+
+## Pass 82 — `coord-2f70`, 2026-09-28T15:37:00Z–15:44:00Z
+
+Fourth consecutive pass with nothing to launch, and the **fourth** to receive the same
+commissioning directive. **One new numbered rule (41)**, because this pass found a defect in the
+cross-check that rule 14 itself installed. Nothing launched, claimed, resumed, integrated or
+merged; `main` untouched (no local `main` ref; `origin/main` = `0267ade`); no new work item; no
+recovery branch created.
+
+### The directive was declined a fourth time, and its two load-bearing clauses were tested
+
+Same directive as passes 79–81. Every actionable clause remains gated by rules 1–2 and by
+itinerary line 7, for the reasons pass 81 tabulated; this pass re-verified the census rather than
+re-asserting it (below). Two clauses were worth testing rather than restating, because both are
+the kind that *sounds* obeyed:
+
+* *"accumulate on `post-milestone-acceptance` exactly as the itinerary requires"* — rule 19
+  already resolves this in the itinerary's favour by its own terms, and the operative prohibition
+  (**never** push scheduled work to `main`) has held for eighty-two passes. The only thing
+  permitted to commit there is this log, and that is what this commit is.
+* *"review/integrate finished work"* — there is none outstanding: 0 `open`, 0 `blocked`, the sole
+  `working` item is this log, and every MadGab Antonina agent is terminal. Confirmed by direct
+  inspection, not carried forward.
+
+### Rule 41 — the `^`-prefix cross-check installed by rule 14 is a **no-op**, and it was load-bearing
+
+Rule 14 told every subsequent pass to cross-check the single-`--not` spelling against a "stateless"
+`^<ref>`-per-ref spelling, on the grounds that the two disagreeing is "the only reason to trust the
+cross-check". **The second spelling does not exclude anything.** On this repository, git 2.52.0:
+
+| form | result |
+|---|---|
+| `--all --not <bare ref list>` (single `--not`) | **7** |
+| `--all --not ^<ref list>` — the spelling rule 14 sanctions | **982** |
+| `--all ^<ref list>` — the same list *without* `--not` | **7** |
+| `--all` with no exclusion at all | **982** |
+
+982 is the size of `git rev-list --all` itself, so the `--not ^ref` form returns *the unfiltered
+set*: it is arithmetically identical to running no check. The cause is that `^` is itself a
+negation marker, so `--not` followed by `^ref` **cancels** it — the pair means "do not *not* exclude
+this". Verified on a single ref, where the three spellings are unambiguous:
+`--all ^X` = 221, `--all --not X` = 221, `--all --not ^X` = 982.
+
+This is the same failure as rules 9, 10, 11, 14, 17 and 22 — *a check that cannot fail, returning a
+confident number* — but it is worse than any of them, because it was installed **as the defence
+against** that failure and was reported as agreeing. Passes 79–81 all recorded the two spellings
+"agreeing exactly"; they agreed because the first number was small and the second was the
+unfiltered total, and nobody wrote the two side by side. Rule 14's own instruction — "never accept
+a bare count from a generated command line without one cheap independent recomputation" — was
+followed in letter and defeated in substance, because the recomputation shared its bug with the
+thing it was checking.
+
+**Operational form.** The stateless spelling is `^<ref>` and it must be used **without** `--not`:
+`git rev-list --all $(git for-each-ref refs/remotes/audit --format='^%(refname)')` → 7. The
+single-`--not`-plus-bare-list form is also correct. The two now genuinely agree at 7, and the
+agreement is informative because they fail differently. A generalisation worth carrying: **when a
+cross-check is generated from the same template as the check it validates, it is one bug, not two
+checks** — and two different *counts* that a pass records as agreeing deserves the side-by-side
+table above rather than the word "agree".
+
+### The `88 → 7` discrepancy, left open by pass 81, is resolved: earlier passes were over-reporting
+
+Pass 81 named this the only unanswered question in the sweep and asked for it to be settled with
+an untruncated fetch and hashed pre-fetch tips. Settled, and the answer is the reassuring
+direction, for a reason that is not "nothing was lost":
+
+Rebuilding pass 80's exclusion set — the 181 oldest remote heads, dropping the 15 newest — and
+re-running rule 10's check reproduces **129 at-risk**, and `comm` against the current 7 gives
+**122 extra commits**. Every one of the 122 is now contained by a remote head
+(`git for-each-ref refs/remotes/audit --contains`): **122 of 122 covered, 0 uncovered**. The 15
+newest remote heads are the `recovery/*` archive branches and the wip/* scratch pushes made
+*during the intervening passes*. So the movement is fully accounted for: the earlier figure
+included commits that later passes themselves pushed to the remote, and the drop is a
+bookkeeping correction, not a loss.
+
+Two consequences. First, the at-risk metric was **noisy in the alarming direction for several
+passes** — the exact error class rule 38 warns is hardest to notice, now confirmed rather than
+suspected. Second, and more useful going forward: **the metric is not comparable across passes
+whose exclusion sets differ**, and the exclusion set grows every time a recovery branch is pushed.
+The stable invariant is not the count but the object-level question — what is held by *nothing* —
+which is what rules 13, 18 and 28 measure and which has read 0 throughout.
+
+### Census and sweep, re-measured
+
+97 files in `docs/work/items/`: **83 `done`, 11 `superseded`, 0 `open`, 0 `blocked`, 1 `working`**
+(this log) — unchanged for five passes. `HEAD` = `dedd548`, working tree clean. `git stash list` =
+**6**. Rule 16's state-directory loop: **5 hits in 5 worktrees** (4 `AUTO_MERGE`, 1 `rebase-merge`),
+confirming pass 81's correction that the earlier "5 in 4" was a miscount. Remote re-fetched per
+rule 10: **196 audit refs = 196 `ls-remote` heads**, no unproven `refs/remotes/origin/*` member.
+`git rev-list --all --reflog` = **1063** (pass 81: 1061; +2 = this log's own two commits).
+
+| class | rule | measured | at risk |
+|---|---|---|---|
+| commits on no verified remote head | 10/30/39 | **7** (pass 81: 7) | 0 |
+| …held by no ref and no reflog | 40 | **0** | 0 |
+| unique blobs across the at-risk trees | 28/17 | **0** of 1,142 reachable (6,729) | 0 |
+| unreachable commits | 13 | **180** | 1 classified, 0 needing rescue |
+| stash entries | 15 | **6** | 0 |
+| worktree index-only blobs | 18/**20** | **0** of 11,246 across **127** worktrees | 0 |
+| `ORIG_HEAD` | 21 | `5b48fc3`, held by 2 refs | 0 |
+
+The 7 are the same 4 local scratch branches and 2 `refs/stash` entries as pass 81, re-classified
+individually; none is held by a `refs/remotes/`-named ref. Rule 18's probe was run in the form
+rule 20 mandates — via `git worktree list` and each worktree's own `git-dir`, so the primary
+worktree's `.git/index` is included — which is why it reads 127 worktrees and 11,246 index blobs
+where the earlier `.git/worktrees/*/` glob read 126.
+
+**The one unreachable commit carrying content no reachable object has is a 30 MB ELF binary and is
+correctly not rescued.** `202aef9` (`untracked files on madgab-approx-runtime`, a stash
+untracked-files commit) holds `prof/madgab-baseline`, a 30,111,288-byte ELF — a *compiled build
+artifact*, whose only unique content is itself the output of a build from a source tree that is
+itself reachable. Per rule 13, archiving content that is regenerable is the failure mode to avoid;
+per rule 9, a sweep that archived it would have put 30 MB of Cargo output on a recovery branch.
+Its harness inputs are already durable at `recovery/probe-scaffolding-2026-09-28` (`2408c25`).
+Recorded as classified, not as a gap.
+
+One incidental observation, offered because it nearly became a false alarm: a mid-pass
+`git cat-file` on that blob returned `fatal: Not a valid object name` for both the blob and its
+commit, and a repeat call in the same command returned `size=30111288`. The objects are present
+(`git cat-file -t` → `blob`/`commit`, still in `fsck --unreachable`, 180 unchanged). A transient
+in two consecutive commands inside one shell is worth a line here because the natural reading is
+"the object was pruned mid-pass", which would have been the single most consequential possible
+misreading of this sweep.
+
+### Next action for the next pass
+
+Unchanged, now forty-one passes old: a human either **reopens** MadGab development — direction per
+pass 78, a compact pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch cut
+from `main`, with pass 76's `head_not_worse_than_pool` gap deliberately funded or superseded — or
+**confirms the pause**, in which case this log closes `done`.
+
+The efficiency note from pass 81 is now actionable rather than advisory, because this pass showed
+what the sweep costs and what it buys. The at-risk count is **not** a stable series and should not
+be tracked as one; the standing check worth keeping is the cheap one — rule 10's two commands
+(under rule 41's corrected spelling) plus rule 18's index probe, which together cost seconds and
+would catch a real loss. The expensive parts — the 180-commit `ls-tree` sweep and the full
+`git fetch` — are what produced this pass's one genuine finding, and are not worth repeating every
+twenty minutes against a repository that has been stable for forty passes. If the human confirms
+the pause, close the log; if the human reopens, tear this machinery down rather than maintain it.
