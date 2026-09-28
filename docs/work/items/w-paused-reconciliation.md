@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3a1c
-updated: 2026-09-28T12:02:00Z
+owner: coord-4e7b
+updated: 2026-09-28T12:07:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4835,3 +4835,61 @@ passes had left open, and corrected a rule the standing sweep would otherwise ha
     `main`**, and the named direction — a qualitatively different whole-path algorithm (compact
     pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
     **never** phrase-specific hard-coding of the canonical phrases.
+
+### `coord-4e7b` — fifty-first pass, 2026-09-28T12:02Z–12:07Z
+
+**Verification pass. The gate is unchanged and still only a human can answer it. This pass
+created no work item, claimed none, launched no agent, resumed no front, and did not touch
+`main` (`0267ade`) or any front branch.** It re-ran the two prescribed checks, confirmed the
+previous pass's conclusion rather than extending it, and closed the one cheap question that
+pass left open.
+
+  * **(a) At-risk population is unchanged at 92; no new class appeared.** Rule 10's check, run
+    with the stateless `^`-prefix spelling of the fifty-pass fix and the exclusion set named
+    explicitly (the 188 fetched remote tips, per `git fetch origin '+refs/heads/*:
+    refs/remotes/audit/*'`), returns **92** — byte-identical to the figure `coord-3a1c`
+    recorded for the same exclusion set, which is the cross-check that number rule 14 demands.
+    The control that catches a mis-spelling is also re-run: the unexcluded baseline
+    (`rev-list --all --reflog`) is **993**, and the two differ, so the exclusion really is
+    doing something this time. The `refs/remotes/audit/*` scratch namespace was deleted
+    afterwards. **No at-risk state needs recovery**, which is what the previous pass concluded;
+    this pass confirms it rather than manufacturing a new finding to justify its budget.
+  * **(b) Agents: none alive, and none to leave running.** `antonina agent list` filtered to
+    MadGab worktrees returns only terminal entries — the oldest is 8h15m, and the two paused
+    fronts `3a8f01`/`3a8f02` are still `stopped`, deliberately left that way by the pause. The
+    four nonterminal agents host-wide (`98a1`, `94b2`, `9411`, `92d1`) all have working
+    directories outside `/workspace/madgab*` and belong to other projects; they are left alone.
+    Nothing was launched, so there is nothing for a later pass to supervise.
+  * **(c) The leftover question from the previous pass is now closed: no fenced example id
+    collides with a real item.** `docs/skills/work-items.md:14` carries `id: w-a1b2c3` and
+    `docs/work/TEMPLATE.md:7` carries `id: w-000000`, both inside ```yaml fences. Grouping the
+    96-item population by id shows every real id appearing exactly once (highest multiplicity
+    is 1, `w-paused-recon`, `w-e086cc`, `w-e07c42`, …), so neither fenced example is a
+    duplicate of anything. This was expected to be a documented observation about
+    human-governed protocol documents rather than a repair, and it is one.
+  * **(d) One census artefact worth recording, because it looks like a protocol violation and
+    is not.** A `grep -h "^state:"` over the work-item population returns **83 done, 12
+    superseded, 1 working, and 1 `failed`** — and `failed` is **not** one of the five allowed
+    states in [../../skills/work-items.md](../../skills/work-items.md). It is not a violation:
+    the match is `docs/environment-notes.md:136`, which is inside a fenced ```text block
+    quoting the literal output of a failed `antonina agent prompt`
+    (`state: failed / exit code: 127 / "OpenCode process had no pid"` — the missing
+    `GUIX_PROFILE` `PATH` export documented in that file). This is the fence-blind-census trap
+    the forty-eighth pass found in `TEMPLATE.md` recurring in a *different* file, and it is
+    worth one line because a pass that reports it as a violation would file a repair against a
+    correct document. **The general form: a `grep` for a metadata field counts its own
+    documentation of that field.** The true census is 83 done, 12 superseded, 1 working (this
+    log), **0 open, 0 blocked** — unchanged.
+  * **Next useful action.** (i) The gate question is now fifteen passes old and is the only
+    one left: *is MadGab development being reopened?* Both the at-risk census (a) and the
+    id-collision census (c) are **closed by measurement**, and a future pass should not
+    re-run either for a new result. The honest report for any further pass is that there is
+    **no at-risk state left to recover and no work item left to claim**. (ii) `target-after/`
+    and `target-base/` still need no action and must never be archived; `git ls-remote` shows
+    `main` and `post-milestone-acceptance` both in sync with the remote at `0267ade` and
+    `364d872`, so nothing is unpushed. (iii) If the gate answer is ever yes, the order is
+    unchanged: rule 29's binding check before any timing is quoted, `coord-1c8e`'s three
+    measurement corrections, **cut the branch from `main`**, and the named direction — a
+    qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
+    A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding of the canonical phrases.
