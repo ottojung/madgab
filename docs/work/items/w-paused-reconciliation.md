@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4b6e (pass 139; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T21:36:00Z
+owner: coord-3f81 (pass 140; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T21:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,15 +20,15 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 139 (2026-09-28T21:36Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 140 (2026-09-28T21:40Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 139`.
+last section of this file; search for `## Pass 140`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **139** (template has fired 47 times since pass 92) |
+| Passes that reached this same answer | **140** (template has fired 48 times since pass 92) |
 | At-risk non-build content | **0**, re-confirmed at pass 138 (25 non-`target`, non-`prof` untracked + 11 tracked `M` over 127 linked worktrees; all 25 re-hashed this pass against `git rev-list --objects --all --reflog` → **0 unreachable**, so **0 need archiving**). The dirty population is **2,625** rows = **2,541** `target*` build output + **48** `prof/` + **25** other untracked + 11 tracked `M` — passes 133–137's **2,540 / 49** split moved by one row (build output churn in a `prof/` worktree), so quote the partition, never a single bucket. Pass 129 reported "26 `prof/` rows, 48 untracked, 0 unreachable" — the conclusion (0 at risk) was right and the inputs were wrong, so the 23 `prof/` harness-content files were never hash-tested as pass 129 claimed; that gap is closed. The two prebuilt 30 MB ELF binaries `/workspace/madgab-approx-runtime/prof/madgab-prof` and `.../prof/madgab-baseline` are `cargo build` products of `madgab-approx-runtime` @ `0ed6ca2`, already reachable on `origin`, so they are reproducible and correctly excluded by rule 9. **Pass 138's own harness defect, same family as passes 127/133/136:** writing the worktree/path pair as `"$w :: $p"` (spaces around the separator) and reading it back with `IFS=' ' read -r w p` silently puts the literal `::` in the *path* field, so `hash-object` returns empty for all 25 rows and the check reports **25/25 unreachable** — a fabricated finding, not a real one. With the two fields split on `::` and trimmed (`xargs`) the same 25 rows hash to **0 unreachable**. **Record the pair as `worktree<TAB>path`, or split on `::` with no surrounding spaces; never `IFS=' '` on a ` :: ` record** |
 | At-risk commits | **91**, re-derived at pass 138 with the exclusion set **re-fetched this pass**: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' '+refs/tags/*:refs/remotes/audit-tag/*'` yields **199** refs, baseline `rev-list --all --reflog` **1,139** (1,137 at pass 137; the delta is passes 137–138's own pushed commits), and **0 of the 91 are ancestors of `origin/main`**. The "7 ref-held / 84 reflog-only" split **is** a commit-level split and the two sets are **disjoint and sum to exactly 91**: `git rev-list --all --not $REMOTE` = **7** (on no remote ref), `git rev-list --reflog --not --all` = **84** (reflog-only), `comm -12` = **0**, union = **91** — reproduced exactly at pass 138. Pass 136's "correction" of this split was itself wrong; `91 − 7 = 84` is correct arithmetic. The one real defect to keep: **the numeral 7 names two different populations in this log** — (a) the 7 at-risk commits on no remote ref, and (b) the 7 *(commit, holder-ref)* pairs among the **5** of the 91 that a local `refs/heads`/`refs/tags` holds (`refs/heads/phon-probe-d4e8b1`, `refs/heads/scratch-3f8c62-landed`, `refs/heads/scratch/0f3a17-shortlist-probe` ×2, `refs/heads/scratch/4d1e93-f5f6`, plus `refs/stash` ×2). **Quote which one you mean, and never subtract across the two.** Decision-relevant fact, unchanged for every pass: all 91 sit above the `--reflog` baseline, **0** are ancestors of `origin/main`, and the 5 held by a plain local branch are re-fetchable from the remote by name. **Bracket every at-risk number by the baseline and the ref count** — with the `audit/` namespace empty the same command returns the baseline, which looks like a clean zero-risk result and is in fact a broken command (rules 35/37) |
 | MadGab Antonina agents alive | **0 running in a MadGab cwd** — re-verified at pass 138 over the full host census filtered by cwd. The 2 host-`running` agents (`112a3` antonina-112-fix, `94f7` assemblyp1-94-refute-check) are other repositories and are **left running** for their own repositories' passes. The 2 non-terminal MadGab agents remain `3a8f01` and `3a8f02`, both `stopped` on superseded fronts whose work is already preserved per their (now `superseded`) work items — **nothing resumed** (rule 2) |
@@ -13032,3 +13032,63 @@ is read-only: `origin/main` = `0267ade`, still no local `main` ref.
 pass 140 is negative, and the only remaining useful actions are human ones — retire or correct the
 scheduler template, and either close this item or reopen MadGab development. If a pass re-derives
 rule 30, use the bare-`--not` spelling and the `rev-list --all` control described above.
+
+## Pass 140 (coord-3f81, 2026-09-28T21:32Z–21:40Z)
+
+Gate **NO**, re-derived from `docs/skills/itinerary-madgab.md` `## Status: accepted and paused` and
+re-read against this invocation's three clauses rather than inherited from pass 139. Nothing created,
+claimed, launched, resumed or integrated. `main` untouched: `origin/main` = `0267ade`, still no local
+`main` ref, so a push to it would first have to create one. HEAD `post-milestone-acceptance` was in
+sync with `origin` (`fbc81bb`) at the start of this pass. No MadGab agent was launched and no running
+agent was waited on; the pass is over in eight minutes.
+
+### The header rows, re-derived
+
+- **Production fence 0** for a fifteenth consecutive pass, at the per-file `#[cfg(test)]` boundary
+  (`awk '/#\[cfg\(test\)\]/{exit}{print}'`): `src/adjacency.rs` 0, `src/lexical.rs` 0,
+  `src/approx.rs` 0, `src/lib.rs` 0, `src/wasm.rs` 0. `src/main.rs` has no such boundary; its 2 hits
+  are lines 9 and 11 of the `//!` CLI usage doc comment (`madgab "It's just a stupid game"`), a
+  documented invocation, not clue selection. Per rule 25 only the production-region 0 is an invariant.
+- **At-risk commits 91** = **7** on no remote ref (`rev-list --all --not $REFS`) + **84** reflog-only
+  (`rev-list --reflog --not --all`), over an exclusion set **re-fetched this pass** into
+  `refs/remotes/audit/*` + `refs/remotes/audit-tag/*` holding **199** refs. Baselines:
+  `rev-list --all` = **1,057**, `rev-list --all --reflog` = **1,141** (pass 139's own pushed commit).
+  **0 of the 91 are ancestors of `origin/main`**, checked per commit with `git merge-base
+  --is-ancestor`. The union is **91**, the two sets are disjoint, and the bare-`--not` spelling is
+  used with the `--all` control, as pass 139's rule-30 correction requires.
+- **At-risk content 0.** 35 non-build dirty rows across 127 registered worktrees (25 untracked +
+  11 tracked `M`, one rename pair), recorded as `worktree<TAB>path` per pass 139's rule: 34 hashed
+  against the 7,191-entry reachable blob set, **0 unreachable**; 1 row (`/workspace/madgab-scratch ::
+  examples/`) is a directory, not a hashable file, so it is not counted as a result either way.
+- **Work items: 0 `open`, 0 `working`,** 1 `blocked` (this one), **83 `done`**, **12 `superseded**,
+  via the fence-scoped per-file `awk` over `docs/work/items/*.md docs/*.md`. Unchanged since pass
+  133; no item file added in seven passes.
+- **0 running MadGab agents.** The 2 running host agents (`90f1` `/workspace/volodyslav-90-anchors-fix`,
+  `112a3` `/workspace/antonina-112-fix`) are other repositories and were left running. The 2
+  non-terminal MadGab agents remain `3a8f01` and `3a8f02`, both `stopped` on superseded fronts whose
+  work is already preserved per their `superseded` items — **not resumed** (rule 2).
+
+### One measurement note, not a defect in the log
+
+Pass 139's rule-30 correction (the `^`-prefixed spelling returns the un-negated `--all` baseline, so
+it excludes nothing) is confirmed and was used as written. A reader who runs
+`git rev-list --all $CARET_REFS` will see **1,056/1,057** rather than 7 and may conclude the at-risk
+count is wrong. It is not: the at-risk figure is the bare-`--not` result, and the `--all` number is
+the control that proves the control is live. Quote the two together or neither.
+
+### Declined, same three clauses, forty-ninth time
+
+(1) Recover or assign work, split independent fronts, launch or prompt Antonina agents, review or
+integrate finished work: forbidden by the pause (rules 1–2), and there is nothing to act on — 0 open
+items, 0 running MadGab agents, at-risk commits and content unchanged at 91 and 0. (2) Prioritise the
+canonical approximate-search examples without phrase-specific hard-coding: that is the paused research
+goal, so the clause contradicts itself while paused; the fence is at **0**, so any implementation of
+it lands new production code, which is precisely what is forbidden. (3) Accumulate on
+`post-milestone-acceptance`: the itinerary retired that ref as an automatic accumulation target
+(rule 19); the only thing committed there is this log entry, which carries no product code. The
+prompt's instruction not to push scheduled work to `main` is consistent with the itinerary and is
+honoured trivially, because `main` is never a target.
+
+**Next action for the next pass:** verify the header rows, decline, exit. The marginal value of pass
+141 is negative, and the only remaining useful actions are human ones — retire or correct the
+scheduler template, and either close this item or reopen MadGab development.
