@@ -1,0 +1,78 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 2073205..f829fc4 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -664,6 +664,11 @@ fn coverage_tuples(
+     out
+ }
+ 
++#[cfg(test)]
++pub(crate) fn zz_probe_dump() -> Vec<(usize, usize, usize)> {
++    counters::PROBE.with(|p| p.borrow().clone())
++}
++
+ impl Generator {
+     pub fn from_json(
+         json: &str,
+@@ -1830,6 +1835,7 @@ impl Generator {
+             let mut pooled: Vec<Vec<usize>> = Vec::new();
+             let widths: Vec<usize> =
+                 slots.iter().map(Vec::len).collect();
++            counters::PROBE.with(|p| p.borrow_mut().push((widths.len(), funded_slot_depth(&widths), 0)));
+             for tuple in coverage_tuples(
+                 &widths,
+                 profile_allowance,
+@@ -1856,6 +1862,7 @@ impl Generator {
+                         tuple.iter().filter(|&&i| i != 0).count() as u64,
+                     );
+                 }
++                counters::PROBE2.with(|p| p.borrow_mut().push((widths.len(), tuple.iter().filter(|&&i| i != 0).count() as usize, 0)));
+                 pooled.push(tuple);
+                 recovered.push(partial);
+                 profile_emitted += 1;
+@@ -2270,6 +2277,13 @@ fn normalized_word(word: &str) -> String {
+ /// wall clock. Compiled out of release builds entirely.
+ #[cfg(test)]
+ mod counters {
++    thread_local! {
++        #[cfg(test)]
++        pub static PROBE: std::cell::RefCell<Vec<(usize, usize, usize)>> = const { std::cell::RefCell::new(Vec::new()) };
++        #[cfg(test)]
++        pub static PROBE2: std::cell::RefCell<Vec<(usize, usize, usize)>> = const { std::cell::RefCell::new(Vec::new()) };
++    }
++
+     use std::cell::Cell;
+ 
+     thread_local! {
+@@ -3854,6 +3868,31 @@ fn admit(
+ 
+ #[cfg(test)]
+ mod tests {
++    #[test]
++    fn zz_review_probe_dump() {
++        let _ = approximate_generator(50).generate("It's just a stupid game");
++        let segs = zz_probe_dump();
++        let mut hist: std::collections::BTreeMap<(usize, usize), usize> = Default::default();
++        for (len, fd, _) in &segs {
++            *hist.entry((*len, *fd)).or_default() += 1;
++        }
++        println!("SEG (slots, funded_depth) -> count: {hist:?}");
++        println!("segmentations: {}", segs.len());
++        println!("where funded < slots: {}", segs.iter().filter(|(l, f, _)| f < l).count());
++        let mut four: std::collections::BTreeMap<usize, usize> = Default::default();
++        let mut byslots: std::collections::BTreeMap<usize, usize> = Default::default();
++        counters::PROBE2.with(|p| {
++            for (slots, nz, _) in p.borrow().iter() {
++                *byslots.entry(*slots).or_default() += 1;
++                if *nz >= 4 {
++                    *four.entry(*slots).or_default() += 1;
++                }
++            }
++        });
++        println!("reserve emissions by slot count: {byslots:?}");
++        println!("four-plus-deep reserve tuples by slot count: {four:?}");
++    }
++
+     use super::*;
+ 
+     /// A score bound that rates every candidate the same, so
