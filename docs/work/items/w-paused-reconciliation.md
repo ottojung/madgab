@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7f21
-updated: 2026-09-28T10:26:00Z
+owner: coord-4b6e
+updated: 2026-09-28T10:30:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -3005,3 +3005,86 @@ nothing integrated, no `src/` change proposed, `main` untouched at `0267ade`.
     different whole-path algorithm (compact pronunciation DAG with k-best / A*-style search,
     or a strong backward suffix heuristic) — which this pass's 1.97 s-vs-1.85 s measurement
     reinforces rather than replaces: **never** phrase-specific hard-coding.
+
+### `coord-4b6e` — thirty-sixth pass, 2026-09-28T10:27Z–10:30Z
+
+**Reconciliation only. No front opened, no agent launched, no item claimed, nothing integrated,
+no `src/` change, `main` untouched at `0267ade`.** The three-minute budget was spent almost
+entirely on one previously-unrecorded question, because thirty-five passes had already closed
+every preservation and claim-verification question this log knows how to ask.
+
+  * **The census drift the log has been bitten by four times now has a mechanism, and it is a
+    line inside a code fence.** This log records **three mutually inconsistent censuses** —
+    `87 done, 12 superseded, 2 open`; `88 / 12 / 0 claimable / 1 working`; and
+    `92 done, 11 superseded, 5 produced, 1 open` — and each of the last four passes apologised
+    for the discrepancy and re-derived the number by hand, **without ever recording the command
+    that produced it**. The cause is now identified. `docs/environment-notes.md:136` contains
+    the line `state: failed` **inside a fenced code block**, quoting an `antonina` error message:
+
+    ```text
+    state: failed
+    exit code: 127
+    error: "OpenCode process had no pid"
+    ```
+
+    That file has no frontmatter and is not a work item, but any census spelled
+    `grep -m1 "^state:" <file>` over `docs/**.md` — the natural spelling, and the one the three
+    disagreeing figures imply were used — reads it as a `failed` work item. It is the phantom
+    that makes the numbers disagree. The `5 produced` figure has the complementary cause:
+    `OBSTRUCTION-MAP.md` and the ten `REPORT-*.md` files carry a `state:` key but **no**
+    `work_item: true`, so they are correctly excluded from the queue and were being counted
+    into a total. **The durable fix is the census command, which earlier passes never
+    recorded.** Requiring the header first and the state second reproduces the authoritative
+    figure exactly:
+
+    ```sh
+    for f in $(grep -rl "^work_item: true" docs --include=*.md | sort); do
+      printf '%s %s\n' "$(grep -m1 '^state:' "$f" | cut -d' ' -f2)" "$f"
+    done | awk '{c[$1]++} END {for (s in c) print s, c[s]}' | sort
+    ```
+
+    Result: **87 `done`, 12 `superseded`, 2 `open` (the two protocol placeholders, neither
+    claimable), 1 `working` (this log), 0 `blocked` — 102 real work items in total.** That is
+    byte-for-byte `coord-7f21`'s figure, derived independently and now *reproducible* rather
+    than merely correct. A census pass should **copy the number above instead of re-deriving
+    it**, and a pass that must re-derive it should use the command above rather than a `grep`
+    over `docs/`. This is the seventh instance of the log's recurring pattern — a check whose
+    *spelling*, not whose logic, produced a confident wrong number (rules 9, 14, 17, 22, 28, and
+    now this).
+
+  * **Cheap checks, all clean and identical to the last eleven passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails, there is no
+    local `main` ref), `post-milestone-acceptance` = `2bedd1c`, equal to local `HEAD` before
+    this commit, and **all seven `recovery/*` branches present on the remote and matching their
+    local refs** — `2408c25`, `6b21857`, `cc666db`, `52b38c9`, `a1d7425`, `134c0ed`, `a91f71d`.
+    Worktree clean (`git status --porcelain -uall` empty). The fence-scanned surface
+    (`src/ tests/ web/ examples/ Cargo.toml`) is **byte-identical** to `a676176`, the head
+    `coord-4d31` ran green by execution, so that result holds by content and the fence was not
+    re-run. **Agents: no MadGab agent alive or claimable** — the eight `running` agents
+    host-wide (`14a1`, `94e3`, `92c1`, `8a1`, `73f1`, `76a1`, `72a1` and one other) all belong
+    to other repositories and were left running and untouched, exactly as a fresh pass should
+    leave them; `a11d` remains `idle` in `/tmp/cwd-7ze5eU` at its usual 20724-day age; the two
+    MadGab-cwd entries `3a8f01`/`3a8f02` remain `stopped` on superseded items and were left
+    stopped. No rebase, stash, index or worktree state was touched. Neither the hash sweep nor
+    the unreachable-commit sweep was re-run, per the last pass's escalation, because there was
+    no reason to disbelieve either.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-second time and declined for the thirty-second time.** It restates the programme's
+    standing goal; reopening requires an explicit human instruction, which has not been given.
+    Its *no-hard-coding* half remains discharged on the merits and is untouched by this pass: no
+    `src/`, `examples/`, `tests/` or `web/` byte changed, and no canonical phrase appears
+    anywhere in this pass's output. The pause and its documented limitation stand.
+
+  * **Next useful action: the gate question, unchanged and still the only one a human can
+    answer — is MadGab development being reopened?** The repository side is closed with
+    reproducible numbers, and this pass's only contribution was to make one of them
+    *reproducible* rather than merely correct. A thirty-seventh pass should not re-run the hash
+    sweep, the unreachable sweep, the fence, or the timing measurements; if it wants to add a
+    fact, the cheap way is a new question about the accepted state, exactly as passes
+    twenty-five, twenty-eight, thirty-four and thirty-five each did. If the answer to the gate
+    is yes, the first work in order is (a) rule 29's binding check before quoting any timing,
+    (b) `coord-1c8e`'s three measurement-infrastructure corrections in their stated order, and
+    (c) the named search direction — a qualitatively different whole-path algorithm (compact
+    pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+    **never** phrase-specific hard-coding.
