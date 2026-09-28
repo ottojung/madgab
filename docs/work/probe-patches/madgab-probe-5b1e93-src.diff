@@ -1,0 +1,167 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 001b0e4..afdfa8d 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1756,6 +1756,98 @@ impl Generator {
+             };
+ 
+ 
++            // ---- PROBE 5B1E93 (scratch/5b1e93-probe only) ----
++            let mut probe_out: Option<String> = None;
++            if let Ok(spec) = std::env::var("PROBE_5B1E93_CUTS") {
++                let want: Vec<usize> = spec
++                    .split(",")
++                    .filter_map(|s| s.trim().parse().ok())
++                    .collect();
++                let mut cuts: Vec<usize> = Vec::new();
++                for &(_, e) in &segmentation.spans {
++                    if e < n {
++                        cuts.push(e);
++                    }
++                }
++                if cuts == want {
++                    let mut out = String::new();
++                    out.push_str(&format!(
++                        "SEG depth={} n={} word_count={} novelty={} shared={} target_inner={} target_syl={} cap={} pops_left={} emit_allowance={}\n",
++                        depth,
++                        n,
++                        word_count,
++                        novelty,
++                        segmentation.shared,
++                        target_inner_count,
++                        target_syllables,
++                        affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT),
++                        LEXICAL_HEAP_POP_LIMIT,
++                        emit_allowance
++                    ));
++                    for (k, slot) in slots.iter().enumerate() {
++                        for (i, alt) in slot.iter().enumerate() {
++                            out.push_str(&format!(
++                                "S {} {} {:.9} {} {:.9} {} {:.9} {}\n",
++                                k,
++                                i,
++                                alt.cost,
++                                alt.reused,
++                                alt.familiarity,
++                                alt.closed,
++                                alt.shape,
++                                alt.syllables
++                            ));
++                        }
++                    }
++                    if let Ok(t) = std::env::var("PROBE_5B1E93_TUPLE") {
++                        let t: Vec<usize> = t
++                            .split(",")
++                            .filter_map(|s| s.trim().parse().ok())
++                            .collect();
++                        for j in 0..=t.len().min(depth) {
++                            out.push_str(&format!("B {} {:.9}\n", j, bound(&t[..j])));
++                        }
++                    }
++                    probe_out = Some(out);
++                }
++            } else if let Ok(spec) = std::env::var("PROBE_5B1E93_AUTO") {
++                if probe_out.is_none() && depth >= 4 && coverage_phase == 0 {
++                    let mut out = String::new();
++                    out.push_str(&format!(
++                        "SEG depth={} n={} word_count={} novelty={} shared={} target_inner={} target_syl={} cap={} pops_left={} emit_allowance={} phase={}\n",
++                        depth,
++                        n,
++                        word_count,
++                        novelty,
++                        segmentation.shared,
++                        target_inner_count,
++                        target_syllables,
++                        affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT),
++                        LEXICAL_HEAP_POP_LIMIT,
++                        emit_allowance,
++                        coverage_phase
++                    ));
++                    for (k, slot) in slots.iter().enumerate() {
++                        for (i, alt) in slot.iter().enumerate() {
++                            out.push_str(&format!(
++                                "S {} {} {:.9} {} {:.9} {} {:.9} {}\n",
++                                k,
++                                i,
++                                alt.cost,
++                                alt.reused,
++                                alt.familiarity,
++                                alt.closed,
++                                alt.shape,
++                                alt.syllables
++                            ));
++                        }
++                    }
++                    probe_out = Some(out);
++                }
++            }
++            // ---- end PROBE 5B1E93 ----
++
++
+             // The depth-profile reserve, spent before the traversal so it
+             // is genuinely reserved rather than left over: the traversal
+             // below is handed whatever the profiles did not use.  Both
+@@ -1786,6 +1878,7 @@ impl Generator {
+             let profile_allowance =
+                 EMIT_PROFILE_RESERVE.min(emit_allowance);
+             let mut profile_emitted = 0usize;
++            let mut probe_deep: Option<Vec<usize>> = None;
+             // The index tuples this segmentation has actually put in the
+             // pool, in emission order.  The adjacency operator below is
+             // seeded from exactly this, so it starts from what the pool
+@@ -1813,6 +1906,13 @@ impl Generator {
+                     &counters::DEEPEST_PROFILE,
+                     tuple.iter().copied().max().unwrap_or(0),
+                 );
++                if let Some(d) = &probe_deep {
++                    if tuple.iter().copied().max().unwrap_or(0) > d.iter().copied().max().unwrap_or(0) {
++                        probe_deep = Some(tuple.clone());
++                    }
++                } else {
++                    probe_deep = Some(tuple.clone());
++                }
+                 pooled.push(tuple);
+                 recovered.push(partial);
+                 profile_emitted += 1;
+@@ -2051,6 +2151,41 @@ impl Generator {
+                 replaying = true;
+             }
+             spent_pops += popped;
++            // ---- PROBE 5B1E93 summary (scratch only) ----
++            if let Some(mut out) = probe_out {
++                if let Some(d) = &probe_deep {
++                    out.push_str(&format!("D {:?} deep_bound={:.9}\n", d, bound(d)));
++                }
++                let path = std::env::var("PROBE_5B1E93_DUMP").unwrap();
++                use std::io::Write;
++                let mut f = std::fs::OpenOptions::new()
++                    .create(true)
++                    .append(true)
++                    .open(&path)
++                    .unwrap();
++                f.write_all(out.as_bytes()).unwrap();
++            }
++            if let Ok(path) = std::env::var("PROBE_5B1E93_SUM") {
++                let mut line = format!(
++                    "SUM idx={} depth={} shared={} cap={} opened={} popped={} emitted={} profile={} widths={:?}\n",
++                    index,
++                    slots.len(),
++                    segmentation.shared,
++                    cap,
++                    opened,
++                    popped,
++                    emitted,
++                    profile_emitted,
++                    widths
++                );
++                for (k, slot) in slots.iter().enumerate() {
++                    line.push_str(&format!("W {} {}\n", k, slot.len()));
++                }
++                use std::io::Write;
++                let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&path).unwrap();
++                f.write_all(line.as_bytes()).unwrap();
++            }
++            // ---- end PROBE 5B1E93 summary ----
+ 
+             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+             //

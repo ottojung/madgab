@@ -1,0 +1,781 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 001b0e4..773d683 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -998,6 +998,13 @@ impl Generator {
+             SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION;
+         const LEXICAL_GLOBAL_POP_BUDGET: usize =
+             SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
++        #[cfg(test)]
++        seg_dump::set_limits(
++            LEXICAL_HEAP_POP_LIMIT,
++            LEXICAL_GLOBAL_POP_BUDGET,
++            SEGMENTATION_KEEP,
++            LEXICAL_COMBINATIONS_PER_SEGMENTATION,
++        );
+ 
+         // These two are NON-BINDING and cannot be made to bind, and that
+         // is a property of the traversal rather than of their values: the
+@@ -1652,6 +1659,24 @@ impl Generator {
+                 slots.push(alts);
+             }
+ 
++            #[cfg(test)]
++            {
++                let words: Vec<Vec<String>> = slots
++                    .iter()
++                    .map(|l| {
++                        l.iter()
++                            .map(|a| {
++                                self.fuzzy_lexicon
++                                    .word(a.match_ref.word_idx)
++                                    .word
++                                    .to_lowercase()
++                            })
++                            .collect()
++                    })
++                    .collect();
++                seg_dump::record_slots(&segmentation.spans, &words, possible);
++            }
++
+             if !possible || slots.iter().any(Vec::is_empty) {
+                 continue;
+             }
+@@ -1898,6 +1923,8 @@ impl Generator {
+             // [`affordable_opening_width`] for the measured counts.
+             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+                 .min(widest);
++            #[cfg(test)]
++            seg_dump::record_cap(cap, depth, widest, slots.iter().map(Vec::len).collect());
+             let mut emitted = 0usize;
+             let mut popped = 0usize;
+             // The traversal runs in passes over the heap.  A walk is the
+@@ -2051,6 +2078,8 @@ impl Generator {
+                 replaying = true;
+             }
+             spent_pops += popped;
++            #[cfg(test)]
++            seg_dump::record_spend(popped, emitted);
+ 
+             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+             //
+@@ -2222,6 +2251,133 @@ fn normalized_word(word: &str) -> String {
+         .collect()
+ }
+ 
++/// w-9e2b41 re-derivation probe: one row per retained segmentation.
++///
++/// Records, for every segmentation the approximate traversal considers,
++/// the slot spans, each slot's list **in traversal order** (`slots[k]`, the
++/// order the walk indexes), the opening width `cap` the walk actually opened
++/// at, and the pops and emissions the segmentation spent.  Probe branch
++/// only; compiled out of every non-test build.
++#[cfg(test)]
++mod seg_dump {
++    use std::cell::RefCell;
++
++    /// One retained segmentation, as the traversal saw it.
++    #[derive(Clone, Debug)]
++    pub struct Seg {
++        pub spans: Vec<(usize, usize)>,
++        /// `slots[k]`, in traversal order, whole list (not truncated at cap).
++        pub slots: Vec<Vec<String>>,
++        /// Set when a span had no shortlist edge at all.
++        pub possible: bool,
++        /// The opening width, once it is known (0 before that point).
++        pub cap: usize,
++        pub depth: usize,
++        pub widest: usize,
++        /// The shortlist width of each slot, i.e. `slots[k].len()`.
++        pub widths: Vec<usize>,
++        pub popped: usize,
++        pub emitted: usize,
++    }
++
++    thread_local! {
++        static SEGS: RefCell<Vec<Seg>> = const { RefCell::new(Vec::new()) };
++        static ARMED: RefCell<bool> = const { RefCell::new(false) };
++    }
++
++    /// The two budgets the traversal charges, exported so a probe can price
++    /// a per-slot allocation against them.  Recorded from inside
++    /// `generate_approximate` so the probe cannot drift from production.
++    thread_local! {
++        static LIMITS: RefCell<(usize, usize, usize, usize)> =
++            const { RefCell::new((0, 0, 0, 0)) };
++    }
++
++    pub fn set_limits(
++        pop_limit: usize,
++        global_pop_budget: usize,
++        segmentation_keep: usize,
++        emissions_per_segmentation: usize,
++    ) {
++        LIMITS.with(|l| {
++            *l.borrow_mut() = (
++                pop_limit,
++                global_pop_budget,
++                segmentation_keep,
++                emissions_per_segmentation,
++            )
++        });
++    }
++
++    pub fn limits() -> (usize, usize, usize, usize) {
++        LIMITS.with(|l| *l.borrow())
++    }
++
++    pub fn arm() {
++        SEGS.with(|s| s.borrow_mut().clear());
++        ARMED.with(|a| *a.borrow_mut() = true);
++    }
++
++    pub fn take() -> Vec<Seg> {
++        SEGS.with(|s| std::mem::take(&mut *s.borrow_mut()))
++    }
++
++    fn armed() -> bool {
++        ARMED.with(|a| *a.borrow())
++    }
++
++    /// Called with the segmentation's slots, before the traversal runs.
++    pub fn record_slots(
++        spans: &[(usize, usize)],
++        slots: &[Vec<String>],
++        possible: bool,
++    ) {
++        if !armed() {
++            return;
++        }
++        let depth = spans.len();
++        SEGS.with(|s| {
++            s.borrow_mut().push(Seg {
++                spans: spans.to_vec(),
++                slots: slots.to_vec(),
++                possible,
++                cap: 0,
++                depth,
++                widest: 0,
++                widths: Vec::new(),
++                popped: 0,
++                emitted: 0,
++            })
++        });
++    }
++
++    pub fn record_cap(cap: usize, depth: usize, widest: usize, widths: Vec<usize>) {
++        if !armed() {
++            return;
++        }
++        SEGS.with(|s| {
++            if let Some(seg) = s.borrow_mut().last_mut() {
++                seg.cap = cap;
++                seg.depth = depth;
++                seg.widest = widest;
++                seg.widths = widths;
++            }
++        });
++    }
++
++    pub fn record_spend(popped: usize, emitted: usize) {
++        if !armed() {
++            return;
++        }
++        SEGS.with(|s| {
++            if let Some(seg) = s.borrow_mut().last_mut() {
++                seg.popped = popped;
++                seg.emitted = emitted;
++            }
++        });
++    }
++}
++
+ /// Test-only instrumentation. Approximate search is a constant-factor
+ /// problem, so the regression tests count calls rather than trusting the
+ /// wall clock. Compiled out of release builds entirely.
+@@ -6066,3 +6222,585 @@ mod tests {
+         );
+     }
+ }
++
++/// w-9e2b41 re-derivation probe.  NOT FOR PUSH: it is measurement only and
++/// lives on a scratch branch in its own worktree with its own target dir.
++///
++/// Every phrase comes from a TSV named on the command line, so the probe
++/// holds no target, clue or word of its own.
++#[cfg(test)]
++mod rederive_probe {
++    use super::*;
++    use crate::seg_dump::{self, Seg};
++    use seg_dump::limits;
++    use std::collections::HashMap;
++
++    const CASES: &str = "/workspace/rdp-0f3a17-cases.tsv";
++    const TARGETS: &str = "/workspace/rdp-0f3a17-targets.txt";
++
++    /// The nodes a walk pops before its *first* leaf is reachable:
++    /// the root, then every internal level.  This is the quantity
++    /// `affordable_opening_width`'s `fits` closure computes, generalised
++    /// from a uniform `w` to a per-slot vector.
++    fn first_leaf(a: &[usize]) -> u128 {
++        let mut total: u128 = 1;
++        let mut p: u128 = 1;
++        for &w in a.iter().take(a.len().saturating_sub(1)) {
++            p *= w as u128;
++            total += p;
++        }
++        total
++    }
++
++    /// Every node the lattice has: the internal levels plus the leaf level.
++    /// `popped` in the traversal counts leaves too, so this is the shape of
++    /// the real charge.
++    fn all_nodes(a: &[usize]) -> u128 {
++        let mut total: u128 = 0;
++        let mut p: u128 = 1;
++        for &w in a.iter() {
++            p *= w as u128;
++            total += p;
++        }
++        first_leaf(a) + total
++    }
++
++    /// The production derivation, mirrored.
++    fn affordable(slot_count: usize, pop_limit: usize) -> usize {
++        if slot_count <= 1 {
++            return LEXICAL_BRANCH_STAGE_0;
++        }
++        let mut width = LEXICAL_BRANCH_STAGE_0;
++        while width > 1 && first_leaf(&vec![width; slot_count]) > pop_limit as u128 {
++            width -= 1;
++        }
++        width
++    }
++
++    /// The per-slot MARGINAL table: slot `k` widened, every other slot
++    /// held at the uniform baseline.  This is the table the width front
++    /// published.
++    fn marginal_row(depth: usize, pop_limit: usize, list: usize) -> Vec<usize> {
++        let b = affordable(depth, pop_limit);
++        (0..depth)
++            .map(|k| {
++                let mut a = vec![b; depth];
++                a[k] = 1;
++                (1..=list)
++                    .rev()
++                    .find(|&w| {
++                        a[k] = w;
++                        first_leaf(&a) <= pop_limit as u128
++                    })
++                    .unwrap_or(1)
++            })
++            .collect()
++    }
++
++    /// A JOINTLY legal allocation: slot 0 is opened as wide as it can be
++    /// with the rest at the baseline, then that width is *committed* and
++    /// slot 1 is re-derived against the committed prefix, and so on.  The
++    /// difference from `marginal_row` is the commitment: the marginal
++    /// re-solves each slot in isolation and throws the other slots' answers
++    /// away, so the vector it returns is a set of separate optima, not one
++    /// feasible point.
++    fn joint_greedy(depth: usize, pop_limit: usize, list: usize) -> Vec<usize> {
++        let b = affordable(depth, pop_limit);
++        let mut a = vec![b; depth];
++        for k in 0..depth {
++            let mut best = 1;
++            for w in (1..=list).rev() {
++                a[k] = w;
++                if first_leaf(&a) <= pop_limit as u128 {
++                    best = w;
++                    break;
++                }
++            }
++            a[k] = best;
++        }
++        a
++    }
++
++    /// The uniform baseline's own joint cost, for reference.
++    fn uniform_cost(depth: usize, pop_limit: usize) -> (usize, u128, u128) {
++        let b = affordable(depth, pop_limit);
++        let a = vec![b; depth];
++        (b, first_leaf(&a), all_nodes(&a))
++    }
++
++    fn read_lines(path: &str) -> Vec<String> {
++        std::fs::read_to_string(path)
++            .unwrap_or_else(|e| panic!("{path}: {e}"))
++            .lines()
++            .map(str::trim)
++            .filter(|l| !l.is_empty())
++            .map(str::to_string)
++            .collect()
++    }
++
++    /// ---- deliverable 1: the joint-affordability table ----
++    #[test]
++    fn rdp_joint_affordability_table() {
++        let targets = read_lines(TARGETS);
++        // `limits()` is populated from inside the search, so bootstrap one
++        // short run first rather than hard-coding the budgets here.
++        {
++            let g = Generator::from_json(
++                open_english_pronouncing_dictionary::CORPUS_JSON,
++                GeneratorConfig {
++                    mode: SearchMode::approximate(),
++                    top_n: 50,
++                    ..GeneratorConfig::default()
++                },
++            )
++            .unwrap();
++            let _ = g.generate_pool(&targets[0]);
++        }
++        let (pop, gpop, _keep, _em) = limits();
++        println!("### joint affordability, per-segmentation pop limit = {pop}");
++        println!("d  baseline  marginal_row(first_leaf/all_nodes)  joint_greedy(first_leaf/all_nodes)  marginal_overrun  joint_ok");
++        for d in 2..=8usize {
++            let (b, uf, ua) = uniform_cost(d, pop);
++            let m = marginal_row(d, pop, SPAN_SHORTLIST);
++            let g = joint_greedy(d, pop, SPAN_SHORTLIST);
++            let (mf, ma) = (first_leaf(&m), all_nodes(&m));
++            let (gf, ga) = (first_leaf(&g), all_nodes(&g));
++            println!(
++                "{d}  b={b}  {m:?} {mf}/{ma}  {g:?} {gf}/{ga}  \
++                 marginal_first_leaf={:.2}x  joint_first_leaf_ok={} joint_all_nodes={:.1}x",
++                mf as f64 / pop as f64,
++                gf <= pop as u128,
++                ga as f64 / pop as f64,
++            );
++            assert_eq!(uf <= pop as u128, true, "d={d}");
++            let _ = (ua, gpop);
++        }
++        let _ = read_lines(TARGETS);
++    }
++
++    /// ---- deliverable 1b: the same arithmetic, priced on real targets ----
++    /// What the traversal actually spends, against what the two tables
++    /// predict, per depth, over real targets.  Read-only.
++    #[test]
++    fn rdp_joint_affordability_real_targets() {
++        let targets = read_lines(TARGETS);
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        let mut by_depth: HashMap<usize, (Vec<usize>, Vec<usize>, usize)> = HashMap::new();
++        for t in &targets {
++            seg_dump::arm();
++            let pool = g.generate_pool(t);
++            let segs = seg_dump::take();
++            let mut widest_at: HashMap<usize, usize> = HashMap::new();
++            for s in &segs {
++                if s.cap == 0 {
++                    continue;
++                }
++                *widest_at.entry(s.depth).or_default() =
++                    widest_at.get(&s.depth).copied().unwrap_or(0).max(s.widest);
++            }
++            for (d, widest) in widest_at {
++                let e = by_depth.entry(d).or_default();
++                e.0.push(d);
++                e.1.push(widest);
++                e.2 += 1;
++            }
++            let popped: usize = segs.iter().map(|s| s.popped).sum();
++            let emitted: usize = segs.iter().map(|s| s.emitted).sum();
++            let deepest = segs
++                .iter()
++                .filter(|s| s.cap > 0)
++                .map(|s| s.widths.iter().copied().max().unwrap_or(0))
++                .max()
++                .unwrap_or(0);
++            println!(
++                "target {t:?}: pool {} segs {} popped {popped} ({:.1}% of pop budget) emitted {emitted} widest-slot {deepest}",
++                pool.len(),
++                segs.len(),
++                popped as f64 / limits().1 as f64 * 100.0,
++            );
++        }
++        let (pop, gpop, _keep, _em) = limits();
++        let _ = gpop;
++        println!("d  segs  cap  marginal  marginal_first_leaf  joint  joint_first_leaf  joint_all_nodes");
++        for d in 2..=8usize {
++            let Some((_, widths, n)) = by_depth.get(&d) else { continue };
++            let widths = widths.clone();
++            let widest = widths.into_iter().max().unwrap_or(1);
++            let b = affordable(d, pop);
++            let m = marginal_row(d, pop, widest);
++            let gv = joint_greedy(d, pop, widest);
++            println!(
++                "{d}  {n}  b={b}  {m:?}  {} ({:.2}x)  {gv:?}  {}  {}",
++                first_leaf(&m),
++                first_leaf(&m) as f64 / pop as f64,
++                first_leaf(&gv),
++                all_nodes(&gv),
++            );
++        }
++    }
++
++    /// ---- deliverable 2 and 3: the canonical alignment's per-slot
++    /// traversal indices, per depth, and the 237-of-240 question ----
++    #[test]
++    fn rdp_canonical_slot_indices() {
++        let cases: Vec<Vec<String>> = std::fs::read_to_string(CASES)
++            .unwrap()
++            .lines()
++            .map(str::trim)
++            .filter(|l| !l.is_empty())
++            .map(|l| l.split('\t').map(str::to_string).collect())
++            .collect();
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++
++        for case in &cases {
++            let target = &case[0];
++            let wording: Vec<String> = case[1..].to_vec();
++            seg_dump::arm();
++            let _pool = g.generate_pool(target);
++            let segs: Vec<Seg> = seg_dump::take();
++            let w = wording.len();
++            println!("== target {target:?} wording {wording:?}");
++            println!("   retained segmentations: {}", segs.len());
++
++            // How many segmentations carry the whole wording as a
++            // consecutive run of slots, and in which orders the words sit.
++            let mut carried: Vec<(usize, Vec<usize>, Vec<usize>)> = Vec::new();
++            let mut words_seen_total: HashMap<String, usize> = HashMap::new();
++            let mut words_missing: HashMap<String, usize> = HashMap::new();
++            for s in segs.iter().filter(|s| s.cap > 0) {
++                let mut found = 0;
++                for word in &wording {
++                    if s.slots.iter().any(|l| l.contains(word)) {
++                        *words_seen_total.entry(word.clone()).or_default() += 1;
++                        found += 1;
++                    } else {
++                        *words_missing.entry(word.clone()).or_default() += 1;
++                    }
++                }
++                if found == w && s.slots.len() >= w {
++                    for start in 0..=(s.slots.len() - w) {
++                        let hit = (0..w).all(|j| s.slots[start + j].contains(&wording[j]));
++                        if hit {
++                            let trav: Vec<usize> = (0..w)
++                                .map(|j| s.slots[start + j].iter().position(|x| x == &wording[j]).unwrap())
++                                .collect();
++                            let short: Vec<usize> = trav.clone();
++                            carried.push((s.depth, trav, short));
++                            break;
++                        }
++                    }
++                }
++            }
++            let n = segs.iter().filter(|s| s.cap > 0).count();
++            println!("   segmentations carrying the whole run: {} of {n}", carried.len());
++            for word in &wording {
++                println!(
++                    "     word {word:?}: on some slot of {}/{} segmentations, absent from {}",
++                    words_seen_total.get(word).copied().unwrap_or(0),
++                    n,
++                    words_missing.get(word).copied().unwrap_or(0),
++                );
++            }
++            for (d, trav, _) in &carried {
++                println!("     depth {d}: traversal indices {trav:?}");
++            }
++            // Per depth: every segmentation at that depth, and whether the
++            // run is present, plus the binding slot.
++            println!("   per depth:");
++            for d in 2..=8usize {
++                let at: Vec<&Seg> = segs.iter().filter(|s| s.cap > 0 && s.depth == d).collect();
++                if at.is_empty() { continue; }
++                let cap = at[0].cap;
++                let here: Vec<&(usize, Vec<usize>, Vec<usize>)> =
++                    carried.iter().filter(|(dd, _, _)| *dd == d).collect();
++                let best = here
++                    .iter()
++                    .map(|(_, t, _)| t.iter().copied().max().unwrap_or(0))
++                    .max();
++                let pushable = here.iter().filter(|(_, t, _)| t.iter().all(|&i| i < cap)).count();
++                println!(
++                    "     depth {d}: {} segmentations cap {cap} widest {} run-present {} \
++                     min-needed-width {} of {} pushes need width > cap",
++                    at.len(),
++                    at[0].widest,
++                    here.len(),
++                    best.map(|b| b + 1).unwrap_or(0),
++                    pushable,
++                );
++            }
++        }
++    }
++}
++
++/// w-9e2b41 re-derivation probe, part 4: why 237 of 240, and whether the
++/// clue is in the lattice at all.
++///
++/// `N_W * N_W` over the 240 retained segmentations of one target: for each
++/// segmentation, which of the wording's words appears on *some* slot (the
++/// word is a real candidate somewhere in that segmentation) and, for the
++/// segmentations that carry the whole run, the run's own spans.  The two
++/// counts separate "this segmentation's boundaries are not the wording's"
++/// from "this word is not a candidate at all", which is the distinction the
++/// two prior fronts each measured half of.
++#[cfg(test)]
++mod rdp_why {
++    use super::*;
++    use crate::seg_dump;
++
++    #[test]
++    fn rdp_why_237_of_240() {
++        let cases: Vec<Vec<String>> = std::fs::read_to_string(
++            "/workspace/rdp-0f3a17-cases.tsv",
++        )
++        .unwrap()
++        .lines()
++        .map(str::trim)
++        .filter(|l| !l.is_empty())
++        .map(|l| l.split('\t').map(str::to_string).collect())
++        .collect();
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        for case in &cases {
++            let target = &case[0];
++            let wording: Vec<String> = case[1..].to_vec();
++            let w = wording.len();
++            seg_dump::arm();
++            let _ = g.generate_pool(target);
++            let segs = seg_dump::take();
++            let live: Vec<_> =
++                segs.iter().filter(|s| s.cap > 0).collect();
++
++            // The wording's own span set, read off any carrier.
++            let mut carrier_spans: Option<Vec<(usize, usize)>> = None;
++            for s in &live {
++                if s.slots.len() < w {
++                    continue;
++                }
++                let hit = (0..=s.slots.len() - w).any(|start| {
++                    (0..w).all(|j| s.slots[start + j].contains(&wording[j]))
++                });
++                if hit {
++                    carrier_spans = Some(s.spans.clone());
++                    println!(
++                        "carrier: depth {} cap {} spans {:?} widths {:?} pops {} emitted {}",
++                        s.depth, s.cap, s.spans, s.widths, s.popped, s.emitted
++                    );
++                    break;
++                }
++            }
++
++            // Per segmentation: how many of the wording's words appear on
++            // some slot, and how many of the wording's OWN spans appear at
++            // all among that segmentation's spans.
++            let mut only_structure = 0usize;
++            let mut some_word_absent = 0usize;
++            for s in &live {
++                let words_here = wording
++                    .iter()
++                    .filter(|x| s.slots.iter().any(|l| l.contains(x)))
++                    .count();
++                if words_here < w {
++                    if words_here == 0 {
++                        some_word_absent += 1;
++                    } else {
++                        only_structure += 1;
++                    }
++                }
++            }
++            let spans_here = carrier_spans
++                .as_ref()
++                .map(|cs| {
++                    live.iter()
++                        .map(|s| cs.iter().filter(|sp| s.spans.contains(sp)).count())
++                        .max()
++                        .unwrap_or(0)
++                })
++                .unwrap_or(0);
++            println!(
++                "== {target:?} {:?}: {}/{} live segmentations; \
++                 partial-word coverage only (boundaries differ) {only_structure}, \
++                 no wording word on any slot {some_word_absent}; \
++                 the carrier's {spans_here} spans present in one segmentation",
++                wording.join(" "),
++                live.len(),
++                segs.len(),
++            );
++        }
++    }
++}
++
++/// w-9e2b41 re-derivation probe, part 5: the price of the tuple itself.
++///
++/// For every retained segmentation that carries a whole wording, the
++/// cheapest per-slot width vector that *contains* that wording is exactly
++/// `(i_k + 1)` — you cannot be narrower than the index you must reach.  So
++/// the joint cost of the tuple is not a free parameter: it is
++/// `first_leaf(i+1)`, the product of the prefix widths below the deep
++/// coordinate.  Priced against the per-segmentation pop limit.
++#[cfg(test)]
++mod rdp_price {
++    use super::*;
++    use crate::seg_dump::{self, limits};
++
++    fn first_leaf(a: &[u64]) -> u128 {
++        let mut total: u128 = 1;
++        let mut p: u128 = 1;
++        for &w in a.iter().take(a.len().saturating_sub(1)) {
++            p *= w as u128;
++            total += p;
++        }
++        total
++    }
++
++    fn all_nodes(a: &[u64]) -> u128 {
++        let mut total: u128 = 0;
++        let mut p: u128 = 1;
++        for &w in a.iter() {
++            p *= w as u128;
++            total += p;
++        }
++        first_leaf(a) + total
++    }
++
++    #[test]
++    fn rdp_price_of_the_tuple() {
++        let cases: Vec<Vec<String>> = std::fs::read_to_string(
++            "/workspace/rdp-0f3a17-cases.tsv",
++        )
++        .unwrap()
++        .lines()
++        .map(str::trim)
++        .filter(|l| !l.is_empty())
++        .map(|l| l.split('\t').map(str::to_string).collect())
++        .collect();
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        for case in &cases {
++            let target = &case[0];
++            let wording: Vec<String> = case[1..].to_vec();
++            let w = wording.len();
++            seg_dump::arm();
++            let _ = g.generate_pool(target);
++            let segs = seg_dump::take();
++            let (pop, _, _, emit_allow) = limits();
++            println!("== {target:?} {:?}  (pop limit {pop}, emission allowance {emit_allow})", wording.join(" "));
++            for s in segs.iter().filter(|s| s.cap > 0) {
++                if s.slots.len() < w {
++                    continue;
++                }
++                for start in 0..=s.slots.len() - w {
++                    if !(0..w).all(|j| s.slots[start + j].contains(&wording[j])) {
++                        continue;
++                    }
++                    let idx: Vec<u64> = (0..w)
++                        .map(|j| {
++                            s.slots[start + j]
++                                .iter()
++                                .position(|x| x == &wording[j])
++                                .unwrap() as u64
++                                + 1
++                        })
++                        .collect();
++                    let (fl, an) = (first_leaf(&idx), all_nodes(&idx));
++                    // `first_leaf` is 1 + w_0 + w_0 w_1 + ... + w_0..w_{d-2}:
++                    // the last slot's width does not appear in it at all, and
++                    // every earlier slot's is multiplied by the prefix above
++                    // it.  So the binding coordinate is the one with the
++                    // largest prefix product, i.e. the deepest slot whose
++                    // width is already paid for by everything above it.
++                    let mut p: u64 = 1;
++                    let mut binding = (0usize, 0u64, 1u64);
++                    for (k, &v) in idx.iter().enumerate().take(idx.len() - 1) {
++                        p = p.saturating_mul(v);
++                        if p >= binding.2 {
++                            binding = (k, v, p);
++                        }
++                    }
++                    println!(
++                        "   d={} cap={} indices(i)={:?} min-widths(i+1)={:?} \
++                         first_leaf={fl} ({:.2}x limit) all_nodes={an} ({:.1}x limit) \
++                         binding slot {binding:?} (slot, min width, prefix product) \
++                         measured pops {} ({:.1}% of limit) emitted {} ({:.0}% of allowance) \
++                         affordable={}",
++                        s.depth,
++                        s.cap,
++                        idx.iter().map(|x| x - 1).collect::<Vec<_>>(),
++                        idx,
++                        fl as f64 / pop as f64,
++                        an as f64 / pop as f64,
++                        s.popped,
++                        s.popped as f64 / pop as f64 * 100.0,
++                        s.emitted,
++                        s.emitted as f64 / emit_allow as f64 * 100.0,
++                        fl <= pop as u128,
++                    );
++                    break;
++                }
++            }
++        }
++    }
++}
++
++/// w-9e2b41 re-derivation probe, part 6: the pristine reference.  Pool
++/// count and rank-50 cutoff on the public `generate_pool`, release,
++/// defaults, `--top 50`, so every other number here has a base to rest on.
++#[cfg(test)]
++mod rdp_ref {
++    use super::*;
++
++    #[test]
++    fn rdp_pristine_reference() {
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        for t in std::fs::read_to_string("/workspace/rdp-0f3a17-ref.txt")
++            .unwrap()
++            .lines()
++            .map(str::trim)
++            .filter(|l| !l.is_empty())
++        {
++            let pool = g.generate_pool(t);
++            println!(
++                "REF {t:?}: pool {} rank-50 cutoff {:.12}",
++                pool.len(),
++                pool[49].score
++            );
++        }
++    }
++}

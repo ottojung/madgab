@@ -1,0 +1,210 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index b5fdd31..3f34f6f 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -13,6 +13,8 @@ use serde::Serialize;
+ 
+ mod adjacency;
+ mod approx;
++#[allow(dead_code)]
++mod probe;
+ pub mod lexical;
+ 
+ #[cfg(target_arch = "wasm32")]
+@@ -585,6 +587,13 @@ impl Generator {
+             return (Vec::new(), 0);
+         };
+         let target_phrase = TargetPhrase::new(target);
++        if probe::enabled() {
++            probe::set_target_shape(
++                target_ipa.chars().count() as f64,
++                target_syllables as f64,
++                target_phrase.words.len() as f64,
++            );
++        }
+         let chars: Vec<char> = target_ipa.chars().collect();
+         let n = chars.len();
+         if n == 0 || self.fuzzy_lexicon.is_empty() {
+@@ -1543,8 +1552,24 @@ impl Generator {
+                 spent_emissions += 1;
+                 *funded.entry(structure).or_default() += 1;
+             }
+-            // The next segmentation sweeps a rotated window of the same
+-            // lists, so the union of a run's sweeps is the list rather than
++            // Probe 558697: force one environment-named index tuple for one
++            // environment-named segmentation into the pool, unbudgeted, so
++            // the production scorer and the production select_diverse can be
++            // asked what they make of a wording the search did not emit.
++            for (seg, tuple) in probe::injects() {
++                if *seg != index || tuple.len() != slots.len() {
++                    continue;
++                }
++                if tuple.iter().enumerate().any(|(i, &k)| k >= slots[i].len()) {
++                    continue;
++                }
++                if let Some(partial) = build(tuple) {
++                    pooled.push(tuple.clone());
++                    recovered.push(partial);
++                }
++            }
++
++            // The next segmentation sweeps a rotated window of the same            // lists, so the union of a run's sweeps is the list rather than
+             // one arithmetic progression of it.  Advanced once per
+             // segmentation, on the deterministic schedule, so the
+             // enumeration stays reproducible.
+@@ -1903,6 +1928,8 @@ impl Generator {
+         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
+         let pool_size = clues.len();
+ 
++        probe::flush();
++
+         #[cfg(not(target_arch = "wasm32"))]
+         if let Ok(wanted) = std::env::var("MADGAB_TRACE_PHRASES") {
+             for phrase in wanted.split('|').filter(|s| !s.is_empty()) {
+@@ -2211,6 +2238,11 @@ struct Partial {
+     reused_count: usize,
+     familiarity_sum: f64,
+     shape_sum: f64,
++    /// Probe 558697 accumulators (inert when the gate is unset).
++    p_mono: usize,
++    p_dev: f64,
++    p_last_syl: usize,
++    p_last_closed: usize,
+ }
+ 
+ impl Partial {
+@@ -2226,6 +2258,10 @@ impl Partial {
+             reused_count: 0,
+             familiarity_sum: 0.0,
+             shape_sum: 0.0,
++            p_mono: 0,
++            p_dev: 0.0,
++            p_last_syl: 0,
++            p_last_closed: 0,
+         }
+     }
+ 
+@@ -2339,6 +2375,26 @@ impl Partial {
+         let reuses = target.reuse.reuses(word);
+         let shape = lexical_shape_quality(word, familiarity);
+ 
++        let (p_mono, p_dev, p_last_syl, p_last_closed) = if probe::enabled() {
++            let s = approx::ipa_syllables(ipa);
++            let (total_len, target_syl, _tw) = probe::shape();
++            let span_start = self.cuts.last().copied().unwrap_or(0);
++            let expected = if total_len > 0.0 {
++                target_syl * consumed as f64 / total_len
++            } else {
++                0.0
++            };
++            let _ = span_start;
++            (
++                self.p_mono + usize::from(s <= 1),
++                self.p_dev + (s as f64 - expected).abs(),
++                s,
++                usize::from(closed),
++            )
++        } else {
++            (self.p_mono, self.p_dev, self.p_last_syl, self.p_last_closed)
++        };
++
+         Self {
+             words: Some(word_node),
+             sub_cost_total: self.sub_cost_total + word_sub_cost,
+@@ -2350,9 +2406,32 @@ impl Partial {
+             reused_count: self.reused_count + usize::from(reuses),
+             familiarity_sum: self.familiarity_sum + familiarity,
+             shape_sum: self.shape_sum + shape,
++            p_mono,
++            p_dev,
++            p_last_syl,
++            p_last_closed,
+         }
+     }
+ 
++    /// The four candidate new axes, as `[punch, foot, econ, land]`.
++    fn probe_axes(&self) -> [f64; 4] {
++        let words = self.word_count().max(1) as f64;
++        let (_tl, target_syl, target_words) = probe::shape();
++        let punch = (self.p_mono as f64 / words).clamp(0.0, 1.0);
++        let norm = target_syl.max(self.syllables as f64).max(1.0);
++        let foot = (1.0 - self.p_dev / norm).clamp(0.0, 1.0);
++        let extra = self.word_count().saturating_sub(target_words as usize) as f64;
++        let econ = (1.0 - extra / target_words.max(1.0)).clamp(0.0, 1.0);
++        let land = if self.word_count() == 0 {
++            0.0
++        } else if self.p_last_closed == 1 {
++            0.0
++        } else {
++            (1.0 - 0.5 * self.p_last_syl.saturating_sub(2) as f64).clamp(0.0, 1.0)
++        };
++        [punch, foot, econ, land]
++    }
++
+     fn metrics(
+         &self,
+         target_boundaries: &[usize],
+@@ -2404,7 +2483,7 @@ impl Partial {
+         };
+         let closed_penalty = closed_class_penalty(self.closed as f64, words as f64);
+ 
+-        let combined = axes::SIMILARITY * similarity
++        let mut combined = axes::SIMILARITY * similarity
+             + axes::NOVELTY * novelty
+             + axes::WORD_NOVELTY * word_novelty
+             + axes::FAMILIARITY * familiarity
+@@ -2412,6 +2491,21 @@ impl Partial {
+             + axes::SHAPE * shape_quality
+             + axes::CLOSED_CLASS * closed_penalty;
+ 
++        // Probe 558697: one candidate new axis, added at a fixed weight with
++        // the six existing weights untouched.  Inert unless MADGAB_558697 is
++        // set, and named by tag only -- no word, phrase or target.
++        if probe::enabled() {
++            let axes4 = self.probe_axes();
++            let value = match probe::variant() {
++                "punch" => axes4[0],
++                "foot" => axes4[1],
++                "econ" => axes4[2],
++                "land" => axes4[3],
++                _ => 0.0,
++            };
++            combined += probe::weight() * value;
++        }
++
+         Metrics {
+             combined,
+             novelty,
+@@ -2429,9 +2523,29 @@ impl Partial {
+         target_syllables: usize,
+     ) -> Clue {
+         let total_len = target_ipa.chars().count();
+-        let score = self
+-            .metrics(target_boundaries, target_syllables, total_len, false)
+-            .combined;
++        let m = self.metrics(target_boundaries, target_syllables, total_len, false);
++        let score = m.combined;
++        if probe::enabled() {
++            let a4 = self.probe_axes();
++            probe::row(
++                score,
++                (1.0 - self.sub_cost_total / 4.0).clamp(0.0, 1.0),
++                m.novelty,
++                m.word_novelty,
++                m.familiarity,
++                m.rhythm,
++                if self.word_count() == 0 {
++                    0.0
++                } else {
++                    self.shape_sum / self.word_count() as f64
++                },
++                closed_class_penalty(self.closed as f64, self.word_count().max(1) as f64),
++                a4[0],
++                a4[1],
++                a4[2],
++                a4[3],
++            );
++        }
+         let words: Vec<ClueWord> = self.words().cloned().collect();
+         Clue {
+             phrase: words

@@ -1,0 +1,313 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 001b0e4..c4e1c15 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -12,6 +12,7 @@ use phonetics::transcriptions::{Corpus, Pronunciation};
+ use serde::Serialize;
+ 
+ mod adjacency;
++pub mod probe;
+ mod approx;
+ pub mod lexical;
+ 
+@@ -166,7 +167,7 @@ const EMIT_PROFILE_RESERVE: usize = 16;
+ /// does, and doing the same here measurably costs a deep-in-a-span match
+ /// (`approximate_pool_reaches_matches_deep_in_a_span`), because the
+ /// traversal's own emissions are what the depth tests are written against.
+-/// It is bounded by `LEXICAL_GLOBAL_EMISSION_BUDGET` instead — the ceiling the
++/// It is bounded by `crate::zz_gem()` instead — the ceiling the
+ /// whole search already respects, and one the baseline leaves slack (14,239
+ /// of 16,384 spent).  So the operator's spend is bounded by the same
+ /// constant that bounds everything else, and the global bound is unchanged.
+@@ -177,7 +178,7 @@ const ADJACENCY_RESERVE: usize = 8;
+ /// The per-segmentation [`ADJACENCY_RESERVE`] is a cap; this is the ceiling
+ /// that stops the caps from adding up to more than the traversal can afford.
+ /// Without it the two spends compete for the same
+-/// `LEXICAL_GLOBAL_EMISSION_BUDGET`, and because the operator runs
++/// `crate::zz_gem()`, and because the operator runs
+ /// interleaved with the traversal in schedule order it wins the argument
+ /// early and the *tail* of the schedule is truncated instead — which is
+ /// exactly what happened: with the per-segmentation guarantee in place and no
+@@ -185,7 +186,7 @@ const ADJACENCY_RESERVE: usize = 8;
+ /// 16,384 global budget and
+ /// `approximate_pool_reaches_matches_deep_in_a_span` lost a wording.
+ ///
+-/// `LEXICAL_GLOBAL_EMISSION_BUDGET / 16` = `SEGMENTATION_KEEP *
++/// `crate::zz_gem() / 16` = `SEGMENTATION_KEEP *
+ /// LEXICAL_COMBINATIONS_PER_SEGMENTATION / 16` = **1,024**, which is a
+ /// sixteenth of the search's whole emission budget: enough for the operator to
+ /// matter on a pool of ~180 structures (5-6 admissions each) and small enough
+@@ -991,10 +992,10 @@ impl Generator {
+         // time and memory bound of the search is unchanged by this
+         // commit and only its *distribution* moves.
+         //
+-        // `LEXICAL_GLOBAL_EMISSION_BUDGET` bounds how many wordings reach
++        // `crate::zz_gem()` bounds how many wordings reach
+         // the pool; `LEXICAL_GLOBAL_POP_BUDGET` bounds the heap work that
+         // produces them, and is the one that actually bounds wall clock.
+-        const LEXICAL_GLOBAL_EMISSION_BUDGET: usize =
++        const GEM_OVERRIDE_MARKER: usize =
+             SEGMENTATION_KEEP * LEXICAL_COMBINATIONS_PER_SEGMENTATION;
+         const LEXICAL_GLOBAL_POP_BUDGET: usize =
+             SEGMENTATION_KEEP * LEXICAL_HEAP_POP_LIMIT;
+@@ -1519,7 +1520,7 @@ impl Generator {
+         //   (see that function).  Every structure's best alignment is
+         //   funded that far, and the schedule is breadth-first over
+         //   structures, so no structure can be starved by a stronger one;
+-        // * whatever is left of `LEXICAL_GLOBAL_EMISSION_BUDGET` becomes
++        // * whatever is left of `crate::zz_gem()` becomes
+         //   each structure's *equal share* of the whole budget
+         //   (`structure_depth_ceiling`), spent as extra depth on the same
+         //   structures once breadth is paid for.
+@@ -1555,7 +1556,7 @@ impl Generator {
+                 }
+             }
+             let ceiling = structure_depth_ceiling(
+-                LEXICAL_GLOBAL_EMISSION_BUDGET,
++                crate::zz_gem(),
+                 by_structure.len(),
+                 breadth,
+             );
+@@ -1583,8 +1584,10 @@ impl Generator {
+         // operator's spend is bounded independently of the traversal's.
+         let mut adjacency_spend = ADJACENCY_GLOBAL_RESERVE;
+         let mut spent_pops = 0usize;
+-        for &index in &schedule {
+-            if spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
++        let probe_only: Option<usize> = std::env::var("MADGAB_PROBE_ONLY").ok().and_then(|v| v.parse().ok());
++        for (si, &index) in schedule.iter().enumerate() {
++            if let Some(o) = probe_only { if si != o { continue; } }
++            if spent_emissions >= crate::zz_gem()
+                 || spent_pops >= LEXICAL_GLOBAL_POP_BUDGET
+             {
+                 break;
+@@ -1597,9 +1600,12 @@ impl Generator {
+             // display policy can use, and later alignments of the same
+             // structure share what is left of the structure's depth.
+             let held = funded.get(structure).copied().unwrap_or(0);
+-            let emit_allowance = depth_ceiling
+-                .saturating_sub(held)
+-                .clamp(1, LEXICAL_COMBINATIONS_PER_SEGMENTATION);
++            let emit_allowance = match std::env::var("MADGAB_PROBE_EMIT").ok().and_then(|v| v.parse::<usize>().ok()) {
++                Some(v) => v,
++                None => depth_ceiling
++                    .saturating_sub(held)
++                    .clamp(1, LEXICAL_COMBINATIONS_PER_SEGMENTATION),
++            };
+             let word_count = segmentation.spans.len().max(1) as f64;
+ 
+             let mut slots: Vec<Vec<SlotAlt>> =
+@@ -1791,6 +1797,7 @@ impl Generator {
+             // seeded from exactly this, so it starts from what the pool
+             // holds rather than from the index-tuple origin.
+             let mut pooled: Vec<Vec<usize>> = Vec::new();
++            let mut probe_profile: Vec<Vec<usize>> = Vec::new();
+             let widths: Vec<usize> =
+                 slots.iter().map(Vec::len).collect();
+             for tuple in coverage_tuples(
+@@ -1801,7 +1808,7 @@ impl Generator {
+                 &bound,
+             ) {
+                 if profile_emitted >= profile_allowance
+-                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
++                    || spent_emissions >= crate::zz_gem()
+                 {
+                     break;
+                 }
+@@ -1813,6 +1820,7 @@ impl Generator {
+                     &counters::DEEPEST_PROFILE,
+                     tuple.iter().copied().max().unwrap_or(0),
+                 );
++                probe_profile.push(tuple.clone());
+                 pooled.push(tuple);
+                 recovered.push(partial);
+                 profile_emitted += 1;
+@@ -1898,8 +1906,22 @@ impl Generator {
+             // [`affordable_opening_width`] for the measured counts.
+             let mut cap = affordable_opening_width(depth, LEXICAL_HEAP_POP_LIMIT)
+                 .min(widest);
++            if let Ok(v) = std::env::var("MADGAB_PROBE_CAP") {
++                cap = v.parse::<usize>().unwrap().min(widest);
++            }
++            let probe_capv: Option<Vec<usize>> = std::env::var("MADGAB_PROBE_CAPV").ok().map(|s| s.split(',').map(|x| x.trim().parse::<usize>().unwrap()).collect());
++            let probe_pop: usize = std::env::var("MADGAB_PROBE_POP").ok().and_then(|v| v.parse().ok()).unwrap_or(LEXICAL_HEAP_POP_LIMIT);
++            let probe_clue: Option<Vec<String>> = std::env::var("MADGAB_PROBE_CLUE").ok().map(|s| s.split(',').map(|x| x.trim().to_string()).collect());
++            let mut probe_hit: Option<(usize, usize, f64, Vec<usize>)> = None;
++            let probe_idx: Option<Vec<usize>> = std::env::var("MADGAB_PROBE_IDX").ok().map(|s| s.split(',').map(|x| x.trim().parse::<usize>().unwrap()).collect());
++            let probe_idx = probe_idx.filter(|v| v.len() == depth && v.iter().enumerate().all(|(k, &i)| i < slots[k].len()));
++            let mut probe_minbound = f64::INFINITY;
++            let mut probe_bounds: Vec<f64> = Vec::new();
+             let mut emitted = 0usize;
+             let mut popped = 0usize;
++            let mut probe_max: Vec<usize> = vec![0usize; depth];
++            let mut probe_n: Vec<usize> = vec![0usize; depth];
++            let mut probe_stages = 0usize;
+             // The traversal runs in passes over the heap.  A walk is the
+             // search itself: pop, expand, emit.  When a walk drains without
+             // filling its allowance, the only thing the next stage needs is
+@@ -1917,15 +1939,41 @@ impl Generator {
+             let mut opened = cap;
+             let mut expanded: Vec<(usize, Rc<[usize]>)> = Vec::new();
+             let root: Rc<[usize]> = empty.clone();
++            let probe_target_bound: Option<f64> = probe_idx.as_ref().map(|ix| bound(ix));
+             'stages: loop {
+                 let mut finished = false;
++                probe_stages += 1;
+                 while let Some((_key, k, prefix)) = heap.pop() {
+                     if !replaying {
+                         popped += 1;
+                     }
+                     if k == depth {
++                        if let Some(clue) = &probe_clue {
++                            if prefix.len() == clue.len() {
++                                let words: Vec<String> = prefix
++                                    .iter()
++                                    .enumerate()
++                                    .map(|(k, &i)| {
++                                        self.fuzzy_lexicon
++                                            .word(slots[k][i].match_ref.word_idx)
++                                            .word
++                                            .to_string()
++                                    })
++                                    .collect();
++                                if words == *clue && probe_hit.is_none() {
++                                    let c: f64 = prefix
++                                        .iter()
++                                        .enumerate()
++                                        .map(|(k, &i)| slots[k][i].cost)
++                                        .sum();
++                                    probe_hit = Some((emitted, popped, c, prefix.to_vec()));
++                                }
++                                probe_bounds.push(bound(&prefix));
++                            }
++                        }
+                         if let Some(partial) = build(&prefix) {
+                             if !replaying {
++                                probe_minbound = probe_minbound.min(bound(&prefix));
+                                 #[cfg(test)]
+                                 counters::note_depth(
+                                     &counters::DEEPEST_TRAVERSAL,
+@@ -1950,7 +1998,7 @@ impl Generator {
+                             // replays stopped.
+                             if emitted >= emit_allowance
+                                 || spent_emissions
+-                                    >= LEXICAL_GLOBAL_EMISSION_BUDGET
++                                    >= crate::zz_gem()
+                             {
+                                 finished = true;
+                                 break;
+@@ -1959,7 +2007,7 @@ impl Generator {
+                         continue;
+                     }
+ 
+-                    if !replaying && popped >= LEXICAL_HEAP_POP_LIMIT {
++                    if !replaying && popped >= probe_pop {
+                         finished = true;
+                         break;
+                     }
+@@ -1974,7 +2022,7 @@ impl Generator {
+                         .enumerate()
+                         .map(|(j, &i)| slots[j][i].cost)
+                         .sum();
+-                    for i in 0..slots[k].len().min(cap) {
++                    for i in 0..slots[k].len().min(probe_capv.as_ref().and_then(|v| v.get(k).copied()).unwrap_or(cap)) {
+                         if !slot_is_affordable(
+                             committed,
+                             later_min_cost[k],
+@@ -1983,6 +2031,8 @@ impl Generator {
+                         ) {
+                             continue;
+                         }
++                        probe_max[k] = probe_max[k].max(i);
++                        probe_n[k] += 1;
+                         let mut next = prefix.to_vec();
+                         next.push(i);
+                         let next: Rc<[usize]> = Rc::from(next);
+@@ -2008,7 +2058,7 @@ impl Generator {
+                             .enumerate()
+                             .map(|(j, &i)| slots[j][i].cost)
+                             .sum();
+-                        for i in opened..slots[k].len().min(cap) {
++                        for i in opened..slots[k].len().min(probe_capv.as_ref().and_then(|v| v.get(k).copied()).unwrap_or(cap)) {
+                             if !slot_is_affordable(
+                                 committed,
+                                 later_min_cost[k],
+@@ -2017,6 +2067,8 @@ impl Generator {
+                             ) {
+                                 continue;
+                             }
++                            probe_max[k] = probe_max[k].max(i);
++                            probe_n[k] += 1;
+                             let mut next = prefix.to_vec();
+                             next.push(i);
+                             let next: Rc<[usize]> = Rc::from(next);
+@@ -2031,9 +2083,9 @@ impl Generator {
+                 if next_branch_stage(cap, widest).is_none() {
+                     break 'stages;
+                 }
+-                if popped >= LEXICAL_HEAP_POP_LIMIT
++                if popped >= probe_pop
+                     || spent_pops + popped >= LEXICAL_GLOBAL_POP_BUDGET
+-                    || spent_emissions >= LEXICAL_GLOBAL_EMISSION_BUDGET
++                    || spent_emissions >= crate::zz_gem()
+                 {
+                     break 'stages;
+                 }
+@@ -2050,6 +2102,23 @@ impl Generator {
+                 heap.push((quantized(bound(&[])), 0, root.clone()));
+                 replaying = true;
+             }
++            if let Ok(p) = std::env::var("MADGAB_PROBE_SLOTS") { let _ = p;
++                let dump: Vec<Vec<(usize,String,f64)>> = slots.iter().map(|sl| sl.iter().map(|a| (a.match_ref.word_idx, self.fuzzy_lexicon.word(a.match_ref.word_idx).word.to_string(), a.cost)).collect()).collect();
++                crate::probe::note_slots(target.to_string(), format!("{:?}", structure).len(), dump);
++            }
++            {
++                let outside = probe_profile.iter().filter(|t| t.iter().copied().max().unwrap_or(0) >= cap).count();
++                crate::probe::note(crate::probe::Rec {
++                    target: target.to_string(),
++                    depth, widths: widths.clone(), cap,
++                    max_pushed: probe_max.clone(), n_pushed: probe_n.clone(),
++                    profile: probe_profile.clone(), profile_outside: outside,
++                    emitted, popped, stages: probe_stages,
++                    hit: probe_hit.clone(), spans: segmentation.spans.clone(),
++                    minbound: if probe_minbound.is_finite() { Some(probe_minbound) } else { None },
++                    target_bound: probe_target_bound,
++                });
++            }
+             spent_pops += popped;
+ 
+             // ---- w-c1d3a7: the adjacency / neighbourhood operator ----
+@@ -2070,7 +2139,7 @@ impl Generator {
+ 
+             let mut adjacency_emitted = 0usize;
+             if adjacency_allowance > 0
+-                && spent_emissions < LEXICAL_GLOBAL_EMISSION_BUDGET
++                && spent_emissions < crate::zz_gem()
+             {
+                 for tuple in adjacency::admit(
+                     adjacency::Neighbourhood {
+@@ -2086,7 +2155,7 @@ impl Generator {
+                 ) {
+                     if adjacency_emitted >= adjacency_allowance
+                         || spent_emissions
+-                            >= LEXICAL_GLOBAL_EMISSION_BUDGET
++                            >= crate::zz_gem()
+                     {
+                         break;
+                     }
+@@ -2112,7 +2181,7 @@ impl Generator {
+                     // is extra, and cost a deep-in-a-span match
+                     // (`approximate_pool_reaches_matches_deep_in_a_span`).
+                     // The operator is bounded by `ADJACENCY_RESERVE` and by
+-                    // `LEXICAL_GLOBAL_EMISSION_BUDGET` instead, which is where
++                    // `crate::zz_gem()` instead, which is where
+                     // its spend belongs.
+                 }
+             }
+@@ -6066,3 +6135,6 @@ mod tests {
+         );
+     }
+ }
++
++pub fn zz_gem() -> usize { std::env::var("ZZ_GEM").ok().and_then(|v| v.parse().ok()).unwrap_or(16384) }
++pub fn zz_gpop() -> usize { std::env::var("ZZ_GPOP").ok().and_then(|v| v.parse().ok()).unwrap_or(1_024_000) }

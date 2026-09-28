@@ -1,0 +1,261 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 8d797e1..203db54 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -1493,8 +1493,12 @@ impl Generator {
+                     .map(|(slot, &i)| slots[slot][i].cost)
+                     .sum();
+                 if total_cost > total_budget + 1e-9 {
++                    #[cfg(test)]
++                    probe::rejected();
+                     return None;
+                 }
++                #[cfg(test)]
++                probe::built(structure, total_cost);
+                 let mut partial = Partial::empty();
+                 for (slot, &i) in tuple.iter().enumerate() {
+                     let a = &slots[slot][i];
+@@ -1518,6 +1522,27 @@ impl Generator {
+             let mut pooled: Vec<Vec<usize>> = Vec::new();
+             let widths: Vec<usize> =
+                 slots.iter().map(Vec::len).collect();
++            #[cfg(test)]
++            let __probe_ctx = probe::Context {
++                structure: structure.to_vec(),
++                widths: widths.clone(),
++                words: slots
++                    .iter()
++                    .map(|s| {
++                        s.iter()
++                            .map(|a| {
++                                self.fuzzy_lexicon
++                                    .word(a.match_ref.word_idx)
++                                    .word
++                                    .clone()
++                            })
++                            .collect::<Vec<String>>()
++                    })
++                    .collect(),
++                phase: coverage_phase,
++            };
++            #[cfg(test)]
++            probe::census(&__probe_ctx, &slots.iter().map(|s| s.iter().map(|a| a.cost).collect::<Vec<f64>>()).collect::<Vec<Vec<f64>>>());
+             for tuple in coverage_tuples(
+                 &widths,
+                 profile_allowance,
+@@ -1529,6 +1554,8 @@ impl Generator {
+                 {
+                     break;
+                 }
++                #[cfg(test)]
++                probe::offer(&__probe_ctx, &tuple);
+                 let Some(partial) = build(&tuple) else {
+                     continue;
+                 };
+@@ -2022,6 +2049,164 @@ mod counters {
+     }
+ }
+ 
++#[cfg(test)]
++pub mod probe {
++    use std::cell::RefCell;
++
++    pub struct Context {
++        pub structure: Vec<(usize, usize)>,
++        pub widths: Vec<usize>,
++        pub words: Vec<Vec<String>>,
++        pub phase: usize,
++    }
++
++    thread_local! {
++        pub static LOG: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
++        pub static WANT: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
++        pub static BUILT: RefCell<Vec<f64>> = const { RefCell::new(Vec::new()) };
++        pub static REJECTED: RefCell<usize> = const { RefCell::new(0) };
++        pub static CENSUS: RefCell<Option<String>> = const { RefCell::new(None) };
++        pub static PER: RefCell<Vec<(Vec<(usize, usize)>, Vec<f64>)>> = const { RefCell::new(Vec::new()) };
++    }
++
++    pub fn built(structure: &[(usize, usize)], cost: f64) {
++        BUILT.with(|b| b.borrow_mut().push(cost));
++        PER.with(|p| {
++            let mut v = p.borrow_mut();
++            let key = structure.to_vec();
++            match v.iter_mut().find(|(k, _)| *k == key) {
++                Some((_, costs)) => costs.push(cost),
++                None => v.push((key, vec![cost])),
++            }
++        });
++    }
++
++    pub fn rejected() {
++        REJECTED.with(|r| *r.borrow_mut() += 1);
++    }
++
++    /// Once, for the first segmentation of the wanted structure: how many
++    /// tuples of this structure are cost-admissible at or below the wanted
++    /// wording's total cost, and where the wanted coordinate sits in that
++    /// cost order.
++    pub fn census(ctx: &Context, costs: &[Vec<f64>]) {
++        if CENSUS.with(|c| c.borrow().is_some()) {
++            return;
++        }
++        let want = WANT.with(|w| w.borrow().clone());
++        if want.is_empty() || want.len() != ctx.widths.len() {
++            return;
++        }
++        let mut ranks = Vec::new();
++        for (slot, w) in want.iter().enumerate() {
++            match ctx.words[slot].iter().position(|x| x == w) {
++                Some(r) => ranks.push(r),
++                None => return,
++            }
++        }
++        let target_cost: f64 =
++            ranks.iter().enumerate().map(|(s, &i)| costs[s][i]).sum();
++        // Count every tuple of the structure at or below the target's cost,
++        // by walking the three widest slots and binary-searching the fourth.
++        // The slots' own lists are ordered by contribution, not by cost, so
++        // the searched list is sorted here.
++        let mut fourth = costs[4].clone();
++        fourth.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let mut total = 0f64;
++        let mut strictly_lower = 0f64;
++        for a in 0..costs[0].len() {
++            for b in 0..costs[2].len() {
++                for c in 0..costs[3].len() {
++                    let base = costs[0][a] + costs[2][b] + costs[3][c];
++                    let room = target_cost - base;
++                    if room < 0.0 {
++                        continue;
++                    }
++                    let (le, lt) = partition_point(&fourth, room);
++                    total += le as f64;
++                    strictly_lower += lt as f64;
++                }
++            }
++        }
++        let width1 = costs[1].len() as f64;
++        CENSUS.with(|c| {
++            *c.borrow_mut() = Some(format!(
++                "census struct={:?} widths={:?} ranks={:?} target_cost={:.17} \
++                 tuples_at_or_below={} tuples_strictly_below={}",
++                ctx.structure, ctx.widths, ranks, target_cost,
++                (total * width1) as u64, (strictly_lower * width1) as u64
++            ))
++        });
++    }
++
++    fn partition_point(sorted: &[f64], x: f64) -> (usize, usize) {
++        let mut lo = 0usize;
++        let mut hi = sorted.len();
++        while lo < hi {
++            let mid = (lo + hi) / 2;
++            if sorted[mid] <= x {
++                lo = mid + 1;
++            } else {
++                hi = mid;
++            }
++        }
++        let le = lo;
++        let mut lo2 = 0usize;
++        let mut hi2 = sorted.len();
++        while lo2 < hi2 {
++            let mid = (lo2 + hi2) / 2;
++            if sorted[mid] < x {
++                lo2 = mid + 1;
++            } else {
++                hi2 = mid;
++            }
++        }
++        (le, lo2)
++    }
++
++    pub fn want(words: &[&str]) {
++        WANT.with(|w| {
++            *w.borrow_mut() = words.iter().map(|s| s.to_string()).collect();
++        });
++        LOG.with(|l| l.borrow_mut().clear());
++    }
++
++    pub fn dump() -> Vec<String> {
++        LOG.with(|l| l.borrow().clone())
++    }
++
++    pub fn offer(ctx: &Context, tuple: &[usize]) {
++        let want = WANT.with(|w| w.borrow().clone());
++        if want.is_empty() || want.len() != ctx.widths.len() {
++            return;
++        }
++        let mut line = String::new();
++        let mut ranks = Vec::new();
++        for (slot, w) in want.iter().enumerate() {
++            let r = ctx.words[slot].iter().position(|x| x == w);
++            ranks.push(r);
++            line.push_str(&format!(
++                " slot{slot}:width={} rank={:?}",
++                ctx.widths[slot], r
++            ));
++        }
++        let depth = tuple.iter().filter(|&&i| i != 0).count();
++        let exact = ranks
++            .iter()
++            .enumerate()
++            .all(|(i, r)| r.map(|r| tuple[i] == r).unwrap_or(false));
++        if exact {
++            line.push_str(" <<< EXACT REQUESTED TUPLE");
++        }
++        LOG.with(|l| {
++            l.borrow_mut().push(format!(
++                "struct={:?} phase={} tuple={:?} depth={}{}",
++                ctx.structure, ctx.phase, tuple, depth, line
++            ));
++        });
++    }
++}
++
+ fn novelty_stem(word: &str) -> String {
+     #[cfg(test)]
+     counters::bump(&counters::NOVELTY_STEM);
+@@ -5033,3 +5218,41 @@ mod tests {
+         );
+     }
+ }
++
++#[cfg(test)]
++mod probe_tests {
++    use super::*;
++
++    #[test]
++    fn probe_dump_structure() {
++        let g = Generator::from_json(
++            open_english_pronouncing_dictionary::CORPUS_JSON,
++            GeneratorConfig {
++                mode: SearchMode::approximate(),
++                top_n: 50,
++                ..GeneratorConfig::default()
++            },
++        )
++        .unwrap();
++        super::probe::want(&["hits", "justice", "dupe", "hid", "came"]);
++        let (clues, pool) = g.generate_with_pool("It's just a stupid game");
++        let mut log = super::probe::dump();
++        let census = super::probe::CENSUS.with(|c| c.borrow().clone()).unwrap_or_default();
++        let mut costs = super::probe::BUILT.with(|b| b.borrow().clone());
++        costs.sort_by(|a, b| a.partial_cmp(b).unwrap());
++        let rej = super::probe::REJECTED.with(|r| *r.borrow());
++        log.push(census);
++        log.push(format!("emissions_built={} rejected_over_budget={} cost_min={:.6} cost_p50={:.6} cost_p99={:.6} cost_max={:.6}",
++            costs.len(), rej, costs[0], costs[costs.len()/2], costs[costs.len()*99/100], costs[costs.len()-1]));
++        let mut all = log.clone();
++        all.push(format!("pool={pool} shown={}", clues.len()));
++        all.push(format!("emissions_over_target_cost={}", costs.iter().filter(|c| **c <= 1.11951981416578961).count()));
++        let mut per = super::probe::PER.with(|p| p.borrow().clone());
++        per.sort_by_key(|(_, c)| std::cmp::Reverse(c.len()));
++        for (k, c) in per.iter().filter(|(k,_)| *k == vec![(0usize,3usize),(3,10),(10,13),(13,15),(15,19)]) {
++            all.push(format!("per-structure {k:?} emissions={} cost_min={:.6} cost_max={:.6}", c.len(), c.iter().cloned().fold(f64::MAX, f64::min), c.iter().cloned().fold(f64::MIN, f64::max)));
++        }
++        all.push(format!("structures_emitted={}", per.len()));
++        std::fs::write("/tmp/opencode/1c3e77/probe.txt", all.join("\n")).unwrap();
++    }
++}
