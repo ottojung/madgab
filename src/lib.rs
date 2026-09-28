@@ -3987,6 +3987,17 @@ fn clue_structure(c: &Clue) -> Vec<usize> {
     c.cuts[..c.cuts.len().saturating_sub(1)].to_vec()
 }
 
+/// EXPERIMENT (w-3a8f01): one wording of one resegmentation.
+fn clue_wording_class(c: &Clue) -> (Vec<usize>, String) {
+    (
+        clue_structure(c),
+        c.words
+            .last()
+            .map(|w| w.ipa.to_lowercase())
+            .unwrap_or_default(),
+    )
+}
+
 /// Pick `top_n` proposals under an ordered rule, highest score first.
 ///
 /// The rule, in order, is:
@@ -4047,11 +4058,13 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     });
 
     let structures: Vec<Vec<usize>> = clues.iter().map(clue_structure).collect();
+    // EXPERIMENT (w-3a8f01): wording classes.
+    let classes: Vec<(Vec<usize>, String)> = clues.iter().map(clue_wording_class).collect();
 
     let mut picked: Vec<usize> = Vec::with_capacity(top_n);
     let mut taken = vec![false; clues.len()];
     let mut counts: HashMap<Vec<usize>, usize> = HashMap::new();
-    let mut represented: HashSet<Vec<usize>> = HashSet::new();
+    let mut represented: HashSet<(Vec<usize>, String)> = HashSet::new();
 
     // 1. one representative per boundary structure, best first, drawn
     // from the *whole* pool and bounded by `structure_reserve_slots`.
@@ -4069,13 +4082,15 @@ fn select_diverse(clues: Vec<Clue>, top_n: usize) -> Vec<Clue> {
     // which is a criterion other than "this candidate's own score is
     // inside the cutoff": the criterion is "this resegmentation is one
     // the search enumerated and nothing better of its kind is listed".
-    let reserve = structure_reserve_slots(top_n);
+    let reserve = structure_reserve_slots(top_n)
+        .max(STRUCTURE_FLOOR)
+        .min(top_n);
     let mut reserved = 0usize;
     for &i in &order {
         if picked.len() == top_n || reserved == reserve {
             break;
         }
-        if represented.insert(structures[i].clone()) {
+        if represented.insert(classes[i].clone()) {
             admit(
                 i,
                 &structures,
