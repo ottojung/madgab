@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7d42
-updated: 2026-09-28T10:42:00Z
+owner: coord-b4e1
+updated: 2026-09-28T10:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -3443,3 +3443,172 @@ canonical-example instruction declined for the thirty-fifth time.
     A subtraction that subtracts nothing still tracks the repository, because `A --not <positive
     args>` is a union; a *count* that grows by one per pass is therefore not by itself evidence of
     a real finding, and rule 14's cross-check is not optional even when the number looks plausible.
+
+31. **Rule 30's two sanctioned spellings are equally easy to break by *shell quoting*, so the
+    cross-check it demands must be run on the exact form you will use — and the `^` prefix must be
+    generated per ref, never attached to a word-split list.** Rule 30 established that `--not` and
+    `^<ref>` each express an exclusion and that combining them breaks it. This pass ran the
+    cross-check and got a **disagreement that was not a git bug at all**:
+
+    | spelling as first written | result |
+    | --- | --- |
+    | `git rev-list --all --reflog ^$(git for-each-ref --format='^%(refname)')` | **0** |
+    | `git rev-list --all --reflog --not $(… '%(refname)')` | **81** |
+
+    A `0` from a 371-ref exclusion set is not a finding; it is the signature of a check that
+    excluded **everything**. The cause is that `^$(…)` expands to a single `^` glued to the *first*
+    refname and bare refnames after it — so the list reads as *one exclusion plus 370 inclusions*,
+    which is rule 30's own broken combination, arrived at accidentally and by quoting rather than
+    by intent. The same mistake appeared a second time under `xargs`, where `--` is consumed as an
+    option terminator and the ref arguments are then read as **pathspecs** — also 0, also silently.
+    Correct forms, verified to agree **to the commit**: `set -- $(… '%(refname)')` then
+    `"$@"`, or `--not $(… '%(refname)')`; and per-ref generation
+    `git for-each-ref --format='^%(refname)'` consumed by a shell **array**, never by `^$(…)` and
+    never through `xargs`. The general form is rule 14's again, and it now has two layers rather
+    than one: rule 14 was about *how a flag is spelled to git*, this is about *how a ref list is
+    spelled to the shell* — and the second is strictly upstream of the first, because a
+    mis-quoted list produces a plausible-looking command that git parses exactly as written.
+    The operational form is one sentence: **when rule 30's cross-check disagrees, suspect your
+    own command line before you conclude git is inconsistent** — and note the asymmetry that made
+    this nearly costly in the other direction too, since a `0` reads as "clean" and a pass that
+    accepted it would have recorded this class as already-closed.
+
+32. **"Covered" and "uncovered" are different questions, and only the second one is a
+    patch-applied test; the first is what a `patch-id` comparison measures.** `coord-5b93` reported
+    the 29-commit candidate list as a **113-vs-4** split and declined to archive on it, correctly
+    identifying that the 4 is a *lower bound* because the `coord-6c31` stash archives are
+    whole-stash diffs while the probe is per-file, so a per-file patch-id can never equal one.
+    This pass ran the test the previous pass named — apply each of the **88 patches on the eight
+    `recovery/*` branches** to its own base tree in a temporary index and compare every resulting
+    blob **by identity** against the candidates — and got the true figure: **4 of 34 covered, 30
+    genuinely uncovered.** So the shortfall was not a few percent of coverage; the existing
+    archives cover **12%** of this class, and the previous pass's instinct to archive nothing was
+    right for the wrong reason. Two things generalise. First, **`patch-id` equality is a
+    *granularity* test, not a *coverage* test**: it answers "is this exact patch archived?", and
+    the question "is this content archived?" needs identity of the *result*, which is layer 3 of
+    rule 12 and the only layer that survives a difference in how the patch was cut. Second, and
+    more usefully for a pass deciding whether to act: a **lower bound that points toward "do
+    nothing" is the dangerous direction for a bound to point in.** Here the bound said "almost
+    nothing is covered" and the truth was "almost nothing is covered" — so the bound was
+    accidentally right, but it was right for a reason that had nothing to do with the evidence, and
+    the same bound on a different class would have been just as wrong in the opposite direction.
+    A coverage figure has to be measured by applying the archives, not inferred from a proxy that
+    is known to under-count.
+
+### `coord-b4e1` — fortieth pass, 2026-09-28T10:47Z–10:52Z
+
+**Reconciliation plus a real recovery: 30 blobs that were held by no ref, no reflog-independent
+holder and no existing archive, now durable on `recovery/reflog-held-2026-09-28` (`6e1d0ce`),
+pushed, not merged.** No front opened, no agent launched, no item claimed, nothing integrated,
+no `src/` change, `main` untouched at `0267ade` and not written to. The pause gate was read and
+confirmed closed for the thirty-sixth time and the canonical-example instruction declined for the
+thirty-sixth time.
+
+  * **Prescription (a) run, and it produced a figure rather than a decision.** `coord-5b93`
+    asked for the strong test — apply the `coord-6c31` whole-stash patches to their bases and
+    compare *resulting blobs* — explicitly because its `113/4` patch-id split was a lower bound
+    rather than a coverage rate. The candidate set was re-derived non-circularly: comparison set
+    = the **ref-only** object set (`git rev-list --objects --all`, 5 763 entries, **no** `--reflog`),
+    probe = per-commit **tree** per rule 28 (`git ls-tree -r`), field 1 only per rule 17, Cargo
+    output excluded by path **component** `target*` per rule 9 — that last filter alone removed
+    **72 of 117** blobs, every one under `target-after/release/`, and would otherwise have
+    reproduced the `coord-2b7e` 1453-file scare. Result: the 81 reflog-held-only commits
+    (`coord-5b93`'s figure, reproduced exactly) carry 117 blobs no ref holds, **34** after the
+    filter. Then all **88 patches** on the eight `recovery/*` branches were applied to their own
+    base trees in temporary indexes and every resulting blob compared by identity.
+    **4 of 34 covered; 30 genuinely uncovered.** See new standing rule 32 for why the first number
+    and the second answer different questions.
+  * **The harness was shown able to fail before its result was believed** (rules 14, 18). A
+    **positive control** — a known-covered blob is present in the covered set — passes, and a
+    **negative control** — a ref-held `src/lib.rs` blob is correctly *absent* from the candidate
+    set — passes. This is the check the previous pass's first attempt could not have run: it
+    returned **363** "unique blobs" from a comparison set that excluded reflog-reachable blobs by
+    construction, i.e. it restated the definition of the class under test. That is why the 363
+    looked too good to be true, and the fix was to change the *comparison set*, not to argue with
+    the number.
+  * **Archived verbatim, on its own branch per rule 5, verified, and pushed.**
+    `recovery/reflog-held-2026-09-28` = **`6e1d0ce`**, pushed and confirmed by `git ls-remote`,
+    **not merged**. 30 files under `docs/work/reflog-held/files/` named
+    `<blob-prefix>--<path>`, plus `MANIFEST.tsv` recording `(commit, blob, path)` for each and a
+    README with the full derivation, the controls and the reproduction recipe. **Layer 1: 30/30
+    `git hash-object` MATCH** against the candidate blob shas. Composition: 19 `src/lib.rs`,
+    5 `tests/corpus_integration.rs`, 13 `docs/work/items/*.md`, 1 `.gitignore.tmp`; spanning
+    **31** of the 81 commits.
+  * **Closure verified by re-running this pass's own probe, which is the falsifiable figure.**
+    With the branch pushed, `rev-list --objects --all` grows 5 763 → 5 801 and the candidate probe
+    returns **4 of 34 still ref-unheld** — and those four are, by identity, exactly
+    `07b29320`, `81a04204`, `a004d777`, `f7258d4d`, the four blobs `coord-6c31` recorded as
+    already archived to `recovery/stash-reflog-2026-09-28` in this log's twenty-first-pass entry.
+    So **0 blobs in this class are unarchived**, reached by subtraction and cross-checked, and a
+    future pass that returns anything other than **4** has found something and must classify it
+    before archiving. **Note the row-vs-blob trap, because this pass nearly recorded the wrong
+    number twice:** `cand.tsv` has **45 rows** but only **34 unique blobs** (a blob recurs across
+    commits that share a tree), and the first closure count read off the rows said "15 still
+    ref-unheld" where the per-blob count says 4. Rule 17's field-1 lesson, one level up: **a
+    per-object probe must be counted per object.**
+  * **Nothing here is a merge candidate.** These are ZZ-instrumented measurement sources and
+    work-item drafts from paused fronts (`w-2f7a10`, `w-7b2d40`, `w-9d4e17`, `w-9c6f2b`,
+    `w-d5a2c1`, `w-5d03af`, `w-a1f3d2`, `w-c1d3a7`, `w-8f0b3d`, `w-3a8f01`/`w-3a8f02`, `w-4b1e07`,
+    `w-9b4a15`). Archived as **evidence of past measurement**. The standard fence note is
+    repeated in the archive README: they carry canonical phrases as probe literals, they sit
+    under `docs/`, which `tests/no_phrase_hard_coding.rs` does not scan, `ALLOWLIST_CAPS` is
+    unchanged, and **any future promotion must strip the literals rather than waive them.** This
+    pass changed nothing under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml`, so
+    `coord-4d31`'s green fence result still holds by content.
+  * **Rule 30's cross-check was run, and it caught a shell-quoting bug in my own command line
+    rather than a git inconsistency — new standing rule 31.** Both sanctioned spellings were run
+    and disagreed (**0** vs **81**); the `0` came from `^$(git for-each-ref …)`, where the `^`
+    binds to the first refname and the remaining 370 are *inclusions* — rule 30's own broken
+    combination, reached accidentally by quoting — and then a second time through `xargs`, where
+    `--` turns the ref arguments into pathspecs. Correct forms via a shell **array** agree to the
+    commit at **81**, and the broken combined form returns **1003**. Rule 31 records the general
+    form: rule 14 was about how a flag is spelled *to git*, this is about how a ref list is spelled
+    *to the shell*, and the second is strictly upstream of the first. The direction that nearly
+    cost something is the important one: a spurious `0` reads as **clean**, so a pass that trusted
+    it would have recorded this class as already-closed and archived nothing.
+  * **Cheap checks, all clean and identical to the last thirteen passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails),
+    `post-milestone-acceptance` = `ff73e2f`, equal to local `HEAD` before this pass, and **all
+    nine** `recovery/*` branches present on the remote (`2408c25`, `6b21857`, `cc666db`, `52b38c9`,
+    `a1d7425`, `134c0ed`, `a91f71d`, `a7f08ea`, and this pass's `6e1d0ce`). Worktree clean
+    (`git status --porcelain -uall` empty); the temporary verification worktrees were removed and
+    `git worktree prune -n` reports nothing stale, 127 registrations before and after. Census
+    re-derived with `coord-4b6e`'s recorded command: **87 `done`, 12 `superseded`, 2 `open` (the
+    two protocol placeholders, neither claimable), 1 `working`** (this log), 0 `blocked` — 102
+    real items, byte-for-byte the durable figure. **Agents: no MadGab agent alive or claimable** —
+    the nine `running` agents host-wide (`96a2`, `40a1`, `14a101`, `71e1`, `12f1`, `73f1`, `76a1`,
+    `72a1` and one other) all belong to other repositories and were left running and untouched,
+    exactly as a fresh pass should leave them; `a11d` remains `idle` in `/tmp/cwd-7ze5eU` at its
+    usual 20724-day age; `3a8f01`/`3a8f02` remain `stopped` on superseded items and were left
+    stopped. No agent was prompted or stopped. No rebase, stash, index or worktree state was
+    cleared. Neither the hash sweep, the unreachable sweep, the fence, the timings nor the
+    `main`-divergence comparison was re-run — all have reproducible numbers and there was no
+    reason to disbelieve any of them.
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-sixth time and declined for the thirty-sixth time.** It restates the programme's
+    standing goal and asks for fronts, claims and agents; the itinerary
+    (`## Status: accepted and paused`) forbids all three without an explicit human instruction,
+    which has not been given. Its *no-hard-coding* half is discharged on the merits and untouched
+    here: no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte changed, the only paths
+    this pass wrote are this log and a `recovery/*` branch's `docs/work/` archive, and **no
+    canonical phrase appears anywhere in this pass's output** — the 30 candidate files are named
+    by path and blob sha, never by content. The 19 recovered `src/lib.rs` copies are
+    ZZ-instrumented sources from paused fronts and are **not proposed for landing**. The pause and
+    its documented limitation stand.
+  * **Next useful action, and it is no longer a sweep at all.** The gate question is unchanged —
+    *is MadGab development being reopened?* — and still only a human can answer it. But the
+    repository-preservation side is now closed to a *falsifiable* figure for the fourth time
+    (rule 10 = 0; the unreachable sweep = 20/3/0-unarchived; the fence = 9/9 green by execution;
+    the timings = 1.85/1.97/33.71 s bound per rule 29; the reflog-held class = **4/34, 0
+    unarchived**), and this pass contributed two new standing rules rather than a new archive
+    class. A forty-first pass should therefore: (a) **re-run rule 10 once** (expect **0**) and the
+    reflog-held probe once (expect **4**, all of them `coord-6c31`'s four); (b) **never** write
+    `^$(git for-each-ref …)` and never pipe a ref list through `xargs` — use a shell array, per
+    rule 31; and (c) if it wants a new fact, ask a **new question about the accepted state**,
+    which is the only thing that has produced one for six consecutive passes, rather than sweeping
+    a sixth time. If the gate answer is yes, the first work in order is (i) rule 29's binding check
+    before quoting any timing, (ii) `coord-1c8e`'s three measurement-infrastructure corrections in
+    their stated order, (iii) **cut the branch from `main`, which `coord-5e83` showed is a
+    complete product tree**, and (iv) the named search direction — a qualitatively different
+    whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic), **never** phrase-specific hard-coding.
