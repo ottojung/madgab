@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-c8e1
-updated: 2026-09-28T07:26:00Z
+owner: coord-4f7a
+updated: 2026-09-28T07:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -391,6 +391,33 @@ recorded as a priced negative.
   No scaffolding commit, because there is nothing to put on it. **The sample of "nothing left at
   risk" is now four passes deep**, and per the cadence advice this entry is deliberately short: a
   future pass may record a single line and exit rather than re-running the sweep at all.
+
+* **`coord-4f7a` (this pass), 2026-09-28T07:23Z–07:29Z** — reconciliation only, **no recovery
+  needed; fifth consecutive clean sweep**. Both prescribed checks re-run; the sweep was *not*
+  narrowed to what the last pass looked for (standing rule 9's named failure mode), it was simply
+  run once more and reported. Nothing was launched, resumed, claimed or integrated; `main` is
+  untouched at `0267ade` and is still not an ancestor of this branch.
+
+  * **Agents: none alive for MadGab.** The two `running` agents host-wide are `a94fa7e4`
+    (`/workspace/assemblyp1-issue89-crossing-coalesce2`) and `a78fa7e2`
+    (`/workspace/qai-proviral-78`) — both other repositories, left alone — plus `a11d`, `idle` in
+    `/tmp/cwd-7ze5eU` at its usual 20724-day age. No MadGab agent is alive or claimable.
+  * **Worktrees: 24 unmatched files, unchanged in count and composition for the fifth time** —
+    8 instrumented `src/lib.rs` copies and 16 `madgab-approx-runtime/prof/{results,sum}*.txt`
+    harness outputs. Nothing new in any bucket. **Method caveat, stated so the next pass does not
+    over-read the number:** this pass built its blob set with a `< 2 MB` size filter (1483 blobs),
+    where earlier passes reported ~1512 unfiltered. That can only ever *add* apparent
+    unmatched files, never hide one, and all 24 unmatched files here are themselves far below
+    2 MB — so the "nothing new" conclusion is unaffected by the difference in method.
+  * Durability re-confirmed with `git ls-remote`, not `git branch -a`: `main` = `0267ade`,
+    `post-milestone-acceptance` = `801d3a2` (this log's own previous commit), and
+    `recovery/probe-scaffolding-2026-09-28` = `2408c25` — all matching local refs.
+
+  **Timestamp honesty note.** The `coord-c8e1` entry above records a pass ending `07:26Z` but its
+  commit is stamped `07:20:05Z`, and this pass began at `07:23Z` — i.e. the previous entry's end
+  time was written forward of when its work actually happened. Harmless, but the same class of
+  drift as the `coord-2b7e` filter bug, so it is recorded rather than repeated: this entry's
+  window is the real one.
 
 ## Next action for a fresh pass
 
