@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5e83
-updated: 2026-09-28T10:35:00Z
+owner: coord-7d42
+updated: 2026-09-28T10:42:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -3166,3 +3166,123 @@ census as **no**), but **what, concretely, is the 45-commit divergence between t
     complete product tree** — and (d) the named search direction, a qualitatively different
     whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
     backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-7d42` — thirty-eighth pass, 2026-09-28T10:36Z–10:42Z
+
+**Reconciliation only. No front opened, no agent launched, no item claimed, nothing
+integrated, no `src/` change, `main` untouched at `0267ade` and not written to.** The
+escalation from `coord-5e83` was followed: no hash sweep, no unreachable sweep, no fence
+re-run, no timing re-measurement, no `main`-divergence comparison. The one genuinely useful
+recurring action — at-risk state recovery, per standing rule 4 — turned out to have a real
+gap this pass, and it was closed.
+
+  * **A real at-risk pair was found and archived; rule 10's count was not the log's recorded
+    13 but 2.** `git rev-list --all --not $(git for-each-ref --format='%(refname)')` returned
+    **`a7f08ea`** (*ZZ_AXIS: keep combined as the original expression; pool-neutrality fix and
+    cuts in the dump*) and its parent **`69b5a07`** (*ZZ_AXIS: per-axis population dump for
+    w-2e5b93*), both dated 2026-09-26. These are **not** the pair `coord-9c31` recovered: that
+    pass archived `e9515446` and `921a3b62` from `madgab-clue-objective`, and
+    `git merge-base --is-ancestor` says **no**, both ZZ_AXIS commits, against
+    `recovery/no-ref-commits-2026-09-28`. They are absent from every remote ref
+    (`for-each-ref --contains` empty for both; `git branch -r --contains` empty; not in
+    `tmp`, which sits at the unrelated `fb6a9c6`; and none of the eight `recovery/*` branches
+    contains them — checked individually, 0 of 81 in the wider set below).
+
+  * **Their only holder was a single detached worktree HEAD, and their content was
+    reflog-only even relative to it.** Both commits are reachable only from
+    `/workspace/madgab-scorespread-measure`'s **detached HEAD**, which `git for-each-ref`
+    does not enumerate. That worktree also carries a `rebase-merge/` state directory dated
+    2026-09-26T15:00Z whose `head-name` is `refs/heads/tmp` and whose `orig-head`/`onto` are
+    `fb6a9c6`/`a8bfc27` — i.e. an interactive rebase that ran to completion (`done`,
+    `msgnum`, `end` all present) and was never cleaned up. So the entire `ZZ_AXIS` arm was
+    one `git worktree prune` away from being reflog-only, and reflog-only is what rule 11
+    already records as `gc`-expirable. The content check made it concrete: of the three
+    blobs the two commits touch, `93c51e91` (`src/lib.rs` at `a7f08ea`) is **not in the
+    object set of any ref** — it survived only through reflogs. The other two,
+    `494cc21` and `d1b91e3`, are ref-held (via the unrelated `c4e8d7` scratch line), which
+    is why a *blob*-only sweep would have called this pair durable and been wrong.
+
+  * **Closed by archiving, on a dedicated `recovery/*` branch per rule 5.**
+    `recovery/zz-axis-probe-2026-09-28` at `a7f08ea`, pushed and confirmed by
+    `git ls-remote`. Rule 10's count is now **0**, and `93c51e91` is ref-held. This is the
+    first at-risk commit pair archived in several passes, and it was found by the *rule-10
+    commit* check alone — not by the file sweep, not by `fsck --unreachable`, and not by
+    `git worktree list`, none of which can see a detached worktree HEAD as a holder.
+    Verification caveat, recorded per rule 12's spirit: a `format-patch`/diff of `a7f08ea`
+    did **not** reverse-apply at its own parent `69b5a07` (`patch failed: src/lib.rs:1749`),
+    which is why the branch points at the real commit rather than at a re-derived patch. A
+    verification failure was treated as a signal about the archive method, not as a hunk to
+    nudge.
+
+  * **The `rebase-merge` directory is classified, not at risk, and was left untouched.**
+    `a8bfc27` and `fb6a9c6` are both ref-held, so the rebase's own recovery data has a real
+    holder. The finding worth carrying is the *asymmetry* that let the `ZZ_AXIS` pair hide:
+    the rule-16 sweep over `.git/worktrees/*/` found **5 hits in 5 worktrees** this pass (four
+    `AUTO_MERGE` in `madgab-7b2d40-measure`, `madgab-adjacency`, `madgab-audit-d5a2c1`,
+    `madgab-baseline-1f6c40`, plus the `rebase-merge` in `madgab-scorespread-measure`), where
+    rule 16 recorded 5 in 4 — so a future pass should not treat either count as fixed. The
+    general form is rules 9/10/11/13/14 again: the *inclusion* set (`--all`, which does contain
+    each linked worktree's `HEAD`) and the *exclusion* set (`for-each-ref`, which does not)
+    are built from **different ref universes**, so the check is asymmetric and a
+    worktree-HEAD-held commit reads as at-risk for a reason that has nothing to do with risk.
+
+  * **A larger figure was measured, cross-checked, found to disagree with itself, and
+    deliberately NOT acted on.** `git rev-list --all --reflog --not <refs>` — rule 15's
+    reflog-inclusive standing form — returns **81**, not the 6 stash entries rule 15 is
+    about. The stateless `^`-prefix spelling of the same query returns **1001**. Rule 14 says
+    never believe a bare count from a generated command line, and the two spellings
+    disagreeing by 12× means this number is **not yet a finding**. A first attempt to
+    classify those 81 by "does any touched blob appear in the refs-only object set" returned
+    **363 unique-blob hits**, which is precisely the too-good-to-be-true shape of rules 9 and
+    17 — the comparison set excluded reflog-reachable blobs by construction, so it
+    restated the definition of the class under test instead of measuring loss. **Nothing was
+    archived on the strength of 81 or 363.** A pass that wants to close this must first
+    produce a formulation under which the two spellings agree, and only then classify; if the
+    agreed number is small it is probably mostly `refs/stash`'s reflog, which rule 15 says
+    is already recovered to `recovery/stash-reflog-2026-09-28`.
+
+  * **Census reproduced exactly, after two wrong denominators of my own.**
+    **87 `done`, 12 `superseded`, 2 `open` (the two protocol placeholders, neither
+    claimable), 1 `working` (this log), 0 `blocked` — 102 items**, byte-for-byte the durable
+    figure, using `coord-5e83`'s recorded command. For the record, because I walked into it
+    twice: `docs/work/items/*.md` alone gives **98** and silently drops four items, while
+    `docs/work/items/*.md docs/work/*.md` gives **131** and silently adds 29 files that are
+    reports, `TEMPLATE.md` and the like, yielding a fictitious `produced` state. The
+    denominator is the set of files carrying `work_item: true`, and nothing else. This is the
+    log's recurring pattern for the eighth time.
+
+  * **Other cheap checks, clean and identical to the last pass.** `git ls-remote`: `main` =
+    `0267ade` (untouched, remote-only; `git rev-parse refs/heads/main` still fails), and
+    **all eight** `recovery/*` branches verified individually local-vs-remote this pass —
+    `2408c25`, `6b21857`, `cc666db`, `52b38c9`, `a1d7425`, `134c0ed`, `a91f71d`, and the new
+    `a7f08ea` — eight `OK`, zero mismatches. The accumulation branch was pushed, never
+    `main`. **No MadGab agent alive or claimable**: every `running` agent host-wide
+    (`8b1`, `97d1`, `74a1`, `71e1`, `12f1`, `94e3`, `92c1`, `73f1`, `76a1`, `72a1`) belongs
+    to another repository and was left running and untouched; `3a8f01`/`3a8f02` remain
+    `stopped` on superseded items and were left stopped. No rebase, stash, index or worktree
+    state was cleared. The remote holds **190** heads and the narrow fetch refspec was worked
+    around with an explicit `+refs/heads/*:refs/remotes/audit/*` fetch, per rule 10.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-fourth time and declined for the thirty-fourth time.** It restates the
+    programme's standing goal and asks for fronts, claims and agents; the itinerary
+    (`## Status: accepted and paused`) forbids all three without an explicit human
+    instruction, which has not been given. Its *no-hard-coding* half is discharged on the
+    merits and untouched here: no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte
+    changed, the only path this pass wrote is this log, and no canonical phrase appears
+    anywhere in its output. The pause and its documented limitation stand.
+
+  * **Next useful action, and it is no longer only the gate question.** The gate question is
+    unchanged — *is MadGab development being reopened?* — and still only a human can answer
+    it. But this pass found work that is **not** gated on it, so the standing recommendation
+    is: a thirty-ninth pass should (a) re-run rule 10 once to confirm it is still **0**,
+    (b) settle the **81-vs-1001** disagreement above before any archiving is considered, and
+    (c) add a new fact about the accepted state rather than re-running the hash sweep, the
+    unreachable sweep, the fence, the timings or the `main`-divergence comparison, all of
+    which now have reproducible numbers. If the gate answer is yes, the first work in order
+    is (a) rule 29's binding check before quoting any timing, (b) `coord-1c8e`'s three
+    measurement-infrastructure corrections in their stated order, (c) **cut the branch from
+    `main`, which `coord-5e83` showed is a complete product tree**, and (d) the named search
+    direction — a qualitatively different whole-path algorithm (compact pronunciation DAG
+    with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+    phrase-specific hard-coding.
