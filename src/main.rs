@@ -8,6 +8,7 @@
 //!
 //!     madgab "It's just a stupid game"
 //!     madgab --top 20 --max-rarity 50000 "Coors light"
+//!     madgab --approximate "recognize speech" --pool-rank "wreck a nice beach"
 //!     madgab --transcribe "It's just a stupid game"   # IPA-only debug
 //!
 //! Build is a single binary that embeds the 15 MB transcription
@@ -43,6 +44,11 @@ Options:
   --total-budget COST      Approximate-mode: max total substitution cost (default 1.5).
   --pool-rank        Also report each proposal's rank in the scored candidate
                      pool, not just its display position. Costs a second search.
+  --pool-rank CLUE   Placed AFTER the target phrase: report only where CLUE
+                     stands in the scored pool for that target. Prints either a
+                     rank, or an explicit absent-from-pool statement. Absent is
+                     a finding, not a failure: it exits 3, while a real error
+                     exits 1 or 2. Costs a second search.
   --transcribe       Print the target's IPA stream and exit.
   --help             This message.
 ";
@@ -160,6 +166,31 @@ fn main() -> ExitCode {
         }
     }
 
+    // A trailing `--pool-rank` — one that appears *after* the target phrase,
+    // as in `madgab --approximate "<target>" --pool-rank "<clue>"` — is a
+    // query about one clue rather than an annotation of every row. The
+    // pre-target form above stays the annotate-every-row form, so the two
+    // spellings are distinguishable by position alone and neither changes
+    // what the other means.
+    //
+    // Splitting on the literal token rather than reworking the flag loop keeps
+    // the default path bit-for-bit: with no trailing token, `target` is
+    // computed exactly as it always was.
+    let mut query_for: Option<String> = None;
+    if let Some(at) = args.iter().position(|a| a == "--pool-rank") {
+        let rest = args.split_off(at);
+        // Drop the token itself; whatever follows is the clue to look for.
+        let clue = rest[1..].join(" ");
+        if clue.trim().is_empty() {
+            // A trailing form with no clue is a mistake, not a request: the
+            // pre-target form is the one that takes no argument.
+            eprintln!("madgab: --pool-rank after the target needs a clue to look for");
+            eprintln!("\n{USAGE}");
+            return ExitCode::from(2);
+        }
+        query_for = Some(clue);
+    }
+
     if args.is_empty() {
         eprintln!("madgab: missing <target phrase>\n\n{USAGE}");
         return ExitCode::from(2);
@@ -210,10 +241,18 @@ fn main() -> ExitCode {
         // below describe the printed rows. This is why the flag is opt-in:
         // the default path pays no extra search for the size it now reports.
         let started_pool = std::time::Instant::now();
-        let pool_ranks: Option<Vec<Option<usize>>> = if show_pool_rank {
-            Some(pool_ranks_of(&generator.generate_pool(&target), &clues))
+        let needs_pool = show_pool_rank || query_for.is_some();
+        let pool: Option<Vec<madgab::Clue>> = if needs_pool {
+            Some(generator.generate_pool(&target))
         } else {
             None
+        };
+        // Annotation of the printed rows happens only for the pre-target
+        // `--pool-rank`; a query about one clue leaves the rows alone, so a
+        // query never turns into an annotation.
+        let pool_ranks: Option<Vec<Option<usize>>> = match (show_pool_rank, &pool) {
+            (true, Some(p)) => Some(pool_ranks_of(p, &clues)),
+            _ => None,
         };
         let pool_ms = started_pool.elapsed().as_millis();
 
@@ -249,7 +288,81 @@ fn main() -> ExitCode {
                 )
             );
         }
-        ExitCode::SUCCESS
+
+        match query_for {
+            None => ExitCode::SUCCESS,
+            Some(clue) => report_query_rank(&clue, pool.as_deref().unwrap_or(&[]), &clues, pool_size),
+        }
+    }
+}
+
+/// Exit code for "the search succeeded and the clue is not in the pool".
+///
+/// Deliberately distinct from `1` (a real failure: corpus load, or no clue
+/// coverings at all) and from `2` (a usage error). Absence is a *finding* —
+/// the pool was built and the clue is not in it — and this repository's
+/// standing confusion is exactly the kind this separates: "was not generated"
+/// and "generated but did not make the display" are different facts, and a
+/// caller that reads either as "the run failed" is wrong.
+const ABSENT_FROM_POOL: u8 = 3;
+
+/// Where a user-supplied clue stands in the scored pool, or the statement
+/// that it is not there.
+///
+/// The two outcomes are worded so that neither can be misread as the other
+/// or as a failure: a hit names a rank *and* says whether it also made the
+/// display, and a miss says the clue was **not generated** into a pool of a
+/// stated size, which is a statement about emission rather than about
+/// ranking.
+fn report_query_rank(
+    clue: &str,
+    pool: &[madgab::Clue],
+    displayed: &[madgab::Clue],
+    pool_size: usize,
+) -> ExitCode {
+    let wanted = clue.trim().to_lowercase();
+    let wanted = wanted.split_whitespace().collect::<Vec<_>>().join(" ");
+    let match_in = |list: &[madgab::Clue]| {
+        list.iter().position(|c| {
+            c.phrase
+                .trim()
+                .to_lowercase()
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                == wanted
+        })
+    };
+
+    match match_in(pool) {
+        Some(at) => {
+            let display_position = match_in(displayed).map(|i| i + 1);
+            match display_position {
+                Some(d) => println!(
+                    "pool-rank: {clue:?} is pool rank {} of {pool_size}; displayed at {d}",
+                    at + 1
+                ),
+                None => println!(
+                    "pool-rank: {clue:?} is pool rank {} of {pool_size}; NOT in the display \
+                     (generated, then ranked out of the top {} shown)",
+                    at + 1,
+                    displayed.len()
+                ),
+            }
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!(
+                "pool-rank: {clue:?} is ABSENT from the pool: not generated at all, out of a \
+                 pool of {pool_size} scored candidates."
+            );
+            eprintln!(
+                "  This is a finding, not a failure: the run succeeded and the clue was never \
+                 built."
+            );
+            eprintln!("  Absence is not the same as ranking out of the display.");
+            ExitCode::from(ABSENT_FROM_POOL)
+        }
     }
 }
 
