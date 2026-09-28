@@ -2459,6 +2459,49 @@ impl Generator {
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
 
+        if std::env::var("ZZ_PRINCE_STATS").is_ok() {
+            let shown = select_diverse(clues.clone(), self.config.top_n);
+            let needle: Vec<String> = std::env::var("ZZ_PRINCE_NEEDLE")
+                .unwrap_or_default()
+                .split_whitespace()
+                .map(|s| s.to_lowercase())
+                .collect();
+            let mut printed_rank = None;
+            let mut pool_rank = None;
+            for (i, c) in clues.iter().enumerate() {
+                let w: Vec<String> =
+                    c.phrase.split_whitespace().map(|s| s.to_lowercase()).collect();
+                let hit = !needle.is_empty() && w == needle;
+                if hit && pool_rank.is_none() {
+                    pool_rank = Some(i + 1);
+                }
+                if hit {
+                    printed_rank = Some(i + 1);
+                }
+            }
+            let mut pr = printed_rank;
+            for (i, c) in shown.iter().enumerate() {
+                let w: Vec<String> =
+                    c.phrase.split_whitespace().map(|s| s.to_lowercase()).collect();
+                if !needle.is_empty() && w == needle {
+                    pr = Some(i + 1);
+                    break;
+                }
+            }
+            let mut mean_score = 0.0;
+            for c in &shown {
+                mean_score += c.score;
+            }
+            eprintln!(
+                "[prince] pool={} shown={} printed_rank={:?} pool_rank={:?} shown_mean_score={:.9}",
+                pool_size,
+                shown.len(),
+                pr,
+                pool_rank,
+                if shown.is_empty() { 0.0 } else { mean_score / shown.len() as f64 }
+            );
+        }
+
         (
             select_diverse(clues.clone(), self.config.top_n),
             pool_size,
@@ -3455,6 +3498,7 @@ fn prune_partials(
         return Vec::new();
     }
 
+    let n_candidates = candidates.len();
     let score_of = |p: &Partial| {
         p.metrics(
             target_boundaries,
@@ -3498,6 +3542,23 @@ fn prune_partials(
     items.sort_by(|a, b| a.key.cmp(&b.key));
 
     let trace_needle: Option<String> = std::env::var("ZZ_PRUNE_NEEDLE").ok();
+    if std::env::var("ZZ_PRUNE_STATS").is_ok() {
+        use std::sync::atomic::Ordering::Relaxed;
+        static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        static ITEMS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        static KEPT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let c = CALLS.fetch_add(1, Relaxed) + 1;
+        ITEMS.fetch_add(n_candidates as u64, Relaxed);
+        KEPT.fetch_add(k as u64, Relaxed);
+        if c % 1000 == 0 {
+            eprintln!(
+                "[prune-stats] calls={} candidates={} kept_slots={}",
+                CALLS.load(Relaxed),
+                ITEMS.load(Relaxed),
+                KEPT.load(Relaxed)
+            );
+        }
+    }
     let trace_on = trace_needle.is_some()
         && match std::env::var("ZZ_PRUNE_POS").ok().and_then(|s| s.parse::<usize>().ok()) {
             Some(want) => want == trace_pos,

@@ -44,4 +44,7 @@ fn main() {
         beam, top_n, pool.len(), el.as_secs_f64(), rank, deep,
         pool.iter().take(10).map(|c| c.phrase.as_str()).collect::<Vec<_>>()
     );
+    if std::env::var("ZZ_SCORE_STATS").is_ok() {
+        let _ = pool.len();
+    }
 }
