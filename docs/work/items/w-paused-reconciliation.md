@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3f9c
-updated: 2026-09-28T11:38:00Z
+owner: coord-5b7e
+updated: 2026-09-28T11:25:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -434,6 +434,58 @@ instruction.
     enumerates the very refs the `^` specs then negate, so the two spellings of "the reachable
     set" are only interchangeable when no negation is present.
 
+36. **A loop assertion that fails on its first iteration has produced evidence about one case,
+    and a sibling predicate is usually the one that actually certifies the claim.** Rules 23–25
+    asked whether the accepted state still describes the program that is built, and stopped at the
+    observation that case 2's absence is carried by an `#[ignore]`. The untried step is to force
+    *every* `#[ignore]` that names the same limitation and see which assertion each one fails.
+    Measured here, the two are not interchangeable, and the reason is structural rather than
+    accidental:
+    * The library-side predicate (in `tests/corpus_integration.rs`) is a single assertion over one
+      run. Forced with `--ignored`, it fails on the **pool-absence** claim, which is exactly what
+      the accepted-state document asserts, and its failure output is a list of near-misses that
+      contain none of the wanted words. One case, one conclusion, and the conclusion is the
+      documented one.
+    * The CLI-side predicate (in `tests/cli_milestone_predicate.rs`) is a **loop over four
+      `--top` values**, and forced with `--ignored` it fails at `--top 10` and never executes the
+      other three. Its own doc comment says "run with `--ignored` to check it", so a reader
+      reasonably takes the run as covering the sweep. It does not: as written it cannot
+      distinguish *absent at 10* from *absent at every width*, and a future front that fixed reach at
+      `--top 200` would leave this predicate still red, telling the reader the limitation is total
+      when it is not.
+    * The claim is nonetheless closed here, but **by an external measurement, not by the
+      predicate**: driving the shipped binary at all four widths returns 0 matches for the
+      canonical clue at each, against a positive control (a known-displayed line matches the same
+      probe) and a negative control (the case-1 target's clue does match it). Per rule 33 the 0 is
+      therefore trustworthy; per rule 14 it is not the predicate's number.
+    * The predicate that *does* certify the limitation is the **non-ignored** sibling that sweeps
+      all seven documented knob combinations, which is why rule 23's fix (keep the gap visible in a
+      non-ignored test) is load-bearing in a way the two ignored twins are not.
+    The general form, and it is rule 23's argument applied one level down: **when two or more
+    predicates describe one limitation, establish which of them is load-bearing before quoting any
+    of them** — a predicate's strength is set by the *worst case it covers*, and a fail-fast loop
+    covers exactly one case while advertising a sweep. Read the loop bounds, not the doc comment.
+    Corollary for a reopened programme: if case 2 is ever fixed, `canonical_case_two_is_displayed`
+    is the first thing that will pass, and the `--top 10` iteration is the one that has been
+    failing; the other three have never been observed to pass *or* fail.
+
+37. **A set-membership probe whose subject is a ref namespace must be given the refs, and an
+    unexpandable glob fails as an empty set, not as an error.** This is the twin of rule 35 and of
+    the `coord-3f9c` self-correction that recorded a `fatal: ambiguous argument` as a delta of
+    `−5516`. `refs/remotes/audit/*` is a *ref* namespace: the shell does not expand it (there is
+    no such file), so `git rev-list --objects refs/remotes/audit/*` receives a literal that is not
+    a rev, writes to stderr, and emits **zero** objects. Piped into a membership test, an empty
+    durable set makes *every* object look absent — this pass's first run "proved" that a source
+    blob held by an unpushed local-only branch was unarchived, which is the opposite of the truth.
+    The only reason it was caught is rule 35's guard: the input count printed **0** and a durable
+    set of 0 is not a durable set. **Bracket the probe's input too, not only its result** — a
+    ref-list pipeline that yields no refs must be treated as a broken command, never as a
+    measurement. Correct form, which returns **5512** objects over **188** refs:
+    `REFS=$(git for-each-ref refs/remotes/audit/ --format='%(refname)'); git rev-list --objects $REFS`.
+    Note the sibling trap in the same command: a `comm` between remote and audit ref *names* must
+    strip the `refs/heads/` and `refs/remotes/audit/` prefixes on the two sides before comparing,
+    or it reports all 188 refs as mismatched (rule 22's field bug, third occurrence).
+
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
 * Work items: **87 `done`, 12 `superseded`, 0 `open`, 0 `blocked`, 0 `working`.** The only
@@ -468,7 +520,26 @@ none has been validated on this host.
 | `a279cc8` | `madgab-poolrank-3a8f02` (pushed) | `w-3a8f02`'s `--pool-rank "<clue>"` CLI query form. **Default-output invariance was never proven**; a default-output change is a hard reject for that item regardless of feature quality. |
 | `90d691e` | `scratch/c1d3a7-measure` (pushed) | The `ZZ_INJECT` tuple-injection measurement hook recovered by this pass. Scratch instrumentation, env-gated. |
 
-## Archived measurement scaffolding (this pass)
+## Deliberately unpushable bulk (recorded `coord-5b7e`, 2026-09-28T11:25Z)
+
+Closes item (b) of the forty-fourth pass. `514ed91` (branch `scratch-3f8c62-landed`, local-only,
+never pushed) carries **329 files / ~336 MB** under `target-base/`, plus **one** non-build path,
+`src/lib.rs` = `f86907c9`. The only fence against that bulk is a reviewer noticing, because the
+three-line `.gitignore` on all ten `recovery/*` branches anchors `/target/` and therefore does not
+match `target-base/`, `target-front-3a8f01/` or `target-front-3a8f02/` (proved by control in the
+forty-fourth pass). Re-verified here:
+
+* the branch tip is still absent from `git ls-remote` — nothing has been pushed in the meantime;
+* the single non-build blob `f86907c9` **is** already in the durable object set (5512 objects over
+  188 remote refs), so pushing the branch would gain **no** source content and cost 336 MB of
+  Cargo output.
+
+**Standing instruction: `scratch-3f8c62-landed` is deliberately unpushable.** Do not push it, and
+do not delete it — deleting parked research history is not a coordinator's act while paused
+(itinerary rule 2). If a future pass needs that content, take `f86907c9` from the remote object
+set, not the branch.
+
+
 
 `recovery/probe-scaffolding-2026-09-28` = `51ebdd1`, pushed, **not merged**:
 
@@ -4101,3 +4172,83 @@ wrong, and the pass's new fact is a standing rule about a check that could not s
     qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
     A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
     hard-coding.
+
+### `coord-5b7e` — forty-fifth pass, 2026-09-28T11:21Z–11:25Z
+
+**The forty-fourth pass left four items. Three are closed here — one by measurement that answers
+its question *no*, one by recording, one by a correct count — and the pass's new fact is rule 36.**
+
+  * **(a) The gate is still closed, so nothing was launched, claimed, resumed or integrated.** The
+    recurring prompt's "prioritize the canonical approximate-search examples" clause is read for the
+    **ninth** time against the itinerary's pause gate: it restates the programme's standing goal,
+    and reopening still requires an explicit human instruction, which has not been given. The
+    standing answer is unchanged — the gate question (*is MadGab development being reopened?*) is
+    the one thing no pass can answer from the repository, and it is now nine passes old.
+  * **(b) Prescribed cheap checks, all unchanged, and the ref-set agreement is now verified in the
+    right direction.** `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` → **188** remote
+    heads, **188** audit refs, `comm` empty **both** ways (per rule 37 the two sides are prefix-
+    stripped first; the first run of this pass did not, and reported all 188 as mismatched — the
+    third occurrence of rule 22's field bug). Rule 10 returns **11**, and rule 30's second
+    sanctioned spelling independently returns **11**. Worktree clean (`-uall` = 0).
+    `git ls-remote`: `main` = `0267ade` (untouched, no local `main` ref), all ten `recovery/*`
+    branches present, `post-milestone-acceptance` in sync at `5a1d53c`. Agent census: no MadGab
+    agent alive; the single nonterminal entry host-wide is `a11d` in `/tmp/cwd-7ze5eU`, another
+    repository's, left running per the contract.
+  * **(c) Classification of the 11 at-risk commits, per rule 11 — the holder census is the
+    durable part.** Six sit in local-only `scratch/*` branches, two are `refs/stash` entries beyond
+    `stash@{0}` (rule 15's blind spot, already archived to `recovery/stash-reflog-2026-09-28`), and
+    four are held only by stale `refs/remotes/origin/*` names that `ls-remote` does not confirm
+    (rule 11's unproven class). Then the object-level closure, computed properly: of the **3637**
+    objects reachable from the 11, **344** are absent from the durable set, and after the rule 9
+    build-output filter **37** remain — and those 37 are **11 commits and 26 trees, zero blobs**,
+    bracketed as 11+26=37 and 344 ≤ 3637 per rule 35. **No content is at risk.** (A first run of
+    this reported 0 durable objects and "the source blob is unarchived", i.e. the mirror-image
+    failure of rule 35, now rule 37.)
+  * **(d) `target-base/`, closed by recording rather than by acting** — see the new
+    "Deliberately unpushable bulk" section above. Nothing pushed, nothing deleted.
+  * **The new fact answers the forty-fourth pass's question (iii) and the answer is *no*: the
+    `#[ignore]`d case-2 predicate is not the predicate that certifies the limitation.** Forcing
+    every `#[ignore]` that names case 2 (rule 36) shows the two are not interchangeable. The
+    library-side one fails on the **pool-absence** claim the accepted-state document actually
+    makes, and its near-miss output contains none of the wanted words — the documented claim is
+    still literally true of the current tree. The CLI-side one is a **loop over four `--top`
+    values** that fails at the first and never runs the other three, while its doc comment
+    advertises the whole sweep. The claim survives, but on external evidence: the shipped binary
+    was driven at all four widths and returns 0 matches at each, against a positive control (a
+    known-displayed line matches the same probe) and a negative control (the case-1 target's clue
+    matches it), so the 0 is trustworthy per rule 33 and is *not* the predicate's number.
+    **The load-bearing witness is the non-ignored seven-knob sibling**, which is green as of this
+    pass (3 passed / 1 ignored / 34.33 s) — which is precisely why rule 23's fix works.
+  * **The other half of the accepted state is still green**, checked rather than cited: the
+    case-1 library predicate passes (1.49 s), and the CLI suite is 3 passed / 1 ignored. Rule 29's
+    binding check was run *before* any of these numbers were read: newest input `05:19:07Z` versus
+    the test binaries at `08:05:49Z`/`08:06:06Z`, so every binary is newer than every input and the
+    timings describe this tree. Incidental confirmation of the accepted-state pool figure: 14549
+    scored candidates at expansion 1454.9× for case 2, 18301 at 366.0× for case 1.
+  * **Two errors of my own, recorded because they are this log's own recurring class and one of
+    them nearly invented a finding.** The `refs/remotes/audit/*` glob above is rule 37's subject
+    and would have reported an unarchived source blob that is in fact already durable. The
+    prefix-mismatched `comm` is rule 22's field bug. Both were caught by printing the *inputs*,
+    which is the whole content of rules 35 and 37.
+  * **State otherwise unchanged.** No `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte was
+    touched, no `#[ignore]` was flipped in the tree (the predicates were forced with a runtime flag
+    only, per rule 23's corollary), and **no canonical phrase appears in this entry** — every
+    artefact is named by path, test name, marker or sha, so the "no phrase-specific hard-coding"
+    half of the recurring prompt is discharged on the merits. Nothing merged; nothing pushed to
+    `main`. `refs/remotes/audit/*` is left fetched and matching the remote 188/188, as the previous
+    pass left it.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can answer
+    it. (ii) The `target-base/` residue needs no further action; the standing instruction is
+    recorded. (iii) Rules 23–25's line is the only one still yielding facts, and it is now
+    exhausted on case 2: the limitation has been forced on both surfaces, its certifying predicate
+    identified, its absence measured at four widths with controls, and its case-1 counterpart
+    re-verified. **A future pass should not force these predicates a fourth time**; the untried
+    question in that family is whether the *other* `#[ignore]`d front verdicts recorded in
+    `src/lib.rs` (there are **11** bare `#[ignore]`s plus **1** reasoned one there, and **2**
+    reasoned ones under `tests/`) still describe the
+    shipped default — the same read-the-reason-string move rule 23 already made for case 2, applied
+    to the fronts whose verdicts are `HOLD`. (iv) If the gate answer is ever yes, the order is
+    unchanged: rule 29's binding check before any timing is quoted, `coord-1c8e`'s three
+    measurement corrections, **cut the branch from `main`**, and the named direction — a
+    qualitatively different whole-path algorithm (compact pronunciation DAG with k-best / A*-style
+    search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
