@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4d31
-updated: 2026-09-28T08:12:00Z
+owner: coord-7b5e
+updated: 2026-09-28T08:16:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -780,3 +780,31 @@ left is not discoverable from the repository. The one improvement available with
 now made — the accepted state is verified by execution — so a fourteenth pass should not re-run
 the hash sweep, and should re-run the fence *only* if the accepted head or its tests change.
 
+
+### `coord-7b5e` — fourteenth pass, 2026-09-28T08:09Z–08:16Z
+
+Fourteenth consecutive clean reconciliation; **recorded as a single line and exited**, per the
+cadence allowance, with only the cheap checks run. Hash sweep not re-run and the fence not
+re-run, because the accepted head's *content* is unchanged since `coord-4d31` verified it green
+by execution: `post-milestone-acceptance` has advanced only by this log's own commits
+(`a676176` → `99bb7d6`), so the green fence result still holds and re-running it would only
+confirm. `git ls-remote`: `main` = `0267ade` (untouched, remote-only, no local `main` ref),
+`post-milestone-acceptance` = `99bb7d6` (0 ahead / 0 behind after fetch),
+`recovery/probe-scaffolding-2026-09-28` = `2408c25` still on the remote. Worktree clean. Item
+census 83 `done` / 11 `superseded` / 1 `working` (this log), **no `open` item to claim** — the
+two previously reported `open` protocol placeholders are gone. No MadGab agent alive:
+`3a8f01`/`3a8f02` remain `stopped` and belong to superseded items, left stopped deliberately;
+every other nonterminal agent is another repository and was not touched. Nothing launched,
+resumed, claimed, merged or pushed to `main`; this entry is the pass's only commit.
+
+The recurring instruction to prioritise the canonical approximate-search examples without
+phrase-specific hard-coding was read against the itinerary's pause gate for the **tenth** time
+and declined for the tenth time: it restates the programme's standing goal, and reopening
+requires an explicit human instruction, which has not been given. The pause and its documented
+limitation stand unchanged; if development is ever reopened, the named direction is still a
+qualitatively different whole-path algorithm (compact pronunciation DAG with k-best / A*-style
+search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+**Escalation, now fourteen passes deep, and the recommendation is unchanged: ask the human gate
+question — is MadGab development being reopened?** Nothing in the repository can answer it, and
+a fifteenth pass has no cheaper check left to run than the three run here.
