@@ -3503,9 +3503,29 @@ fn prune_partials(
             Some(want) => want == trace_pos,
             None => true,
         };
-    let traced: Option<usize> = trace_needle
-        .as_ref()
-        .and_then(|needle| items.iter().position(|p| p.key.contains(needle.as_str())));
+    let traced: Option<usize> = trace_needle.as_ref().and_then(|needle| {
+        if let Some(want) = std::env::var("ZZ_PRUNE_WORDS").ok().and_then(|s| s.parse::<usize>().ok()) {
+            let w: Vec<&str> = needle.split_whitespace().collect();
+            return items.iter().position(|p| {
+                let head: Vec<&str> = p.key.split(' ').take(want).collect();
+                head.len() == want
+                    && head
+                        .iter()
+                        .zip(w.iter())
+                        .all(|(a, b)| a.split('\u{1f}').next() == Some(*b))
+            });
+        }
+        let pre = std::env::var("ZZ_PRUNE_PREFIX").is_ok();
+        items
+            .iter()
+            .position(|p| {
+                if pre {
+                    p.key.starts_with(needle.as_str())
+                } else {
+                    p.key.contains(needle.as_str())
+                }
+            })
+    });
 
     if trace_on {
         eprintln!(
@@ -3628,7 +3648,49 @@ fn prune_partials(
         rank += 1;
     }
 
-    if trace_on {
+    if trace_on && traced.is_some() {
+        let t = traced.expect("gated on traced.is_some()");
+        let order_rank = |o: usize| {
+            orders[o]
+                .iter()
+                .position(|&i| i == t)
+                .map(|r| r + 1)
+                .unwrap_or(0)
+        };
+        let mut kept_combined: Vec<f64> = Vec::new();
+        let mut kept_cost: Vec<f64> = Vec::new();
+        for (i, m) in metrics.iter().enumerate() {
+            if selected.contains(&i) {
+                kept_combined.push(m.combined);
+                kept_cost.push(items[i].sub_cost_total);
+            }
+        }
+        kept_combined.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        kept_cost.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        eprintln!(
+            "[prune] pos={} k={} deduped={} selected={} protected={} combined={:.6} cost={:.6} rank_comb={} rank_nov={} rank_fam={} rank_aco={} rank_lex={} rank_rhy={} rank_con={} keep_comb_min={:.6} keep_comb_max={:.6} keep_cost_max={:.6} key={}",
+            trace_pos,
+            k,
+            items.len(),
+            selected.contains(&t),
+            protected_all.contains(&t),
+            metrics[t].combined,
+            items[t].sub_cost_total,
+            order_rank(0),
+            order_rank(1),
+            order_rank(2),
+            order_rank(3),
+            order_rank(4),
+            order_rank(5),
+            order_rank(6),
+            kept_combined.first().copied().unwrap_or(0.0),
+            kept_combined.last().copied().unwrap_or(0.0),
+            kept_cost.last().copied().unwrap_or(0.0),
+            items[t].key.replace('\u{1f}', "|"),
+        );
+    }
+
+    if trace_on && traced.is_some() {
         let names = [
             "combined",
             "novelty",
