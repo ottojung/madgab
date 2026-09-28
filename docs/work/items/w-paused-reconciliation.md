@@ -63,6 +63,30 @@ instruction.
    broken filter than a discovery, and archiving 2.7 GB of Cargo output would have wasted the
    pass and dirtied the recovery branch.
 
+10. **The file sweep cannot see unpushed commits, and it is structurally blind to them.** Rules
+    6, 7 and 8 all hash a live *file* against `git rev-list --objects --all`. That ref set
+    **includes local branches**, so content existing only in a commit on a local-only branch
+    always hashes as "archived" — satisfied by the very ref that would be lost. A file sweep can
+    therefore never report an unpushed commit as at risk, no matter how many times it is run.
+    Sixteen passes ran that sweep and correctly found nothing at risk, and the answer was still
+    incomplete. The check that does see it is on *commits*:
+    `git rev-list --all --not <all remote heads>`.
+    Two traps, both hit for real:
+    * **The fetch refspec is narrow.** `.git/config` fetches only
+      `+refs/heads/post-milestone-acceptance:refs/remotes/origin/post-milestone-acceptance`, so
+      `refs/remotes/` held only **19** stale entries while the remote has **179** heads. A
+      containment or `git branch -a` check against it reports **false negatives** — every branch
+      looks unbacked. Fetch explicitly first:
+      `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`, and delete the scratch namespace
+      when done. This is the same class of error as rule 9's filter bug: a check that looks
+      stricter than it is, returning a number that reads alarming and is wrong.
+    * **`git branch -a` and `git ls-remote` disagree about the same branch on purpose** (see the
+      `coord-2b7e` entry). `git ls-remote` is authoritative for *what is on the remote*;
+      containment must be computed against a *fetched* ref set, since `ls-remote` alone cannot
+      answer "is this commit an ancestor of that head".
+    Run the commit check, not the file check, when asked whether anything is at risk. It is
+    cheaper than the file sweep — two commands, no hashing.
+
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
 * Work items: **87 `done`, 12 `superseded`, 0 `open`, 0 `blocked`, 0 `working`.** The only
@@ -875,3 +899,69 @@ several passes produced one datum each, and each came from asking a *new questio
 from sweeping harder. A seventeenth pass has no check left whose result is not already recorded
 above; if it wants to add something, the cheap way is a new question about the accepted state, not
 a thirteenth hash sweep.
+
+### `coord-11b9` — seventeenth pass, 2026-09-28T08:24Z–08:45Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** But this pass found something, and the reason it found it after
+sixteen passes that did not is the most useful thing in this log: the last sixteen passes asked a
+question they had already been told the answer to, and this one asked the question they had not.
+
+  * **Cheap checks, unchanged.** `git ls-remote`: `main` = `0267ade` (untouched, remote-only, no
+    local `main` ref), `post-milestone-acceptance` = `185bff9` (0 ahead / 0 behind after fetch),
+    `recovery/probe-scaffolding-2026-09-28` = `2408c25`. Worktree clean. Census re-derived with a
+    parser that respects the `work_item: true` header: **101** real work items = 87 `done`,
+    12 `superseded`, 1 `open` (`docs/work/TEMPLATE.md`, placeholder `w-000000`, not claimable),
+    1 `working` (this log). Separately, 10 files carry a `state:` frontmatter key but **no
+    `work_item: true`** — the `REPORT-*.md` files and `OBSTRUCTION-MAP.md` — so they are not
+    discoverable as work items and must not be counted as either open or closed. This is the
+    correct reading of the three mutually inconsistent censuses earlier passes recorded, and it
+    is the fourth time the log has been bitten by it: **count a work item only if
+    `work_item: true` is in its header.**
+  * **New standing rule 10, above.** The file sweep is structurally blind to unpushed commits,
+    and this pass recovered real at-risk state with two `git rev-list` commands that the sweep
+    could not have found at any depth. Sixteen clean sweeps were not a sign the check was
+    thorough; they were a sign it could not see a whole class of object. The lesson generalises
+    past this repository: *a check that returns "nothing wrong" repeatedly is evidence about the
+    check's sensitivity, not about the system* — which is what the `coord-8c13` sampling note was
+    reaching for when it guessed the right question was a human gate. It was a coverage gap.
+  * **Recovery, on its own branch per standing rule 5.** `recovery/unpushed-commits-2026-09-28`
+    = **`6b21857`**, pushed, **not merged**. Five at-risk commits on four local-only branches,
+    archived as source-only `format-patch`es under `docs/work/unpushed-patches/` with per-file
+    provenance: `fc3a930` (`w-d4e8b1` phonetic-cost probe), `514ed91` (the landed C1d axis),
+    `c06953a` + `b4a3009` (`w-0f3a17` per-slot shortlist probes), `cf44be7` (`w-4d1e93` F5/F6
+    parsimony probe, including the 143-line `tests/probe_f5f6.rs` that exists nowhere else in the
+    tree). The 352 MB of `target-base/` Cargo output on `scratch-3f8c62-landed` is excluded.
+  * **Verified by forward application, which is stronger than standing rule 7.** A throwaway
+    worktree at each commit's parent, patch applied, resulting blobs compared by `git rev-parse`
+    against the at-risk commit: all five `MATCH` on `src/lib.rs`, plus `src/approx.rs` for
+    `fc3a930` and `tests/probe_f5f6.rs` for `cf44be7`. Rule 7's `git apply --check --reverse`
+    only proves a live worktree is *consistent with* an archived diff; this proves the diff
+    *produces* the lost bytes. **Rule 10 now says to verify new archives this way.**
+  * **`scratch-3f8c62-landed` remains "never to be integrated"**, exactly as `w-3f8c62` records
+    it. Archiving is not promoting, and nothing here is a merge candidate. The
+    phrase-hard-coding fence note in the new README repeats standing practice: these patches
+    contain canonical phrases as instrumentation, `docs/` is not scanned by
+    `tests/no_phrase_hard_coding.rs`, `ALLOWLIST_CAPS` is unchanged, and any future promotion
+    must strip the literals rather than waive them.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  thirteenth time and declined for the thirteenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits: the fence-scanned surface
+  (`src/ tests/ web/ examples/ Cargo.toml`) was re-confirmed **byte-identical** to `a676176`, the
+  head `coord-4d31` ran green by execution, so that result holds by content and the fence was not
+  re-run. The pause and its documented limitation stand. If development is ever reopened, the
+  named direction is still a qualitatively different whole-path algorithm (compact pronunciation
+  DAG with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+  phrase-specific hard-coding.
+
+  **On the escalation, which is now partly superseded.** The recommendation to ask the human
+  gate question was right, and it was also a symptom: sixteen passes converged on "nothing left
+  to do" because the one check they ran could not fail. The gate question is still the thing only
+  a human can answer, but it was reached too early, by a check that was insensitive. **A future
+  pass should run the commit-level check in rule 10 — two commands — before concluding the
+  repository has nothing left.** The file sweep is now known to be the wrong default, and the
+  next open question is not a deeper sweep but a different *kind* of one: the same coverage
+  argument applies to the 184 remote branches and 125 worktrees, which have been treated as
+  settled history on the strength of a local-only check.
