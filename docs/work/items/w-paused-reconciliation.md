@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5b7e
-updated: 2026-09-28T11:25:00Z
+owner: coord-9a3e
+updated: 2026-09-28T11:35:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -485,6 +485,37 @@ instruction.
     Note the sibling trap in the same command: a `comm` between remote and audit ref *names* must
     strip the `refs/heads/` and `refs/remotes/audit/` prefixes on the two sides before comparing,
     or it reports all 188 refs as mismatched (rule 22's field bug, third occurrence).
+
+38. **Rule 10's ref set is an *exclusion* set, so a stale `refs/remotes/origin/*` entry does not
+    make the check stricter — it makes it silently blind, and its error runs in the reassuring
+    direction.** Rules 10 and 37 both say to fetch the remote explicitly into
+    `refs/remotes/audit/*` and exclude that. This pass ran rule 10 **both** ways, and the two
+    answers are **11** and **7**:
+
+    | exclusion set | refs | at-risk commits |
+    |---|---|---|
+    | `refs/remotes/audit/` (188, `ls-remote`-verified) | 188 | **11** |
+    | `refs/remotes/` (207 = 188 audit + 19 stale `origin/*`) | 207 | **7** |
+
+    The second set is a **superset**, and `--not` *removes* its members from the at-risk set, so
+    adding 19 unverified names removes 4 commits from the report. The 4 it hides are exactly the
+    class rule 11 already flagged as unproven: `3f098bc` is held only by
+    `refs/remotes/origin/madgab-audit-d5a2c1`, and `b7b22b7` / `880d7bc` / `8b1a61f` only by
+    `refs/remotes/origin/madgab-fuzzy-cost`. Neither name survives `ls-remote`: the real tips
+    are `36589f8` and `0f7f763`, and `b7b22b7` is **not an ancestor** of `0f7f763`. So the wider
+    exclusion set converts four genuinely at-risk commits into apparent safety, and the report
+    gets *smaller* as the set gets *wider* — the one direction no reader sanity-checks. Rule 10's
+    prescribed fetch is not a convenience; it is the only spelling under which those four stay
+    visible at all. Rule 37's empty-glob failure is the **loud** version of this same bug (a
+    0-ref set reports 190 apparently-missing blobs); this is the **quiet** one (a 207-ref set
+    reports a confident 7). The general form, and it is the eighth instance of the log's one
+    recurring failure mode with a new twist: rules 9, 10, 11, 14, 17, 22, 27 and 35 were checks
+    that **could not fail** — confident and wrong — and this is a check that **cannot fail in the
+    direction that matters**: its defect makes a *risk* vanish rather than appear. A check whose
+    error direction is reassuring is strictly more dangerous than one whose error is alarming,
+    because nothing about the output looks wrong. **The guard is to state the ref count in the
+    result and to confirm every member of the exclusion set is either an `ls-remote`-confirmed
+    head or an explicitly named local-only scratch holder — never a bare `refs/remotes/*` glob.**
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -4252,3 +4283,109 @@ its question *no*, one by recording, one by a correct count — and the pass's n
     measurement corrections, **cut the branch from `main`**, and the named direction — a
     qualitatively different whole-path algorithm (compact pronunciation DAG with k-best / A*-style
     search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-9a3e` — forty-sixth pass, 2026-09-28T11:32Z–11:36Z
+
+**The forty-fifth pass's question (iii) is answered — its `#[ignore]`d front verdicts do still
+describe the shipped default — and the pass's new fact is rule 38, a rule-10 defect whose error
+runs in the reassuring direction. Nothing was launched, claimed, resumed or integrated; no
+recovery was needed; `main` untouched at `0267ade`.**
+
+  * **(a) The gate is still closed, read for the **tenth** time.** The recurring prompt's
+    "prioritize the canonical approximate-search examples" and "recover or assign work, split
+    independent fronts, launch or prompt Antonina agents" restate the programme's standing goal
+    and request exactly the fronts, claims and agents that
+    [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) (`## Status: accepted and
+    paused`) forbids without an explicit human instruction, which has not been given. Its
+    *no-hard-coding* half is discharged on the merits, as in every prior pass: the only file
+    written is this log, **no canonical phrase appears in it** (every artefact is named by path,
+    module, test name, marker or sha), and no `src/`, `tests/`, `web/`, `examples/` or
+    `Cargo.toml` byte changed. The scheduling clause "never merge or push scheduled work directly
+    to main" is also satisfied trivially and correctly: nothing was merged, and nothing was
+    pushed to `main`; the single commit is this log, on `post-milestone-acceptance`, which is the
+    log's own home per rule 19.
+  * **(b) The canonical-priority clause is honoured by *checking* it, not by opening a front.**
+    The prompt's no-hard-coding half has a durable, checkable surface — the phrase-hard-coding
+    fence — and this pass verified it rather than assuming it. `tests/no_phrase_hard_coding.rs`
+    walks `src/`, `web/` and `examples/`; the worktree is **clean** (`git status --porcelain
+    -uall` = 0), so no phrase literal can be hiding in an uncommitted `src/` edit. Nothing in this
+    pass touched production code, so the fence's verdict is unchanged from the accepted state.
+  * **(c) The forty-fifth pass's question (iii), answered: yes, the `HOLD` verdicts still
+    describe the shipped default.** That pass asked whether the `#[ignore]`d front verdicts in
+    `src/lib.rs` still describe the shipped default, the same read-the-reason-string move rule 23
+    made for case 2. The census is **20** `#[ignore]`s in `src/ tests/ web/ examples/`: **11**
+    bare in `src/lib.rs` (the `front_1c7d40` × 6, `price_the_budget`,
+    `price_the_property_over_a_spread`, and the `front_5d9c04` × 3 measurement blocks — these
+    are *reproduction* scaffolds for priced-negative fronts, not claims about the product),
+    **1** reasoned in `src/lib.rs` at line 9375, and **2** reasoned under `tests/` (the case-2
+    pair the forty-fifth pass already resolved). Only the reasoned one is a claim about the
+    shipped default, and **it still holds**: its reason string says *"red on purpose: the shipped
+    objective has no word-count axis"*. Checked directly rather than read: the `parsimony` axis
+    appears **only** inside `#[cfg(test)] mod front_9b4a15` (lines 8290–8734) and in the doc
+    prose at 9267–9269; a grep across the whole file outside that test module and outside
+    `mod head_not_worse_than_pool` returns **nothing**. The production scorer does take a `words`
+    argument (`complete_span_score`, `src/lib.rs:3862`), but it uses it only as the per-word
+    **denominator** (`words.max(1) as f64`) for novelty/familiarity/shape normalisation — it is
+    not a parsimony term and does not compare clue word count to target word count. So the
+    ignored test is red for the reason its reason string states, which is exactly what rule 23
+    requires a durable claim to do. **No `#[ignore]` needs flipping, and none was flipped** (rule
+    23's corollary: doing so turns the release suite red on purpose, a human decision).
+  * **(d) Rule 10 re-run, and the new fact: the 11-vs-7 divergence is a *defect*, not a
+    discrepancy.** See rule 38 above for the full argument. In short: excluding
+    `refs/remotes/audit/*` (188, `ls-remote`-verified) returns **11** at-risk commits; excluding
+    the wider `refs/remotes/` (207, adding 19 stale `refs/remotes/origin/*`) returns **7**. The
+    wider set is a superset and `--not` subtracts, so the 19 unverified names erase 4 at-risk
+    commits — precisely the four rule 11 already classified as held only by unproven
+    `refs/remotes/origin/*` names (`3f098bc` under `madgab-audit-d5a2c1`; `b7b22b7`, `880d7bc`,
+    `8b1a61f` under `madgab-fuzzy-cost`). Both names fail `ls-remote` (`36589f8` / `0f7f763` are
+    the real tips) and `b7b22b7` is not an ancestor of `0f7f763`, so the four are at risk in fact.
+    **A wider exclusion set produced a smaller, cleaner-looking risk report** — the error
+    direction no one checks. The 188/188 fetch agreement was verified with prefix-stripped
+    `comm` in **both** directions (0 differences), and rule 30's second sanctioned spelling
+    independently returns the same **11**; the repeating-`--not` spelling returns **89**.
+  * **(e) Object-level closure of the 11, computed properly: no content is at risk.** Of the
+    **3637** objects reachable from the 11, **344** are absent from the durable set (**5518**
+    objects over the 188 verified remote heads, bracketed 344 ≤ 3637 per rule 35). Applying
+    standing rule 9's build-output filter to **at-risk object paths** — not to `git status` lines,
+    which a commit-based check never produces — removes **308**, every one under `target-base/`.
+    That leaves **36**, which are **11 commits and 25 trees, zero blobs**, and the arithmetic
+    closes: 344 = 308 + 36, 36 = 11 + 25. **Trees are structure, not content, so nothing is at
+    risk.** The forty-fifth pass recorded 37 here; the one-object difference is the durable set
+    having grown by six objects since (5512 → 5518, the intervening log commits), which is
+    expected and not a finding.
+  * **(f) Two errors of my own, recorded because they are this log's own recurring class.** The
+    first object-type pass fed `git cat-file -t` a literal `<no-path>` sentinel and printed 21
+    spurious `fatal: Not a valid object name` lines, which the naive `uniq -c` then counted as an
+    empty type — a confident 21 that meant nothing (rule 17's field discipline). The first
+    build-output filter was applied to the *whole* at-risk set instead of to the *344 absent*
+    set, so it reported 3328 "non-build" objects and would have looked like a large finding; the
+    bracket 344 = 308 + 36 is what caught it (rule 35). Both were caught by printing the
+    *inputs*, which is the entire content of rules 35 and 37.
+  * **(g) State otherwise unchanged.** Worktree clean. `main` untouched at `0267ade` (remote-only;
+    no local `main` ref). `git ls-remote` confirms `post-milestone-acceptance` at `69337fa`,
+    matching the local ref, and all ten `recovery/*` branches present. Census unchanged and
+    re-derived under rule 34: **92 `done`, 11 `superseded`, 5 `produced`, 1 `open`
+    (`TEMPLATE.md` placeholder), this log the only `working` entry** across 100 marker-bearing
+    files — the queue is empty, which is the expected state, not a defect. No MadGab agent is
+    alive or claimable; the five `running` agents host-wide (`22b1`, `94b2`, `92d1`, `71e1`,
+    `76a1`) all belong to **other** repositories and were left running per the contract, as was
+    `a11d` (`idle`, `/tmp/cwd-7ze5eU`, its usual 20724-day age). The two paused fronts
+    `3a8f01`/`3a8f02` remain `stopped`, deliberately left so. `refs/remotes/audit/*` is left
+    fetched and matching the remote 188/188.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can answer
+    it: *is MadGab development being reopened?* It is now ten passes old. (ii) The `target-base/`
+    residue needs no further action; the standing "deliberately unpushable" instruction is
+    recorded and the forty-fifth pass closed it by recording rather than acting. (iii) Rules
+    23–25's line is **now exhausted on the whole `#[ignore]` surface**, not just case 2: the
+    census is 20 attributes of which 11 are bare measurement scaffolds, and the only
+    product-claim reason string has been verified against production code. **A future pass should
+    not re-force any of these predicates or re-run this census.** The one untried question left in
+    that family is narrower and is a *documentation* check rather than a measurement: whether the
+    `produced` state the five files carry is a real protocol violation, given rule 34 already
+    established `produced` is not an allowed state. That is a one-command census with a
+    one-line fix, and it is the only cheap fact left. (iv) If the gate answer is ever yes, the
+    order is unchanged: rule 29's binding check before any timing is quoted, `coord-1c8e`'s three
+    measurement corrections, **cut the branch from `main`**, and the named direction — a
+    qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
+    A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
