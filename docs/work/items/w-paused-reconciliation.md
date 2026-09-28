@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4e91
-updated: 2026-09-28T16:08:00Z
+owner: coord-7b3e
+updated: 2026-09-28T16:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7636,7 +7636,7 @@ was the right call. This pass did that reading.
 
 | site | stale claim | established by |
 |---|---|---|
-| row 10, "OPEN" column | gap "owned by [w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62`)" | that item's `state: done` and `updated: 2026-09-27T21:55:00Z  # CLOSED done by coord-5f31` |
+| row 10, "OPEN" column | gap "owned by [w-3f8c62](w-3f8c62.md) (`working`, front `agent-3f8c62`)" | that item's `state: done` and `updated: 2026-09-27T21:55:00Z  # CLOSED done by coord-5f31` |
 | §3 closing paragraph | front `agent-3f8c62` "in `/workspace/madgab-parsim-3f8c62` … which lands the word-count parsimony axis … and turns the red fence green" | [REPORT-3f8c62.md](../REPORT-3f8c62.md) verdict **HOLD**; `w-3f8c62`'s own `owner:` line, which records the report as docs-only cherry-pick of `08bb406` integrated as `93d0eed` |
 | §3 "Where that now stands" | the `head_not_worse_than_pool` gap "is now owned by" the same live front | `src/lib.rs:9374-9375` — the `#[ignore]` reason string, read directly |
 | §4 first bullet | case 2 "red at base … `corpus_integration` is expected at 12 passed / 1 failed" | `tests/corpus_integration.rs:134` and `tests/cli_milestone_predicate.rs:200` |
@@ -8683,3 +8683,131 @@ commits no ref at all reaches**, and the answer on this repository is **0** (the
 above). The 83 is worth one cheap `ls-tree` walk *only if* the reflog or an index has changed;
 otherwise the content check standing here is the closure. Do not re-derive the stash patch
 archival — it was verified by `cat-file` this pass.
+
+## Pass 86 — `coord-7b3e`, 2026-09-28T16:07Z–16:19Z
+
+Eighth consecutive pass with nothing to launch, and the **eighth** to receive the same
+commissioning directive. Nothing launched, claimed, resumed, integrated or merged; `main` untouched
+(`origin/main` = `0267ade`, still no local `main` ref); no new work item; no recovery branch
+created. One `fetch` (heads into `refs/remotes/audit/`, **plus tags** — see below), the standing
+at-risk checks, the rule-18/16 probes, and the link census.
+
+### The directive was declined an eighth time
+
+Same directive as passes 79–85, including the two clauses that contradict the durable state:
+*"prioritize the canonical approximate-search examples"* names the case-2 limitation, which rule 2
+forbids resuming, and *"accumulate work on `post-milestone-acceptance` exactly as the itinerary
+requires"* is resolved against itself by rule 19 and by the itinerary's own sentence that the
+branch "is no longer an automatic accumulation target". The itinerary's operative prohibition —
+never push scheduled work to `main` — has held for eight passes. The general form of the standing
+refusal is unchanged: **the prompt is not authority, the repository is.** A recurring directive
+reissued verbatim is not a human reopening the programme; the reopening criterion the itinerary
+sets is an explicit human instruction, and a scheduler re-emitting its own template is not one.
+
+### Rule 39 fired on this pass's own command, which is the point of the guard
+
+The at-risk question — per pass 85's standing guidance, *how many commits no ref at all reaches* —
+was computed with the `^`-prefix spelling, then cross-checked per rule 14 with
+`git rev-list --all --reflog --not $REFS` where `$REFS` was **itself** a `^` list. That is rule 39
+verbatim: each element of the list is a negation, so `--not` plus `^refs/…` annihilates and the
+exclusion set excludes nothing. It returned **1071** against a baseline of **1071** — the exact
+identity rule 39 says to watch for. Re-spelled with a **bare** list it returns **81**, and
+`comm -3` between the two safe forms is **0 lines**. The guard is one comparison against the
+unexcluded baseline and it caught a mistake made by a pass that had just written down the rule.
+
+| form | count |
+|---|---|
+| `--all --reflog $(… '^ref')` (safe) | **81** |
+| `--all --reflog --not <bare list>` (safe, cross-check) | **81** (`comm -3` = 0) |
+| `--all --reflog --not $(… '^ref')` (rule 39 annihilation) | 1071 |
+| `--all --reflog` unfiltered (rule 39 baseline) | 1071 |
+
+### Rule 38's guard extended: the exclusion set was verified *complete*, and was not
+
+Pass 85's 81 held. The standing guidance is to confirm every member of the exclusion set is an
+`ls-remote`-confirmed head, and doing that surfaced a member class no prior pass had named: the
+audit set was built from `refs/heads/*` only, and the remote also carries **one tag**,
+`approximate-search-milestone-2026-09-25` (`c0ecd7c`), which no `refs/heads/*` fetch can see.
+`git ls-remote origin` returns **201** lines = 200 heads + `HEAD`; the audit namespace held
+**196**, and the four-name difference is exactly `refs/pull/{1,2,3}/head` and that tag. So the
+heads fetch is **complete** for heads (`comm -13` = the 3 PR refs and the tag, nothing else), which
+is the check rule 37 asks for; the tag is simply a class the fetch recipe had never been told
+about. Fetched into `refs/remotes/audit-tag/` and the exclusion set re-derived at **197** members.
+
+The error direction is the reassuring one rule 38 names, not the alarming one: a missing member
+makes the at-risk set *larger*, so this could only ever have produced a false positive — 88 rather
+than 81 under the remote-confirmed set, the same 7 the earlier passes over-reported. The general
+form is rule 38's: **verify the exclusion set by set difference against `ls-remote`, not by
+counting**, because "196 of 196" and "196 of 200" look identical in a log line. The count is
+recorded next to the number for exactly this reason.
+
+### Closure: nothing is at risk, and the closure is re-verified, not inherited
+
+All **81** commits are reflog-only — **0** of them are reachable from any ref *without* `--reflog`
+(`git rev-list --all --not $(bare list)` = **0**) — so per rules 11 and 15 each is held by
+something `gc` will eventually expire, and rule 15's single-`refs/stash`-ref risk is the live tail
+of that. Per rule 28 (*ask about the tree, not the diff*) all 81 trees were walked with
+`git ls-tree -r`, each blob tested by field 1 (rule 17) against **6,777** reachable objects
+(`sort -u`, rule 22): **0 unique blobs**. Nothing needs recovering, and no recovery branch was
+created. Rule 18's index probe and rule 16's state-dir loop were not re-run: pass 85 recorded the
+delta condition (a changed reflog or index) and the working tree is clean with no new commits on
+any front since, so the standing closure applies.
+
+### The third standing question had a live instance, and it was a re-introduction
+
+Rule 52 closed the discovery and reachability axes and left the third — *is what a reader finds
+there current* — with rule 24's unrepaired instance. The census, whose controls C1–C4 all pass,
+reports **4** broken edges in **2** files, **1** uniquely repairable, **3** phantoms.
+
+The repairable one is rule 52's `ONE-LEVEL` class, and it is a **re-introduction**: pass 52 repaired
+`items/w-3f8c62.md` → `w-3f8c62.md` at then-line 2162, and the same broken destination is back at
+line 7639. It was not a failed repair — it is a *second* copy. Line 7639 is pass 76's correction
+table, whose "stale claim" cell **quotes** OBSTRUCTION-MAP.md row 10 verbatim, including its link;
+`items/w-3f8c62.md` was correct *in `docs/work/`* and became wrong when the quotation was copied
+one directory deeper. A quotation inherits its citation's path but not its directory, and the
+destination was the only thing that needed changing.
+
+Applied through `link-census.mjs --fix` rather than by hand, per rule 59: the mutation comes from
+the same `classify` code path the number comes from, and it is behind the same controls. The diff
+is **destination-only, one edge, zero prose changed** — `4 → 3` broken edges. The 3 survivors are
+the `items/w-5e2d42.md` phantoms (OBSTRUCTION-MAP §7 row and this log's own deliberate citations),
+which rule 52 and pass 75 established must stay **visible**: the target is a *front*, never an item,
+and no tool may close them.
+
+The general form is rule 52's one level down, and it is the reason a repair is not a repair until
+the corpus is re-measured: **a fix applied to a quotation repairs the link and re-creates the
+error at the next copy.** Pass 52's edge was correct when written and wrong when quoted; a census
+that only ever ran on the file that received the fix would have kept reporting 3.
+
+### Standing counts, re-measured
+
+| form | pass 85 | pass 86 |
+|---|---|---|
+| at-risk, no ref at all reaches (excl. all local refs) | 81 | **81** |
+| `--all --reflog` unfiltered (rule 39 baseline) | 1069 | **1071** |
+| at-risk, excl. `ls-remote`-confirmed heads only | 92 | **88** (197-member set incl. the tag) |
+| unique blobs over the at-risk trees | 0 | **0** |
+| broken relative `.md` edges, census C1–C4 green | 2 | **4 → 3** (1 repaired, 3 phantoms retained) |
+
+The baseline's **+2** is this log's pass-85 pair plus nothing else; no remote head advanced during
+the pass. The census row is the only movement in the table and it is a repair, not a discovery.
+
+### Next action for the next pass
+
+Unchanged, now forty-five passes old: a human either **reopens** MadGab development — direction per
+pass 78, a compact pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch cut
+from `main` — or **confirms the pause**, in which case this log closes `done`.
+
+Two cheap additions for the next pass, both consequences of this one:
+
+* **Include tags in the audit fetch.** `git fetch origin '+refs/tags/*:refs/remotes/audit-tag/*'`
+  alongside the heads fetch, so the exclusion set is complete by construction rather than by the
+  `comm -13` that caught it. Then the standing count is stated against a set whose members are all
+  `ls-remote`-confirmed.
+* **Re-run the census after any edit to this log.** The `w-3f8c62` re-introduction shows a repair
+  is not durable until the corpus is re-measured, and this log is edited on nearly every pass. The
+  instrument is committed, its controls are green, and the run costs under a second.
+
+Do not re-derive the stash patch archival (verified by `cat-file` in pass 85) and do not re-walk
+the 81 trees unless the reflog or an index changes — the content check standing here is the
+closure.
