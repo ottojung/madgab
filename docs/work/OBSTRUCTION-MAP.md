@@ -78,7 +78,7 @@ budget; **OPEN** = named, not yet priced end to end.
 | 7 | **Floor** — a cheap-end retention floor in the shortlist fill | item [w-5e2d41](items/w-5e2d41.md) (`done`, priced negative on both fronts) and its review front [w-5e2d42](items/w-5e2d42.md), report appended to w-5e2d41 | **Vacuous at the item's own threshold**: 1.5× → **0 of 885** spans unsaturated, shortfall 0; 2.0× → 84 spans / 5,379; 3.375× → 165 / 12,785; 8.0× → 269 / 23,004. **Unreachable by arithmetic**: needed rank **119** (base rank 136) against `affordable_opening_width(d, 4000)` = 10 (d≤4), **7** (d=5), 5 (d=6) → **17×/19× past the opening width**. Ladders 1.5×4, 1.4×8, 1.3×10, 1.2×14 leave the fence red; 1.25×12 and 1.1×20 turn it green — **found by scanning against the fence and deliberately not landed** | **CLOSED** | Three independent constraints: the floor is already satisfied everywhere on the cheap end; no finite cheap-end multiple reaches a word at cost 0.35 on a span whose minimum is 0.0; and wherever it does bind it drains the cost range and empties a band (`SPAN_COST_BANDS` band 3 on span `(8,10)`: retained max cost 0.400000 vs offered 0.499816, 27 offered / 0 retained). The real constraint is the **opening width 7 vs a needed per-slot rank of 119** — owned by rows 2 and 3, not by the fill. |
 | 8 | **Depth cap** — the reserve's non-zero-coordinate cap | [w-c3f81a](items/w-c3f81a.md) (integrated at `c11e90e`; derivation in the item's §6 / [REPORT-c3f81b1.md](REPORT-c3f81b1.md)) | `EMIT_PROFILE_MAX_DEEP = 3` replaced by `funded_slot_depth(slot_widths) = count of slots wider than LEXICAL_BRANCH_STAGE_0`. Pricing over **16** targets: **zero** emission cost (totals identical, including the one unsaturated target), pops <0.05%, worst per-target pool **+19** on `recognize speech` (+0.10%), three targets byte-identical. The naive `Σ C(depth, j)` model would have priced the change at 30-56 units — 88% of the per-segmentation allowance, i.e. *unaffordable* — so deriving the cap from the naive model would have manufactured a false negative | **CLOSED and INTEGRATED** (the only *landed* coordinate in this table) | The reservation accounting is `funded_slot_depth`, and the frontier floor it reads is the real bound; the constant's original justification was a comparison against the reserve that was never performed and is false as a bound. **This did not clear the milestone**: the canonical alignment is still absent, and the depth cap was never the reason — all 34 four-deep tuples on case 2 come from *five-slot* segmentations. |
 | 9 | **Shortlist width** — `SPAN_SHORTLIST` = 160 | [w-7b40d2](items/w-7b40d2.md) criterion 3 and the width table; REPORT-4d7c12 §1; REPORT-9e2b41 §6 | `SPAN_SHORTLIST` = **160** confirmed by `assert_eq!(previous, list)` with `list = SPAN_SHORTLIST = 160`; the `93` in one test's doc comment is a **measured** segmentation width, not a derived width. Reachability: the 7-wide opening already covers **34%** of a 160-wide slot's whole key range; the canonical's deepest needed index is 99 of 160, at **62%** of that range. Reaching it by uniform width alone needs ≈**100**, i.e. **14.3×** the current 7, and `1 + 100 + 100² + 100³ + 100⁴` = 1.01e8 pops against a limit of 4,000 — a factor of **25,000** | **CLOSED (as a buy), at both ends** | The width is not a free parameter at either end: it is bounded below by the same joint frontier `F` row 3 prices (2.83× short) and above by the same product wall row 3 and REPORT-4d7c12 §5 prices (three to five orders of magnitude). `SPAN_SHORTLIST` is not read by the item's forbidden-by-cost list of levers; changing it changes which 160 are retained (row 4), not how deep the walk looks. |
-| 10 | **Objective / ranking surface** — can scoring put the canonical in the printed top 50? | [REPORT-3a8c05.md](REPORT-3a8c05.md) §3, §5 (item [w-3a8c05](items/w-3a8c05.md), `done`); the axis change in [w-9c6f2b](items/w-9c6f2b.md) (`done`); [REPORT-9b4a15.md](REPORT-9b4a15.md) §4, §6 (item [w-9b4a15](items/w-9b4a15.md), `done`, integrated `515f8bd`, verdict HOLD; 14 vectors priced, C1d = 9/10, green case rank 46, case-2 lift −0.0180 → +0.0437) | **1,126** pool clues are `>=` the canonical on `PARSIMONY + RESEG + SIMILARITY` at once, so no monotone objective over any measurable per-candidate property can rank it better than **1,127**; its shipped score is **0.0943520415** below the top-50 cutoff. Shipped top-50 `SIMILARITY` lift vs pool mean is **−0.0180** (case 2) / **+0.0609** (case 1). `w-9c6f2b`'s D2 fix moves the case-2 cutoff from 0.8978 to 0.9171 while moving the answer less — the cutoff rises by more than the answer does; canonical alignment scores 0.7999 and a *zero-cost perfect pronunciation* of it scores 0.8699. `w-3a8c05`'s C1b (`SHAPE` 0.05 → 0, `NOVELTY` 0.15 → `PARSIMONY` 0.15) leaves case-2 at rank **7,393**; the axis itself is confirmed (C1b +0.0565, C1d +0.0437 with a sound bound) but the canonical tuple is **absent from the pool**, not mis-ranked in it | **CLOSED for the canonical tuple** (hard monotone lower bound of 1,127); **OPEN for general head quality; `w-9b4a15` priced it and is now `done`, so it is owned by [w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62`)** | §3's bound is weight-free: it is a floor under *every* monotone objective over measurable per-candidate properties, so no re-weighting reaches the top 50. `w-9b4a15` explicitly does **not** claim to reach the canonical tuple — its scope is the general quality fix (top-50 lift −0.0180 → +0.0570 under C1b, `PUNCH` lift +0.1526 → −0.0274, green case provably immune: `recognize speech`'s pool top 200 is 100% four-word, histogram `{4: 200}`). **A reach is not a display**: this row is why every search-side coordinate above is measured on *reach*, not on display. |
+| 10 | **Objective / ranking surface** — can scoring put the canonical in the printed top 50? | [REPORT-3a8c05.md](REPORT-3a8c05.md) §3, §5 (item [w-3a8c05](items/w-3a8c05.md), `done`); the axis change in [w-9c6f2b](items/w-9c6f2b.md) (`done`); [REPORT-9b4a15.md](REPORT-9b4a15.md) §4, §6 (item [w-9b4a15](items/w-9b4a15.md), `done`, integrated `515f8bd`, verdict HOLD; 14 vectors priced, C1d = 9/10, green case rank 46, case-2 lift −0.0180 → +0.0437) | **1,126** pool clues are `>=` the canonical on `PARSIMONY + RESEG + SIMILARITY` at once, so no monotone objective over any measurable per-candidate property can rank it better than **1,127**; its shipped score is **0.0943520415** below the top-50 cutoff. Shipped top-50 `SIMILARITY` lift vs pool mean is **−0.0180** (case 2) / **+0.0609** (case 1). `w-9c6f2b`'s D2 fix moves the case-2 cutoff from 0.8978 to 0.9171 while moving the answer less — the cutoff rises by more than the answer does; canonical alignment scores 0.7999 and a *zero-cost perfect pronunciation* of it scores 0.8699. `w-3a8c05`'s C1b (`SHAPE` 0.05 → 0, `NOVELTY` 0.15 → `PARSIMONY` 0.15) leaves case-2 at rank **7,393**; the axis itself is confirmed (C1b +0.0565, C1d +0.0437 with a sound bound) but the canonical tuple is **absent from the pool**, not mis-ranked in it | **CLOSED for the canonical tuple** (hard monotone lower bound of 1,127); **CLOSED for general head quality; `w-9b4a15` priced it and is now `done`, and its successor [w-3f8c62](items/w-3f8c62.md) is also `done` — closed 2026-09-27T21:55Z at verdict **HOLD** (per that item's `updated:` line), with its report integrated docs-only as `93d0eed` and its front agent terminal `succeeded` (per [REPORT-3f8c62.md](REPORT-3f8c62.md)). It landed nothing, so nothing in this row's "OPEN" column is owned by a live front** | §3's bound is weight-free: it is a floor under *every* monotone objective over measurable per-candidate properties, so no re-weighting reaches the top 50. `w-9b4a15` explicitly does **not** claim to reach the canonical tuple — its scope is the general quality fix (top-50 lift −0.0180 → +0.0570 under C1b, `PUNCH` lift +0.1526 → −0.0274, green case provably immune: `recognize speech`'s pool top 200 is 100% four-word, histogram `{4: 200}`). **A reach is not a display**: this row is why every search-side coordinate above is measured on *reach*, not on display. |
 | 11 | **Adjacency / one-step substitution** (shape, for completeness) | [w-c1d3a7](items/w-c1d3a7.md) (`done`, `madgab-adjacency` @ `9767caf`) | **ENUMERATED: no. RANKED: no** — both unchanged, and the second is unchanged *by construction*. Force-injecting the clue's own wording on the default path (same segmentation, same slot indices) puts the clue's segmentation at structural rank **151 of 256** unchanged | **Mechanism landed and measured; canonical target REFUTED** | Enumeration was never the blocker — the tuple is lattice-reachable but not emission-reachable, and substituting one slot is a single-slot cost only if the *node* exists to substitute from. Do not cite this as a canonical route. |
 | 12 | **Lattice coverage / emission order** (umbrella, DO-NOT-RE-TAKE) | [w-0f3a17](items/w-0f3a17.md) (state `working`, **DO NOT RE-TAKE**), superseding [w-5b1e93](items/w-5b1e93.md) | The predecessors' arithmetic: at **full** per-slot width 160 the traversal emits **2,036,664** wordings of the canonical segmentation's own structure, reaches index 159, and still never emits the canonical tuple — a factor of **124** in the cheapest reallocation and **1,309** in the segmentation's 2,666,496,000-wording product. By cost-best-first order the canonical resegmentation needs **≥404,081** emissions of its own segmentation; the cheapest depth-profile stratification is bounded below by **134,400** against a per-segmentation allowance of **64** | **CLOSED as a shape; the item is deliberately left `working`** so the milestone criterion is not falsely marked met | w-0f3a17's own successor fronts were rows 2, 4 and 6 above (`w-9e2b41` width, `w-7b40d2` fill, `w-c3f81a` placement); all three are terminal and their records are integrated. A pass that finds w-0f3a17 `working` with no live agent of its own must **read those three, not start a fourth front on the same code**. |
 | 13 | **Worst-case / full-width traversal** (the order-vs-width frame) | [w-b3e91a](items/w-b3e91a.md), cited in REPORT-4d7c12 §5 and REPORT-1c7d40 §7.2 | **2,036,664** wordings at full width, factor 124 / 1,309 as row 12; and the key-side measurement: `contribution` width over a **whole** 160-wide list, mean **0.0338** (case 2) / **0.0322** (case 1), max 0.0613 / 0.0989; needed word's fraction of the whole-list key width, mean **0.3435** / **0.1381**, max 0.6615 / 0.6204 | **CLOSED** | It is an *order* limit, not a budget limit: the loss is a cut through a smooth function, and every key that moves the cut moves it in a direction that is worse for the pool (row 1) rather than better for the tuple. |
@@ -135,13 +135,18 @@ short by design, and each entry is a shape that is **not** a re-specification of
 **This section is now empty.** Shape 3 was priced by [REPORT-9e2b41.md](REPORT-9e2b41.md) and
 [REPORT-5d9c04.md](REPORT-5d9c04.md), shape 1 above, and shape 2 above. **Case-2 reach is closed
 as a search-side question**: no remaining search-side coordinate can enumerate the canonical cell.
-Per §4, the live direction is general search quality, and it is now carried by
-[w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62` in `/workspace/madgab-parsim-3f8c62`
-on `madgab-parsim-3f8c62`), which lands the word-count parsimony axis priced by
-[REPORT-9b4a15.md](REPORT-9b4a15.md) §6 and turns the red `head_not_worse_than_pool` fence green.
-The one non-duplicative residue the sweep report found — the per-member modulus in
-`coverage_tuples` — is a **later, non-blocking** front on the reserve side and must be decided
-under the same head-lift criterion, never as a reach item.
+Per §4, the live direction is general search quality. It **was** carried by
+[w-3f8c62](items/w-3f8c62.md) — the word-count parsimony axis priced by
+[REPORT-9b4a15.md](REPORT-9b4a15.md) §6, contracted to turn the red `head_not_worse_than_pool`
+fence green — and that front is now **closed at verdict HOLD**, not working: the item is `done`
+(2026-09-27T21:55Z), its report is integrated as `93d0eed`, and its agent is terminal
+(per [REPORT-3f8c62.md](REPORT-3f8c62.md) and the item's own `owner:`/`updated:` lines).
+**It landed no code, so the `head_not_worse_than_pool` gap it was contracted to close is still
+open** and is owned by no live front. Reopening it is a human decision: see
+[../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md). The one non-duplicative residue
+the sweep report found — the per-member modulus in `coverage_tuples` — is a **later, non-blocking**
+front on the reserve side and must be decided under the same head-lift criterion, never as a reach
+item.
 
 **Unpriced, and genuinely available:**
 
@@ -192,25 +197,41 @@ must not cost. The genuinely valuable work is then:
   successor improves the head lift (currently **−0.0180**) **without** moving the green case off
   pool rank **27** — not by whether it happens to enumerate one more cell of a 2.666e9 product.
 
-**Where that now stands (2026-09-27, coord-c1d4a).** `w-9b4a15` is `done` and integrated at
-`515f8bd` with verdict **HOLD**: it priced 14 weight vectors, confirmed the axis is the right repair,
-and declined to ship it because the axis has to reach the structural keys and its own item fenced
-it off from the search surface. Its red fence `head_not_worse_than_pool` is in the tree
-`#[ignore]`d and red, and that gap is now owned by [w-3f8c62](items/w-3f8c62.md) (`working`, front
-`agent-3f8c62` in `/workspace/madgab-parsim-3f8c62` on `madgab-parsim-3f8c62`), whose contract is
-`REPORT-9b4a15.md` §6's C1d recipe plus the red/green fence. The head-lift criterion above is that
-item's acceptance test, and the green case is its fence.
+**Where that now stands (corrected 2026-09-28, coord-3e10; originally 2026-09-27, coord-c1d4a).**
+`w-9b4a15` is `done` and integrated at `515f8bd` with verdict **HOLD**: it priced 14 weight vectors,
+confirmed the axis is the right repair, and declined to ship it because the axis has to reach the
+structural keys and its own item fenced it off from the search surface. Its fence
+`head_not_worse_than_pool` **is** in the tree `#[ignore]`d and red — verified directly at
+`src/lib.rs:9374-9375`, where the `#[ignore]`'s reason string reads *"red on purpose: the shipped
+objective has no word-count axis"*, and the module comment above it records the measured red. That
+part of the original paragraph was correct. What was not: the gap **is no longer owned** by
+[w-3f8c62](items/w-3f8c62.md). That front is `done`, its agent is terminal `succeeded`, and its own
+report ([REPORT-3f8c62.md](REPORT-3f8c62.md)) prices the axis and returns **HOLD** — it was
+integrated docs-only as `93d0eed` and **shipped no code**, so the fence it was contracted to turn
+green is still red and still `#[ignore]`d. **The head-lift criterion above (case 2 without moving
+the green case off pool rank 27) remains the right acceptance test for any future successor; there
+is currently no front running against it.**
 
 ---
 
 ## 4. Standing notes, restated so no pass has to re-derive them
 
-* **The blocker:** `approximate_finds_classic_madgab_resegmentation` (case 2) is **red at base**. It is
-  red on every head in every report cited here. **Do not re-pin it and do not let a change turn it
-  green by accident.** `corpus_integration` is expected at 12 passed / 1 failed. Run it with
-  `-- --test-threads=2`: on this host it is SIGKILLed at default parallelism, on pristine base too,
-  and that is not a property of any change (see
-  [../environment-notes.md](../environment-notes.md)).
+* **The blocker:** `approximate_finds_classic_madgab_resegmentation` (case 2) is **red at base** as a
+  *property* — the production candidate pool does not enumerate the classical clue. But it is **not
+  red in the suite**, and the two are different objects. In the tree it is `#[ignore]`d with the
+  reason string `accepted known limitation; see docs/accepted-state-2026-09-27.md`
+  (`tests/corpus_integration.rs:134`), and the paired milestone assertion
+  `canonical_case_two_is_displayed` is `#[ignore]`d for the same reason
+  (`tests/cli_milestone_predicate.rs:200`). `corpus_integration` therefore has **13 tests, 1
+  ignored, and reports 12 passed / 0 failed / 1 ignored** — not the "12 passed / 1 failed" an
+  earlier revision of this paragraph claimed. It is red in every report cited here; the *suites* are
+  green because the assertion was disabled, and that reason string is the durable claim.
+  **Do not re-pin it, do not let a change turn it green by accident, and do not un-ignore it while
+  the programme is paused** — un-ignoring turns the release suite red on purpose, which is a human
+  decision, and the `#[ignore]` is the tripwire that will go red the moment a real fix lands. Run it
+  explicitly to see the real state: `cargo test --release --test corpus_integration -- --ignored
+  --test-threads=2` (default parallelism SIGKILLs it on this host, on pristine base too, and that is
+  not a property of any change; see [../environment-notes.md](../environment-notes.md)).
 * **The green fact:** `wreck a nice beach` is produced for `recognize speech` at **pool rank 27**,
   score **0.9199502875218423**, displayed 26/50. Every future candidate reports this rank. Three of
   the four set cuts in row 2 lose this case from the pool entirely; three of the four orders' results

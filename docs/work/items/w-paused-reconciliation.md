@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-4d1a
-updated: 2026-09-28T14:52:00Z
+owner: coord-3e10
+updated: 2026-09-28T15:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -7616,3 +7616,85 @@ pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch from
 be closed `done` rather than left `working` indefinitely. This pass's repairs are the last cheap thing
 available inside the pause: the next pass has no unfinished text left to fix and no check left that
 has not already been re-run and cross-checked.
+
+## Seventy-sixth pass (`coord-3e10`, wall clock 2026-09-28T14:57Z–15:06Z) — rule 24's currency defect, named by pass 75, repaired by re-reading the two documents
+
+Pause gate confirmed closed before anything else was done; the gate question is now **forty
+passes old**. No MadGab work item created, none claimed, no agent launched, no front resumed,
+nothing merged, nothing pushed to `main` (`origin/main` = `0267ade`, verified by `ls-remote` this
+pass). The recurring prompt's canonical-example instruction was read against the gate for the
+**seventeenth** time and declined for the seventeenth time; its *no-hard-coding* half is discharged
+on the merits by **running** the fence, not by asserting it (below). Per rule 19 this log and
+`docs/work/OBSTRUCTION-MAP.md` are the only tracked changes, and both are documentation.
+
+Pass 75 closed the at-risk sweep, repaired 116 link destinations, and then named one repair it
+deliberately did **not** do, with a reason: rule 24's live instance in `OBSTRUCTION-MAP.md` §3/§4.
+It is a claim about measured results rather than a link, so "the fixer cannot close it" is true and
+was the right call. This pass did that reading.
+
+### What was repaired, and the two documents that establish each correction
+
+| site | stale claim | established by |
+|---|---|---|
+| row 10, "OPEN" column | gap "owned by [w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62`)" | that item's `state: done` and `updated: 2026-09-27T21:55:00Z  # CLOSED done by coord-5f31` |
+| §3 closing paragraph | front `agent-3f8c62` "in `/workspace/madgab-parsim-3f8c62` … which lands the word-count parsimony axis … and turns the red fence green" | [REPORT-3f8c62.md](../REPORT-3f8c62.md) verdict **HOLD**; `w-3f8c62`'s own `owner:` line, which records the report as docs-only cherry-pick of `08bb406` integrated as `93d0eed` |
+| §3 "Where that now stands" | the `head_not_worse_than_pool` gap "is now owned by" the same live front | `src/lib.rs:9374-9375` — the `#[ignore]` reason string, read directly |
+| §4 first bullet | case 2 "red at base … `corpus_integration` is expected at 12 passed / 1 failed" | `tests/corpus_integration.rs:134` and `tests/cli_milestone_predicate.rs:200` |
+
+The load-bearing part of the correction is what the stale text got **backwards about its own
+closure**. It said a live front would "turn the red `head_not_worse_than_pool` fence green". That
+front closed at **HOLD and shipped no code**, so the fence is still red and is now owned by
+**nothing**. A successor reading §3 would have found no open work item and a paragraph promising
+that a running agent was about to close the most-valuable remaining gap. That is worse than a stale
+status line: it is an open item made to look owned. Each corrected sentence now says so explicitly,
+names the document that establishes it, and states that reopening is a human decision.
+
+§4 needed the rule-23 distinction made properly rather than flattened in either direction. Case 2
+is red as a **property** — the pool does not enumerate the clue — and green in every **suite**,
+because the assertion is `#[ignore]`d in two binaries, so `corpus_integration` is 13 tests with 1
+ignored and reports **12 passed / 0 failed / 1 ignored**, not the "12 passed / 1 failed" the old
+text claimed. The repair keeps the "do not re-pin, do not un-ignore while paused" instruction and
+adds the explicit `--ignored` command, because a reader who wants the real state should not have to
+re-derive it, and the `#[ignore]` is the tripwire rule 23 calls the first thing to go red when a
+fix lands.
+
+### Measured, not believed
+
+Each of the four sites was checked against its source before rewriting, and two of the four
+*pre-existing* claims were confirmed correct and left alone — `head_not_worse_than_pool` really is
+`#[ignore]`d and red, and the "`w-9b4a15` is `done` and integrated at `515f8bd`" sentence is accurate.
+Only the ownership and suite-status claims were wrong. The worktree is clean apart from the two
+documents; `git diff --name-only | grep -v '^docs/'` = **0**, so no `src/`, `tests/`, `web/`,
+`examples/` or `Cargo.toml` byte moved. A word-level diff of the added text contains **no** canonical
+phrase (the one hit in a line-level diff, `recognize speech` at row 10, is pre-existing text that
+git re-emitted as part of a modified line, confirmed present in `HEAD` and absent from the
+`--word-diff` of what was written). The fence was then **run** rather than assumed:
+`cargo test --release --test no_phrase_hard_coding` = **9 passed; 0 failed; 0 ignored**, 0.08 s.
+
+### Census, re-measured
+
+95 `docs/work/items/*.md` files carry `work_item: true`: 83 `done`, 11 `superseded`, 0 `open`,
+0 `blocked`, 1 `working` (this log). `HEAD` = `85e5541` on arrival, working tree clean, and
+`post-milestone-acceptance` = `85e5541` on the remote (0 ahead / 0 behind before this pass's
+commit). **No MadGab Antonina agent is alive**; every one is terminal. The five nonterminal agents
+host-wide (`92e1`, `106a1`, `94a5`, `94a6`, and the `/workspace/antonina` board pass) belong to
+**other repositories** — volodyslav, kawun, assemblyp1, antonina — and were not touched, per
+rule 47's cross-repository fence. They are left running for their own supervisors.
+
+### Next action for the next pass
+
+**There is no next action inside the pause.** That is the finding, and it is a change from pass 75,
+which believed one remained. Pass 75's is now done. The link census is 2 deliberate phantoms that a
+repair tool must not close. The at-risk sweep is saturated and twice cross-checked, and the one
+untried object class it ranked is not unfinished work. The currency defects are repaired. **A pass
+that runs now should expect to find nothing and should say so rather than invent a check** — this
+log's tenth-and-recurring failure mode is a pass that manufactures a question to look thorough.
+
+The gate question is **forty passes old** and is the only thing a human must answer: reopen MadGab
+development — in which case `w-6b2f04`'s report names the surviving direction, a compact
+pronunciation DAG with k-best/A*-style whole-path search, on a fresh branch from
+`main`, never on `post-milestone-acceptance` and never on `main` — or confirm the pause, in which
+case this log should be closed `done` rather than left `working` indefinitely. Note that reopening
+now inherits the correction made this pass: `w-3f8c62` closed HOLD with the parsimony axis
+un-landed, so the `head_not_worse_than_pool` fence is an **open gap with no owner**, and whoever
+reopens should decide deliberately whether to fund it or to supersede it.
