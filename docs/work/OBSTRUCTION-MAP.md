@@ -1,6 +1,6 @@
 ---
 work_item: w-2c9d41
-state: produced
+state: done  # back-reference only; the work item is docs/work/items/w-2c9d41.md, which carries `work_item: true` and the canonical state. Not in the rule-34 discovery population. `produced` is not a state in skills/work-items.md; corrected by coord-6f4a.
 docs_only: true
 base: dd94988 (post-milestone-acceptance, pushed)
 branch: madgab-obstruction-2c9d41

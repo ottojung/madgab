@@ -1,6 +1,6 @@
 ---
 work_item: w-8f0b3d
-state: produced
+state: done  # back-reference only; the work item is docs/work/items/w-8f0b3d.md, which carries `work_item: true` and the canonical state. Not in the rule-34 discovery population. `produced` is not a state in skills/work-items.md; corrected by coord-6f4a.
 docs_only: false
 production_change: none
 base: 7eee678 (item-open commit; sits on post-milestone-acceptance 97c9397, pushed)

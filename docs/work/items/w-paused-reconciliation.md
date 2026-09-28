@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-9a3e
-updated: 2026-09-28T11:35:00Z
+owner: coord-6f4a
+updated: 2026-09-28T11:46:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4388,4 +4388,92 @@ recovery was needed; `main` untouched at `0267ade`.**
     measurement corrections, **cut the branch from `main`**, and the named direction — a
     qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
     A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
+
+### `coord-6f4a` — forty-seventh pass, 2026-09-28T11:36Z–11:47Z
+
+**The forty-sixth pass's question (iii) is answered — yes, the five `produced` states are a real
+protocol violation, and it is now **repaired** rather than recorded, because its blast radius
+measured zero. That repair is this pass's whole substantive action; no agent, item, branch or
+front was touched, and `main` is untouched at `0267ade`.**
+
+  * **(a) The gate is still closed, read for the **eleventh** time.** The recurring prompt's
+    "recover or assign work, split independent fronts, launch or prompt Antonina agents" and
+    "prioritize the canonical approximate-search examples" request precisely the fronts, claims
+    and agents that
+    [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) (`## Status: accepted and
+    paused`) forbids without an explicit human instruction, which has not been given. Nothing was
+    launched, claimed, resumed or integrated. The prompt's *no-hard-coding* half is discharged on
+    the merits: no canonical phrase appears in this entry (every artefact is named by path, test
+    name, marker or sha), and the five files edited below are document headers, not phrase data.
+    The scheduling clause is satisfied trivially: nothing merged, nothing pushed to `main`, and
+    the only branch written is this log's own home per rule 19.
+  * **(b) The prescribed cheap checks, unchanged.** `git fetch origin
+    '+refs/heads/*:refs/remotes/audit/*'` → **188** remote heads, **188** audit refs, `comm -3` on
+    prefix-stripped sorted names **empty in both directions (0)**. Rule 10 via rule 30's
+    stateless `^` spelling: **11** at-risk commits. Worktree `git status --porcelain -uall` = **0**
+    before this pass's edits. `git ls-remote origin main` = `0267ade`, and there is still no
+    local `main` ref, so `main` is not merely unpushed but uncreatable by accident. Agent census:
+    `antonina agent list` shows **no MadGab agent alive or claimable** — every `madgab-*` entry is
+    terminal `succeeded`; the only non-`succeeded` entry host-wide is `a11d` (`idle`,
+    `/tmp/cwd-7ze5eU`, another repository, its usual 20724-day age), left running per the
+    contract. The two paused fronts `3a8f01`/`3a8f02` remain deliberately stopped.
+  * **(c) The answer: yes, it is a real violation, and it is inert, and both halves had to be
+    measured separately.** Rule 34 established that `skills/work-items.md` allows exactly `open`,
+    `working`, `blocked`, `done`, `superseded`, and that `state: produced` is fictitious. The
+    forty-sixth pass asked what that violation is *worth*. Two facts, one command each:
+    * **Blast radius is zero, and that is a measured zero, not an assumption.** The five files —
+      `docs/work/OBSTRUCTION-MAP.md` and `docs/work/REPORT-{2f1c03,3e91a4,8f0b3d,b7d4c1}.md` —
+      carry `work_item: w-<id>` as a **back-reference**, not the literal `work_item: true` marker,
+      so they are not in rule 34's discovery population and never were. Resolving each
+      back-reference shows the canonical item exists in `docs/work/items/` and is `state: done` in
+      all five cases (`w-2c9d41` 20:20Z, `w-2f1c03` 21:20Z, `w-3e91a4` 20:27Z, `w-8f0b3d` 01:35Z,
+      `w-b7d4c1` 21:38Z). So no item's state is misreported, nothing became claimable, and the
+      violation could not have de-facto reopened anything.
+    * **The repair value does not have to be guessed.** Because each shadow header names its
+      canonical item, the correct state is *read off* the canonical item rather than inferred from
+      the shadow's own body. `state: produced` in all five was replaced by `state: done`, carrying
+      an inline comment that names the canonical item, states that the file is outside the
+      discovery population, and records that `produced` is not in the protocol's vocabulary. This
+      is rule 12's discipline applied to metadata: the replacement is *verified against the
+      authoritative document*, not chosen because it reads better. The canonical items were not
+      modified, so no completion claim was created by this pass — every one of the five was
+      already closed before it.
+    The `state: produced` string now survives in exactly one place, inside rule 34 and the
+    withdrawn censuses of this log, where it is the subject of the claim rather than a violation
+    of it. `docs/` is the only tree touched; `src/`, `tests/`, `web/`, `examples/` and
+    `Cargo.toml` are byte-identical.
+  * **(d) My own error this pass, and it is the third instance of one class.** I ran rule 10 twice
+    and got **932** and **11**. Both were correct *checks* and one was a broken *spelling*:
+    `--all --not $(for-each-ref --format='^%(refname)' ...)` mixes rule 30's two sanctioned
+    spellings, and the `^` re-inverts the `--not` for all 188 refs, so the command asks for the
+    complement of the complement. The cross-check is what caught it, exactly as rules 14, 30 and 31
+    predict, and it strengthens rule 38 rather than contradicting it: the at-risk count is still
+    **11**, and the wider/differently-spelled set still produces a *cleaner-looking* answer. Rules
+    14, 30, 31 and 38 now have four recorded instances between them and no counterexample — the
+    standing instruction is unchanged and now better evidenced: cross-check every generated count
+    against a second formulation before believing it, and never combine the two exclusion
+    spellings in one command line.
+  * **(e) State otherwise unchanged.** Worktree clean apart from this pass's five header edits plus
+    this log. `main` untouched at `0267ade` (remote-only, no local `main` ref). `git ls-remote`
+    confirms `post-milestone-acceptance` and all ten `recovery/*` branches. Census re-derived under
+    rule 34's named population (`grep -rl '^work_item: true$' docs/`) is unchanged by this pass,
+    because none of the five edited files is in it — which is the point, and is the reason the
+    repair could be made without a single re-stamp of a claimable item. No MadGab agent alive.
+    `refs/remotes/audit/*` is left fetched and matching the remote 188/188.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can answer
+    it: *is MadGab development being reopened?* It is now eleven passes old, and this pass's
+    repair is the last cheap durable defect rule 34's census line had left. (ii) `target-base/`
+    residue and the two deliberately stopped fronts need no action. (iii) Rules 23–25's
+    `#[ignore]` surface, the rule 10/30 count family, and the `produced`-state family are all now
+    **closed by measurement**: a future pass should not re-force the predicates, re-run the count
+    cross-check for a new result, or re-census the states. The remaining untried question in the
+    same spirit is narrow and cheap: whether any *other* file in the repository carries a
+    metadata value outside its protocol's vocabulary — i.e. apply this pass's method (name the
+    vocabulary, name the population, resolve the back-reference, measure the blast radius before
+    repairing) to the *other* header fields rather than to `state`. (iv) If the gate answer is
+    ever yes, the order is unchanged: rule 29's binding check before any timing is quoted,
+    `coord-1c8e`'s three measurement corrections, **cut the branch from `main`**, and the named
+    direction — a qualitatively different whole-path algorithm (compact pronunciation DAG with
+    k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
     hard-coding.
