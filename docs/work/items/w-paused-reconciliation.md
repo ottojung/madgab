@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-b9d4 (pass 118; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:38:00Z
+owner: coord-2e5f (pass 119; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:44:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,20 +20,20 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 118 (2026-09-28T19:38Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 119 (2026-09-28T19:44Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 118`.
+last section of this file; search for `## Pass 119`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **118** (template has fired 27 times since pass 92) |
+| Passes that reached this same answer | **119** (template has fired 28 times since pass 92) |
 | At-risk non-build content | **0**, re-measured at pass 118 over the **whole** worktree set, and the population itself corrected: the standing sweep had been counting only **tracked** dirty rows, so it reported **11**; the real non-build population is **74 untracked files** plus 11 tracked `M src/lib.rs` rows across **127** linked worktrees. All **74** untracked files were subjected to the rule 6/7 content-hash test for the first time: **72** hash to blobs in `git rev-list --objects --all --reflog` (7,035 objects), and the **2** that do not are the 30 MB prebuilt ELF harness binaries `prof/madgab-baseline` and `prof/madgab-prof` in `madgab-approx-runtime` — build output, excluded by rule 9/41 and regenerable from source. **0 need archiving**, now on a population that is 3× the one the previous twenty-five passes measured. See rule 29 for what the narrow `M`-only spelling was blind to |
-| At-risk commits | **92** = **8** ref-held + **84** reflog-only; exclusion set **199** refs; baseline `rev-list --all --reflog` **1,115**. Both sanctioned spellings (rules 14/30) return byte-identical 92 (`comm -3` = 0 lines), and the broken repeating-`--not` spelling returns 113. Rule 39's guard fired as a **positive control**: `--not` applied to a list of `^` specs returned exactly 1,115, the unexcluded baseline, confirming the annihilation is still detectable. Rule 40's other question, excluding all of `refs/heads`/`refs/tags`/`refs/stash` (579 local refs total), gives **123** — pass 117's "84" does not reproduce under that spelling; 84 is the reflog-only subtotal of the 92 |
-| MadGab Antonina agents alive | **0** — the newest madgab-cwd agents are still `3a8f02`/`3a8f01`, `stopped`, 15h45m old, unchanged from pass 117. The 1 board-wide `running` agent is other-project (`99a2`, `/tmp/opencode/r99-conflict`). The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
-| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 118 per file by locating each file's first `#[cfg(test)]` line and classifying every hit by side: `src/adjacency.rs` (boundary 269) 0/0; `src/lexical.rs` (260) 0/0; `src/approx.rs` (464) 0 prod / 1 test; `src/lib.rs` (381) 0 prod / 18 test; `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines, not logic; `src/wasm.rs` has no hits at all. **Unchanged from pass 117** (two consecutive passes, same figures) |
-| `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref. HEAD is `post-milestone-acceptance` at pass 117's `9a071e2` |
+| At-risk commits | **91** = 8 ref-held + 83 reflog-only; exclusion set **199** refs; baseline `rev-list --all --reflog` **1,116**. Re-measured at pass 119 by both sanctioned spellings (rules 14/30), which returned identical figures. The delta from pass 118's 92 is **not** a recovery: it is this log's own pass-118 commit `18dea56`, which was local-only at 19:38 and is `ls-remote`-backed now, so it left the at-risk set. A log that measures its own commits must expect its count to fall by one per pass; per rule 40 the figure is only meaningful with its exclusion set named |
+| MadGab Antonina agents alive | **0** — board-wide `running` count is now **0** as well, so the 1 non-terminal agent pass 118 recorded (`99a2`, other project) has itself reached a terminal state. The newest madgab-cwd agents are unchanged at `a1b2c30{1,2,4}` / `5f1c04` / `3d6c810`, all `succeeded`, 2d5h–2d14h old. The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
+| Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 119 with the same per-file `#[cfg(test)]` boundary method: `src/adjacency.rs` (boundary 269) 0/0; `src/lexical.rs` (260) 0/0; `src/approx.rs` (464) 0 prod / 1 test; `src/lib.rs` (381) 0 prod / 18 test; `src/main.rs` (no `#[cfg(test)]`) 2 `//!` crate-documentation usage-example lines; `src/wasm.rs` 0. **Unchanged across three consecutive passes (117–119), same per-file figures** |
+| `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref. HEAD is `post-milestone-acceptance` at pass 118's `18dea56` |
 
 **Stop reading here if you are a scheduler.** Twenty-seven passes (92–118) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
@@ -11900,5 +11900,42 @@ note; this log's own entry is the only thing committed there (rule 19). **Nothin
 No work item created or claimed, no agent launched, no development branch cut, no recovery archive
 created (rule 44 needs none — 0 files at risk), `audit/*` left in place.
 
-**Next action for the next pass:** prefer no commit over a twenty-eighth entry. Otherwise verify the
+**Next action for the next pass:** prefer no commit over a twenty-ninth entry. Otherwise verify the
+rows above, keep the header in step, append one short entry, exit. Only a human can close this item.
+
+## Pass 119 — 2026-09-28T19:37Z → 19:44Z — coord-2e5f — the twenty-eighth identical firing; minimum entry, one self-referential delta recorded
+
+Gate answer unchanged from passes 92–118: **NO**. Same three contradictory template clauses (rule 19)
+reconciled the same way. Nothing below the header was re-derived — no `fsck`, no pseudoref census
+(rules 6–28, 41–43 closed), no re-hash of pass 118's 74-file population.
+
+| Fact | Result |
+|---|---|
+| Deciding authority | paused; gate **NO** |
+| MadGab Antonina agents non-terminal | **0**; board-wide `running` also **0** (pass 118's `99a2` is terminal). Newest madgab-cwd `a1b2c304`, `succeeded`, 2d10h |
+| Worktrees | **127** linked; **38** dirty porcelain rows, same 11 `M src/lib.rs` + untracked set as pass 118, 0 needing recovery (rule 44's hash result stands) |
+| Production fence | **0** in production logic; per-file figures identical to 117 and 118 — three consecutive passes, unchanged |
+| At-risk commits | **91** (8 ref-held + 83 reflog-only), exclusion set **199**, baseline **1,116**; both sanctioned spellings agree |
+| All-local-exclusion figure | **123** (pass 118; not re-measured — nothing under it changed) |
+| `main` | untouched: `origin/main` = `0267ade`, no local `main` ref |
+
+**The at-risk count fell by one, and the reason is this log measuring itself.** Pass 118 reported 92
+against a baseline of 1,115; this pass reports 91 against 1,116. The two changes are the same commit:
+`18dea56`, pass 118's own log entry. When it was written it was local-only and counted as at risk; once
+pushed it is `ls-remote`-backed and leaves the set. So a decreasing at-risk figure in this log is
+**not** evidence that something was recovered — the correct reading is that a pass committed and
+pushed. Any future pass that sees the number fall should check whether it fell by exactly the size of
+its predecessor's own commit before treating it as a finding; a fall of any other size would be the
+real signal. Per rule 40 the figure carries no meaning without its exclusion set beside it.
+
+**Declined, same three clauses, twenty-eighth time.** Launching or assigning agents, recovering or
+splitting fronts, and prioritising the canonical examples are forbidden by the pause (rules 1–2). The
+canonical-examples clause remains self-contradictory while paused — the only way to make the second
+canonical phrase appear in the production pool is the phrase-specific hard-coding the same clause
+forbids, and the fence row is at **0** across three passes. The `post-milestone-acceptance`
+accumulation clause is contradicted by the itinerary's retired-target note; this log's entry is the
+only thing committed there (rule 19). **Nothing pushed to `main`.** No work item created or claimed,
+no agent launched, no development branch cut, no recovery archive created, `audit/*` left in place.
+
+**Next action for the next pass:** prefer no commit over a twenty-ninth entry. Otherwise verify the
 rows above, keep the header in step, append one short entry, exit. Only a human can close this item.
