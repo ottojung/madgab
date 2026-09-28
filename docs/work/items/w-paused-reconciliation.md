@@ -8544,7 +8544,10 @@ frontmatter at all** — it is the `w-0f3a17` shortlist front's report, and per
 contains `work_item: true`". It is the only file in the directory without that key. So the correct
 census is **95 items: 83 done, 11 superseded, 1 working**, and the state grep must filter on
 `work_item: true` first or it will report a phantom open item on every future pass — the eighth
-instance of this log's one recurring failure mode, this time in a census rather than a sweep.
+instance of this log's one recurring failure mode, this time in a census rather than a sweep. And
+the filter must match **frontmatter**, not the substring: `grep -l 'work_item: true'` returns
+**96**, because `README.md` quotes the key in its own prose. The true item count is **95**
+(83 done + 11 superseded + 1 working), and the 96th match is that README.
 
 ### Next action for the next pass
 
