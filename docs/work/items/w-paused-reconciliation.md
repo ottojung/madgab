@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-a3e6 (pass 98; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:28:00Z
+owner: coord-0f4a (pass 99; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:47:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10353,3 +10353,90 @@ inheritance, which is the strongest form of closure available without a human.
    in the same sentence as the count. Do **not** re-walk the 36-line dirty-path class, the 85
    unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the
    `--include-root-refs` enumeration; all are closed, and listing them is the standing reason not to.
+
+## Pass 99 — 2026-09-28 17:37Z → 17:47Z — coord-0f4a — the standing 0 re-measured a ninth time, and this pass committed rule 62's own error while doing it
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, eighth pass running, on the ground recorded in passes
+92–98: the itinerary's `## Status: accepted and paused` forbids a scheduled orchestrator from creating
+MadGab work, claiming historical items, launching agents or resuming fronts without an explicit human
+reopening, and records `post-milestone-acceptance` as release history that is "no longer an automatic
+accumulation target" (rule 19). A recurring template is not that human. The no-hard-coding half is
+discharged by identity: the production fence against `origin/main` over
+`src tests web examples Cargo.toml README.md` is **0 lines**.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `b163c2c` at pass entry, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** total, **0** non-`target` |
+| recovery branches | **20** local, **20** remote, in agreement |
+| remote heads / audit ref set | **198** / **199** (198 heads + 1 tag) |
+| MadGab Antonina agents alive | **0** (every `running` agent's cwd is outside `/workspace/madgab*`; boards 74, 94, 98, 104, 107) |
+
+### 2. At-risk sweep, re-run end to end with controls, per pass 98's next-action 4
+
+| probe | result |
+|---|---|
+| exclusion-set size (rule 37: 0 would mean the fetch failed) | **199** |
+| baseline, `rev-list --all --reflog`, no exclusion (rule 39) | **1,091** |
+| at-risk commits, `--all --reflog --not <199 remote refs>` | **89** |
+| cross-check, stateless `^` spelling (rule 14/30) | **89** |
+| **control**: one ref dropped from the *exclusion* side | **94** — fires |
+| reflog-only objects (`comm -13`, `sort -u` both sides, `stderr` **0 bytes**) | **319** |
+| …by type (rule 62, before any path filter) | 82 commit / 166 tree / **71 blob** |
+| …reflog-only blobs, non-build by path **component** | **1** — `3daf061`, this log's own superseded draft |
+| …present in the 199-ref remote set | **0 of 1**; the 70 build blobs are inside `33c409e` (rule 41) |
+
+**Standing value: 0 at-risk non-build content**, re-measured by execution, unchanged from pass 98.
+The control fires at the single-ref scale, so the 89 and the 319 are measurements, not outputs.
+
+### 3. Rule 64 — this pass made rule 62's error in the very check rule 62 was written for
+
+Rule 62 (pass 95) established that `rev-list --objects` names **subtrees** as well as blobs, and
+recorded its own failure as "162 against a true 71". This pass then took the 319 reflog-only objects,
+joined them to their names and applied the path filter, and got **80 "non-build"** entries — almost all
+of them paths like `src`, `docs`, `docs/work/items`, which are **trees**. Two independent defects
+compounded, both already named in this log: the type filter (rule 62) was applied *after* the join
+rather than before it, and the path was then read as **field 3** of a two-field `join` output that has
+no field 3 (rule 17). The consequence is the mirror of rule 62's original: a number **too large by
+80x**, reading as a major recovery finding — "80 unpreserved source and test blobs" — when the true
+figure is **1**, and that one is this log's own previous draft. It was caught by the *bracket*, not by
+inspection: the printed paths were directory names, and a `.rs` file never has a directory's name.
+Rule 14's arithmetic guard, applied to a *field* instead of a *set*, is what fired.
+
+The general form, and the **ninth** instance of this log's one recurring failure mode (rules 9, 10, 11,
+14, 17, 22, 27, 35, 37, 38): every wrong count here has been a check that could not fail. The new
+twist is that this one was committed by the pass that had just read the rule forbidding it — the rules
+are in the same file, 9,000 lines above the entry, and none of that is a defence. **When a check is
+re-run from a written rule, re-derive the rule's own guard inside the new command rather than
+assuming the new command inherits it**; a guard is a step in a procedure, not a property of the
+finding. Cheap guard here, and the one to keep: **print the object type next to every path a
+"non-build" count is claimed over.** Every one of the 80 would have been labelled `tree` on the same
+line that reported it as unpreserved.
+
+### 4. This log stays `blocked`
+
+Unchanged from passes 94–98. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it. The durable half remains closed by execution.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Six passes have now reached this result.
+2. **The item should be closed by a human, not extended.** The remaining question is a human's:
+   reopen MadGab development, or confirm the pause. Confirming means setting this item `done` and
+   retiring the front; reopening means a fresh branch from `main` and pass 78's direction (compact
+   pronunciation DAG with k-best/A*-style whole-path search, canonical cases validated **generically**,
+   never hard-coding `recognize speech` or `It's just a stupid game`).
+3. **The scheduler template is the thing to fix.** It has now fired **eight** times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
+   or closing this item `done` so it stops being selected, is worth more than a hundredth declining pass.
+4. If the sweep is ever re-run: the standing recipe in pass 98's next-action 4, **plus rule 64's type
+   column printed next to every path**, and pass 98's list of classes that are closed and must not be
+   re-walked. Do not re-walk the dirty-path class, the 85 unreachable commits, the per-worktree
+   `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the `--include-root-refs` enumeration.
