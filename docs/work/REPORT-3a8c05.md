@@ -346,7 +346,7 @@ enumeration front's surface (w-4d7c12), and this front does not touch it.
   production path, and the release binary is byte-behaviour-identical (the sole non-`cfg(test)`
   diff line is `let m = self.metrics(..); let score = m.combined;`).
 * Release mode for every measurement. `cargo fmt --check` and `cargo clippy` **cannot run on this
-  host** (see [../../environment-notes.md](../../environment-notes.md)) and are not claimed.
+  host** (see [../../environment-notes.md](../environment-notes.md)) and are not claimed.
 * No production change, so no red/green regression test is added: this front's deliverable is the
   measurement, and the item's contract is that a production change requires such a test. A change
   that did not satisfy the item's own success criteria would not have been made merely to have

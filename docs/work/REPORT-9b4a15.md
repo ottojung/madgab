@@ -66,7 +66,7 @@ justice too bad …`, and no row is the canonical tuple. That is the same fact
 `approximate_finds_classic_madgab_resegmentation` reports as its pre-existing red, and it
 is `w-1c7d40`'s to own. So the item's "rank and score of the canonical case-2 tuple before
 and after" is **unmeasurable on this surface by any scoring change**; what *is* measurable
-is the pool's head lift, which is what §3 prices. [../REPORT-3a8c05.md](../REPORT-3a8c05.md)
+is the pool's head lift, which is what §3 prices. [../REPORT-3a8c05.md](REPORT-3a8c05.md)
 §4's 7,393 for C1b is a rank in a wider enumeration than the approximate search's pool and
 is cited, not re-derived here.
 
@@ -141,7 +141,7 @@ above the pool mean:
 Reading of the table:
 
 * The axis works. It is the intended repair and it does what
-  [../REPORT-3a8c05.md](../REPORT-3a8c05.md) said it would: the case-2 head goes from
+  [../REPORT-3a8c05.md](REPORT-3a8c05.md) said it would: the case-2 head goes from
   −0.0180 to +0.0345 at the item's own comparator C1, and `PARSIMONY`'s own head lift
   goes from −0.0157 to +0.1343. Its `PUNCH` lift collapses from +0.1526 to −0.0274, so
   the "monotone short-words" artefact really is an artefact.

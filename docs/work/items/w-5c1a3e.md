@@ -25,7 +25,7 @@ fronts owns.
 
 ## Context
 
-- Standing goal: [../skills/itinerary-madgab.md](../skills/itinerary-madgab.md). Canonical case 1
+- Standing goal: [../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md). Canonical case 1
   (`wreck a nice beach` for `recognize speech`) is green on this branch at printed rank 27.
   Canonical case 2 (`hits justice dupe hid came` for `It's just a stupid game`) is **not in the
   pool**; `hid` is pruned at the span shortlist.
@@ -267,7 +267,7 @@ Merged `--no-ff` and pushed. `post-milestone-acceptance` now carries the retenti
 reading in the pool, and the printed case-1 top-50 is byte-identical (md5 `d8136a142ac2`) across
 all of them. The axis is closed as a surface, not merely unfavourable.
 
-Two facts from the report are handed forward to [w-3c5b18](w-3c5b38.md) because they change what a
+Two facts from the report are handed forward to [w-3c5b18](w-3c5b18.md) because they change what a
 discard-threshold change has to be worth: the reading is **enumeration-limited, not
 retention-limited**, and at `beam_width` 4096 the 3-word prefix is still ~2700 combined-score
 positions below the cut at `p=13` — not the 104-rank fill headroom this front measured. A

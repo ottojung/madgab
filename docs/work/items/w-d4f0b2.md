@@ -16,7 +16,7 @@ worktree: /workspace/madgab-nohardcode
 Add an automated, repository-resident check that the two canonical Mad Gab
 examples were **not** solved by hard-coding them, and that the hard-coding has
 not crept in afterwards. The itinerary forbids it in terms, and
-[../skills/itinerary-madgab.md](../skills/itinerary-madgab.md) makes it one of
+[../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) makes it one of
 the milestone's completion conditions; today that condition is verified by
 hand, one diff review at a time, by whichever coordinator happens to be
 running.

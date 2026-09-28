@@ -90,7 +90,7 @@ the canonical case-2 alignment scores **0.8199** against a **0.9295** cutoff, a 
   `approx_determinism` 4/4, `exact_determinism` 1/1, `no_phrase_hard_coding` 9/9, and
   `corpus_integration` 12/1 with the known pre-existing red
   `approximate_finds_classic_madgab_resegmentation` **not to be re-pinned**. `cargo fmt` and
-  `cargo clippy` cannot run on this host — see [../environment-notes.md](../environment-notes.md) —
+  `cargo clippy` cannot run on this host — see [../environment-notes.md](../../environment-notes.md) —
   so do not claim them.
 * Commit and push `madgab-phon-d4e8b1` as soon as any real change is green, with probe
   instrumentation confined to an unpushed scratch branch. **Do not self-merge** into

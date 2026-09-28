@@ -18,7 +18,7 @@ other front owns, kept off the region `c1d3a7` is editing so the two do not
 contend:
 
 1. **The no-hard-coding audit.** The milestone in
-   [../skills/itinerary-madgab.md](../skills/itinerary-madgab.md) requires that
+   [../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) requires that
    the implementation "does not contain phrase-specific hard-coding for these
    examples". That has been asserted repeatedly in work-item prose and never
    *checked* against the tree on the accumulation branch. Check it, and record
@@ -121,7 +121,7 @@ Report the failure message verbatim, including the visible wordings it got.
 - No `zz_*` test, sweep script, `.bench` tree or `MADGAB_*` diagnostic on your
   branch. Scratch work belongs in `/tmp`.
 - `cargo fmt`, `cargo clippy` and doctests do not exist on this host — see
-  [../environment-notes.md](../environment-notes.md). Do not report them.
+  [../environment-notes.md](../../environment-notes.md). Do not report them.
 - `cargo test --release --lib`, `--test exact_determinism` and
   `--test approx_determinism` must be reported as measured before you close.
 - Do not run long measurement sweeps. This is a review front, not a measurement
@@ -137,7 +137,7 @@ Report the failure message verbatim, including the visible wordings it got.
    `file:line` and what the fence it violates is.
 3. Any *real* defect in the adjacency mechanism that the agent cannot reasonably
    be expected to find is captured as a **new** work item created from
-   [../work/TEMPLATE.md](../work/TEMPLATE.md) — a defect about mechanism
+   [../work/TEMPLATE.md](../TEMPLATE.md) — a defect about mechanism
    behaviour is not a work item about this review, and must not die with this
    one. Link it from this item's handoff.
 4. The blocker is re-measured on the merged head and its exact failure text
@@ -184,7 +184,7 @@ git status --porcelain
 ```
 
 `git grep` is used because this host has no `grep`, no `rg` and no `python3`
-in `PATH` (see [../environment-notes.md](../environment-notes.md)); `git grep`
+in `PATH` (see [../environment-notes.md](../../environment-notes.md)); `git grep`
 is present and reads only tracked files, so it cannot be fooled by a stray
 untracked scratch file. The final `git status --porcelain` is part of the
 command on purpose: an empty result is part of the verdict.
@@ -621,7 +621,7 @@ a reproducibility failure introduced by the adjacency change would be
 attributable to the change.
 
 `cargo fmt`, `cargo clippy` and doctests do not exist on this host and are not
-reported, per [../environment-notes.md](../environment-notes.md).
+reported, per [../environment-notes.md](../../environment-notes.md).
 
 ---
 
@@ -685,7 +685,7 @@ from that worktree and from `src/`.
 Board resources: `antonina board resource list` returned nothing on this host, so
 no board dependency is registered for `/workspace/madgab-review`. The pushed
 branch and this item are the durability mechanism, per
-[../skills/resources.md](../skills/resources.md).
+[../skills/resources.md](../../skills/resources.md).
 
 ## Closing state, 2026-09-26T22:20Z
 

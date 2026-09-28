@@ -94,7 +94,7 @@ case 1 measured present at printed rank 27 (was 28), score 0.920 (was 0.918).
    alignment's exact residual, on the grounds that measuring them exactly
    would need an instrument the item forbids. Assess whether that is a
    legitimate deferral or an untested claim that should block integration.
-   Per [w-d5c11a2](w-d5c11a2.md) the design is *not* expected to reach
+   Per [w-d5c11a2](w-5c11a2.md) the design is *not* expected to reach
    canonical case 2, so absence of that is not a defect.
 
 ## Fences for this front
@@ -112,7 +112,7 @@ case 1 measured present at printed rank 27 (was 28), score 0.920 (was 0.918).
   this host; state them as unavailable rather than as passing.
 - `git`, `grep`, `sed`, `awk` and `date` need
   `export PATH="$GUIX_PROFILE/bin:$HOME/.local/bin:$PATH"` first — see
-  [../environment-notes.md](../environment-notes.md). A `command -v` miss here
+  [../environment-notes.md](../../environment-notes.md). A `command -v` miss here
   is a truncated `PATH`, not a host outage, and a pass has already been misled
   by that twice.
 - Do not touch `main`. Do not merge anything into

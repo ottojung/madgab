@@ -63,7 +63,7 @@ fence in §6 confirms rather than asserts.
 
 Wall clock **1.72 s**; pool **18,949**; per-word pool membership
 `hits 19, justice 10,044, dupe 30, hid 2, came 138`. All three reproduce
-[../REPORT-6b2e19.md](../REPORT-6b2e19.md) §1 exactly, so the base is
+[../REPORT-6b2e19.md](REPORT-6b2e19.md) §1 exactly, so the base is
 confirmed and every number below is a base number.
 
 ### The multiset, stage by stage
@@ -314,7 +314,7 @@ The canonical would be reachable the same way if the traversal's slot ordering
 put the right word of each of its five spans inside the first 7 positions.
 That is an **ordering** property of `SlotAlt::contribution`, not a coverage
 one, and it is a different front from this one. It is also the shape
-[w-9e2b41](items/w-9e2b41) measured and recorded in its own goal statement —
+[w-9e2b41](items/w-9e2b41.md) measured and recorded in its own goal statement —
 "the per-slot floors across the six admission passes are `7/0/3/85/7`; no
 re-specification of admission can beat them" — which is a statement about
 *ordering*, arrived at from the width side.
@@ -393,7 +393,7 @@ Named precisely enough to start from rather than re-bracket:
   more budget than the search already spends.
 * **One caveat a successor should inherit:** the scorer still rates the
   canonical **0.0944** below the top-50 cutoff
-  ([../REPORT-6b2e19.md](../REPORT-6b2e19.md) §1). Putting the tuple in the
+  ([../REPORT-6b2e19.md](REPORT-6b2e19.md) §1). Putting the tuple in the
   pool is necessary and **not sufficient** for it to be displayed. The two
   fronts are independent and both are on the path; this front's verdict does
   not touch the scoring side and does not duplicate its counterfactual table.

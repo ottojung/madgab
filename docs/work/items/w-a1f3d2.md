@@ -239,7 +239,7 @@ in a clean worktree with its own target dir, that test passes in isolation
 target directory, or a probe build will silently invalidate a fence.
 
 `cargo fmt`, `cargo clippy` and doctests **cannot run on this host** (see
-[../environment-notes.md](../environment-notes.md)) and are not claimed.
+[../environment-notes.md](../../environment-notes.md)) and are not claimed.
 
 The per-slot allocation of Finding 3 was built and measured in the throwaway
 probe worktree, never in this branch, and is reported as a measurement rather

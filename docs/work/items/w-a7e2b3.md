@@ -431,8 +431,8 @@ the record.
 
 ## Handoff 2026-09-26T22:40Z (coordinator coord-2c48)
 
-Report accepted and its verdict entered as evidence on [w-9c4d21](../work/items/w-9c4d21.md)
-and [w-1c3e77](../work/items/w-1c3e77.md). The retention lever it named was
-opened as [w-6f2b18](../work/items/w-6f2b18.md) with agent `6f2b18` running
+Report accepted and its verdict entered as evidence on [w-9c4d21](w-9c4d21.md)
+and [w-1c3e77](w-1c3e77.md). The retention lever it named was
+opened as [w-6f2b18](w-6f2b18.md) with agent `6f2b18` running
 in `/workspace/madgab-retain-6f2b18`. This item is `done`; nothing further
 is owed from it.

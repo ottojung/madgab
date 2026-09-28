@@ -1,6 +1,6 @@
 # The budget envelope: what an 8x global emission budget buys, and what it costs
 
-Measurement for [w-be6d21](../items/w-be6d21.md), branch
+Measurement for [w-be6d21](items/w-be6d21.md), branch
 `madgab-budget-envelope`, worktree `/workspace/madgab-budget-envelope`, from
 `aac97e1`. **Documentation only — no `src/` change is committed.** The budget
 constants were varied locally to take the measurements and restored; the tree
@@ -24,7 +24,7 @@ up to 256x.** And the reason is not a shortfall to be bought — it is that
 **Is a knob genuinely needed? No, and nothing should be landed.** The
 measurement's conclusion is that the shipped constants are correct and
 non-binding; the defect is `LEXICAL_BRANCH_KEEP = 10` (per-slot width), which
-is [w-9d4e17](../items/w-9d4e17.md)'s and [w-3b8e15](../items/w-3b8e15.md)'s
+is [w-9d4e17](items/w-9d4e17.md)'s and [w-3b8e15](items/w-3b8e15.md)'s
 to change, not this branch's. So this branch lands **documentation only**,
 `docs/work/budget-envelope.md`, with no constant change to review or inherit.
 The `src/lib.rs` in this worktree is modified only while a sweep is running
@@ -68,7 +68,7 @@ Two things decide it.
    budget artefact — it is the size of the set the search can reach at all,
    because the per-slot fan-out is `LEXICAL_BRANCH_KEEP = 10`
    (`src/lib.rs:1210`). The canonical clue's `hid` sits at **walk rank 99**
-   in its slot, so that node is never pushed. [w-6b2f04](../items/w-6b2f04.md)
+   in its slot, so that node is never pushed. [w-6b2f04](items/w-6b2f04.md)
    reached the same conclusion by a different route ("no amount of popping
    reaches a node that is never pushed"); this item confirms it *through the
    budget lever itself*, which is what the coordinator asked for.
@@ -101,7 +101,7 @@ probes, and that is the part that relocates work rather than closing it.**
 genuine readable resegments that the search **produces** and the scorer
 **discards**, at every budget multiple including 1x. A scorer admitting them
 would have to lower the cutoff by 0.0107 and 0.0162. So
-[w-04f83f](../items/w-04f83f.md) / [w-2e5b93](../items/w-2e5b93.md) are not
+[w-04f83f](items/w-04f83f.md) / [w-2e5b93](items/w-2e5b93.md) are not
 working on a hypothetical: there is a measured, enumerated, cut population
 for them to recover, and the budget lever cannot recover any of it. Full
 table and provenance below.
@@ -155,9 +155,9 @@ and 16x the global pop budget cost nothing measurable, which is the same
 fact as the pool being unchanged, seen from the other side.
 
 Corpus load is 433-522 ms across all runs, against the ~419 ms baseline in
-the spec and the 402-507 ms in [w-8f3c61](../items/w-8f3c61.md) §1. The 1x
+the spec and the 402-507 ms in [w-8f3c61](items/w-8f3c61.md) §1. The 1x
 pools reproduce the `--top 50` figures already recorded in
-[w-6b2f04](../items/w-6b2f04.md) and [w-8f3c61](../items/w-8f3c61.md) §1
+[w-6b2f04](items/w-6b2f04.md) and [w-8f3c61](items/w-8f3c61.md) §1
 exactly (`It's just a stupid game` 15,710; `congratulations on your
 promotion` 7,725), which is the cross-check that the 1x baseline is the same
 tree they measured.
@@ -186,7 +186,7 @@ why `congratulations new wrap a motion` (rank 439 of a `--top 1000` run) and
 `hole la tongue true able` (rank 1250 of `--top 1500`) is not: the pool itself
 is a function of `top_n` through `structure_wording_allowance`, so a probe
 deeper than the `--top 50` pool cannot be in it. The `(0.819901)` in the
-first row is **quoted from [w-8f3c61](../items/w-8f3c61.md) §8.3**, not
+first row is **quoted from [w-8f3c61](items/w-8f3c61.md) §8.3**, not
 measured here, because the clue is not enumerated at any multiple and so has
 no score in the pool to read.
 
@@ -209,9 +209,9 @@ The important consequence for the next pass: **the milestone has two
 independent walls, in series, and the budget lever touches neither.** A
 scoring fix alone leaves the canonical clue absent; a reach fix alone would
 surface it at rank ~400, behind the same 0.0958 gap that stops the two
-probes above. [w-04f83f](../items/w-04f83f.md) /
-[w-2e5b93](../items/w-2e5b93.md) own the scoring wall and
-[w-3b8e15](../items/w-3b8e15.md) owns the reach wall; neither front can close
+probes above. [w-04f83f](items/w-04f83f.md) /
+[w-2e5b93](items/w-2e5b93.md) own the scoring wall and
+[w-3b8e15](items/w-3b8e15.md) owns the reach wall; neither front can close
 the milestone alone.
 
 ### The milestone's other half
@@ -296,7 +296,7 @@ bound on what any budget multiple can buy:
    saturation measures.
 3. The canonical clue needs walk rank 99 in one of its five slots, so it is
    outside that set by construction. This is
-   [w-8f3c61](../items/w-8f3c61.md) §8's `T = (7, 0, 13, 99, 11)` and
+   [w-8f3c61](items/w-8f3c61.md) §8's `T = (7, 0, 13, 99, 11)` and
    §8.3's 134,400-emission down-set bound, re-confirmed here from the other
    direction: the budget is not 8x short of the clue, the *order and width*
    are.
@@ -340,7 +340,7 @@ MADGAB_TRACE raw_cutoff rank=49 score=0.915691888 phrase="it justice too day mm"
 
 `missing candidates=N` is the pool size and the not-enumerated verdict, read
 from the `raw phrase=` line alone (never from a concatenation with the
-`raw_cutoff` line, which [w-8f3c61](../items/w-8f3c61.md) §1 records as a
+`raw_cutoff` line, which [w-8f3c61](items/w-8f3c61.md) §1 records as a
 past reporting hazard). `rank=R score=S` is the enumerated verdict, and
 `R` is the rank in the pre-`select_diverse` deduplicated pool. Whether the
 clue is in the **visible** top 50 is read from the numbered stdout list, which
@@ -402,10 +402,10 @@ phrase-specific decision: the phrases are only ever passed to the existing
 2. **The milestone's real remaining cost is width, not depth.** The cheapest
    configuration measured anywhere on this front that would push the
    canonical `hid` node is full per-slot width, already measured by
-   [w-6b2f04](../items/w-6b2f04.md) at 17.2 s and 10x the wall clock, and by
-   [w-9d4e17](../items/w-9d4e17.md) at 0.7 s *only* combined with a
+   [w-6b2f04](items/w-6b2f04.md) at 17.2 s and 10x the wall clock, and by
+   [w-9d4e17](items/w-9d4e17.md) at 0.7 s *only* combined with a
    sum-cost order. That pair — full width **plus** a non-myopic order — is
-   the same conclusion [w-3b8e15](../items/w-3b8e15.md) is already chasing
+   the same conclusion [w-3b8e15](items/w-3b8e15.md) is already chasing
    from the cost-model side, and this item's number is the budget-side
    confirmation that the budget is not a third option.
 3. **Keep the three regimes separate in the next pass.** Measured, stable
@@ -415,9 +415,9 @@ phrase-specific decision: the phrases are only ever passed to the existing
    — a measured, recoverable population that a scoring change can address and
    no budget change can); and *not-enumerated* (the canonical clue, blocked
    by `LEXICAL_BRANCH_KEEP = 10`). Reaching the clue (width/order,
-   [w-3b8e15](../items/w-3b8e15.md) / [w-9d4e17](../items/w-9d4e17.md)) and
+   [w-3b8e15](items/w-3b8e15.md) / [w-9d4e17](items/w-9d4e17.md)) and
    ranking it (score, gap 0.0958 against the 0.9157 cutoff,
-   [w-04f83f](../items/w-04f83f.md) / [w-2e5b93](../items/w-2e5b93.md)) are
+   [w-04f83f](items/w-04f83f.md) / [w-2e5b93](items/w-2e5b93.md)) are
    two problems in series, owned by two different fronts. A fix to either one
    alone does not close the milestone.
 4. **No constant should be landed from this item.** The shipped
@@ -427,5 +427,5 @@ phrase-specific decision: the phrases are only ever passed to the existing
    *why* they are non-binding (the `256 * 64 = 16,384` identity) would be a
    genuine improvement, but it is a `src/` change and belongs to whichever
    front next owns `src/lib.rs` — suggest folding it into
-   [w-3b8e15](../items/w-3b8e15.md)'s diff rather than opening a branch for
+   [w-3b8e15](items/w-3b8e15.md)'s diff rather than opening a branch for
    it.

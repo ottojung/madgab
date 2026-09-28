@@ -25,15 +25,27 @@
 // from correctness. C3 now measures that stage, on a fixture that contains
 // exactly the decoy the old code fell for.
 //
-// Usage: node docs/work/paused-recon/link-census.mjs [repoRoot]
-// Exit code 0 = census complete (both controls passed). Exit 1 = control failed.
+// Rule 59: the census also emits a REPAIR LIST, and a repair list nobody applies is
+// the same shape as the unapplied patch of rule 12 -- it reads correctly and changes
+// nothing. `--fix` writes the repairs this script itself computed, from the same
+// `classify` code path the number comes from, and only after C1-C3 have passed, so
+// the stage that mutates the tree is behind the same controls as the stage that
+// reports. Repairs are applied only to `uniquely repairable` edges; the ambiguous
+// and phantom ones are printed for a human because guessing a target would convert
+// a visible defect into an invisible one.
+//
+// Usage: node docs/work/paused-recon/link-census.mjs [repoRoot] [--fix]
+// Exit code 0 = census complete (all controls passed). Exit 1 = control failed.
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPO = process.argv[2] ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const args = process.argv.slice(2);
+const FIX = args.includes("--fix");
+const repoArg = args.find((a) => !a.startsWith("--")) ?? undefined;
+const REPO = repoArg ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function walk(dir, out) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -152,12 +164,30 @@ const trackedMd = (root) => {
 const repoMd = (trackedMd(REPO) ?? walk(REPO, []).slice().sort());
 const candidateSource = trackedMd(REPO) ? "git-tracked" : "filesystem walk (REPO is not a git work tree)";
 
+// Rule 59: an item id already carries the `w-` prefix, and a link written without
+// it was a form this matcher could not repair -- it looked for `w-<stem>` where
+// `<stem>` already began `w-`, found nothing, and reported the edge as ambiguous.
+// Three of the six edges that survived the first `--fix` run are exactly that, so
+// the ambiguity was the detector's, not the documents'. Both spellings are accepted
+// now: an id matches with or without its own `w-`, in either direction.
 const propose = (src, link, candidates) => {
   const base = path.basename(link.split("#")[0]);
   const stem = base.replace(/\.md$/, "");
-  const hits = candidates.filter(
-    (f) => path.basename(f) === base || path.basename(f, ".md") === stem || path.basename(f, ".md") === "w-" + stem
-  );
+  const bare = stem.replace(/^w-/, "");
+  const wanted = new Set([stem, "w-" + stem, bare, "w-" + bare]);
+  let hits = candidates.filter((f) => path.basename(f) === base || wanted.has(path.basename(f, ".md")));
+  // A truncated id -- `w-5b1e.md` for `w-5b1e93.md` -- matches nothing exactly, and
+  // the two edges of that kind in this corpus are recorded as TYPO by rule 52. Prefix
+  // matching is admitted only for a bare hex id SHORTER than the six-hex item ids, and
+  // only when it yields exactly one candidate: two items sharing the prefix returns
+  // null, so this can under-repair but cannot invent a target. (Same contract as the
+  // uniqueness rule above, applied to a weaker key.)
+  if (hits.length === 0 && /^[0-9a-f]{1,5}$/.test(bare)) {
+    hits = candidates.filter((f) => {
+      const s = path.basename(f, ".md");
+      return s === "w-" + bare || (s.startsWith("w-") && s.slice(2).startsWith(bare));
+    });
+  }
   const set = new Map();
   for (const h of hits) set.set(h, path.relative(path.dirname(src), h));
   const uniq = [...set.values()].sort((a, b) => a.length - b.length);
@@ -216,7 +246,76 @@ if (decoyFixable !== 0) {
 }
 controlResults.push("C3 decoy fixture");
 
+// C4 (rule 59) drives the WIDENED matcher and the apply stage on a fixture, in the
+// other direction from C3: a `w-`-prefixed id written without its prefix must be
+// repaired, an unrelated id must not be matched into it, and the rewritten
+// destination must actually resolve. C3 proves the matcher cannot over-reach; C4
+// proves it cannot under-reach after a widening, which is the change that added
+// candidates and is therefore the one that could have broken an existing repair.
+const widen = fixture("widen", {
+  "a.md": "# A\n\n[short](w-abc123.md)\n[unrelated](w-zzz999.md)\n[truncated](w-abc12.md)\n[ambiguous](w-ab)\n",
+});
+execFileSync("git", ["init", "-q", widen], { stdio: "ignore" });
+for (const [k, v] of [["user.email", "control@fixture"], ["user.name", "control"]])
+  execFileSync("git", ["-C", widen, "config", k, v], { stdio: "ignore" });
+fs.mkdirSync(path.join(widen, "docs", "items"), { recursive: true });
+fs.writeFileSync(path.join(widen, "docs", "items", "w-abc123.md"), "# Item\n");
+fs.writeFileSync(path.join(widen, "docs", "items", "w-abz789.md"), "# Sibling\n");
+execFileSync("git", ["-C", widen, "add", "-A"], { stdio: "ignore" });
+execFileSync("git", ["-C", widen, "commit", "-qm", "init"], { stdio: "ignore" });
+const widenResult = classify(census(walk(path.join(widen, "docs"), []), ANY), trackedMd(widen) ?? []);
+const widenMap = widenResult.fixable.get(path.join(widen, "docs", "a.md")) ?? new Map();
+const c4want = {
+  "w-abc123.md": "items/w-abc123.md", // exact
+  "w-abc12.md": "items/w-abc123.md", // truncated to a unique id
+};
+if (
+  widenMap.get("w-abc123.md") !== c4want["w-abc123.md"] ||
+  widenMap.get("w-abc12.md") !== c4want["w-abc12.md"] ||
+  widenMap.has("w-zzz999.md") ||
+  widenMap.has("w-ab") // two candidates share the prefix, so no repair
+) {
+  console.error(
+    `CONTROL FAILED (C4 widened-matcher fixture): short-id ${widenMap.get("w-abc123.md") ?? "absent"}, ` +
+      `truncated-id ${widenMap.get("w-abc12.md") ?? "absent"}, unrelated-id ${widenMap.has("w-zzz999.md")}, ` +
+      `ambiguous-prefix ${widenMap.has("w-ab")}. Detector is not trustworthy; number withheld.`
+  );
+  process.exit(1);
+}
+controlResults.push("C4 widened-matcher fixture");
+
 const { fixable, unresolvable } = classify(full, repoMd);
+
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Rule 59: apply the repairs this script computed, only for edges with exactly one
+// existing target, and only after the controls have passed. The anchor, angle
+// brackets and any trailing title text are left alone: the match is bounded by the
+// link destination and a lookahead for `#`, whitespace or `)`.
+const applyFixes = (map) => {
+  let files = 0;
+  let applied = 0;
+  for (const [src, links] of map) {
+    let txt = fs.readFileSync(src, "utf8");
+    const before = txt;
+    for (const [link, target] of links) {
+      if (target === link) continue;
+      const re = new RegExp(`(\\]\\(<?)${esc(link)}(?=[#)\\s])`, "g");
+      const n = (txt.match(re) ?? []).length;
+      if (n === 0) {
+        console.error(`  SKIP ${rel(src)}: ${link} -> ${target} (destination not matched; refusing to guess)`);
+        continue;
+      }
+      txt = txt.replace(re, `$1${target}`);
+      applied += n;
+    }
+    if (txt !== before) {
+      fs.writeFileSync(src, txt);
+      files++;
+    }
+  }
+  return { files, applied };
+};
 
 const rel = (f) => path.relative(REPO, f);
 console.log(`repo: ${REPO}`);
@@ -228,3 +327,13 @@ console.log(`uniquely repairable by existing target: ${[...fixable.values()].red
 console.log(`ambiguous or phantom: ${unresolvable.length}`);
 for (const [f, l] of unresolvable) console.log(`  ${f}: ${l}`);
 console.log(`controls: ${controlResults.join(", ")} - PASSED`);
+
+if (FIX) {
+  const { files, applied } = applyFixes(fixable);
+  console.log(`--fix: rewrote ${applied} link destination(s) across ${files} file(s); ${unresolvable.length} left for a human`);
+  // Re-measure after mutating, so the printed number is the post-fix state and not
+  // the pre-fix claim.
+  const after = census(walk(path.join(REPO, "docs"), []).sort(), ANY);
+  console.log(`post-fix broken edges: ${edges(after)} in ${after.size} files`);
+  for (const [f, l] of after) console.log(`  ${rel(f)}: ${l}`);
+}
