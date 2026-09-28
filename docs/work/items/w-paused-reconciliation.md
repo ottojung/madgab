@@ -3286,3 +3286,160 @@ gap this pass, and it was closed.
     direction — a qualitatively different whole-path algorithm (compact pronunciation DAG
     with k-best / A*-style search, or a strong backward suffix heuristic), **never**
     phrase-specific hard-coding.
+
+### `coord-5b93` — thirty-ninth pass, 2026-09-28T10:42Z–10:52Z
+
+**Reconciliation only. No front opened, no agent launched, no item claimed, nothing integrated,
+no `src/` change, `main` untouched at `0267ade` and not written to.** This pass took the last
+pass's *ungated* next action rather than the gate question: it settled the **81-vs-1001**
+disagreement `coord-7d42` refused to act on, and in settling it produced a real, quantified
+candidate set. The pause gate was read and confirmed closed for the thirty-fifth time and the
+canonical-example instruction declined for the thirty-fifth time.
+
+  * **Prescription (a): rule 10 re-run, still 0, and the count is now two-way cross-checked.**
+    `git rev-list --all --not $(git for-each-ref --format='%(refname)')` returns **0**
+    (stateless `^`-per-ref spelling, per rule 14). The ZZ_AXIS pair archived by `coord-7d42` to
+    `recovery/zz-axis-probe-2026-09-28` is ref-held and did not reappear. All **eight**
+    `recovery/*` branches confirmed present on the remote by `git ls-remote` and equal to their
+    local refs: `2408c25`, `6b21857`, `cc666db`, `52b38c9`, `a1d7425`, `134c0ed`, `a91f71d`,
+    `a7f08ea` — eight `OK`. Worktree clean; `main` = `0267ade`, remote-only, no local `main` ref.
+
+  * **The 81-vs-1001 disagreement is settled, and the *disagreeing* spelling was the broken one —
+    the opposite of how the last pass recorded it.** Three spellings of
+    `git rev-list --all --reflog` minus all refs, on this repository right now:
+
+    | spelling | result |
+    | --- | --- |
+    | `--all --reflog --not <bare ref list>` | **81** |
+    | `--all --reflog ^<ref>` per ref, **no** `--not` | **81** |
+    | `--all --reflog --not ^<ref>` per ref — **both flags** | **1002** |
+
+    The two *agreeing* spellings are the two rule 14 sanctions, and they agree to the commit.
+    The 1002 is not a measurement of anything: `--not` is a stateful prefix, and a `^<ref>`
+    argument *after* it **resets the sense to positive**, so every ref becomes an argument to be
+    **unioned in** rather than subtracted. The command therefore subtracts nothing and returns
+    approximately the whole of `--all --reflog`. `coord-7d42` recorded the 1001 as "the
+    **stateless** `^`-prefix spelling" and treated 81 as the suspect number; it is the reverse,
+    and the label was the error. The 1002 also differs from the recorded 1001 by exactly one
+    commit, which is this log's own `coord-7d42` commit — a small, confirmatory detail: the
+    figure moved by one per pass, so it was tracking the repository and not a fixed constant.
+
+    **New standing rule 30, below.** The general form is rule 14's, one level deeper: rule 14
+    established that `--not` is a *stateful prefix* and that the `^` prefix is its stateless
+    equivalent. It did not follow that **the two can be combined**, and they look like a belt-and-
+    braces restatement of the same intent rather than a contradiction. Under `--not`, every `^`
+    argument silently flips back to positive. The check is cheap and it is the reason this was
+    caught at all: a query that subtracts nothing returns a number, and *every number it returns
+    is a false positive*. The same shape as rules 9, 14, 17, 22 and 28 — a check that cannot fail
+    — and the ninth instance in this repository.
+
+  * **The 81 are now classified, which the last pass could not do without a circular probe.**
+    `coord-7d42`'s first attempt used a comparison set that excluded reflog-reachable blobs, so it
+    restated the definition of the class under test and returned 363 "unique blobs". The
+    non-circular comparison is the **ref-only** object set — `git rev-list --objects --all` with no
+    `--reflog`, **5 757** objects — against which a tree probe per rule 28 (ask about the
+    **tree**, `git ls-tree -r`, not the diff; field 1 per rule 17) gives: **36 of the 81 commits
+    carry 117 blobs that no ref holds**, 45 carry none, and the 81 are reflog-held only. That is a
+    real question with a non-trivial answer, unlike the previous probe.
+
+  * **De-duplicated against the eight recovery branches, and reduced to 34 real candidates.**
+    The 57 patches already archived on the eight `recovery/*` branches were reduced to stable
+    patch-ids; so were the 117 candidate blob-diffs. **4** match an archived patch; **113** do not
+    by that test. But that test **understates** existing coverage and the shortfall is structural:
+    the stash archives written by `coord-6c31` are whole-stash diffs
+    (`git diff --binary <stash>^ <stash>`, per rule 12) whereas this probe is per-file, so a
+    per-file patch-id can never equal a whole-stash patch-id. That is rule 7's trap again
+    ("a file archived as a `*.diff` has no blob of its own") in patch-id form, and it means the
+    4 is a **lower bound**, not a coverage rate. **The 113 is not a number to act on**, and nothing
+    was archived on the strength of it.
+
+  * **The one dominant candidate is Cargo build output, and rule 9's component filter catches it.**
+    A single commit, `33c409e4` ("SCRATCH w-2f7a10 slots front: per-slot feasibility table",
+    2026-09-26), accounts for **72 of the 117** blobs — and every one is under
+    **`target-after/release/…`** (`.d`, `.rlib`, `.rmeta`, `.so`, `.fingerprint/`, `build/`). That
+    is exactly the class rule 9 was written about, in the same shape as
+    `target-front-3a8f01`/`target-front-3a8f02`: a Cargo `target/` directory under a name whose
+    prefix is `target-` and not `target/`. Filtering on the path **component** — here
+    `$4 !~ /^target(-|\/)/` — leaves **34 blob-diffs across 29 commits**: **16** `src/lib.rs`,
+    **3** `tests/corpus_integration.rs`, **14** `docs/work/items/*.md`
+    (`w-d5a2c1` ×3, `w-9d4e17` ×2, `w-8f0b3d` ×2, `w-5d03af` ×2, `w-4b1e07`, `w-a1f3d2`,
+    `w-c1d3a7`, `w-3a8f01`, `w-3a8f02`, `w-4b1e07`) and **1** `.gitignore.tmp`. The one line the
+    filter did *not* catch, `fac2a74d…  .gitignore.tmp`, is worth keeping in the count rather
+    than quietly dropping: it is a stray editor artefact, not product state.
+
+  * **What this is, and what it is not.** These 29 commits are the work-item log of paused fronts
+    (`w-2f7a10`, `w-7b2d40`, `w-9d4e17`, `w-9c6f2b`, `w-d5a2c1`, `w-5d03af`, `w-a1f3d2`,
+    `w-c1d3a7`, `w-8f0b3d`, `w-3a8f01`/`w-3a8f02`, `w-4b1e07`, `w-9b4a15`, `w-exact-determinism`,
+    `w-alloc-sharing`, `w-clue-objective`) and their `src/lib.rs` copies are ZZ-instrumented
+    measurement sources. **Not one of them was archived in this pass**, for three stated reasons,
+    each of which the next pass should re-test rather than inherit: (1) the 113/4 split is a lower
+    bound and cannot support an archive decision; (2) the corresponding **whole-stash** archives
+    from `coord-6c31` may already cover several of them under a different patch granularity, and
+    the right test is patch-applied → blob identity (the strong form of rule 12), not patch-id
+    equality; (3) a `docs/work/items/*.md` edit to a *closed* item is process history, and
+    archiving superseded work-item drafts has a poor precedent in this log — the live
+    `w-0f3a17-shortlist-rule.md` with no metadata (ninth pass to decline it) is exactly what
+    over-eager archival of a superseded report looks like. **The correct disposition is
+    "classified, not archived", with the 29-commit list recorded so it is not re-derived.**
+
+  * **Census reproduced exactly** with `coord-4b6e`'s recorded command (header first, state
+    second, never `grep -m1 "^state:"` over `docs/`): **87 `done`, 12 `superseded`, 2 `open` (the
+    two protocol placeholders, neither claimable), 1 `working` (this log), 0 `blocked` — 102 real
+    items.** Byte-for-byte the durable figure. `docs/work/items/w-0f3a17-shortlist-rule.md`
+    remains the one work-item-shaped document with no metadata, deliberately untouched under rule 1
+    (ninth pass to decline it). **Agents: no MadGab agent alive or claimable** — the ten `running`
+    agents host-wide belong to other repositories and were left running and untouched, exactly as
+    a fresh pass should leave them; `a11d` remains `idle` in `/tmp/cwd-7ze5eU`; `3a8f01`/`3a8f02`
+    remain `stopped` on superseded items and were left stopped. No rebase, stash, index or
+    worktree state was cleared. Neither the hash sweep, the unreachable sweep, the fence, the
+    timings nor the `main`-divergence comparison was re-run — all now have reproducible numbers
+    and there was no reason to disbelieve any of them.
+
+  * **The canonical-example instruction was read against the itinerary's pause gate for the
+    thirty-fifth time and declined for the thirty-fifth time.** It restates the programme's
+    standing goal and asks for fronts, claims and agents; the itinerary
+    (`## Status: accepted and paused`) forbids all three without an explicit human instruction,
+    which has not been given. Its *no-hard-coding* half remains discharged on the merits and is
+    untouched here: no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte changed, the only
+    path this pass wrote is this log, and **no canonical phrase appears anywhere in this pass's
+    output** — the 29 candidate paths are named by function-free file path, not by content. The 16
+    `src/lib.rs` copies above are ZZ-instrumented measurement sources from paused fronts and are
+    **not proposed for landing**; if any is ever promoted, the standard fence note applies
+    unchanged — they carry canonical phrases as probe literals, `docs/` is not scanned by
+    `tests/no_phrase_hard_coding.rs`, `ALLOWLIST_CAPS` is unchanged, and **any promotion must strip
+    the literals rather than waive them.** The pause and its documented limitation stand.
+
+  * **Next useful action, and it is a *decision*, not a sweep.** The gate question is unchanged —
+    *is MadGab development being reopened?* — and still only a human can answer it. But the
+    ungated work is no longer blocked on a spelling question, so a fortieth pass should: (a) apply
+    the **strong** test to the 29-commit candidate list (apply the `coord-6c31` whole-stash patches
+    to their bases and compare resulting blobs, the layer-3 form of rules 12 and 28) to get a
+    *coverage* figure rather than the 113/4 lower bound, and archive only what that test shows is
+    genuinely uncovered, on a fresh `recovery/*` branch per rule 5; and (b) never re-run
+    `--not` together with `^` per rule 30. If the gate answer is yes, the first work in order is
+    (i) rule 29's binding check before quoting any timing, (ii) `coord-1c8e`'s three
+    measurement-infrastructure corrections in their stated order, (iii) **cut the branch from
+    `main`, which `coord-5e83` showed is a complete product tree**, and (iv) the named search
+    direction — a qualitatively different whole-path algorithm (compact pronunciation DAG with
+    k-best / A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
+
+30. **The two sanctioned spellings of a `rev-list` exclusion are each correct alone and silently
+    contradictory together.** Rule 14 established that `--not` is a stateful prefix and that the
+    `^<ref>` form is its stateless equivalent, and it verified the two against a two-ref control
+    (236 vs 212). It did not consider the combination, which is the spelling a cautious reader
+    reaches for as a restatement rather than a contradiction: `--not ^r1 ^r2 …`. Under a pending
+    `--not`, each `^<ref>` **resets the sense to positive**, so every ref is unioned in and
+    **nothing is subtracted** — measured here as **1002** where the two correct spellings both
+    return **81**. The failure is total and silent, and it errs in the *loud* direction: a
+    subtraction that subtracts nothing reports every commit in the database as at risk, so a pass
+    that believed it would archive the whole repository. The general form is rule 14's with the
+    emphasis moved from *which* flag to *how many*: **two mechanisms that express the same intent
+    are not belt-and-braces; the second one overrides the first.** The check is to compare the
+    two sanctioned spellings against each other and require them to agree to the commit — which is
+    exactly what `coord-7d42` had and mislabelled, calling the broken form "the stateless
+    spelling" and treating the agreeing pair as suspect. Note the corroborating detail: the
+    broken form's count moved by exactly **one** between passes, tracking this log's own commits.
+    A subtraction that subtracts nothing still tracks the repository, because `A --not <positive
+    args>` is a union; a *count* that grows by one per pass is therefore not by itself evidence of
+    a real finding, and rule 14's cross-check is not optional even when the number looks plausible.
