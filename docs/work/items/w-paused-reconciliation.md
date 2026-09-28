@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-3f9d
-updated: 2026-09-28T07:35:00Z
+owner: coord-6b1e
+updated: 2026-09-28T07:47:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -478,6 +478,37 @@ recorded as a priced negative.
   merely looking at a fixed subset. Seven identical results is strong evidence that nothing is
   at risk, and correspondingly strong evidence that an eighth sweep has no expected value.
   The remaining uncertainty is not in the repository.
+
+* **`coord-6b1e` (this pass), 2026-09-28T07:39Z–07:47Z** — reconciliation only, **no recovery
+  needed; eighth consecutive clean sweep**, recorded in the short form the cadence advice
+  permits. `antonina agent list`: no MadGab agent alive or claimable; the only `running` agents
+  host-wide are `a94fa7e4` (`/workspace/assemblyp1-issue89-crossing-coalesce2`) and `a78fa7e2`
+  (`/workspace/qai-proviral-78`), both other repositories, left alone. Worktree sweep over
+  **125** worktrees, every dirty/untracked file under 2 MB hashed against **1487** reachable
+  blobs below that size, Cargo `target*` output excluded by path component per standing rule 9:
+  **24** unmatched files out of 81 live dirty/untracked files — the same two known buckets for
+  the eighth time (16 `madgab-approx-runtime/prof/{results,sum}*.txt` harness outputs, 8
+  instrumented `src/lib.rs` copies diff-archived at `2408c25`). The 8 patches were *not*
+  re-verified an eighth time and the harness was not re-read an eighth time, per the cadence
+  advice; standing rules 7 and 8 are inherited from seven passes of direct confirmation.
+  Durability re-confirmed with `git ls-remote`: `main` = `0267ade` (untouched, remote-only),
+  `post-milestone-acceptance` = `d0b87fd`, `recovery/probe-scaffolding-2026-09-28` = `2408c25`
+  — all matching local refs. Census unchanged (0 `open`, 0 `blocked` real items; this log the
+  only `working` entry). Nothing launched, resumed, claimed or integrated.
+
+  The instruction to prioritise the canonical approximate-search examples was read against the
+  itinerary's pause gate for the fourth time (see the `coord-c8e1` entry): it restates the
+  programme's standing goal, and reopening requires an explicit human instruction, which has
+  not been given. No front was opened and no agent launched. The limitation stands as documented
+  in `docs/accepted-state-2026-09-27.md`; if it is ever reopened, the named direction is a
+  qualitatively different whole-path algorithm, **never** phrase-specific hard-coding.
+
+  **The sampling note is now at three reinforcing data points** (the `coord-3f9d` widened
+  125-worktree sweep, this pass, and the fact that the live dirty-file count is now 81 rather
+  than the earlier 24 — the 24 is the *unmatched* subset, not the swept population). Eight
+  identical results across a widened population is strong evidence that nothing is at risk. The
+  remaining uncertainty is not in the repository and no ninth sweep can reduce it. **The only
+  useful next input is a human gate**: whether MadGab development is being reopened.
 
 ## Next action for a fresh pass
 
