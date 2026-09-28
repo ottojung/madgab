@@ -1,12 +1,13 @@
 ---
 work_item: true
 id: w-5c1a3e
-state: working
+state: done
 priority: high
-owner: agent-5c1a3e (front working the item; opened and claimed by coord-9c31 at 2026-09-27T23:19Z on post-milestone-acceptance at f21f34e, launched 23:19Z in /workspace/madgab-retain-5c1a3e [madgab-retain-5c1a3e])
-updated: 2026-09-27T23:52:00Z
+owner: agent-5c1a3e (front worked the item to a priced negative; opened and claimed by coord-9c31 at 2026-09-27T23:19Z on post-milestone-acceptance at f21f34e, launched 23:19Z in /workspace/madgab-retain-5c1a3e [madgab-retain-5c1a3e]; steering from coord-1f0d at 23:44Z-23:45Z)
+updated: 2026-09-27T23:58:00Z
 branch: madgab-retain-5c1a3e
 worktree: /workspace/madgab-retain-5c1a3e
+report: ../REPORT-5c1a3e.md
 ---
 
 # Price the per-span *retention* policy: the last layer that can put `hid` in the pool
@@ -97,119 +98,125 @@ retention axis, and the next front must be named elsewhere.
 
 ---
 
-# Progress — agent-5c1a3e
+# Outcome — DONE, priced negative, verdict HOLD
 
-## Durability
+Full record: [../REPORT-5c1a3e.md](../REPORT-5c1a3e.md).
 
-Branch `madgab-retain-5c1a3e`, pushed. `f15a878` is an explicitly labelled **INTERIM** commit
-carrying env-gated measurement instrumentation and a phrase-free probe harness. **It is not
-production and must not be integrated**; it exists so this front is recoverable from repository
-state alone. It changes no retention constant and no band ranking key, and touches neither the
-objective weight vector nor the score function.
+**Verdict: HOLD.** No production line changes. One regression test added. The production
+region of `src/approx.rs` is byte-identical to the base `4fee16f`.
 
-## Criterion 1 — MEASURED, and it falsifies this item's own premise
+## The premise is refuted
 
-**`hid` is not pruned from its target span's shortlist.** Read off the production path
-(`MADGAB_RETENTION_TRACE=13`, `src/approx.rs:208-265`), target `It's just a stupid game`,
-normalised IPA `ɪtsdʒʌstəstʊpədɡeɪm` (n = 19):
+The item was opened on the fact that `hid` "is pruned from the retained shortlist for its
+target span". **It is retained**, measured from the production path. For the canonical case-2
+target (`/ɪtsdʒʌstəstʊpədɡeɪm/`, n=19) the reading's span for that word is `start=13
+consumed=2`, i.e. `/əd/` — the ə and d of *stupid* — whose ordered match list has **374**
+entries against `MATCHES_PER_SPAN = 256`:
 
 | quantity | value |
 |---|---|
-| target span | `start=13`, `consumed=2`, i.e. `/əd/` — the ə and d of *stupid* |
-| `hid` cost | **0.3695** |
-| cost band | **2** (`floor(0.3695 / 0.5 * 4) = 2`) |
-| band sizes | band0 **3**, band1 **7**, band2 **107**, band3 **257** (ordered = 374) |
+| cost | **0.3695** |
+| cost band | **2** |
+| band sizes | **3 / 7 / 107 / 257** |
 | rank in cost-ordered list | **ord = 104** |
-| in-band rarity rank | **46** (`BAND_KEEP = 40`) |
+| in-band rarity rank | **46** (against `BAND_KEEP = 40`) |
 | rarity | 12601 |
-| verdict | loses the **band** stage, **rescued by the cost-ordered fill at `fill#104`** |
+| outcome | misses the cheap head (`CHEAP_KEEP = 96`), misses its band, **kept by the cost-ordered fill at `fill#104`** |
 
-So the exact answer to "which stage and rank drops it": **no stage drops it.** It misses the cheap
-head (`CHEAP_KEEP = 96`, it is at 104) and misses its cost band (rarity rank 46 against
-`BAND_KEEP = 40`), and is then picked up by the third-stage fill, which still has room: cheap plus
-band yield fewer than `MATCHES_PER_SPAN = 256` unique words because the stages overlap, so the fill
-runs and reaches ordered index 104. It is retained at rank 104 of 256 kept.
+**No stage drops it.** It is rescued by the third stage, which has 152 slots of headroom when
+it reaches ordered index 104. All five words of the reading are in their production shortlists
+(`hits` `cheap#8`, `justice` ord 0, `dupe` ord 3, `hid` `fill#104`, `came` ord 34) at a
+total cost of **1.1837** against `total_budget = 1.5`.
 
-**All five words of the canonical case-2 clue are present in their production shortlists** — none
-is pruned anywhere on this alignment:
+## Where it is actually lost: `prune_partials`
 
-| word | span | cost | retained at |
-|---|---|---|---|
-| `hits` | `start=0 consumed=3` `/ɪts/` | 0.2000 | `cheap#8` |
-| `justice` | `start=3 consumed=7` `/dʒʌstəs/` | 0.0000 | ord_in_span 0 |
-| `dupe` | `start=10 consumed=3` `/tup/` | 0.1500 | ord_in_span 3 |
-| `hid` | `start=13 consumed=2` `/əd/` | 0.3695 | `fill#104` |
-| `came` | `start=14 consumed=5` `/dɡeɪm/` | 0.4642 | ord_in_span 34 |
+The alignment is never enumerated, at any beam width. Pool 20616 at `beam_width` 64 (the whole
+enumeration, `top_n = 200000`), 20749 at 512, 20575 at 4096 — absent in all three. At 4096 the
+prefix reaches 2 words at `p=10` and the 3-word prefix is not in the top 4096 at `p=13` (best
+depth-1 candidate at combined-score rank 2681 of 4878). `hid` *is* in the pool twice, in other
+alignments (ranks 4488, 13795), so this is about the combination, not the vocabulary.
 
-Total substitution cost 1.1837 against `total_budget = 1.5`, so the reading is budget-admissible.
+**Localisation: `prune_partials` (`src/lib.rs:3454`), ranked by `Metrics::combined`.** That
+surface belongs to **w-3c5b18 / agent-3c5b18** (branch `madgab-thresh-3c5b18`) per steering
+from coord-1f0d at 23:44Z. It was **not** edited and **not** started here.
 
-## Where the alignment is actually lost
+## The retention sweep is null (criterion 2)
 
-Instrumenting the enumeration (`MADGAB_PATH`) shows the alignment is **never enumerated**. It does
-not reach the pool at any `beam_width`:
+14 variants over `MATCHES_PER_SPAN` / `CHEAP_KEEP` / `COST_BANDS` / `BAND_KEEP` / band key
+(rarity-first vs cost-first). Full table in the report §3. Three readings:
 
-* `beam_width = 64`: the one-word prefix `hits` is not in the surviving 64 at `p=3` at all
-  (prefix match depth 0 at every position).
-* `beam_width = 512`: pool 20749, still absent.
-* `beam_width = 4096`: pool 20575, still absent. The prefix reaches **depth 2** at `p=10`
-  (`hits justice`) but the three-word prefix is not among the top 4096 at `p=13`; the best
-  depth-1 candidate there sits at combined-score rank 2681 of 4878.
-* At the shipped `top_n = 200000` (the whole enumeration) the pool is **20616** clues and the
-  clue is absent; its best leading run is 2 of 5. `hid` does appear in the pool, twice, in other
-  alignments (`hid josh dashed oop add aim` at pool rank 4488, `hid see justice too add gave` at
-  13795) — so the word is reachable, just not in this combination.
+* **`hid` retained in 14 of 14 variants**, in each case by a different stage depending only on
+  where the constants put the boundary.
+* **The case-2 clue reaches the pool in 0 of 14 variants.** No retention setting creates a beam
+  slot for an alignment the objective ranks thousands of positions below the cut.
+* **The case-1 printed top-50 is byte-identical in all 14 variants** (md5 `d8136a142ac2`), so
+  printed top-50 mean `SIMILARITY` is unchanged at `0.848330` and the printed mean score
+  reproduces at `0.9199228013`. Pool size moves within 20259–20671 (~±1%) and none of it
+  reaches the visible list.
 
-**Therefore the drop is the intermediate beam prune `prune_partials`
-(`src/lib.rs:3454`), which ranks by `Metrics::combined` — the objective side — and not the
-span-shortlist retention policy.** The front's premise ("the word is pruned, so retention is the
-last layer that can fix it") is false as written, and that is the finding.
+A sweep in which nothing moves is a sweep showing the axis is not on the path.
 
-## Validation actually run at this point
+## Criteria 3 and 4
 
-Run with a dedicated `CARGO_TARGET_DIR` and `--test-threads=1`, on this branch only.
+**Criterion 3 — no rule survives; no code proposed.** The settling number is 0 of 14 variants
+reaching the pool, against a word retained in 14 of 14.
 
-* Base, before any edit: `--lib` **75 passed / 12 ignored**; `no_phrase_hard_coding` **9/9**;
-  `emit_coverage` **7/7**; `approx_determinism` **4/4**; `exact_determinism` **1/1**;
-  `corpus_integration` **12 passed / 1 failed** — the single failure being the known pre-existing
-  base red `approximate_finds_classic_madgab_resegmentation`, untouched and not re-pinned.
-* At `f15a878`: `no_phrase_hard_coding` **9/9**; `corpus_integration` **12 passed / 1 failed**,
-  the same single base red, which is also the evidence that the instrumentation is inert when its
-  variables are unset.
-* `emit_spread` does not exist as a test name on this tree; the emission-spread counters are
-  asserted from the lib suite, which is green. Recorded rather than silently treated as run.
-* **`cargo fmt` and `cargo clippy` cannot run on this host** (no `rustup`, no `rustfmt`/`clippy`
-  component — `docs/environment-notes.md`). They are **not** claimed, here or in any later commit
-  on this branch.
-* The probe's first version named the alignment under measurement and
-  `no_phrase_specific_hard_coding_in_src_web_or_examples` failed on it. The **allowlist was not
-  edited and the finding was not re-pinned**; the harness was rewritten to take every input from
-  `argv` instead.
+**Criterion 4 — one regression test, mutation-verified.** `approx::tests::
+a_span_over_budget_keeps_candidates_neither_the_head_nor_its_band_keeps`, asserting over a
+synthetic 450-match span against a 256 budget that the keep retains candidates *neither* the
+cheap head *nor* its own band would keep, and that the two rescues are *different stages*: a
+cheap-but-rare candidate needs the cost-ordered fill, an expensive-but-common one needs the
+band's rarity-first keep. Non-vacuity by mutation on the delivered file: **fill removed →
+FAILS**, **band stage removed → FAILS**. Honest limit, recorded in the report §4: **cheap head
+removed → still passes**, because with a budget above the head the fill reproduces the
+head's choices, so the head is not independently pinned.
 
-## Collision warning (may become a blocker)
+The test names no canonical word, phrase, sentence or rank; its fixture is invented non-words
+over the invented segment string `abc`, and its assertions are counts over cost groups, not
+ranks.
 
-The measured drop point is `prune_partials`' ranking by `Metrics::combined`. That is the objective
-surface. The coordinator pass at 23:28Z reports the weight lever **closed by `REPORT-e086cc`** —
-that report is **not present on this branch**, so this is recorded as coordinator-reported and not
-independently verified here. If that is right, the successor front for canonical case 2 is *not*
-openable from this side, and the honest end state for this item is a priced negative on retention
-plus a collision report, not an implementation.
+## Validation actually run
+
+Dedicated `CARGO_TARGET_DIR`, `--test-threads=1`, this branch only.
+
+| suite | base `4fee16f` | delivered |
+|---|---|---|
+| `--lib` | 75 passed / 12 ignored | **76 passed / 12 ignored** |
+| `no_phrase_hard_coding` | 9/9 | **9/9** |
+| `emit_coverage` | 7/7 | **7/7** |
+| `approx_determinism` | 4/4 | **4/4** |
+| `exact_determinism` | 1/1 | **1/1** |
+| `corpus_integration` | 12 / 1 failed | **12 / 1 failed** |
+
+The one failure is the pre-existing base red
+`approximate_finds_classic_madgab_resegmentation`, untouched and not re-pinned.
+
+**`cargo fmt` and `cargo clippy` cannot run on this host** (no rustup/rustfmt/clippy) and are
+**not claimed**; neither is `--doc`. `emit_spread` **does not exist as a test name on this
+tree** — the emission-spread counters are asserted from `--lib`, which is green; recorded
+rather than assumed.
+
+## Scope held
+
+Objective weight vector and score function untouched; `prune_partials` untouched; no fence
+re-pinned; `/workspace/madgab-e086cc` and `/workspace/madgab-pairscore-3f6a21` never read,
+entered or run. The 14-variant sweep machinery and the tracing were **measurement scaffolding
+and are not in the delivered diff**; they survive in the labelled interim commit `f15a878` for
+recovery, which is explicitly not to be integrated. The probe example was removed for the same
+reason — the first version of it named the alignment under measurement and
+`no_phrase_specific_hard_coding_in_src_web_or_examples` failed on it; the allowlist was not
+edited and the finding not re-pinned.
+
+## Blockers
+
+None for this item; it is closed. The blocker it *would* have hit is recorded for the
+coordinator: the remaining surface is the enumeration discard threshold, owned by `w-3c5b18`.
 
 ## Next action
 
-1. Finish **criterion 2** properly rather than stopping at criterion 1: make the retention
-   constants and the band ranking key env-overridable **in the temporary instrumentation only**,
-   and sweep the `CHEAP_KEEP` / `COST_BANDS` / `BAND_KEEP` split and rarity-first vs cost-first
-   band ranking, reporting for each variant: whether the word is retained, pool size, printed
-   top-50 `SIMILARITY` on the green canonical case-1 target, and whether the canonical case-2 clue
-   reaches the pool.
-2. Expect that sweep to be **null on pool membership**, since no variant can create a beam slot for
-   an alignment the objective ranks below the beam cut. If it is null, the retention axis closes as
-   a measured negative with the numbers above as the settling measurement, criterion 3 answers
-   "no rule survives — propose no code", and criterion 4 is answered by the *diagnostic* rather
-   than by a policy regression test. No production line changes and no fence is re-pinned.
-3. Commit and push at least every 20 minutes, and keep this section current, so a fresh
-   coordinator pass can recover the front from repository state alone.
-
-The two running fronts' worktrees (`/workspace/madgab-e086cc`,
-`/workspace/madgab-pairscore-3f6a21`) have not been read, entered or run.
-
+None here. For the coordinator: integrate `REPORT-5c1a3e.md` (docs) and the single regression
+test, treat the retention axis as closed for canonical case 2, and route the case-2 objective
+to `w-3c5b18`. Note for that front: the reading is **enumeration-limited, not
+retention-limited**, and at `beam_width` 4096 it is still ~2700 combined-score positions below
+the cut at `p=13` — a discard-threshold change has to be worth about that gap, not about the
+104-rank fill headroom this front measured.
