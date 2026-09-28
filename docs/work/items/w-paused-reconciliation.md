@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5a04
-updated: 2026-09-28T13:22:00Z
+owner: coord-7f04
+updated: 2026-09-28T13:11:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -5861,3 +5861,113 @@ under the existing family instead of as standing rule 48.
   pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic) —
   and **never hard-code the canonical phrases**, including in the archived probes under
   `docs/work/probes/` if any of them is ever promoted.
+
+## Sixty-first pass (`coord-7f04`, wall clock 2026-09-28T13:01Z–13:12Z) — one new rule, and it is about this log's own instrument
+
+Pass 60 told the next coordinator to expect to do nothing. That was the right call about
+*fronts*, and this pass honoured it: **no MadGab work item created, none claimed, no agent
+launched, nothing merged, nothing pushed to `main`** (`git rev-parse main` still fails — it
+is remote-only). What this pass did do is re-run the standing measurements, and one of them
+came back with a number that cannot be right — which turned out to be the first new *rule*
+in nine passes.
+
+### 48. **An exclusion-set measurement is a function of the spelling of its set, not only of the set. The two spellings disagree by 68 commits.**
+
+The log's primary counter is "commits reachable from `--all --reflog` but from no remote ref",
+built by excluding the remote refs. There are two obvious ways to spell that, and they are
+not the same measurement:
+
+| spelling of the *identical* 364-ref set | result |
+|---|---|
+| `git rev-list --all --reflog --not <ref> <ref> … ` (one `--not`, all refs after it) | **85** |
+| `git rev-list --all --reflog --not <ref> --not <ref> …` (a `--not` before every ref) | **153** |
+| the 192-ref set, one `--not`: `… --not <ref…>` | **92** |
+| the same 192 refs, a `--not` before each, **argument order reversed** | **1033** |
+| unexcluded baseline (rule 39 control) | 1033 |
+
+The last two rows are the proof, and they are stronger than any of the numbers above. The
+same set of exclusions, merely **reversed on the command line**, changes the answer from
+188 to **1033 — the exact unexcluded baseline, i.e. no exclusion applied at all.** An
+exclusion set can only ever *shrink* a result as it grows, and its result cannot depend on
+the order of its members; both invariants hold for the one-`--not` spelling and both are
+violated by the interleaved one. (Repeating `--not` before the *same* ref 192 times changes
+nothing — 373 every time — so this is not a count limit or an argv limit; it is
+order-sensitivity in the interleaved form, and the exact mechanism was not established,
+which is why the rule is stated as a detector rather than as a diagnosis.)
+
+**The interleaved spelling is not hypothetical: it is what `git for-each-ref --format='--not
+%(refname)'` produces**, which is the natural one-liner for building this command and is the
+shape this log has used to build arguments before. It exits 0, prints a plausible integer,
+and **over-reports** the phantom backlog — 188 instead of 92, 153 instead of 85. That is the
+dangerous direction for a recovery pass, and it is the tenth instance of the could-not-fail
+family (rules 22/35/37/46/58/60): a correct-looking number from a command that did not do what
+was intended.
+
+**Two detectors, both cheap, and a successor should run both before believing this counter:**
+
+1. **Order-invariance.** Run the measurement twice with the exclusion list reversed. Equal
+   results, or the spelling is broken. This one *fires* on the interleaved form.
+2. **Monotonicity.** Grow the exclusion set by prefix (first 8/16/32/64/96/128 refs). The
+   count must be non-increasing. The one-`--not` form is monotone (814, 806, 450, 339, 304,
+   271, 92); a spelling that is not, is measuring its own argument list.
+
+Rule 35's bracket guard is the general form of the same idea and should be read as covering
+this: *print the input count next to the result, and print it twice with the order changed.*
+
+### What re-measured, and what changed since pass 60
+
+* **Not-on-remote: 92, unchanged.** Remote heads 192, `ls-remote`-confirmed and matching the
+  192 local `refs/remotes/audit/*` (per rules 10/37/38). Unexcluded baseline 1033, not equal
+  to 92, so rule 39's annihilation guard passes. 170 local branches, 127 worktrees, worktree
+  clean, HEAD `10b08b6` on `post-milestone-acceptance`.
+* **Held by no ref at all: 85 under the order-invariant spelling; the 81 recorded by pass 60
+  is not reproducible.** The likely cause is the rule-48 spelling rather than four new
+  commits, and it is recorded as a **correction to the log's own figure, not as new risk**.
+  Pass 60's 92/81 pair is byte-identical to this pass's 92 at-risk-commit figure, which is
+  worth a successor's suspicion: 92 is also the number the log has carried as "commits not
+  on remote" for twenty passes, so the two may have been transcribed from each other.
+* **Object-level check over the 85 unheld commits: 0 at risk, and this time the instrument
+  is provably looking at something.** Per rule 60, **one `git ls-tree -r` per revision**: 85
+  invocations for 85 subjects, the counts printed together, 6,134 blob lines over 627 distinct
+  blobs, and **0** of the 627 outside `git rev-list --objects --all --reflog`. No new risk
+  class, consistent with passes 55–60.
+* **Census, measured over `docs/work/items/` where `work_item: true`: 95 items — 83 `done`,
+  11 `superseded`, 0 `open`, 0 `blocked`, and 1 `working` (this log).** Pass 60 recorded
+  "92 done, 11 superseded", which matches neither the 83 in the items directory nor the 97
+  `state: done` markers anywhere under `docs/`; the figure is corrected here to the measured
+  one. Five further done-marked documents outside the items directory also carry
+  `work_item: true` (`OBSTRUCTION-MAP`, `REPORT-2f1c03`, `REPORT-3e91a4`, `REPORT-8f0b3d`,
+  `REPORT-b7d4c1`) and are part of the same census if a successor counts that way — stated
+  here so the next pass does not have to guess which convention produced 92.
+* **Hard-coding fence: green, 9/9, against the accepted sources.** `cargo test --test
+  no_phrase_hard_coding` (worktree build, no instrumentation), including
+  `the_fence_watches_both_canonical_examples`,
+  `no_canonical_example_in_a_production_doc_comment` and
+  `the_detector_catches_every_documented_shape`. This is the standing general guarantee that
+  the two canonical examples are watched *without* phrase-specific hard-coding, and it is the
+  answer to "prioritise the canonical examples" in a paused programme: verify the fence, do
+  not add a phrase to make a case pass. The two canonical cases are unchanged — case 1
+  (`recognize speech`) is served by the approximate mode, case 2 (`It's just a stupid game`)
+  is the documented accepted limitation in
+  [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
+* **No MadGab Antonina agent is alive**; the `running` agents on this host (`94a4`, `99a1`,
+  `98a1`, `92d1`) all have `cwd` outside `/workspace/madgab*` and belong to other projects.
+  **This pass launched nothing, so it leaves nothing running to supervise.**
+
+### Coordination decision
+
+Unchanged in substance and unchanged in the direction it points: there is nothing to claim,
+nothing to integrate and nothing to resume, and no new rule about the *repository* — rule 48
+is about the measuring instrument, which is the only place this pass found anything true.
+**The gate question is now twenty-five passes old and remains the only thing that can change
+this programme's status: is MadGab development being reopened?** It is not a coordinator's
+call. Standing instructions unchanged: never push to `main`; never integrate scratch
+instrumentation (including anything under `docs/work/probes/`); never archive
+`target-after/`, `target-base/`, `target-front-*` or the two oversize binaries; leave
+`scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent. If the answer is
+ever yes: cut a fresh focused branch from `main` (production code is still byte-identical —
+`git diff origin/main post-milestone-acceptance -- src tests web examples Cargo.toml
+README.md` is 0 lines), validate *general* behaviour, pursue the named direction (a
+qualitatively different whole-path algorithm — compact pronunciation DAG with k-best /
+A*-style search, or a strong backward suffix heuristic), and never hard-code the canonical
+phrases.
