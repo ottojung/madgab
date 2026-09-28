@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-2f1d
-updated: 2026-09-28T10:12:00Z
+owner: coord-7b04
+updated: 2026-09-28T10:18:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -2664,6 +2664,116 @@ canonical-example instruction was declined for the twenty-eighth time on the sam
     a future pass finds that number non-zero, the archive is incomplete and the README's
     reproduction recipe is the thing to run. The human gate question is unchanged and still
     the only one a human can answer: **is MadGab development being reopened?** If yes,
+    `coord-1c8e`'s three measurement-infrastructure corrections are the first work, in its
+    stated order, and the named search direction is unchanged — a qualitatively different
+    whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
+    backward suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-7b04` — thirty-third pass, 2026-09-28T10:12Z–10:18Z
+
+**No new at-risk class. The predicted closure figure is now measured: 0 unarchived unique
+blobs.** Reconciliation only, no recovery performed and no branch created. No front opened, no
+agent launched, no item claimed, nothing integrated, `main` untouched at `0267ade`. The pause
+gate was read and confirmed closed for the twenty-ninth time, and the canonical-example
+instruction was declined for the twenty-ninth time on the same grounds.
+
+  * **The last pass's prescription was run as written, and it returns a number that had to be
+    reduced before it could be believed.** The prescription was: *"re-run rule 28's tree-based
+    probe rather than any diff-based one, and expect **0** unique blobs across all unreachable
+    commits now that the 39 are archived."* Run over all **180** unreachable commits against the
+    **6,056**-object reachable set (`git rev-list --objects --all --reflog | cut -d' ' -f1`,
+    field 1 per rule 17), it returns **20 unique blobs across 3 commits** — not 0. The 39 really
+    are gone from the result, so the archive did what it claimed; the residue is three commits
+    that the *same* pass had already found and **excluded on a stated judgement** rather than
+    archived. Recording the bare 20 as a new gap would have been the exact error rule 12 records
+    about an archived patch that "reads correctly and does not apply", and the count is only
+    meaningful once the three exclusions are re-derived rather than inherited.
+
+  * **The three, re-derived from scratch and each re-verified in the strong form (rule 14/rule 12
+    discipline: the fact is measured, then *what was measured* is recorded).**
+
+    | commit | date | subject | unique blobs | disposition |
+    | --- | --- | --- | --- | --- |
+    | `0088d27c` | 2026-09-27 | `w-b3e91a`: correct the emission-ceiling funding claim and instrument both ceilings | 1 (`src/lib.rs`) | archived by `coord-2b74` |
+    | `727eb36b` | 2026-09-26 | `On madgab-axis-558697: verify` | 1 (`src/lib.rs`) | archived by `coord-11b9` |
+    | `202aef9f` | 2026-09-26 | `untracked files on madgab-approx-runtime` | 18 (`prof/*`) | known-deliberate drop (rule 8) |
+
+    * **Neither `src/lib.rs` blob is stored verbatim on any recovery branch** — a plain
+      `ls-tree` search over all six `recovery/*` branches for either sha returns nothing, because
+      both were archived as **patches**, not as files. That is the same trap as rule 7's
+      "a file archived as a `*.diff` has no blob of its own", and it is why a presence check
+      looked like a contradiction before the patch route was taken. Both were verified the way
+      the previous pass's own layer 3 verifies — **apply the archived patch to the commit's
+      first-parent tree, commit, and compare the resulting blob**:
+      `0088d27c`'s patch at `recovery/unreachable-objects-2026-09-28:docs/work/unreachable-patches/0088d27c-w-b3e91a-src-lib-rs.diff`
+      yields `105d9b3` **MATCH**, and `727eb36b`'s at
+      `recovery/probe-scaffolding-2026-09-28:docs/work/probe-patches/madgab-axis-558697-src.diff`
+      yields `3f34f6f` **MATCH**. Both are reconstructible; neither is at risk. Note the second
+      is the *same* file `coord-7d3b` re-verified with `git apply --check --reverse`, reached here
+      from the unreachable side — two independent probes, one conclusion.
+    * `202aef9f` is 16 harness **outputs** plus the two 30 MB instrumented binaries — the exact
+      object set four prior passes declined to archive, and the 24-file `prof/baseline/` set it
+      also carries already hashes identically to the copy on `recovery/probe-scaffolding-2026-09-28`.
+      Every input the harness reads is durable at `2408c25` per standing rule 8, so the outputs
+      are regenerable. **The exclusion is a judgement and is therefore recorded here rather than
+      folded into the 0.**
+
+  * **So the falsifiable figure this pass can honestly record is 20 unique blobs, 3 commits, 0 of
+    them unarchived** — the predicted closure, reached by subtraction rather than by the probe
+    itself. `coord-2f1d` wrote *"expect 0"*; the correct form of that sentence is *"expect the
+    three already-classified exclusions and nothing else, so that any **fourth** commit, or any
+    blob inside these three that fails the patch-applied → blob identity test, is a real
+    finding."* That is the figure a pass can re-derive and disagree with. **A next pass that
+    returns 20 should find this table and stop; a next pass that returns any number other than
+    20 has found something and must classify it before archiving anything.**
+
+  * **Cheap checks, all clean and identical to the last eight passes.** `git ls-remote`:
+    `main` = `0267ade` (untouched, remote-only — `git rev-parse main` still fails),
+    `post-milestone-acceptance` = `ed062bf`, equal to local `HEAD` before this commit, 0 ahead
+    / 0 behind. `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` again returned the two
+    newest `recovery/*` branches, so all seven are present on the remote. Worktree clean
+    (`git status --porcelain -uall` empty). `git worktree prune -n` reports nothing stale.
+    Census unchanged: **87 `done`, 12 `superseded`, 2 `open` (`docs/work/TEMPLATE.md` the blank
+    placeholder and `docs/skills/work-items.md` the protocol specification — neither claimable),
+    1 `working`** (this log), 0 `blocked`, 2 files carrying `work_item: true` with no `state:`
+    key (`docs/work/README.md`, `docs/work/items/README.md`), so the durable figure is still
+    **88 / 12 / 0 claimable / 1 working** and the check is still *"is any `state: open` item
+    claimable?"*. `docs/work/items/w-0f3a17-shortlist-rule.md` remains the one work-item-shaped
+    document with no metadata, still deliberately untouched under rule 1 (sixth pass to decline
+    it). **Agents: no MadGab agent alive or claimable** — the eight `running` agents host-wide
+    (`12c1`, `94e3`, `92c1`, `8a1`, `73f1`, `76a1`, `72a1` and one more since the last pass)
+    all belong to other repositories and were left alone; the two MadGab-cwd nonterminal
+    entries (`3a8f01`, `3a8f02`) remain `stopped` on superseded items and were left stopped.
+    Nothing was compiled, no Cargo lock was contended, no binary was run, and no rebase, stash
+    or worktree state was touched.
+
+  * **The canonical-example instruction was read against the pause gate for the twenty-ninth
+    time and declined for the twenty-ninth time.** It restates the programme's standing goal;
+    reopening requires an explicit human instruction, which has not been given, and its
+    *no-hard-coding* half remains discharged on the merits by the accepted head's general
+    implementation. This pass touched no `src/`, ran no test and proposed no phrase-specific
+    change, so nothing it found bears on that either way.
+
+  * **Next useful action, and the standing recommendation for the next pass.** The unreachable-
+    commit sweep is now closed to a table of three, and the class it was last under-powered on
+    (merges read as empty) has standing rule 28 against it. **The repository-preservation
+    question is saturated in the strong sense: there is a number, it is small, it is re-derivable
+    in one loop, and it is written down.** The next increment should therefore be the
+    *complementary* question of rule 23 — *does the accepted state still describe the program
+    that is built?* — whose last three passes each found real drift in the **documents**
+    (rules 23, 24, 25: the "red" claim, the citation chain behind it, the unbound "1.8 s"). The
+    untested document claims remaining in
+    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md) are the qualitative ones
+    in **"What is accepted"** — seven bullets asserting indel-aware matching, segmentation/
+    lexical separation, bounded portfolios, budgeted enumeration, reserved capacity, the
+    worst-word scoring term, and structure-aware final selection. Rule 25's form applies to them
+    unchanged: *a claim that is true of one axis is not true of the shipped code unless the axis
+    is named and located.* A pass that resolves each bullet to a named function and a passing
+    test would be the first one in thirty-three to make the accepted-state document
+    self-certifying rather than merely unrebutted — and the first falsifiable statement of the
+    case-1 `wreck a nice beach` result's *general* provenance, which is what the standing
+    no-hard-coding requirement ultimately rests on. **The human gate question is unchanged and
+    still the only one a human can answer: is MadGab development being reopened?** If yes,
     `coord-1c8e`'s three measurement-infrastructure corrections are the first work, in its
     stated order, and the named search direction is unchanged — a qualitatively different
     whole-path algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong
