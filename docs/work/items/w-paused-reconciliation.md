@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-6b1e
-updated: 2026-09-28T07:47:00Z
+owner: coord-9d2c
+updated: 2026-09-28T07:51:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -510,6 +510,39 @@ recorded as a priced negative.
   remaining uncertainty is not in the repository and no ninth sweep can reduce it. **The only
   useful next input is a human gate**: whether MadGab development is being reopened.
 
+* **`coord-9d2c` (this pass), 2026-09-28T07:44Z–07:51Z** — reconciliation only, **no recovery
+  needed; ninth consecutive clean sweep**. `antonina agent list`: no MadGab agent alive or
+  claimable — the sole nonterminal entry host-wide is still `a11d`, `idle` in `/tmp/cwd-7ze5eU`
+  at its usual 20724-day age, unrelated to MadGab and left alone. Worktree sweep over **125**
+  worktrees, every dirty/untracked file under 2 MB hashed against **1488** reachable blobs below
+  that size, Cargo `target*` output excluded by path component per standing rule 9: **24**
+  unmatched files out of 81 live dirty/untracked files — the same two known buckets for the
+  ninth time (16 `madgab-approx-runtime/prof/{results,sum}*.txt` harness outputs; 8 instrumented
+  `src/lib.rs` copies). The 8 were nonetheless re-verified with `git apply --check --reverse`
+  against `docs/work/probe-patches/*.diff` read out of `2408c25` — all eight `OK`, and this pass
+  additionally recovered a **worktree↔patch one-to-one mapping** that earlier entries had flagged
+  as unestablished: each of the six unambiguous worktrees matches only its own
+  `<worktree>-src.diff`, while the two `floor-5e2d42-*` worktrees both satisfy the check against
+  the single `floor-5e2d42-probe-src.diff`. Both are reconstructible, which is all standing rule
+  7 claims, so the flag is now resolved rather than outstanding. The harness was not re-read a
+  ninth time; standing rule 8 stands. Durability re-confirmed with `git ls-remote`: `main` =
+  `0267ade` (untouched, remote-only), `post-milestone-acceptance` = `f72039a`,
+  `recovery/probe-scaffolding-2026-09-28` = `2408c25`. Census unchanged (92 `done`,
+  11 `superseded`, 5 `produced`, 1 `open` = the `TEMPLATE.md` placeholder; this log the only
+  `working` entry). Nothing launched, resumed, claimed or integrated.
+
+  The instruction to prioritise the canonical approximate-search examples was read against the
+  itinerary's pause gate for the fifth time (see `coord-c8e1`): no explicit human instruction to
+  reopen development has been given, so no front was opened. The limitation stands as documented
+  in `docs/accepted-state-2026-09-27.md`; if it is ever reopened, the named direction is a
+  qualitatively different whole-path algorithm, **never** phrase-specific hard-coding.
+
+  **Recommendation, now at nine identical sweeps across a widened 125-worktree population:** the
+  scheduler should treat the repository-side check as **saturated**. Another sweep will confirm,
+  not discover. The one decision still outstanding is not the scheduler's to make — it is whether
+  a human reopens MadGab development. Until then the expected result of every further pass is a
+  single log line.
+
 ## Next action for a fresh pass
 
 Read `docs/accepted-state-2026-09-27.md`, then check only two things: `antonina agent list`
@@ -528,7 +561,9 @@ the shas with `cut -d' ' -f1` first or the blob set comes out empty and every fi
 unarchived.
 
 If both checks are clean, **there is no work to do** — confirm the pause, record nothing
-further to avoid commit noise, and exit. Do not open a front.
+further to avoid commit noise, and exit. Do not open a front. As of the `coord-9d2c` pass this
+condition has held for **nine consecutive sweeps** over a 125-worktree population, so a further
+pass may record a single line and exit without re-running the hash sweep at all.
 
 **Cadence advice for the scheduler.** `coord-9a3c` and `coord-2b7e` are now two consecutive
 clean passes over identical durable state, and the last four passes before them each ran in
