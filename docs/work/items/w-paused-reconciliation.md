@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7b31
-updated: 2026-09-28T12:14:00Z
+owner: coord-5e3a
+updated: 2026-09-28T12:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -4978,4 +4978,138 @@ literal content of the branch.**
     (a) confirms is a byte-identical starting point for production code — and the named
     direction, a qualitatively different whole-path algorithm (compact pronunciation DAG
     with k-best / A*-style search, or a strong backward suffix heuristic), **never**
+    phrase-specific hard-coding of the canonical phrases.
+
+## 42. **Every sweep in rules 6-41 is commit-rooted, and a loose blob belongs to no
+## commit. This repository has 227 of them, 185 of which nothing holds.**
+
+  `git fsck --unreachable --dangling` reports, on this repository, **205 unreachable commits,
+  398 unreachable trees and 227 unreachable blobs**. Rules 13 and 28 classified the
+  unreachable set entirely by walking **commits** — `git diff-tree -r --root` and
+  `git ls-tree -r <c>` — and `coord-9c31` concluded from that walk that 39 commits carried
+  unique content, archived at `recovery/unreachable-merge-content-2026-09-28` (`134c0ed`).
+  Both spellings are commit-rooted: `rev-list` enumerates from commits, `diff-tree` diffs a
+  commit. **A blob that is not reachable from any commit is therefore invisible to every
+  check in this log**, including the two that were built specifically to catch content with
+  no holder (rule 13's `fsck` sweep, rule 11's `for-each-ref --contains` returning empty).
+  Rule 13 got as far as *running* the right command and then classified a subset of its
+  output by the wrong key, which is the shape of rules 9, 14, 17, 22, 27, 28 and 35 —
+  **a check that cannot see the class it should be asking about** — here with a new twist:
+  the command was right and the *filter* was commit-shaped, so the output looked complete.
+
+  Measured: of the 227 blob-class objects, **42 are already in the durable remote object
+  set** and **185 are in nothing** — not in any commit, not in any ref, not in any reflog
+  (`git rev-list --objects --all --reflog` = 6,237 objects, field 1 per rule 17), and not in
+  the **5,576** objects reachable from the **188** `ls-remote`-confirmed remote tips. That
+  is the most fragile object class this repository has produced: stricter than rule 11's
+  reflog-only case, because a reflog entry at least exists, and `git gc` prunes these
+  without warning. Composition: **110 instrumented `src/lib.rs` copies**, 73 `prof` harness
+  output dumps, and 2 × 30 MB instrumented ELF binaries.
+
+  **Recovered** to `recovery/loose-blob-content-2026-09-28` = **`7ef7725`**, pushed, not
+  merged: 183 files (23 MB) plus a `MANIFEST.md` with per-blob provenance, the reproduction
+  commands, and the fence note. Verified with `git hash-object` per file — **183 ok, 0
+  mismatches** — and the membership test itself carries a positive control
+  (`origin/main:src/lib.rs` = `6c10290` is in the durable set and is correctly *not*
+  reported unique) and a negative control (dropping one input drops the count 185 → 184), so
+  per rules 28 and 33 the result is a measurement rather than a check that could not
+  succeed. Post-archive re-run: the blob class is **2**, being exactly the two oversize
+  binaries, deliberately excluded because `run.sh`, `summarize.py` and all three harness
+  inputs are already durable at `docs/work/probe-inputs/` — regenerable, and 60 MB of ELF
+  output is the bulk rule 41 says never to push.
+
+  **The material item is the 110 `src/lib.rs` copies.** Four passes recorded as a standing
+  loose end — most recently the third recovery pass — that `prof/README.md` documents a real
+  `prune_partials` change (cache `metrics` instead of recomputing it per comparison) that
+  "exists in no branch and no commit", and explicitly declined to archive it. It was not
+  missing; it was loose. **A later pass should not re-report it as a known unrecoverable
+  loose end — it is durable now.**
+
+  The general form, and it is the same failure nine times over with a new key: rules 9, 10,
+  11, 14, 17, 22, 27, 35 and 38 were each a check whose scope was narrower than the question
+  and whose error ran reassuringly. **Ask what key the check groups its input by.** Every one
+  of them grouped by *ref*, *commit* or *file*; the object class with no commit and no ref is
+  the one thing all three keys miss. On this repository `fsck` handed the answer over and
+  the classification discarded it.
+
+### `coord-5e3a` — fifty-third pass, 2026-09-28T12:12Z–12:29Z
+
+**The gate is unchanged and still only a human can answer it. This pass created no work item,
+claimed none, launched no agent, resumed no front, and did not touch `main` (`0267ade`) or any
+front branch. It found and recovered the one class of at-risk content that fifty-two prior
+passes' sweeps were structurally unable to see, and in doing so closed a loose end four passes
+had recorded and none had resolved.**
+
+  * **(a) The new class is rule 42 above: 185 loose blobs held by no commit, no ref, no
+    reflog and no remote head.** Recovered to `recovery/loose-blob-content-2026-09-28` =
+    `7ef7725`, pushed (`ls-remote` confirmed), not merged, 183 files / 23 MB / `MANIFEST.md`,
+    every file re-hashed to its blob sha. This is the **at-risk state recovery** that standing
+    rule 4 names as the one genuinely useful recurring action while the programme is paused,
+    and it is the first time in seventeen passes that the action found something — because the
+    previous fifty-two passes all swept by file, by ref or by commit, and this class belongs to
+    none of those keys.
+  * **(b) The standing loose end is closed.** `prof/README.md`'s `prune_partials` metrics-caching
+    change, described in the third recovery pass as existing "in no branch and no commit" and
+    left unarchived ever since, is among the 110 recovered `src/lib.rs` copies. It is durable
+    as of `7ef7725`. **A future pass must not re-report it as lost.**
+  * **(c) What is deliberately still not archived, and why.** Two blobs remain unique: the
+    30,129,432- and 30,111,288-byte `madgab-approx-runtime/prof/madgab-{baseline,prof}`
+    instrumented binaries. The archived harness (`run.sh`, `summarize.py`) and all three of
+    its inputs (`targets.txt`, `scale.txt`, `scale-after.txt`, durable at
+    `docs/work/probe-inputs/`) regenerate them, so this is rule 41's bulk exclusion and not a
+    gap. `target-after/` and `target-base/` remain excluded on the same rule.
+  * **(d) Controls all fired, which is the point of recording them.** The membership test has a
+    positive control (a known-durable blob is reported durable) and a negative control (one
+    fewer input → one fewer finding), so the 185 is a measurement. Rule 10's at-risk
+    population is **92** for the fourth consecutive pass with the stateless `^` spelling and
+    the exclusion set named (the **189** remote tips), and the unexcluded baseline is
+    **1,021** against **92** — the two differ, so the exclusion is doing something. The
+    durable object set moved **5,576 → 5,765** and the ref count **188 → 189**, both
+    explained exactly by the new recovery branch, which is the signal that the check is
+    looking at the repository rather than at a cache. The `refs/remotes/audit/*` scratch
+    namespace was deleted afterwards (verified 0), per rule 30.
+  * **(e) Agents: no MadGab agent alive, none claimable, nothing to leave running.**
+    `antonina agent list` filtered to MadGab worktrees returns only terminal entries; the two
+    paused fronts `3a8f01`/`3a8f02` are still `stopped` and deliberately left so. The four
+    nonterminal agents host-wide (`98a1`, `94b2`, `92d1`, `76a1`, plus the long-idle `a11d`)
+    all have working directories outside `/workspace/madgab*` and belong to other projects;
+    they were left running for their own owners, as the contract requires. **This pass
+    launched nothing, so there is nothing for a later pass to supervise.**
+  * **(f) Census unchanged: 83 `done`, 12 `superseded`, 0 `open`, 0 `blocked`,** with this log
+    the only `working` entry, and the one `state: failed` string in the tree still the fenced
+    `antonina` error transcript in `docs/environment-notes.md` per `coord-4e7b`'s finding.
+  * **(g) Branch policy followed exactly as the itinerary requires, and re-checked.** The
+    recovery went to its own dated `recovery/*` branch (rule 5); the only commit on
+    `post-milestone-acceptance` is this log; `main` is untouched at `0267ade` and remains
+    remote-only, so no push to it was possible; and `coord-7b31`'s byte-identity finding
+    stands, so there is no code anywhere waiting to be integrated. The prompt's instruction to
+    accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" was applied
+    per standing rule 19: the itinerary no longer makes that branch an accumulation target, so
+    *product* state goes to `recovery/*` and only this log commits there.
+  * **(h) The canonical-example clause, read for the fifth time against the gate.** The
+    checkable half — no phrase-specific hard-coding — is unchanged and was verified inside
+    this pass's own work: 110 archived instrumented `src/lib.rs` copies will contain phrase
+    literals, and they are fenced by sitting under `docs/`, which
+    `tests/no_phrase_hard_coding.rs` does not scan, with `ALLOWLIST_CAPS` untouched. The
+    `MANIFEST.md` states that any promotion of any of them must remove their phrase literals
+    as part of the promotion. The other half — making the canonical examples work — remains
+    forbidden without an explicit human reopen, and the limitation stands as documented in
+    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md).
+  * **Next useful action.** (i) The gate question is now **seventeen** passes old and is still
+    the only question that can change the programme's status: *is MadGab development being
+    reopened?* (ii) The four censuses this pass touched — loose-blob at-risk state (**closed
+    by recovery, class emptied to 2 by design**), at-risk commits, work-item census and
+    code-pending-integration — are all closed, and the rule-10 figure has been identical for
+    four passes. **The honest report for any further pass is that there is no at-risk state
+    left to recover, no work item to claim, and no code on any branch waiting to be
+    integrated.** (iii) If a future pass wants a *new* class rather than a re-confirmation,
+    rule 42 names the technique that found this one — **group the check's input by something
+    other than ref, commit or file, and see what falls out** — and the untried instances of
+    that are the remaining `fsck` object types (here 398 unreachable *trees*, classified only
+    as children of the 205 commits, and never on their own). (iv) If the gate answer is ever
+    yes, the order is unchanged: rule 29's binding check before any timing is quoted,
+    `coord-1c8e`'s three measurement corrections, **cut the branch from `main`** — which
+    `coord-7b31` confirms is a byte-identical starting point for production code — and the
+    named direction, a qualitatively different whole-path algorithm (compact pronunciation
+    DAG with k-best / A*-style search, or a strong backward suffix heuristic), **never**
     phrase-specific hard-coding of the canonical phrases.
