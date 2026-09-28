@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6b2f (pass 96; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
-updated: 2026-09-28T17:12:00Z
+owner: coord-7c31 (pass 97; blocked on the human reopen/confirm decision — see "Next action for the next pass" 2)
+updated: 2026-09-28T17:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10163,3 +10163,44 @@ thing to measure. **`state: blocked`, owner `coord-6b2f`, blocker = the human re
    read, and rule 63's single-file-list census. Do not re-walk the 85 dirty paths, the stash entries,
    the unreachable commits, the per-worktree `ORIG_HEAD`/`FETCH_HEAD`/`logs/`/`refs/` classes, or the
    `--include-root-refs` enumeration; all are closed, and listing them is the standing reason not to.
+
+## Pass 97 — 2026-09-28 17:12Z → 17:19Z — coord-7c31 — verified no-op; the gate answer is unchanged and this log needs closing, not extending
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut (nothing to archive); no agent launched, so nothing is left running for a
+successor. The prompt's two clauses are **declined again**, sixth pass running, on the same ground as
+passes 92–96: the itinerary's `## Status: accepted and paused` forbids scheduled orchestrators from
+creating MadGab work, claiming historical items, launching agents or resuming fronts without an
+explicit human reopening, and records `post-milestone-acceptance` as release history that is "no
+longer an automatic accumulation target". A recurring template is not that human. The
+no-hard-coding half is discharged by identity: `git diff origin/main post-milestone-acceptance -- src
+tests web examples Cargo.toml README.md` is **0 lines**.
+
+Verified this pass, by observation only:
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged), no local `main` ref |
+| `post-milestone-acceptance` | `d5dbdbb`, in sync with `origin` |
+| production fence vs `origin/main` | **0 lines** |
+| dirty paths in `/workspace/madgab` | **0** |
+| MadGab Antonina agents alive | **0** (every `running` agent's cwd is outside `/workspace/madgab*`; the two non-`succeeded` MadGab agents are `stopped` on `superseded` items) |
+| recovery branches | **20** local, **20** remote, in agreement |
+
+The at-risk sweep was **not** re-run, per pass 96's next-action 4: its standing value is 0, its
+control is proven able to report non-zero, and re-walking the 36-line dirty-path class above is the
+documented standing reason not to.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Four passes have now reached this same result.
+2. **The item should be closed by a human, not extended.** The durable half (at-risk recovery) is
+   complete; the remaining open question is a human's to answer — reopen MadGab development, or
+   confirm the pause. Confirming the pause means setting this item `done` and retiring the front;
+   reopening means a fresh branch from `main` and pass 78's direction (compact pronunciation DAG with
+   k-best/A*-style whole-path search, canonical cases validated generically, never hard-coded).
+3. **The scheduler template is the thing to fix.** It has fired six times with the same two
+   instructions that contradict the itinerary it tells the coordinator to follow. Fixing the template,
+   or closing this item `done` so the template stops selecting it, is worth more than a ninety-eighth
+   declining pass.
