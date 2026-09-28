@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-6b2a
-updated: 2026-09-28T13:26:00Z
+owner: coord-9d3e
+updated: 2026-09-28T13:33:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -308,7 +308,7 @@ instruction.
     nobody writes down.** Rules 6–22 preserved state, rule 23 established that a *claimed* regression
     and an *observable* one are different objects, and rule 24 that a claim's authority terminates
     in a document with its own drift. The last unexecuted claim in
-    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md) was a number: "the two
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) was a number: "the two
     canonical release tests take about 1.8 seconds each". It measured **true** — 1.48 s and
     1.76–2.27 s, twice each, on a different host from the one it was written about — and it was
     still misleading, because the phrase "the two canonical release tests" does not name the tests,
@@ -553,11 +553,100 @@ instruction.
     population come from those two commits and every one is under `target-*`, so an unfiltered
     recovery pass would push **355 MB** of stale `libmadgab.rlib` and record it as preserved
     research. The general form: **a filter keyed on a path component only excludes a directory
-    that is ignored; it says nothing about a directory that was committed.** Extend the rule-9
-    filter to the *diff* as well as the filesystem, and treat build output inside a commit as
-    already-durable by definition. Conversely, 2.7 GB of `target-front-3a8f0{1,2}` on disk
-    (52 GB across all worktrees) is the same artifact in the place where ignoring it *is*
-    correct.
+     that is ignored; it says nothing about a directory that was committed.** Extend the rule-9
+     filter to the *diff* as well as the filesystem, and treat build output inside a commit as
+     already-durable by definition. Conversely, 2.7 GB of `target-front-3a8f0{1,2}` on disk
+     (52 GB across all worktrees) is the same artifact in the place where ignoring it *is*
+     correct.
+
+52. **Pass 64 named the discovery axis and then checked discovery with a *state* query. The
+    complementary question is whether a document a successor is sent to can be *reached*, and
+    the whole corpus of `docs/` cannot reach itself: 57 of 1,981 relative `.md` links are
+    broken.** Pass 64's rule 51 found a 20 KB report that the queue's own inclusion rule hides.
+    A successor who had found it would have been sent to it by reading `w-0f3a17.md` — and
+    `w-0f3a17.md:318` links it as `[0f3a17-shortlist-rule](0f3a17-shortlist-rule.md)` — the
+    `w-` prefix dropped — while the same file's line 167 links it **correctly**. So the
+    discovery chain rule 51 identified has a broken hop in it: the one document that points at
+    the hidden report points at it twice, once right and once wrong, and a reader following the
+    later, more prominent citation (it sits in a §7 recommendation) gets nothing.
+    discovery chain rule 51 identified has a broken hop in it: the one document that points at
+    the hidden report points at it twice, once right and once wrong, and a reader following the
+    later, more prominent citation (it sits in a §7 recommendation) gets nothing.
+
+    The measurement, with the population bracketed per rules 14 and 22 rather than asserted:
+    **1,981** relative `.md` links extracted from `docs/**/*.md`, **1,861** resolve, **120**
+    broken *occurrences* which dedup per source file to **57** distinct edges across **30**
+    source files. The two counts reconcile exactly (`1,861 + 120 = 1,981`; the per-file `sort -u`
+    is the only difference between 120 and 57), and the extraction was cross-checked by running
+    it two ways — `grep -r --include='*.md'` and a `find`-driven per-file loop — which agree on
+    1,981. **0** links are absolute or `http`, so nothing is excluded by a scheme test.
+
+    The 57 classify into **one systematic cause and three genuine typos**:
+
+    | class | distinct edges | what it is |
+    |---|---|---|
+    | **DEPTH** | 34 | A link written as if the file sat in `docs/work/` but the file is in `docs/work/items/`, so it needs one more `../`. Dominated by `../environment-notes.md` (15) and `../skills/itinerary-madgab.md` (6). |
+    | **ONE-LEVEL** | 13 | Same cause in the other direction: `../work/items/w-*.md` or `items/w-*.md` written from inside `items/`, which resolves to `docs/work/work/items/` or `docs/items/`. |
+    | **TYPO** | 3 | Truncated item ids: `w-5b1e.md` → `w-5b1e93.md`, `w-3c5b38.md` → `w-3c5b18.md`, `w-d5c11a2.md` → `w-5c11a2.md`. |
+    | **PHANTOM** | 7 | Targets that exist nowhere in any ref, including the known `items/w-5e2d42.md` (a *front*, never an item) recorded at pass 30. |
+
+    **Two of the seven phantoms are cited by this very rule set** — `w-9e2b41.md` → `w-5b1e.md`
+    and `w-4b1e07.md` → `w-5b1e.md` — so the log's own record of *which front priced what* has
+    two dangling hops.
+
+    **The general form is rule 23 one level down, and it is the same shape as every check this
+    log has recorded:** pass 64 asked "can the next pass *find* the queue?" and answered it with
+    one predicate (`state == X`) over one directory, which — exactly like rules 9, 10, 11, 14,
+    17, 22, 27, 35, 37, 38 and 49 — **could not fail**. It returned a clean "95 items, 0 open"
+    while the document it had just rescued from invisibility was unreachable by half its
+    citations. **A queue census proves membership; it cannot prove reachability, and a
+    successor is not a query result — it is a reader following links.** The three standing
+    questions, in the order a successor actually encounters them, are: *is the item in the
+    queue* (rule 51), *can the reader get to the document it names* (this rule), and *is what
+    they find there current* (rule 24). Passes 55–64 answered the first; this pass answers the
+    second, and the third has a live instance recorded at rule 24 that nobody has repaired.
+
+    **Action taken: this log's own broken edges, and nothing else.** Rule 19 makes this file the
+    one thing that still commits to `post-milestone-acceptance`, and rule 24 says a claim's
+    authority terminates in a document — so a rule that cites a document by a broken path
+    degrades exactly the chain it exists to protect. Four edges were repaired: three
+    `../accepted-state-2026-09-27.md` → `../../accepted-state-2026-09-27.md` (lines 311, 2955,
+    5097) and one `items/w-3f8c62.md` → `w-3f8c62.md` (line 2162). The file's 6 already-correct
+    citations of the same accepted-state target are unchanged, which is what makes the repair a
+    fix rather than a rewrite. **The census re-run afterwards returns 56, and the delta
+    reconciles edge by edge**: −1 for the `w-3f8c62` edge, −1 for the `../accepted-state` class
+    (it collapses into the 6 correct `../../` edges, so the per-file `sort -u` counts it once),
+    and the one edge this rule adds is the *quoted* `0f3a17-shortlist-rule` link above, which
+    sits inside a code span and therefore is documentation rather than a live citation.
+    `items/w-5e2d42.md` is retained on purpose — it is the known phantom, cited as a phantom.
+
+    **The other 53 are deliberately left alone, and the recommendation is the same.** They live
+    in closed work items and historical reports whose prose quotes the broken path as *text*
+    (e.g. `w-0f3a17.md:318` is inside a recommendation to a successor); editing a `done` item's
+    record while the programme is paused is a rewrite of research history, and the itinerary's
+    rule 2 forbids resuming a superseded front, which a retroactive edit is. A human who
+    reopens development gets a one-line mechanical fix for the 47 DEPTH/ONE-LEVEL edges
+    (`sed` on the two path prefixes, verified by re-running the census below and expecting
+    **56 − 47 = 9** distinct broken edges to remain) and a judgement call on the 6 that need
+    one. Standing check for a future pass, and the cheapest one-line command in this log —
+    reproduced from this file, it returns **56**, matching the post-repair measurement:
+
+    ```sh
+    find docs -name '*.md' | while read -r f; do d=$(dirname "$f")
+      grep -oE '\]\([^)]+\.md(#[^)]*)?\)' "$f" | sed -E 's/^\]\(//; s/\)$//; s/#.*$//' \
+        | while read -r t; do [ -e "$d/$t" ] || echo "$f|$t"; done
+    done | sort -u
+    ```
+
+    **Note the resolution bug this pass hit first, because it is rule 22 a sixth time.** The
+    obvious version resolves each target against `docs/` and reports **~40** "missing" files
+    including `docs/../../REPORT-9f1c05.md` and `docs/../skills/scheduled.md` — nonsense paths
+    that cannot exist, from links that are fine. A relative link is resolved against *the
+    directory of the file that contains it*, not against the search root; a checker that gets
+    this wrong reports a confident, wrong, alarming number rather than failing, which is why
+    rule 22's guard is the one that catches it — the malformed output is visible, the count is
+    not.
+
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -2159,7 +2248,7 @@ that the object classes are enumerated and nearly exhausted, and the remaining u
   * **Finding 1 — the cited section still presents a front that died a day before the release.**
     `OBSTRUCTION-MAP.md` §3's closing paragraph, under "**Where that now stands
     (2026-09-27, coord-c1d4a)**", says the gap is "now owned by
-    [w-3f8c62](items/w-3f8c62.md) (`working`, front `agent-3f8c62` in
+    [w-3f8c62](w-3f8c62.md) (`working`, front `agent-3f8c62` in
     `/workspace/madgab-parsim-3f8c62` on `madgab-parsim-3f8c62`)". In fact `w-3f8c62` is
     **`done`** — its own header records "CLOSED done by coord-5f31: report integrated as `93d0eed`
     (docs-only, cherry-pick of `08bb406`), verdict HOLD", `updated: 2026-09-27T21:55:00Z` —
@@ -2952,7 +3041,7 @@ instruction was declined for the twenty-ninth time on the same grounds.
     that is built?* — whose last three passes each found real drift in the **documents**
     (rules 23, 24, 25: the "red" claim, the citation chain behind it, the unbound "1.8 s"). The
     untested document claims remaining in
-    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md) are the qualitative ones
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) are the qualitative ones
     in **"What is accepted"** — seven bullets asserting indel-aware matching, segmentation/
     lexical separation, bounded portfolios, budgeted enumeration, reserved capacity, the
     worst-word scoring term, and structure-aware final selection. Rule 25's form applies to them
@@ -5094,7 +5183,7 @@ had recorded and none had resolved.**
     `MANIFEST.md` states that any promotion of any of them must remove their phrase literals
     as part of the promotion. The other half — making the canonical examples work — remains
     forbidden without an explicit human reopen, and the limitation stands as documented in
-    [../accepted-state-2026-09-27.md](../accepted-state-2026-09-27.md).
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
   * **Next useful action.** (i) The gate question is now **seventeen** passes old and is still
     the only question that can change the programme's status: *is MadGab development being
     reopened?* (ii) The four censuses this pass touched — loose-blob at-risk state (**closed
@@ -6327,7 +6416,125 @@ instrumentation (including anything under `docs/work/probes/`); never archive
 `scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent; do not add
 `work_item: true` to a historical report. If the answer is ever yes: read
 `docs/work/items/w-0f3a17-shortlist-rule.md` §7 first, cut a fresh focused branch from `main`
-(production code is still byte-identical), validate *general* behaviour, pursue the named
-direction (a qualitatively different whole-path algorithm — compact pronunciation DAG with
-k-best / A*-style search, or a strong backward suffix heuristic), and **never hard-code the
-canonical phrases**.
+  (production code is still byte-identical), validate *general* behaviour, pursue the named
+  direction (a qualitatively different whole-path algorithm — compact pronunciation DAG with
+  k-best / A*-style search, or a strong backward suffix heuristic), and **never hard-code the
+  canonical phrases**.
+
+## Sixty-fifth pass (`coord-9d3e`, wall clock 2026-09-28T13:26Z–13:33Z) — rule 52: the queue is findable, and 57 of its links do not resolve
+
+Pause gate confirmed closed before anything else was done; the gate question is now
+**twenty-nine passes old**. No MadGab work item created, none claimed, no agent launched,
+nothing merged, nothing pushed to `main` (`git rev-parse main` still fails — the ref is
+remote-only, at `0267ade`). The canonical-example instruction was read against the itinerary's
+pause gate for the **sixth** time (see the `coord-c8e1` entry): it restates the standing goal,
+and reopening requires an explicit human instruction, which has not been given. The whole of
+this pass's answer to "prioritise the canonical examples without phrase-specific hard-coding"
+is unchanged: **verify the fence, never add a phrase** — and the fence is green by identity of
+the tree, production code being 0 lines from `origin/main` (measured below).
+
+Pass 64 handed this pass its question: *"before repeating a census, check that the census's own
+inclusion rule matches the directory it is pointed at."* It did, and returned 95 items with an
+empty queue. So this pass asked the next question in the same series — **not "is the item in
+the queue?" but "can a reader reach the document the queue names?"** — and the answer is no,
+in 57 places. That is rule 52, and it is the most consequential thing 65 passes have found
+about the *record*, because it is the first defect in a chain a successor actually walks.
+
+The finding is not a repository defect and nothing was at risk. What it costs is **discovery**:
+a successor who reads rule 51 and opens `w-0f3a17-shortlist-rule.md` will most likely arrive
+via `w-0f3a17.md:318`, which spells the link `0f3a17-shortlist-rule.md` — the `w-` prefix
+dropped — and gets nothing, while line 167 of the same file spells it correctly. Rule 51
+rescued a document from invisibility in the queue; this pass found that half the pointers *to*
+it were already broken, which is why 64 passes of state queries never surfaced it.
+
+**Action taken: this log's own four broken links, and nothing else.** Rule 19 makes this file
+the one thing that still commits to `post-milestone-acceptance`, and rule 24's point is that a
+claim's authority terminates in a document — so this log citing a document by a broken path
+degrades the exact chain it exists to protect. Four edges repaired; 54 left alone in closed
+items, because editing a `done` item's record while paused is a rewrite of research history
+(itinerary rule 2). The mechanical fix for the 47 systematic ones is recorded in rule 52 for
+whoever reopens the programme, together with the one-line census that finds them.
+
+**Two errors of my own, both caught and both recorded rather than quietly fixed**, because
+this log's whole subject is checks that return confident wrong numbers:
+
+* **The first link census resolved paths against `docs/` instead of against each file's own
+  directory** and reported ~40 "missing" files, including the impossible
+  `docs/../../REPORT-9f1c05.md` and `docs/../skills/scheduled.md`. A relative link is resolved
+  against the containing file's directory. This is rule 22 a sixth time, and it failed in the
+  *alarming* direction, which at least is visible.
+* **The extraction was cross-checked before its count was believed** (rule 14): `grep -r
+  --include='*.md'` and a `find`-driven per-file loop both return **1,981**, and the
+  classification reconciles as `1,861 resolving + 120 broken occurrences = 1,981`, with the
+  per-file `sort -u` accounting for exactly the difference between 120 occurrences and 57
+  distinct edges. Per rule 22 both sides of that sum are printed, because a single bare
+  integer from a generated pipeline is worthless.
+
+### What re-measured, and what is unchanged
+
+* **Census, anchored spelling:** 95 items in `docs/work/items/` — 83 `done`, 11 `superseded`,
+  0 `open`, 0 `blocked`, 1 `working` (this log). Identical to passes 61–64. The two documents
+  in the directory without a `work_item: true` header are `README.md` (the directory's own
+  prose) and `w-0f3a17-shortlist-rule.md` (rule 51's subject, recorded not fixed).
+* **Link census, new:** 1,981 relative `.md` links in `docs/`, 1,861 resolve, **57 distinct
+  broken edges in 30 files** — 34 DEPTH, 13 ONE-LEVEL, 3 typo, 7 phantom (rule 52's table).
+  3 of the 7 phantoms are in this log's own rule text. **After this pass's four repairs the
+  figure is 56**, reconciled edge by edge in rule 52 — the 57 is the *pre-repair* measurement
+  and is the one the classification table describes.
+* **All 27 `REPORT-*.md` are cited by at least one other document**, so the reverse direction
+  (report → item) is sound; only item → report and item → sibling-item links are broken.
+* **No MadGab Antonina agent is alive.** The `running` agents on this host are `73d1`
+  (`/workspace/antonina-73-registry`), `94a4` (`/workspace/assemblyp1-94-chords`) and `98a1`
+  (`/workspace/antonina-98-flake`), all other repositories, plus `92d1`
+  (`/workspace/volodyslav-92-plan`). None is MadGab's; all left alone. **This pass launched
+  nothing, so it leaves nothing running to supervise.**
+* **Repository shape:** 127 registered worktrees, 0 dirty non-`target` paths in this worktree,
+  192 remote heads, 14 `recovery/*` branches local and 14 on the remote. Production code is
+  **0 lines** from `origin/main` (`git diff origin/main post-milestone-acceptance -- src tests
+  web examples Cargo.toml README.md`), which is the binding condition rule 25 requires before
+  any number measured on an earlier tree may be repeated. **The hard-coding fence is therefore
+  green by identity of the tree, not re-run** — the same argument pass 62 accepted, and the
+  same answer to "prioritise the canonical examples": verify the fence, never add a phrase.
+* **The preservation sweep was deliberately not re-run.** Passes 55–63 hold it unchanged at
+  92 / 11 / 81 / 0 and rule 51 gave the reason not to: a seventh identical number is not
+  evidence, and the class it measures has no open instance.
+
+### Coordination decision
+
+Nothing to claim, nothing to integrate, nothing to resume, and **no `recovery/*` branch** — this
+pass created no archive because nothing was at risk to archive, and pushed nothing but this
+log, to `post-milestone-acceptance` only.
+
+The useful output is rule 52, and it completes a triad that 64 passes had been circling
+without closing: **rule 51 = can the next pass find the item; rule 52 = can it reach the
+document the item names; rule 24 = is what it finds there current.** The first is now answered
+and answered *twice*; the second is answered here with 57 broken edges; the third has had a
+recorded open instance (rule 24's `OBSTRUCTION-MAP.md` §3/§4 drift against the accepted-state
+document) since pass 26 and no pass has repaired it, because repairing it means editing a
+closed research document. All three are now named as *one* failure surface — the citation
+chain — rather than three unrelated findings, which is the thing a successor actually needs.
+
+**The standing advice for the next pass therefore changes shape again.** It is no longer "run
+another sweep" (saturated, passes 55–64) and no longer "check the census's inclusion rule"
+(checked, pass 64). It is: **walk one citation chain end to end and resolve every hop** — take
+a work item, follow its links to the reports and sibling items it names, and record which
+hops fail. That is a question with an open instance, it costs one `find` loop, and it is the
+only remaining line of enquiry that is neither saturated nor blocked on a human.
+
+**The gate question is now twenty-nine passes old and remains the only thing that can change
+this programme's status: is MadGab development being reopened?** It is not a coordinator's
+call. Standing instructions unchanged: never push to `main`; never integrate scratch
+instrumentation (including anything under `docs/work/probes/`); never archive
+`target-after/`, `target-base/`, `target-front-*` or the two oversize binaries; leave
+`scratch-3f8c62-landed` unpushed and undeleted; never launch a MadGab agent; do not add
+`work_item: true` to a historical report; **do not edit a closed work item's record while
+paused** (rule 52). If the answer is ever yes: read
+`docs/work/items/w-0f3a17-shortlist-rule.md` §7 first — via `w-0f3a17.md:167`, which resolves,
+not line 318, which does not — repair the 47 systematic broken links with the recorded `sed`
+and re-run the census below, which should then report **9** distinct broken edges, then cut a
+fresh focused branch from `main` (production
+code is still byte-identical), validate *general* behaviour, pursue the named direction (a
+qualitatively different whole-path algorithm — compact pronunciation DAG with k-best /
+A*-style search, or a strong backward suffix heuristic), and **never hard-code the canonical
+phrases**.
+
