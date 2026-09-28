@@ -1,4 +1,24 @@
+---
+work_item: false
+id: w-0f3a17-shortlist-rule
+state: done
+priority: normal
+owner: front agent-0f3a172 (measurement report; closed 2026-09-27, integrated at 534a39c)
+updated: 2026-09-28T17:00:00Z
+branch: scratch/0f3a17-shortlist
+worktree: /workspace/madgab-sl-0f3a17-probe (probe branch scratch/0f3a17-shortlist-probe at b4a3009)
+parent_item: w-0f3a17 (superseded)
+---
+
 # w-0f3a17 — the per-slot shortlist selection rule, as it actually behaves
+
+> This is a **measurement report, not a queue entry** — it is why
+> `work_item: false` and a terminal `state: done` are recorded here. It sat in
+> `items/` with no YAML header at all, so every metadata-based census in the
+> paused-programme reconciliation log counted 95 items in 96 files without
+> noticing the difference, and the file was neither claimable nor reportable as
+> missing. Header added by pass 93 purely to make the census self-consistent;
+> nothing in the body changed, and nothing here is resumable.
 
 Front: shortlist **contents** (the question the item declares separate from
 the width question owned by the sibling front). Measurement only; no
