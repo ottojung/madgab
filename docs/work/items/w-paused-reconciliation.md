@@ -4686,3 +4686,110 @@ branch or front was touched, and `main` is untouched at `0267ade`.**
     branch from `main`**, and the named direction — a qualitatively different whole-path
     algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward
     suffix heuristic), **never** phrase-specific hard-coding.
+
+### `coord-3a1c` — fiftieth pass, 2026-09-28T11:57Z–12:02Z
+
+**The gate is unchanged and still only a human can answer it. This pass created no work item,
+claimed none, launched no agent, resumed no front, and did not touch `main` (`0267ade`) or any
+front branch. It found one *new* at-risk class, closed one *measurement* class that thirty-one
+passes had left open, and corrected a rule the standing sweep would otherwise have mis-spelled.**
+
+  * **(a) Rule 10's own count was mis-spelled in the standing sweep, and the error is silent in
+    the dangerous direction.** Rules 14 and 30 record two *sanctioned* `rev-list` exclusion
+    spellings — `--not` + bare ref list, and the stateless `^<ref>` prefix — and both are
+    correct **when used alone**. This pass ran a command that uses *both* at once, which is the
+    natural reading of "use either of the two correct forms" when copying one that already has
+    `--not` in it. The result is a **double inversion**: `--not` inverts the sense of every
+    following revision, and `^<ref>` inverts it again, so the "exclusion" list excludes nothing.
+    Measured, with the population pinned:
+
+    | spelling | result |
+    |---|---|
+    | `--not` + `^`-prefixed ref list (both) | **1016** |
+    | no exclusions at all (`--all --reflog`) | **1016** |
+    | `^`-prefixed ref list, no `--not` | **81** |
+    | `--not` + bare ref list | **81** |
+
+    The two suspect rows are *identical*, and identical to the unexcluded baseline — that
+    equality is the tell, and it is a stronger signal than the number looking large. The
+    correct figure is **81**, confirmed by two independent formulations whose output sets are
+    **byte-identical** (`comm -3` returns 0 lines), which is the cross-check rule 14 demands.
+    The general form is rule 14's restated for a *combination* rather than a repetition: **the
+    two sanctioned spellings are each correct alone and silently annihilate each other
+    together**, because each is a negation and the composition of two negations is the
+    identity. Any sweep that copies a command from a neighbouring line of a rule is exposed to
+    this; the check is one comparison against the no-exclusion baseline, which is the cheapest
+    control in the whole log.
+  * **(b) The 81 are reflog-only, and the class is now closed by measurement rather than by
+    absence of evidence.** Rule 11 flagged the *existence* of a commit "held by no containing
+    ref", which is reflog-only, and rule 15 gave the `refs/stash` instance of it. It did not
+    measure the class. Doing so: `git for-each-ref --contains` returns **empty for all 81**,
+    yet `rev-list --all` finds every one — which is only possible because `--all` includes
+    reflogs. The holder is therefore always a **reflog entry**, and the census of holder files
+    is **34 distinct `.git/logs/` files** for 81 commits (7 each in `logs/HEAD` and
+    `logs/refs/heads/post-milestone-acceptance`, 5 in `logs/refs/stash`, the rest one to six
+    across per-front and scratch branch logs). They are not the eight detached worktree `HEAD`s
+    rule 11 also lists — the intersection is **0**, which closes that possibility rather than
+    assuming it. The subjects confirm the class is exactly what a paused programme leaves:
+    20 `index on …` and `WIP on …` commits, 8 `untracked files on …` commits, plus per-front
+    handoffs. **No source content is at risk**: taking each commit's non-`target` files and
+    testing every blob against the **remote-tip-only** reachable set (**5,552** objects, after
+    `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` per rule 10) returns **0** at-risk
+    blobs across all 81. Every one of them is already archived by the existing
+    `recovery/*` branches — one, `f86907c`, is present as the literal file
+    `docs/work/local-only-held/files/f86907c--src/lib.rs`. **The class is closed; a later pass
+    should not re-run it.**
+  * **(c) The "exclusion set" is a choice, and one of the two legal choices answers a different
+    question than the other.** Excluding all 375 local refs gives **81**; excluding only the
+    **181 authoritative remote tips** gives **92**. The **11-commit** difference is not noise —
+    it is every commit reachable solely from a *stale local ref*, and each of the 11 was
+    classified by `for-each-ref --contains`: 5 in `refs/remotes/origin/*` naming branches
+    whose real tip is elsewhere (rule 38's false-positive direction, hit again), 3 in
+    `refs/heads/*` local-only branches, 2 in `refs/stash` beyond `stash@{0}` (rule 15's shape),
+    1 in a detached worktree `HEAD`. **The number a pass reports depends entirely on which
+    exclusion set it chose, and the two choices are both defensible** — 81 answers "what is
+    held by no ref or reflog", 92 answers "what is not on the remote". Neither is wrong; a
+    number reported without naming its exclusion set is. Of the 11, **0** carry non-build
+    content absent from a remote ref. Neither figure is a safety finding.
+  * **(d) The one genuinely unarchived content class: 707 MB of *committed* Cargo output, and it
+    is at risk only because it was committed, not because it is on disk.** Rules 6–9 all treat
+    `target*` as a **disk** artifact to exclude from a sweep. None of them asks what happens
+    when build output is **inside a commit**. Two such commits exist:
+    `33c409e` (`SCRATCH w-2f7a10 slots front`) carries **332 files, 355,362,288 bytes** under
+    `target-after/`, and `514ed91` (`scratch-3f8c62-landed`) carries `target-base/`,
+    **352,419,133 bytes**. Both are in the at-risk population and **neither directory is
+    gitignored**: `.gitignore` line 1 is `/target/`, **anchored**, so it matches the root
+    target dir and nothing else. `git check-ignore -v target-after/` **exits non-zero** — it is
+    not ignored. The general form is rule 9's, one level in: *a filter keyed on a path
+    component excludes a directory that is ignored, and says nothing about a directory that was
+    committed.* All **70** at-risk blobs in the population trace to these two commits and
+    **every one is under `target-*`** — a pass that archived the at-risk set faithfully would
+    have pushed **355 MB** of a stale `libmadgab.rlib` onto a recovery branch and recorded it
+    as recovered research. Nothing was archived. The 2.7 GB in the paused *worktrees* is the
+    same mistake in a different place and is correctly ignored; the distinction is that this is
+    **already in the object store**, so it survives `gc` today and needs no rescue at all.
+  * **(e) The class that a naive extension of this pass's method would have invented, tested
+    and closed for free.** If a sweep collects candidates with `git status --porcelain`, it
+    structurally cannot see **gitignored** files — the same "the check cannot see the class it
+    should be asking about" shape as rules 10, 13, 15, 16 and 18. The census across all 126
+    worktrees with `--ignored=matching` returns **exactly 2 entries per worktree, and they are
+    the collapsed `target/` line every time** — so the ignored class on this repository is
+    build output and nothing else, and it needs no rule. The general form, recorded because the
+    *next* repository will differ: *`--ignored=matching` collapses a directory to one `!!`
+    line, so a count of 2 per worktree is the expected clean result, not a suspiciously round
+    one.*
+  * **Next useful action.** (i) **The gate question is the only one left, and it has now been
+    open for fourteen passes:** *is MadGab development being reopened?* Both measurement
+    classes this pass touched are **closed** — the reflog-only class (b) is empty of at-risk
+    source content, and the excluded-commit count (c) is fully classified. A future pass should
+    not re-run either, and this document has reached the point where the honest report is that
+    **there is no at-risk state left to recover**; the correct action for a further pass is to
+    say so rather than to find something. (ii) `target-after/` and `target-base/` need no
+    action and must never be archived; the finding is recorded so that a future pass's sweep
+    excludes them by the *committed* rule and not only the on-disk one. (iii) The two
+    deliberately stopped fronts and the 52 GB of on-disk `target*` directories need no action.
+    (iv) If the gate answer is ever yes, the order is unchanged: rule 29's binding check before
+    any timing is quoted, `coord-1c8e`'s three measurement corrections, **cut the branch from
+    `main`**, and the named direction — a qualitatively different whole-path algorithm (compact
+    pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+    **never** phrase-specific hard-coding of the canonical phrases.
