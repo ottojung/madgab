@@ -1023,7 +1023,6 @@ impl Generator {
                 &target_boundaries,
                 target_syllables,
                 n,
-                p,
             );
 
             for partial in &here {
@@ -1068,7 +1067,6 @@ impl Generator {
                             &target_boundaries,
                             target_syllables,
                             n,
-                            q,
                         );
                         beam[q] = reduced;
                     }
@@ -1087,7 +1085,6 @@ impl Generator {
             final_keep,
             &target_boundaries,
             target_syllables,
-            n,
             n,
         );
 
@@ -2459,49 +2456,6 @@ impl Generator {
         clues.retain(|c| seen.insert(phrase_signature(&c.phrase)));
         let pool_size = clues.len();
 
-        if std::env::var("ZZ_PRINCE_STATS").is_ok() {
-            let shown = select_diverse(clues.clone(), self.config.top_n);
-            let needle: Vec<String> = std::env::var("ZZ_PRINCE_NEEDLE")
-                .unwrap_or_default()
-                .split_whitespace()
-                .map(|s| s.to_lowercase())
-                .collect();
-            let mut printed_rank = None;
-            let mut pool_rank = None;
-            for (i, c) in clues.iter().enumerate() {
-                let w: Vec<String> =
-                    c.phrase.split_whitespace().map(|s| s.to_lowercase()).collect();
-                let hit = !needle.is_empty() && w == needle;
-                if hit && pool_rank.is_none() {
-                    pool_rank = Some(i + 1);
-                }
-                if hit {
-                    printed_rank = Some(i + 1);
-                }
-            }
-            let mut pr = printed_rank;
-            for (i, c) in shown.iter().enumerate() {
-                let w: Vec<String> =
-                    c.phrase.split_whitespace().map(|s| s.to_lowercase()).collect();
-                if !needle.is_empty() && w == needle {
-                    pr = Some(i + 1);
-                    break;
-                }
-            }
-            let mut mean_score = 0.0;
-            for c in &shown {
-                mean_score += c.score;
-            }
-            eprintln!(
-                "[prince] pool={} shown={} printed_rank={:?} pool_rank={:?} shown_mean_score={:.9}",
-                pool_size,
-                shown.len(),
-                pr,
-                pool_rank,
-                if shown.is_empty() { 0.0 } else { mean_score / shown.len() as f64 }
-            );
-        }
-
         (
             select_diverse(clues.clone(), self.config.top_n),
             pool_size,
@@ -3492,13 +3446,11 @@ fn prune_partials(
     target_boundaries: &[usize],
     target_syllables: usize,
     total_len: usize,
-    trace_pos: usize,
 ) -> Vec<Partial> {
     if k == 0 || candidates.is_empty() {
         return Vec::new();
     }
 
-    let n_candidates = candidates.len();
     let score_of = |p: &Partial| {
         p.metrics(
             target_boundaries,
@@ -3540,65 +3492,6 @@ fn prune_partials(
     // keeps beam retention (and therefore the whole search) reproducible.
     let mut items: Vec<Partial> = dedup.into_values().collect();
     items.sort_by(|a, b| a.key.cmp(&b.key));
-
-    let trace_needle: Option<String> = std::env::var("ZZ_PRUNE_NEEDLE").ok();
-    if std::env::var("ZZ_PRUNE_STATS").is_ok() {
-        use std::sync::atomic::Ordering::Relaxed;
-        static CALLS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        static ITEMS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        static KEPT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        let c = CALLS.fetch_add(1, Relaxed) + 1;
-        ITEMS.fetch_add(n_candidates as u64, Relaxed);
-        KEPT.fetch_add(k as u64, Relaxed);
-        if c % 1000 == 0 {
-            eprintln!(
-                "[prune-stats] calls={} candidates={} kept_slots={}",
-                CALLS.load(Relaxed),
-                ITEMS.load(Relaxed),
-                KEPT.load(Relaxed)
-            );
-        }
-    }
-    let trace_on = trace_needle.is_some()
-        && match std::env::var("ZZ_PRUNE_POS").ok().and_then(|s| s.parse::<usize>().ok()) {
-            Some(want) => want == trace_pos,
-            None => true,
-        };
-    let traced: Option<usize> = trace_needle.as_ref().and_then(|needle| {
-        if let Some(want) = std::env::var("ZZ_PRUNE_WORDS").ok().and_then(|s| s.parse::<usize>().ok()) {
-            let w: Vec<&str> = needle.split_whitespace().collect();
-            return items.iter().position(|p| {
-                let head: Vec<&str> = p.key.split(' ').take(want).collect();
-                head.len() == want
-                    && head
-                        .iter()
-                        .zip(w.iter())
-                        .all(|(a, b)| a.split('\u{1f}').next() == Some(*b))
-            });
-        }
-        let pre = std::env::var("ZZ_PRUNE_PREFIX").is_ok();
-        items
-            .iter()
-            .position(|p| {
-                if pre {
-                    p.key.starts_with(needle.as_str())
-                } else {
-                    p.key.contains(needle.as_str())
-                }
-            })
-    });
-
-    if trace_on {
-        eprintln!(
-            "[prune] pos={} k={} deduped={} needle_present={:?} needle_idx={:?}",
-            trace_pos,
-            k,
-            items.len(),
-            traced.is_some(),
-            traced
-        );
-    }
-
     if items.len() <= k {
         return items;
     }
@@ -3645,7 +3538,6 @@ fn prune_partials(
     protected.sort_by(|&a, &b| {
         cmp_desc(metrics[a].combined, metrics[b].combined).then(a.cmp(&b))
     });
-    let protected_all = protected.clone();
     for i in protected.into_iter().take(k / 2) {
         selected.insert(i);
     }
@@ -3707,133 +3599,6 @@ fn prune_partials(
             break;
         }
         rank += 1;
-    }
-
-    if trace_on && traced.is_some() {
-        let t = traced.expect("gated on traced.is_some()");
-        let order_rank = |o: usize| {
-            orders[o]
-                .iter()
-                .position(|&i| i == t)
-                .map(|r| r + 1)
-                .unwrap_or(0)
-        };
-        let mut kept_combined: Vec<f64> = Vec::new();
-        let mut kept_cost: Vec<f64> = Vec::new();
-        for (i, m) in metrics.iter().enumerate() {
-            if selected.contains(&i) {
-                kept_combined.push(m.combined);
-                kept_cost.push(items[i].sub_cost_total);
-            }
-        }
-        kept_combined.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        kept_cost.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        eprintln!(
-            "[prune] pos={} k={} deduped={} selected={} protected={} combined={:.6} cost={:.6} rank_comb={} rank_nov={} rank_fam={} rank_aco={} rank_lex={} rank_rhy={} rank_con={} keep_comb_min={:.6} keep_comb_max={:.6} keep_cost_max={:.6} key={}",
-            trace_pos,
-            k,
-            items.len(),
-            selected.contains(&t),
-            protected_all.contains(&t),
-            metrics[t].combined,
-            items[t].sub_cost_total,
-            order_rank(0),
-            order_rank(1),
-            order_rank(2),
-            order_rank(3),
-            order_rank(4),
-            order_rank(5),
-            order_rank(6),
-            kept_combined.first().copied().unwrap_or(0.0),
-            kept_combined.last().copied().unwrap_or(0.0),
-            kept_cost.last().copied().unwrap_or(0.0),
-            items[t].key.replace('\u{1f}', "|"),
-        );
-    }
-
-    if trace_on && traced.is_some() {
-        let names = [
-            "combined",
-            "novelty",
-            "familiarity",
-            "acoustic",
-            "word_novelty",
-            "rhythm",
-            "content",
-        ];
-        eprintln!("[prune] pos={} protected_slots={} k={}", trace_pos, selected.len(), k);
-        for (oi, order) in orders.iter().enumerate() {
-            let rank = traced.and_then(|t| order.iter().position(|&i| i == t));
-            eprintln!(
-                "[prune]   order {:<12} needle_rank={:?} worst_kept_in_order={}",
-                names[oi],
-                rank,
-                order
-                    .iter()
-                    .filter(|i| selected.contains(i))
-                    .count()
-            );
-        }
-        if let Some(t) = traced {
-            let m = &metrics[t];
-            eprintln!(
-                "[prune]   needle key={} combined={:.6} novelty={:.6} familiarity={:.6} cost={:.6} word_novelty={:.6} rhythm={:.6} content={:.6} protected={} selected={}",
-                items[t].key,
-                m.combined,
-                m.novelty,
-                m.familiarity,
-                items[t].sub_cost_total,
-                m.word_novelty,
-                m.rhythm,
-                m.content,
-                protected_all.contains(&t),
-                selected.contains(&t)
-            );
-            let mut kept_combined: Vec<f64> = Vec::new();
-            let mut kept_cost: Vec<f64> = Vec::new();
-            for (i, m) in metrics.iter().enumerate() {
-                if selected.contains(&i) {
-                    kept_combined.push(m.combined);
-                    kept_cost.push(items[i].sub_cost_total);
-                }
-            }
-            kept_combined.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            kept_cost.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            eprintln!(
-                "[prune]   keep combined min={:.6} p50={:.6} max={:.6}",
-                kept_combined.first().copied().unwrap_or(0.0),
-                kept_combined.get(kept_combined.len() / 2).copied().unwrap_or(0.0),
-                kept_combined.last().copied().unwrap_or(0.0)
-            );
-            eprintln!(
-                "[prune]   keep cost min={:.6} p50={:.6} max={:.6}",
-                kept_cost.first().copied().unwrap_or(0.0),
-                kept_cost.get(kept_cost.len() / 2).copied().unwrap_or(0.0),
-                kept_cost.last().copied().unwrap_or(0.0)
-            );
-            // ranks among the whole deduped set
-            let mut by_combined: Vec<usize> = (0..items.len()).collect();
-            by_combined.sort_by(|&a, &b| {
-                cmp_desc(metrics[a].combined, metrics[b].combined)
-            });
-            eprintln!(
-                "[prune]   needle combined rank of {}/{}",
-                by_combined.iter().position(|&i| i == t).map(|r| r + 1).unwrap_or(0),
-                items.len()
-            );
-            let mut by_cost: Vec<usize> = (0..items.len()).collect();
-            by_cost.sort_by(|&a, &b| {
-                items[a]
-                    .sub_cost_total
-                    .partial_cmp(&items[b].sub_cost_total)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            eprintln!(
-                "[prune]   needle acoustic rank of {}/{}",
-                by_cost.iter().position(|&i| i == t).map(|r| r + 1).unwrap_or(0),
-                items.len()
-            );
-        }
     }
 
     // Order the retained indices against the cached metrics. Recomputing
@@ -4928,7 +4693,7 @@ mod tests {
             let k = n / 4;
             let pool = candidate_pool(&target, n);
             counters::take(&counters::METRICS);
-            let kept = prune_partials(pool, k, &boundaries, 4, 12, 0);
+            let kept = prune_partials(pool, k, &boundaries, 4, 12);
             let calls = counters::take(&counters::METRICS);
             assert_eq!(
                 calls,
@@ -5003,7 +4768,7 @@ mod tests {
             .iter()
             .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
             .fold(f64::NEG_INFINITY, f64::max);
-            let kept = prune_partials(pool, 8, &boundaries, 4, 12, 0);
+        let kept = prune_partials(pool, 8, &boundaries, 4, 12);
         let got: Vec<f64> = kept
             .iter()
             .map(|p| p.metrics(&boundaries, 4, 12, true).combined)
@@ -5012,6 +4777,61 @@ mod tests {
         assert_eq!(got[0], best, "best candidate must lead the retained set");
     }
 
+    /// The beam's admission gate is a portfolio, not a value floor.
+    ///
+    /// `prune_partials` keeps a bounded portfolio: representatives from
+    /// each structural (word-count, cost-band, rhythm-band) cell, then the
+    /// rest filled round-robin from the independent axis rankings. Nothing
+    /// in the keep path compares a candidate's combined score against a
+    /// floor, and the consequence is the property this pins:
+    /// **the retained set is not the top `k` by combined score** — a
+    /// discarded candidate can carry a combined value above the minimum of
+    /// the retained set.
+    ///
+    /// This is the load-bearing fact for anyone reading the beam as a
+    /// quality threshold. A value floor cannot reproduce the keep rule, and
+    /// the quantity that moves the rule is the budget `k`, not a score: at
+    /// a budget equal to the population nothing is dropped at all, which is
+    /// what makes the discard above a budget artefact rather than an
+    /// unrelated filter.
+    ///
+    /// Measured non-vacuity, by mutation, stated honestly: disabling the
+    /// cell protection *and* reducing the fill to the `combined` order
+    /// alone turns this test **red**; reducing the fill to the `combined`
+    /// order alone leaves it **green**, because the cell protection on its
+    /// own already admits candidates below the top `k`. So the property
+    /// proven here is "not a value floor", and it does not by itself
+    /// isolate the round-robin from the cell protection.
+    #[test]
+    fn beam_retention_is_a_portfolio_and_not_a_value_floor() {
+        let target = TargetPhrase::new("wreck a nice beach");
+        let boundaries = [3usize, 6, 9];
+        let n = 64;
+
+        let combined = |p: &Partial| p.metrics(&boundaries, 4, 12, true).combined;
+
+        let pool = candidate_pool(&target, n);
+        let kept = prune_partials(pool.clone(), 8, &boundaries, 4, 12);
+        assert_eq!(kept.len(), 8, "a budget of 8 must return exactly 8");
+
+        let kept_min = kept.iter().map(combined).fold(f64::INFINITY, f64::min);
+        let survivors: Vec<String> = kept.iter().map(|p| p.key.clone()).collect();
+        let beaten = pool
+            .iter()
+            .filter(|p| !survivors.contains(&p.key))
+            .filter(|p| combined(p) > kept_min)
+            .count();
+        assert!(
+            beaten > 0,
+            "the retained set must not be the top k by combined score: \
+             no discarded candidate beat the retained minimum {kept_min}"
+        );
+
+        // The same pool at a budget of its own size drops nothing, so the
+        // discard above is the budget and not an unrelated filter.
+        let all = prune_partials(pool, n, &boundaries, 4, 12);
+        assert_eq!(all.len(), n, "a budget equal to the population keeps all");
+    }
     /// P2 regression: the incremental aggregates on `Partial` must stay
     /// bit-identical to folding the whole word vector, so scores are
     /// unchanged by the refactor.
