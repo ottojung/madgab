@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6f2b (pass 107; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:22:00Z
+owner: coord-3b91 (pass 108; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T18:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,25 +20,25 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 107 (2026-09-28T18:22Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 108 (2026-09-28T18:29Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 107`.
+last section of this file; search for `## Pass 108`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **107** (template has fired 16 times since pass 92) |
-| At-risk non-build content | **0** as of pass 104; pass 105 **did not confirm or refute** the blob-level figure (see its §2) and cut no `recovery/*` branch; pass 106 did not re-run it either (closed class, rule 68) |
+| Passes that reached this same answer | **108** (template has fired 17 times since pass 92) |
+| At-risk non-build content | **0**. Re-measured at the commit level at pass 108: exclusion set **199** refs, baseline `rev-list --all` **1,020** (`--reflog` **1,104**), at-risk **7** — and all 7 are previously classified and ref-held (see `## Pass 108`). Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
 | MadGab Antonina agents alive | **0** |
-| Production fence vs `origin/main` | **0** lines — no hard-coded canonical phrases in production logic (and **0** in `src/` outside test code, rule 69). **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** — 21 lines total in `src/**` (18 `lib.rs` + 1 `approx.rs`, all inside `mod tests`; 2 in `main.rs` `//!` usage docs) |
+| Production fence vs `origin/main` | **0** lines — no hard-coded canonical phrases in production logic (and **0** in `src/` outside test code, rule 69). **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** — 21 lines total in `src/**` (18 `lib.rs` + 1 `approx.rs`, all inside `mod tests`; 2 in `main.rs` `//!` usage docs). **Re-measured independently at pass 108 and confirmed unchanged** |
 
-**Stop reading here if you are a scheduler.** Passes 105 and 106 each started within a minute of the
-previous one and reached this same answer, and each one's own "Next action" said the correct response
-to another identical invocation was to do nothing. The remaining cost of continuing is not a MadGab
-risk; it is this log growing. The scheduler template has now fired **sixteen** times carrying the
-same **three** clauses that contradict the itinerary it points at (see `## Pass 107` §2). Fixing or
-retiring the template is worth more than any further declining pass.
+**Stop reading here if you are a scheduler.** Seventeen passes (92–108) have reached this same
+answer, and each one's own "Next action" said the correct response to another identical invocation
+was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing. The
+scheduler template has now fired **seventeen** times carrying the same **three** clauses that
+contradict the itinerary it points at (see `## Pass 108` §4). Fixing or retiring the template — a
+human task, outside this repository — is worth more than any further declining pass.
 
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
 pass is short:** verify these five facts, decline the scheduler template's three contradictory clauses
@@ -11191,3 +11191,104 @@ work in it.
 3. **A human decision closes this item**: confirm the pause (`done`) or reopen it (fresh branch from
    `main`, pass 78's direction — compact pronunciation DAG with k-best/A*-style whole-path search —
    with the canonical cases validated generically).
+
+## Pass 108 — 2026-09-28 18:22Z → 18:29Z — coord-3b91 — the seventeenth identical firing; the at-risk figure is re-measured at the commit level, which retires the open item pass 105 left in the gate table
+
+Same gate answer as passes 92–107. This pass re-ran the one check the gate table had stopped
+reporting a number for (rule 10/14, the commit-level exclusion check) and did nothing else.
+
+### 1. The five standing facts
+
+| Fact | Result |
+|---|---|
+| Deciding authority (itinerary `## Status: accepted and paused`) | paused; gate **NO** |
+| Dirty non-build content in `/workspace/madgab` | **0** |
+| MadGab Antonina agents alive | **0** (the 2 running agents are other projects: `107b1` board 107, `a1b30c01` board 94) |
+| Production fence vs `origin/main` | **0** — see §2 |
+| `post-milestone-acceptance` vs its upstream | clean, in sync (`c040ead` == `origin/post-milestone-acceptance`, 0 ahead) |
+
+### 2. The production fence re-measured independently, by the `mod tests` boundary
+
+The table's figure was re-derived from scratch and **it is correct as written** — 31 → 19 test-side
+at pass 107 was a real fix, and the parenthetical's "21 lines total in `src/**`" is the 19 test-side
+lines plus the 2 `main.rs` doc lines, not a 21-line test count. This pass recorded no correction
+there, only the independent measurement that confirms it. Measured on `origin/main` by line-dedup
+against each file's `mod tests` boundary (`lib.rs:4243`, `approx.rs:465`; `main.rs` has none):
+
+| File | Phrase lines below `mod tests` | Above it |
+|---|---|---|
+| `src/lib.rs` | **18** | **0** |
+| `src/approx.rs` | **1** | **0** |
+| `src/main.rs` | n/a (no `mod tests`) | **2** — both `//!` usage-doc lines (9, 11) |
+
+**19** test-side, **0** production-side in `lib.rs`/`approx.rs`, **2** doc-side in `main.rs`. This
+independently confirms pass 107's correction and leaves the fence verdict unchanged.
+
+The grep pattern is `recognize speech|wreck a nice beach|stupid game|hits justice dupe hid came`, and
+it must be **case-insensitive** or `src/lib.rs:8598` (`"hits justice dupe hid came"`, lowercase) is
+missed; it must be **line-deduped** or lines mentioning two phrases double-count. Both were applied.
+
+### 3. The at-risk commit check, re-run properly, and a 4th instance of rule 14's trap
+
+Rule 10's check, against a freshly fetched exclusion set (`refs/remotes/audit/*` +
+`refs/remotes/audit-tag/*`, **199** refs — stated next to the figure per rule 38; a count of 0 would
+have meant the fetch failed):
+
+| | |
+|---|---|
+| Baseline `rev-list --all` | **1,020** (`--reflog` **1,104**) |
+| At-risk, `rev-list --all --not <199 refs>` | **7** |
+| Cross-check, `^<ref>` caret form | **7**, `comm -3` **0 lines** |
+| Cross-check, `xargs … --not --stdin` | **7** |
+
+The 7 are the same ones classified at pass 88 and re-checked at pass 89, and all 7 are **ref-held**,
+not reflog-only:
+
+| Commit | Held by | Verdict |
+|---|---|---|
+| `cf44be7` | `refs/heads/scratch/4d1e93-f5f6` | safe, 0 blobs absent from the remote set |
+| `514ed91` | `refs/heads/scratch-3f8c62-landed` | safe |
+| `fc3a930` | `refs/heads/phon-probe-d4e8b1` | safe |
+| `496826b`, `3fdcbe7` | `refs/stash` | safe (rule 15: archive as `git diff --binary <stash>^ <stash>`) |
+| `b4a3009`, `c06953a` | `refs/heads/scratch/0f3a17-shortlist-probe` | safe |
+
+**At-risk content: 0.** No `recovery/*` branch cut. Rule 13's `fsck --unreachable` class was not
+re-run (closed class, rule 68).
+
+**New instance of rule 14, found by running the cross-check on purpose.** The caret form (7) and the
+`--not --stdin` form (7) agree, but piping the ref list the way a shell naturally does —
+`git rev-list --all --not --stdin < <(printf '%s\n' "$REFS")` — returns **1,020**, i.e. it excludes
+**nothing** and silently reports every commit as at risk. Same family as rules 9 and 10: a check
+that reads stricter than it is and returns a confident wrong number. The distinguishing feature here
+is that the broken form and the correct form differ **only in argument order around `--stdin`**, so
+there is no syntax error and no non-zero exit to notice. Cross-check the count, don't trust the
+spelling.
+
+### 4. The template contradicted the itinerary in the same three places
+
+1. *"recover or assign work, split independent fronts, launch or prompt Antonina agents"* — forbidden
+   by `## Status: accepted and paused` and standing rules 1–2.
+2. *"Prioritize the canonical approximate-search examples"* — the
+   `It's just a stupid game` → `Hits Justice Dupe Hid Came` gap is the **documented accepted
+   limitation**, preserved deliberately. Prioritising it *is* the pause being overridden.
+3. *"accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"* — the
+   itinerary requires the **opposite**: that branch "is release history after this acceptance and is
+   no longer an automatic accumulation target." Note this pass pushed nothing at all, so clause 3's
+   specific risk did not materialise.
+
+Declined all three. No work item created or claimed, no agent launched, no branch cut, nothing pushed
+to `main`, and the audit ref namespace was deleted after use. This entry is the only change.
+
+### 5. This log stays `blocked`
+
+Unchanged from passes 94–107. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it.
+
+### Next action for the next pass
+
+1. **Prefer doing nothing to an eighteenth entry.** The gate table at the top now carries a
+   current at-risk number, so the standing facts are complete and there is nothing left for a
+   declining pass to re-measure. If the template is unchanged, the correct output is no commit.
+2. **The scheduler template is out of repo and only a human can fix it** (pass 107 §3).
+3. **A human decision closes this item**: confirm the pause (`done`) or reopen it (fresh branch from
+   `main`, pass 78's direction, canonical cases validated generically).
