@@ -3,19 +3,27 @@
 // Why this exists (rule 53 of docs/work/items/w-paused-reconciliation.md):
 // the standing one-liner installed by rule 52 matched only links ENDING in .md,
 // so a broken link that omits its extension is invisible to the very pattern
-// meant to detect broken links. This detector is required to prove it can fail
-// before its number is believed: it runs a NEGATIVE CONTROL on every invocation
-// and refuses to report a census if the control does not behave.
+// meant to detect broken links.
+//
+// This detector is required to prove it can fail before its number is believed,
+// and to prove it is not merely reporting a property of one repository. Both
+// controls run on a SYNTHETIC FIXTURE the script builds for itself, never on
+// the target repository: a control whose result depends on the target's own
+// contents is a fingerprint of that target, not evidence about this detector.
+// (Rule 55: the version this replaces compared the two patterns on the target
+// and exited 1 unless the target happened to contain an extensionless broken
+// link, so it could not report a broken .md link anywhere except MadGab, and
+// called a clean repository a failure.)
 //
 // Usage: node docs/work/paused-recon/link-census.mjs [repoRoot]
-// Exit code 0 = census complete (control passed). Exit code 1 = control failed.
+// Exit code 0 = census complete (both controls passed). Exit 1 = control failed.
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = process.argv[2] ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const DOCS = path.join(REPO, "docs");
 
 function walk(dir, out) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -28,7 +36,7 @@ function walk(dir, out) {
   return out;
 }
 
-const docsFiles = walk(DOCS, []).sort();
+const docsFiles = REPO ? walk(path.join(REPO, "docs"), []).sort() : [];
 
 // The rule 52 pattern, kept verbatim so the comparison is honest. Rule 53's
 // finding is that this pattern cannot see an extensionless broken link.
@@ -42,9 +50,9 @@ const linkTargets = (src, link) => {
   return p.startsWith("/") ? path.join(REPO, p) : path.resolve(path.dirname(src), p);
 };
 
-const census = (re) => {
+const census = (files, re) => {
   const broken = new Map();
-  for (const f of docsFiles) {
+  for (const f of files) {
     const txt = fs.readFileSync(f, "utf8");
     const seen = new Set();
     for (const m of txt.matchAll(re)) seen.add(m[1]);
@@ -61,18 +69,50 @@ const census = (re) => {
 
 const edges = (m) => [...m.values()].reduce((a, v) => a + v.length, 0);
 
-// --- NEGATIVE CONTROL (rule 53) -------------------------------------------
-// Two extensionless broken links are known to exist in the repository. If the
-// census under test does not report strictly MORE edges than the anchored
-// pattern, the census is anchored and its "0 broken" is an undercount, so its
-// number must not be reported.
-const anchored = census(ANCHORED);
-const full = census(ANY);
-const controlOK = edges(full) > edges(anchored);
-if (!controlOK) {
-  console.error("NEGATIVE CONTROL FAILED: census is spelling-dependent; number withheld.");
-  process.exit(1);
+// --- CONTROLS (rule 55) ----------------------------------------------------
+// Both controls run on a synthetic fixture written to a temp dir, so what they
+// measure is the DETECTOR and not the contents of the repository being scanned.
+//
+//   C1 (can it see what the anchored pattern cannot?) a fixture holding one
+//      anchored broken link and one extensionless broken link must yield
+//      strictly more edges under ANY than under ANCHORED.
+//   C2 (can it report a clean repository as clean?) a fixture whose links all
+//      resolve must yield zero broken edges under both patterns. The version
+//      this replaces had no C2, which is why it failed on exactly this class.
+const fixture = (name, files) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), `linkcensus-${name}-`));
+  for (const [rel, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, "docs", rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, "docs", rel), body);
+  }
+  return root;
+};
+
+const mixed = fixture("mixed", {
+  "a.md": "# A\n\n[anchored broken](gone.md)\n[extensionless broken](also-gone)\n",
+  "b.md": "# B\n\n[resolves](a.md#top)\n",
+});
+const clean = fixture("clean", {
+  "a.md": "# A\n\n[resolves](b.md)\n[resolves with anchor](b.md#section)\n",
+  "b.md": "# B\n\n# section\n",
+});
+
+const controlResults = [];
+for (const [label, root, want] of [
+  ["C1 mixed fixture", mixed, (any, anc) => edges(any) > edges(anc)],
+  ["C2 clean fixture", clean, (any, anc) => edges(any) === 0 && edges(anc) === 0],
+]) {
+  const files = walk(path.join(root, "docs"), []);
+  const ok = want(census(files, ANY), census(files, ANCHORED));
+  if (!ok) {
+    console.error(`CONTROL FAILED (${label}): detector is not trustworthy; number withheld.`);
+    process.exit(1);
+  }
+  controlResults.push(label);
 }
+
+const anchored = census(docsFiles, ANCHORED);
+const full = census(docsFiles, ANY);
 
 // --- repair proposal -------------------------------------------------------
 const repoMd = walk(REPO, []).sort();
@@ -108,4 +148,4 @@ console.log(`broken edges, extension optional: ${edges(full)} in ${full.size} fi
 console.log(`uniquely repairable by existing target: ${[...fixable.values()].reduce((a, m) => a + m.size, 0)}`);
 console.log(`ambiguous or phantom: ${unresolvable.length}`);
 for (const [f, l] of unresolvable) console.log(`  ${f}: ${l}`);
-console.log("negative control: PASSED");
+console.log(`controls: ${controlResults.join(", ")} - PASSED`);
