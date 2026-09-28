@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4a1f (pass 121; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:56:00Z
+owner: coord-5d7e (pass 122; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:55:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,15 +20,15 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 121 (2026-09-28T19:47Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 122 (2026-09-28T19:53Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 120`.
+last section of this file; search for `## Pass 122`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **121** (template has fired 30 times since pass 92) |
+| Passes that reached this same answer | **122** (template has fired 31 times since pass 92) |
 | At-risk non-build content | **0**, re-measured at pass 118 over the **whole** worktree set, and the population itself corrected: the standing sweep had been counting only **tracked** dirty rows, so it reported **11**; the real non-build population is **74 untracked files** plus 11 tracked `M src/lib.rs` rows across **127** linked worktrees. All **74** untracked files were subjected to the rule 6/7 content-hash test for the first time: **72** hash to blobs in `git rev-list --objects --all --reflog` (7,035 objects), and the **2** that do not are the 30 MB prebuilt ELF harness binaries `prof/madgab-baseline` and `prof/madgab-prof` in `madgab-approx-runtime` — build output, excluded by rule 9/41 and regenerable from source. **0 need archiving**, now on a population that is 3× the one the previous twenty-five passes measured. See rule 29 for what the narrow `M`-only spelling was blind to |
 | At-risk commits | **91**, re-measured at pass 120, unchanged from pass 119; exclusion set **199** `ls-remote`-confirmed refs; baseline `rev-list --all --reflog` **1,117**. Both sanctioned spellings (rules 14/30) return 91, and the figure is not the baseline (rule 39's cancellation guard), so the exclusions took. Excluding *all* local refs instead of the remote set returns **84** — a different question, not a smaller risk (rule 40); pass 118's 123 is a third, differently-spelled number and is not comparable |
 | MadGab Antonina agents alive | **0 running** — re-verified at pass 120. **Correction to the standing row:** "alive" had been measured as *running* only, and there are in fact **2** madgab-cwd agents in a non-terminal `stopped` state — `3a8f01` (`/workspace/madgab-diversity-3a8f01`) and `3a8f02` (`/workspace/madgab-poolrank-3a8f02`), both ~16h old. Both are the SIGKILL'd fronts whose work is already preserved at `5821185`/`29d6143` and `653c4de` per their work items, both items are `superseded`, and each worktree's only dirty row is `target-front-*/` build output (rule 9). **Nothing at risk and nothing resumed**: resuming either would be resuming a superseded front (rule 2). The row is restated as *running / non-terminal* so the 0 is not read as "no madgab agent is non-terminal" |
@@ -12029,3 +12029,46 @@ item created or claimed, no agent launched, no branch cut, no archive written.
 that this pass needed no durable write, and the log's own cost analysis says the remaining value is in
 retiring or fixing the scheduler template, which is a human task outside this repository. If a pass does
 write, keep it to this length: verify the rows above, append, exit. Only a human can close this item.
+
+## Pass 122 (coord-5d7e, 2026-09-28T19:51Z → 19:55Z) — thirty-first identical answer: NO
+
+Gate re-derived from the itinerary, not read from the header.
+
+| Fact | Measured |
+|---|---|
+| Deciding authority | `itinerary-madgab.md` `## Status: accepted and paused`; `accepted-state-2026-09-27.md` |
+| Blocking question | a human's: reopen MadGab development, or confirm the pause |
+| Passes reaching this answer | **122** (template has fired 31 times since pass 92) |
+| Uncommitted content at risk | **0**. `/workspace/madgab` is clean (`git status --porcelain` = 0 rows). No per-worktree sweep was re-run: pass 118 measured the whole 127-worktree population and pass 121 re-hashed it, both at 0, and re-walking it is the standing reason this log reached 12k lines |
+| At-risk commits | **91** = 7 ref-held + 84 reflog-only, unchanged. The 7 are named scratch/stash holders on superseded fronts; **0 are release material** |
+| MadGab agents alive | **0 running**, 2 non-terminal `stopped` (`3a8f01`, `3a8f02`, 16h, both items `superseded`, work preserved). Other agents on the host belong to other projects. No prompt, relaunch or resume (rule 2) |
+| Production fence | **0** hard-coded canonical phrases. `adjacency.rs` (b.269) 0; `lexical.rs` (260) 0; `approx.rs` (464) 1 total / **0 prod**; `lib.rs` (381) 18 total / **0 prod**. Unchanged for a sixth pass |
+| `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref. HEAD `post-milestone-acceptance` at pass 121's `47a677b` |
+
+**Measurement note, and it is rule 38 a second time.** `git rev-list --all --not --remotes=origin-all`
+returns **10** here, not 7, and the 3 extra are this log's own last three commits on
+`post-milestone-acceptance` — which `for-each-ref --contains` shows held by
+`refs/remotes/origin/post-milestone-acceptance`. The `origin-all` namespace was last fetched by an
+earlier pass, so it is behind the branch that branch-pushes to it: an exclusion set that has not been
+re-fetched is a *stale* exclusion set, and its error direction is rule 38's reassuring one (a risk
+count that is too *high*, because already-safe commits look unbacked). The `ls-remote`-verified
+reading is 7, so the header's 91 stands. A pass that had reported the bare 10 would have inflated the
+at-risk figure by three commits of this log's own prose. Refresh `+refs/*:refs/remotes/origin-all/*`
+before quoting any `--remotes=origin-all` number.
+
+**Declined, same three clauses, thirty-first time.** (1) Recovering/assigning work, splitting fronts,
+launching or prompting agents: forbidden by the pause (rules 1–2), and there is nothing to recover —
+0 at risk on every measure, 0 madgab agents running. (2) Prioritising the canonical approximate-search
+examples without phrase-specific hard-coding: this *is* the paused research goal. It is self-
+contradicting while paused, and the fence is at **0** for a sixth consecutive pass; the documented
+limitation is a live assertion behind `#[ignore]`, not a masked one (rule 25), and flipping it red is a
+human release decision. (3) Accumulating on `post-milestone-acceptance`: the itinerary retired it as an
+automatic target (rule 19); this entry is the only thing committed there, and it carries no product
+code. **Nothing pushed to `main`.** No work item created or claimed, no agent launched, no branch cut,
+no archive written, no superseded front resumed.
+
+**Next action for the next pass:** still no coordination action is available, and the thirty-first entry
+is now itself evidence for the standing recommendation — the log's own cost analysis (header) says the
+remaining value is in retiring or fixing the scheduler template, which is a human task outside this
+repository. Prefer *no commit*. If a pass does write, keep it to this length: verify the rows above,
+append, exit. Only a human can close this item.
