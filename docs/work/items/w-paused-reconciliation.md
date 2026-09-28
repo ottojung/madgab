@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2f7a (pass 102; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T18:00:00Z
+owner: coord-9d4e (pass 103; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T17:58:53Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,18 +20,18 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 102 (2026-09-28T18:00Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 103 (2026-09-28T17:58Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 102`.
+last section of this file; search for `## Pass 103`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **102** (template has fired 11 times since pass 92) |
-| At-risk non-build content | **0**, re-measured by execution with controls that fire |
+| Passes that reached this same answer | **103** (template has fired 12 times since pass 92) |
+| At-risk non-build content | **0**, re-measured by execution with controls that fire (pass 103: 300 unfiltered → 1, the log's own older version) |
 | MadGab Antonina agents alive | **0** |
-| Production fence vs `origin/main` | **0 lines** — no hard-coded canonical phrases |
+| Production fence vs `origin/main` | **0 lines** — no hard-coded canonical phrases (and **0** in `src/` outside `#[cfg(test)]`, rule 69; the 31 test-side uses are correct) |
 
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
 pass is short:** verify these five facts, decline the scheduler template's two contradictory clauses
@@ -10758,3 +10758,110 @@ work in it. The durable half remains closed by execution.
    rule 64's type column printed next to every path; a control on **both** sides of the subtraction —
    the exclusion side (drop one recovery ref → 92) and the filter side (drop the `target-` half →
    406). Do **not** re-walk the closed classes listed in pass 102's rule 68.
+
+## Pass 103 — 2026-09-28 17:56:53Z → 18:00Z — coord-9d4e — the no-hard-coding claim is scope-bound, and a repo-wide grep reports 31 where the fence is 0
+
+**Gate answer: still no.** Nothing created, claimed, resumed, launched, integrated or merged; no work
+item created or claimed; no `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched; no
+`recovery/*` branch cut; no agent launched, so there is nothing left running for a successor. The
+prompt's two clauses are **declined again**, twelfth pass running, on the ground recorded since
+pass 92 and restated by rule 19: the itinerary's `## Status: accepted and paused` forbids a scheduled
+orchestrator from creating MadGab work, claiming historical items, launching agents or resuming
+fronts without an explicit human reopening, and calls `post-milestone-acceptance` release history
+that is "no longer an automatic accumulation target". This log file is the sole thing that still
+commits there (rule 19, third bullet), and it carries no product code. A recurring template is not
+that human, and "prioritize the canonical approximate-search examples" is the reopening request
+itself — discharging it *without* hard-coding the phrases is not a middle path, it is the resumed
+front the itinerary names.
+
+### 1. Standing counts
+
+| | |
+|---|---|
+| `origin/main` | `0267ade` (unchanged, `ls-remote`), no local `main` ref — `main` stays read-only |
+| `post-milestone-acceptance` | `6de5308` at pass entry, in sync with `origin`, working tree clean (**0** dirty paths) |
+| MadGab Antonina agents alive | **0** — every `/workspace/madgab*`-cwd agent is terminal; the 4 `running` agents (`94e5`, `98c1`, `a1b30c01`, and `96e1`/`90e1` succeeded) are all outside this repository |
+
+### 2. At-risk sweep, re-measured with controls on both sides
+
+| probe | result |
+|---|---|
+| exclusion set, fetched per rule 10 (wildcard destinations, tag half included) | **199** refs (rule 37: a 0 here would mean the fetch failed) |
+| baseline, `rev-list --all --reflog`, no exclusion (rule 39) | **1,099** |
+| at-risk commits, `--all --reflog --not <199 refs>` | **91** — ≠ the 1,099 baseline, so the exclusions did **not** cancel |
+| durable blobs, from the remote refs **alone**, positively (rule 35) | **6,290** (larger than the at-risk set, as rule 35's guard requires) |
+| at-risk commits' blobs absent from that set, **no path filter** (control) | **300** — fires |
+| …same, filtered by path **component** `target/` and `target-*/` (rule 66) | **1** |
+
+The single survivor is `docs/work/items/w-paused-reconciliation.md` — this log's *own* earlier
+version, held by a local-only branch. Its current version is at `6de5308` on
+`origin/post-milestone-acceptance`, so nothing is at risk and no recovery branch was cut.
+
+**Standing value: 0 at-risk non-build content**, re-measured by execution, unchanged from passes
+98–102. Per rule 40 the 91 is stated with its exclusion set: it answers "not on the remote", not
+"held by nothing at all".
+
+### 3. Rule 69 — the no-hard-coding claim is *scope-bound*, and the scope is the whole difference between 31 and 0
+
+Every prior pass discharged the prompt's "without phrase-specific hard-coding" clause by **diffing
+`post-milestone-acceptance` against `origin/main`** (0 lines), which measures a *change*, not a
+*property*. The accepted-state document's stronger claim — "none of the canonical examples is
+hard-coded into production logic" — is a property of the tree, and nobody had run the query that
+tests it. Run here, the same regex over two populations:
+
+| population | canonical-phrase occurrences |
+|---|---|
+| `src/*.rs`, outside `#[cfg(test)]`, excluding comment lines | **0** |
+| `tests/*.rs` + `examples/*.rs` | **31** — control, fires |
+
+The 31 are in `tests/approx_determinism.rs`, `tests/display_ordering_attribution.rs`,
+`tests/worst_word_axis.rs`, `tests/emit_coverage.rs`, `tests/corpus_integration.rs` and
+`examples/measure.rs`; the two `src/` hits that survive a naive grep are `src/main.rs:9` (a `//!`
+usage example) and `src/approx.rs:1040` (inside the `#[cfg(test)]` module opened at line 760). So
+the claim is **true**, and a successor who greps the repository without scoping will read **31**
+hard-codings, conclude the accepted state is violated, and be right about the grep and wrong about
+the program.
+
+The general form is rules 11, 16, 20, 27, 35, 37 and 38 one level up: a check that is correct about
+its scope and silent about the scope's complement. Rule 38's variant was the dangerous one (a stale
+ref set makes a *risk* vanish); this one is the loud one (an unscoped set makes a *clean result*
+look like a violation). Both are cured by the same guard — **print the population beside the count,
+and keep a control that must disagree.** Operational note for whoever reopens the programme: the 31
+test-side uses are the *correct* way to keep the canonical cases as regression tests, and
+rule 23's `#[ignore]` tripwire lives among them. Do not "clean them up".
+
+### 4. Two smaller corrections, recorded because a fresh pass will hit them
+
+* This file's frontmatter said `updated: 2026-09-28T18:00:00Z` while its own pass-102 commit is
+  timestamped `17:53:53Z`, so a pass running between those two instants reads a **future** `updated`.
+  Timestamps in this log are hand-written; prefer the commit date (`git log -1 --format=%cI`) over
+  the frontmatter when judging recency. Rule 25's subject — a number without the identity of what
+  was measured — in its date form.
+* Pass 102's control list was not run this pass in full. Specifically the **exclusion-side** control
+  (drop one recovery ref and expect 92) and the **filter-side** control as pass 102 wrote it
+  (delete the `target-` half, expect 406) were not reproduced; the 300-vs-1 control above is
+  equivalent in force to the filter-side one, and the 1,099-baseline comparison is the rule 39
+  guard. The excluded figure is stated rather than implied.
+
+### 5. This log stays `blocked`
+
+Unchanged from passes 94–102. Not `done`: nobody has confirmed the pause. Not `working`: there is no
+work in it. The durable half remains closed by execution.
+
+### Next action for the next pass
+
+1. **Do nothing, unless a human says otherwise.** Twelve passes have now reached this result, and the
+   gate answer is in the first screen (rule 68) rather than 10,600 lines down.
+2. **Close this item by human decision, not by a hundred-and-fourth pass.** Confirming the pause
+   means `done`; reopening means a fresh branch from `main` and pass 78's direction (compact
+   pronunciation DAG with k-best/A*-style whole-path search), with the canonical cases validated
+   **generically** — the 31 test-side occurrences are the target, not the obstacle.
+3. **The scheduler template is the thing to fix.** It has fired **twelve** times with two clauses
+   that contradict the itinerary it points at (rule 19). Fixing the template, or retiring this item
+   so it stops being selected, is worth more than another declining pass.
+4. If the sweep is re-run: fetch the remote explicitly into `refs/remotes/audit/*` and
+   `refs/remotes/audit-tag/*` and state the resulting count (199 here) beside every figure; compare
+   against the unexcluded `rev-list --all --reflog` baseline before believing an at-risk count; build
+   the durable blob set from the remote refs **alone and positively**; and filter `target/` and
+   `target-*/` by path component with a control that must disagree. Do **not** re-walk the closed
+   classes listed in pass 102's rule 68.
