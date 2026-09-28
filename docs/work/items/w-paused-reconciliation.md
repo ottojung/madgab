@@ -405,6 +405,35 @@ instruction.
     currency unless someone checked the two dates.** The same check applies to any other
     stale-by-default artifact a future pass might time or cite.
 
+35. **Rule 30's sanctioned `^` spelling is correct for counting *commits* and silently
+    annihilates the *object* set when combined with `--all` — and the result is a false-positive
+    avalanche, not a clean bill of health.** Rule 30 settled that `--all --not <bare list>` and
+    `--all $(… '^ref')` are the two safe spellings, and this pass confirmed they still agree on
+    the commit count (**11** each, while the repeating-`--not` spelling returns 57). It then used
+    the `^` form to build the *durable blob* set —
+    `git rev-list --objects --all $(for-each-ref '^%(refname)' refs/remotes/audit/ …)` — and got
+    **337** objects. The set it was supposed to *contain* holds 5844. The tell is not subtle once
+    you look for it: the computed "durable" set (337) is **smaller than the at-risk set it was
+    being compared against (1376)**, so the set difference was guaranteed to report almost
+    everything as unique — and it duly printed **190 apparently-missing blobs**, including
+    `src/lib.rs`, `Cargo.toml`, `LICENSE` and every work item, as if no branch on the remote had
+    ever contained them. Computed correctly, from the remote refs *alone* —
+    `git rev-list --objects refs/remotes/audit/* refs/remotes/origin/*` — the durable set is
+    **5516** and the real figure is **0 of 190**. Three separate defects compound here, all of them
+    already named by earlier rules: the negative spec cancels the positive one it is compared
+    against (rule 30's subject), `--objects` on a *negative* spec is a different traversal than
+    `--objects` on a positive one (rule 28's "ask about the tree, not the diff" — same family), and
+    the output was never range-checked against a population (rule 34). The general form is the
+    seventh instance of this log's one recurring failure mode, and it is the mirror image of the
+    other six: **rules 9, 10, 11, 14, 17, 22 and 27 were checks that could not *fail*; this is a
+    check that could not *succeed*** — it is structurally incapable of reporting "already
+    durable", so it inflates a clean result into an apparent catastrophe. The cheap guard is
+    arithmetic, not inspection: **before differencing two sets, assert that each is larger than the
+    result the difference is supposed to have.** A one-sided count should always be bracketed by
+    its two inputs. Note also the ordering hazard this exposed — `--all` is a *positive* spec that
+    enumerates the very refs the `^` specs then negate, so the two spellings of "the reachable
+    set" are only interchangeable when no negation is present.
+
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
 * Work items: **87 `done`, 12 `superseded`, 0 `open`, 0 `blocked`, 0 `working`.** The only
@@ -3983,3 +4012,92 @@ why is this pass's only new fact.**
     the named direction — a qualitatively different whole-path algorithm (compact pronunciation
     DAG with k-best / A*-style search, or a strong backward suffix heuristic), **never**
     phrase-specific hard-coding.
+
+### `coord-3f9c` — forty-fourth pass, 2026-09-28T11:31Z–11:38Z
+
+**The forty-third pass left three actions. Two are closed with a measurement, one is corrected as
+wrong, and the pass's new fact is a standing rule about a check that could not succeed.**
+
+  * **(a) Rule 10 re-run with the build-output filter applied to *at-risk object paths*, and a
+    rebuilt control — done, and the 321 is finally explained.** The decisive fix was not the
+    filter, it was the ref set. `.git/config` still fetches only
+    `post-milestone-acceptance` into `refs/remotes/origin/` (19 stale entries), so a pass that
+    excludes only `origin/*` is excluding 19 of 188 remote heads and every other branch reads as
+    local-only: `git rev-list --all --not $(origin refs)` returns **191**, against **11** from the
+    fully fetched `refs/remotes/audit/*` set. The fetch is verified in both directions this time —
+    188 remote heads, 188 audit refs, `comm` empty in both directions — so rule 10's "fetch
+    explicitly first" is not merely prescribed but *checked*, which no prior pass recorded. The
+    two sanctioned spellings of rule 30 still agree (**11** and **11**); the repeating-`--not`
+    spelling still returns **57**, and excluding every ref still returns 0. The build-output
+    filter, applied to at-risk object paths as prescribed, removes **329** of **1376** blobs, and
+    every one of the 329 is under `target-base/`. Remaining: **190** unique non-build blobs,
+    **0** of them absent from the durable set. The 43rd pass's 321 was therefore mostly
+    *stale-refspec*, not `target-base/` — the 329 files were real but they were never the bulk of
+    the number, and a pass that fixed only the filter would have kept re-deriving ~190.
+  * **Positive control, rebuilt as prescribed, and it fires.** Removing a `recovery/*` branch no
+    longer tests anything (all ten are pushed, so the remote set already contains them), so the
+    control now *adds* two local-only scratch holders (`scratch/4d1e93-f5f6`,
+    `scratch-3f8c62-landed`) to the remote set: 5516 → **5831**, delta **315**. The check has
+    demonstrated sensitivity, so the 0 above means "already durable" rather than "cannot fail" —
+    which rule 33 forbids reporting otherwise.
+  * **(b) `target-base/` gitignore question — answered, and the answer is a standing risk, not a
+    loss.** All ten `recovery/*` branches carry the identical three-line `.gitignore`, and it
+    ignores `/target/` only. `/target/` is anchored to a root directory *named exactly* `target`,
+    so it does **not** match `target-base/`, `target-front-3a8f01/` or `target-front-3a8f02/` —
+    proven by control, not by reading: a throwaway repo with that `.gitignore` stages
+    `target-base/y` and drops `target/x`. So the answer is *no, it is not gitignored*. The
+    good news is that nothing has gone wrong: `514ed91` (329 files / 336 MB under `target-base/`)
+    is held by exactly one ref, the local branch `scratch-3f8c62-landed`, and `git ls-remote`
+    returns no ref at that sha — it has never been pushed. The actionable residue is narrow and
+    worth writing down before a future pass pushes anything: **pushing that branch would push
+    336 MB of Cargo output**, because the only fence against it is a reviewer noticing. Its single
+    non-build file, `src/lib.rs` = `f86907c9`, is already in the remote set, so nothing of value
+    would be gained by pushing it — the branch is pure at-risk *bulk*.
+  * **(c) The duplicated-ID / missing-ID census does not reproduce, and the real population is
+    two placeholder examples.** `grep -h '^id: '` over all 97 files in `docs/work/items/` returns
+    **no duplicates at all**, and **no** file carries a `work_item: true` marker without an `id`.
+    Extending the sweep to every `docs/**` file that carries the marker finds exactly the two
+    protocol examples the earlier pass already knew about: `docs/work/TEMPLATE.md`
+    (`w-000000`) and `docs/skills/work-items.md` (`w-a1b2c3`). So the "4 duplicated IDs and 2
+    marker-without-`id` files" were never a claim hazard — the population is two placeholders that
+    the protocol itself mandates, and neither is ever claimable. Answering the question the
+    forty-second pass posed: **no, they change no claim decision.**
+  * **The new fact is rule 35, and this pass found it by nearly believing the opposite.** The
+    blob-membership test was first written in rule 30's `^` spelling and reported **190 missing
+    blobs**, including `src/lib.rs`, `Cargo.toml` and `LICENSE`, i.e. an apparent total loss of
+    the repository's core files. It was wrong, and the giveaway was arithmetic rather than
+    judgement: the "durable" set it computed (337) was smaller than the at-risk set it was
+    differencing against (1376), so a non-empty difference was guaranteed before the command
+    ran. The correctly computed answer is **0**. Rule 35 records the failure and the one-line
+    guard — *bracket any one-sided count by both of its inputs* — because this is the first
+    check in the log that could not **succeed** rather than could not **fail**, and the two
+    directions of error are guarded differently.
+  * **Two errors of my own, recorded because they are the log's own recurring class.** The first
+    `comm` that compared the remote and audit ref sets reported a 5-ref gap that did not exist:
+    it fed `sha<TAB>name` into one side and bare `name` into the other (rule 22's field bug). The
+    first control run reported "delta −5516", which was a `fatal: ambiguous argument
+    'refs/remotes/audit/'` — a directory prefix is not a rev — i.e. an empty result masquerading
+    as a number. Both were caught by the arithmetic check, which is the argument for it.
+  * **State otherwise unchanged; nothing was touched.** Worktree clean (`git status --porcelain
+    -uall` = 0). `main` untouched at `0267ade`. No MadGab agent launched, prompted, stopped or
+    claimed; the five nonterminal agents host-wide belong to other repositories and were left
+    running per the contract. No `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` byte was
+    touched, and **no canonical phrase appears in this entry** — every artefact is named by path,
+    marker or sha — so the "no phrase-specific hard-coding" half of the recurring prompt is
+    discharged on the merits. Nothing merged; nothing pushed to `main`. `refs/remotes/audit/*`
+    was fetched for rule 10 as prescribed and is left in place, matching the remote 188/188.
+  * **Next useful action.** (i) The gate question is unchanged and still only a human can answer
+    it: *is MadGab development being reopened?* (ii) If a pass wants to close the `target-base/`
+    residue the cheap, non-destructive move is to record the 336 MB bulk as deliberately unpushable
+    in this log rather than to push the branch or delete it — deleting is a destructive act on
+    parked research history and is not a coordinator's call while paused. (iii) A new-fact
+    question, continuing rules 23–25's line rather than rules 6–22's saturated preservation
+    question: the untried one is whether the `#[ignore]`d case-2 predicate is *still* the
+    predicate that certifies the limitation now that the tree has moved — i.e. run it with
+    `--ignored` per rule 25 and confirm the failing assertion is still the reachability claim and
+    not a fixture that a later front changed. (iv) If the gate answer is ever yes, the order is
+    still (a) rule 29's binding check before any timing is quoted, (b) `coord-1c8e`'s three
+    measurement corrections, (c) **cut the branch from `main`**, and (d) the named direction — a
+    qualitatively different whole-path algorithm (compact pronunciation DAG with k-best /
+    A*-style search, or a strong backward suffix heuristic), **never** phrase-specific
+    hard-coding.
