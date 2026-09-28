@@ -173,19 +173,30 @@ fn the_axis_costs_no_headroom_because_it_is_shifted_by_its_own_maximum() {
     }
 }
 
-/// **The partial result, recorded as a measurement rather than hidden.**
+/// **The partial result, closed by w-3a8f01 — the measurement is kept, the
+/// verdict is flipped.**
 ///
-/// The front's goal was the canonical reaching the shipped default list.
-/// It does not, and the reason is the diversity layer rather than the
-/// ordering key: the axis promotes the canonical's *own* structure
-/// `[3,5,10]` to the whole head of the pool, and `select_diverse`'s
-/// per-structure share cap then holds the structure to a small number of
-/// slots, of which the canonical is the ninth. It is excluded by the cap,
-/// not by the score cutoff. w-c31a07 and `REPORT-a4d10c.md` priced the
-/// ordering and selection surfaces; this is a recorded interaction, not a
-/// new front.
+/// w-5e9c41's goal was the canonical reaching the shipped default list and
+/// it did not, because the axis promotes the canonical's *own* structure
+/// `[3,5,10]` into the whole head of the pool and `select_diverse`'s
+/// per-structure share cap then held that structure to a few slots, of
+/// which the canonical was the ninth. It was excluded by the cap, not by
+/// the score cutoff. w-c31a07 and `REPORT-a4d10c.md` priced the ordering
+/// and selection surfaces; this was a recorded interaction.
+///
+/// w-3a8f01 opened the cap from the *other* side, without touching the cap
+/// and without touching any weight: the representation reserve gained a
+/// wording tier (`wording_reserve_slots`), which spends one slot at the
+/// shipped default on the best candidate of a wording class the list does
+/// not yet show. The canonical is that candidate, so it is now displayed.
+///
+/// The pool-side facts are unchanged and are still asserted below, because
+/// they are the reason the fix had to be a *wording* rule and not a cap
+/// relaxation: the cap is not wrong, it stops the fourth wording of a
+/// resegmentation, and the redundancy is that the list ends in the same
+/// two sounds. See `docs/work/REPORT-3a8f01.md`.
 #[test]
-fn the_canonical_is_in_the_pool_but_still_outside_the_default_display() {
+fn the_canonical_reaches_the_default_display_under_this_axis() {
     let pool = gen(10).generate_pool("recognize speech");
     let shown = gen(10).generate("recognize speech");
     let canon_pool = pool.iter().position(|c| c.phrase == CANON).expect("in pool");
@@ -193,10 +204,12 @@ fn the_canonical_is_in_the_pool_but_still_outside_the_default_display() {
 
     assert_eq!(canon_pool, 8, "pool rank 9 after the axis, 27 before it");
     assert!(
-        canon_shown.is_none(),
-        "STILL excluded from the default display; if this now passes, the \
-         share cap stopped binding and the report's partial result is stale"
+        canon_shown.is_some(),
+        "the wording tier of the representation reserve must put the canonical \
+         in the shipped default list; if this fails, w-3a8f01's landed result \
+         is stale"
     );
+    assert_eq!(shown.len(), 10, "the default list is still full");
 
     // The mechanism, measured: the head of the pool is the canonical's own
     // structure, and the cap admits only `share_cap` of it.
@@ -207,7 +220,11 @@ fn the_canonical_is_in_the_pool_but_still_outside_the_default_display() {
         "expected the axis to concentrate the head in [3,5,10], got {same}/20"
     );
     // 20 of the 20 are the canonical's own structure, so the structure is
-    // already at the cap long before the canonical is reached at rank 9.
+    // already at the cap long before the canonical is reached at rank 9:
+    // a cap relaxation alone could not have reached it, because every one
+    // of the eight candidates ahead of it is a *better* member of the same
+    // structure. The wording tier is what reaches it, by a different
+    // criterion.
     let members_above = pool[..canon_pool]
         .iter()
         .filter(|c| structure(c) == CANON_STRUCTURE)

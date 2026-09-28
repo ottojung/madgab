@@ -3993,14 +3993,13 @@ fn clue_structure(c: &Clue) -> Vec<usize> {
 /// This is the key one step finer than [`clue_structure`], and it is the
 /// step at which the redundancy the display policy is supposed to remove
 /// actually lives.  Two clues can share a boundary structure and still be
-/// the same sentence to a reader — `wreck a nice pitch` and
-/// `wreck a nice peach` are two spellings of one resegmentation whose
-/// sound is carried by one varying position, and a list that is ten of
-/// them is a list a reader cannot choose between.  Neither the structure
-/// cap nor the score order sees that redundancy: the structure cap
-/// stops the *fourth* wording of a resegmentation, which is already far
-/// past the point where the endings start to repeat, and by then the
-/// slots are gone.
+/// the same sentence to a reader: a resegmentation whose sound is carried
+/// by one varying position has as many spellings as the lexicon has words
+/// for that position, and a list made of them is a list a reader cannot
+/// choose between.  Neither the structure cap nor the score order sees
+/// that redundancy: the structure cap stops the *fourth* wording of a
+/// resegmentation, which is already far past the point where the endings
+/// start to repeat, and by then the slots are gone.
 ///
 /// The key is a sound, not a wording: it is built from the clue's own
 /// aligned IPA, the same way [`clue_structure`] is, so it is a property
