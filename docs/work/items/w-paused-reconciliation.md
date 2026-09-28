@@ -3,7 +3,7 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-7d3a
+owner: coord-9c1f
 updated: 2026-09-28T09:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
@@ -262,6 +262,26 @@ instruction.
     output is meaningless, not approximate.** The lesson is the same one three times over and is
     now worth stating as a rule rather than a footnote: on this repository *every* wrong count so
     far has been a check that could not fail, not a repository defect.
+
+23. **A claimed regression and an observable regression are different objects, and the object
+    classes under rules 6–22 can no longer find this one.** Every rule above asks one question in
+    many forms: *is this durable state at risk of being lost?* That is a question about
+    **preservation**, and it is now saturated — a pass that wants a new fact should ask the
+    complementary question instead: *does the accepted state still describe the program that is
+    actually built?* `coord-9c1f` asked it with one command and found a discrepancy the previous
+    twenty-four passes had declared impossible on a "fully reconciled" repository: the release
+    notes say case 2's top-50 regression "remains **red**", and in the tree it is not red — it is
+    `#[ignore]`d, in **two** test binaries, so both suites report **green**. The generalisation is
+    the dual of rule 14, and it cuts the other way from it: rule 14 says a count that cannot fail
+    is worthless; this says **a suite that is green may be green because the assertion was
+    disabled rather than because the property holds**, and a preservation-only check is structurally
+    unable to notice. Operationally: before recording any limitation as red, failing or still open,
+    run the test and read the `test result:` line; and where an `#[ignore]` carries a reason
+    string, **grep for `ignore` and read the reasons** — the reason string is the durable claim,
+    exactly as rule 12 says an archived patch must be verified by applying it, not by reading it.
+    Corollary for whoever reopens this programme: an `#[ignore]` is also a tripwire, and it is the
+    first thing that will go red when a fix lands. Record the gap; do not un-ignore anything while
+    paused, because that turns the release suite red on purpose and that is a human decision.
 
 ## Programme census at 2026-09-28T05:37Z (this pass)
 
@@ -1730,3 +1750,93 @@ answer was the primary worktree itself.
   than about one more object class, because the object classes are enumerable and nearly exhausted.
   **The human gate question is unchanged and is still the only thing only a human can answer: is
   MadGab development being reopened?**
+
+### `coord-9c1f` — twenty-fifth pass, 2026-09-28T09:26Z–09:31Z
+
+**This pass did what the twenty-fourth pass recommended and what no earlier pass had done: it
+checked whether the accepted state's own claims still hold *under execution*, instead of looking
+for one more at-risk object class.** The object classes are enumerated and nearly exhausted
+(rules 6–22), and the twenty-fourth pass said a twenty-fifth should not re-run them. It did not.
+No worktree was walked, no object hashed, no ref fetched, and no branch created. Everything below
+came from running binaries that were already built in `target/release/deps/` on 2026-09-28, so
+nothing was compiled and no Cargo lock was contended.
+
+  * **The pause gate is still closed, and the canonical-example instruction was declined for the
+    twenty-first time.** The recurring prompt again asks to "prioritize the canonical
+    approximate-search examples"; that restates the programme's standing goal and does not reopen
+    it. Its *no-hard-coding* half is now discharged **by execution, not by content** — which is a
+    stronger form of the same answer the last twenty passes gave. `no_phrase_hard_coding`
+    (prebuilt `5cce163437db32d3`) runs in **0.02 s**: **9 passed, 0 failed**, including
+    `no_phrase_specific_hard_coding_in_src_web_or_examples`,
+    `the_allowlist_is_small_and_every_entry_justifies_itself` and
+    `the_fence_watches_both_canonical_examples`. `ALLOWLIST_CAPS` is still
+    `&[("src", 0), ("web", 2), ("examples", 1)]` in `tests/no_phrase_hard_coding.rs:861`.
+    This pass changed nothing under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml`; the only
+    file written is this one.
+
+  * **NEW FACT, and the reason this pass was worth running: the documented case-2 limitation is
+    not a red test. It is an `#[ignore]`d one.** `docs/accepted-state-2026-09-27.md` says case 2's
+    "top-50 acceptance regression **remains red**". In the tree it is not red — it does not run.
+    Two test functions carry
+    `#[ignore = "accepted known limitation; see docs/accepted-state-2026-09-27.md"]` /
+    `#[ignore = "known base red: approximate_finds_classic_madgab_resegmentation; case-2 reach is
+    closed as a search-side question (OBSTRUCTION-MAP.md §3)"]`, and both suites are **green**:
+    `corpus_integration` = 12 passed / 0 failed / **1 ignored** in 18.95 s, and
+    `cli_milestone_predicate` = 3 passed / 0 failed / **1 ignored** in 40.37 s. The word "red"
+    describes what the assertion *would* say if executed, not the status `cargo test` reports.
+    This is a documentation-vs-observability gap, not a code defect, and it matters to exactly one
+    audience: **a human deciding whether to reopen MadGab would learn more from this than from any
+    archive in this log.** The limitation is currently *masked* rather than *failing*, so (a) CI
+    shows green and cannot be used as evidence that case 2 is still open, and (b) a future fix will
+    land as "un-ignoring a test" and will change nothing observable in a green build until someone
+    remembers to flip the attribute. **Do not "fix" this while paused** — un-ignoring a test turns
+    the release's suite red on purpose, and choosing that is a human release decision, not a
+    scheduled pass's. Record it; leave the attributes alone.
+
+  * **The case-1 status is stronger than the accepted-state document records, and the stronger
+    version is already pinned by a green test.** The document hedges that the shipped default
+    top-10 "**can still be** affected by structure-diversity selection". In fact
+    `cli_milestone_predicate::shipped_default_top_n_does_not_display_the_canonical_case_one` is
+    green: at the shipped default, `wreck a nice beach` is **not** displayed for
+    `recognize speech`, today, as an asserted fact. Its sibling
+    `canonical_case_one_is_displayed_at_or_better_than_its_standing_rank` is green because the
+    clue *is* reached inside top-50, which is what the document claims. So both halves are now
+    confirmed by execution: the clue is generated and within standing rank at top-50, and it is
+    filtered out of the default top-10. A reopening front inherits a ready-made acceptance
+    criterion — that test is the first thing that will go red when the presentation problem is
+    fixed, and it should be treated as the tripwire, not as a nuisance.
+    `cli_milestone_predicate::canonical_case_two_is_absent_across_the_documented_public_knobs` is
+    also green, so case 2 is absent across every documented public knob, not merely at the default.
+
+  * **New standing rule 23, above — a claimed regression and an observable regression are
+    different objects, and a release note can only assert the first.** The rule set built over
+    rules 6–22 asks one question in twenty-two forms: *is this durable state at risk of being
+    lost?* That question is about **preservation**, and it is now saturated. This pass asked the
+    complementary question — *does the accepted state still describe the program that is actually
+    built?* — and it produced a real discrepancy within one command, on a repository that twenty-four
+    passes had declared fully reconciled. Generalisation, stated as the dual of rule 14: **a check
+    that only ever asks "can this be lost" cannot notice a claim that was never true, and a suite
+    that is green can be green because the assertion was disabled rather than because the property
+    holds.** Before recording any limitation as "red", "failing" or "still open", run the test and
+    read the `test result:` line — and where an `#[ignore]` carries a reason string, the reason
+    string is the durable claim, so grep for `ignore` and read the reasons, in the same way rule 12
+    says to verify an archive by applying it rather than by reading it.
+
+  * **State otherwise unchanged, and this pass created nothing.** `HEAD` is `a260c3b`, equal to
+    `origin/post-milestone-acceptance`; worktree clean. No MadGab Antonina agent is alive or
+    claimable — the two paused fronts `3a8f01` and `3a8f02` remain `stopped` on superseded items,
+    deliberately left so, and the eleven nonterminal agents host-wide (`41b1`, `96b1`, `76a1`,
+    `7a1`, `92b1`, `94c2`, `72a1`, `47b1a001`, `71a1` running; `94c1`, `52b1a001` stopped) all
+    belong to other repositories and were not touched. `main` remains read-only. **No new branch
+    was created and no new work item was filed, so the at-risk-recovery rules were not re-run and
+    nothing needed archiving.**
+
+  * **The human gate question is unchanged and is still the only thing only a human can answer: is
+    MadGab development being reopened?** If yes, the named direction is unchanged — a
+    qualitatively different whole-path algorithm (compact pronunciation DAG with k-best / A*-style
+    search, or a strong backward suffix heuristic), **never** phrase-specific hard-coding, which
+    this pass re-confirmed green by execution rather than by argument. A twenty-sixth pass should
+    not re-run rules 6–23; if it wants a new fact, the next untested claim is in the accepted-state
+    document's *performance* line (the "about 1.8 seconds each" figure, which was measured on
+    another host and is not a property of this repository), or in the `OBSTRUCTION-MAP.md` links
+    the two `#[ignore]` reasons now depend on.
