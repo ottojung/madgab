@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7b3d (pass 114; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
-updated: 2026-09-28T19:12:00Z
+owner: coord-91d4 (pass 115; blocked on the human reopen/confirm decision — see "Current gate status" and "Next action for the next pass" 2)
+updated: 2026-09-28T19:18:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,23 +20,23 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 114 (2026-09-28T19:12Z): NO.** A scheduled pass must not create work, claim
+**Gate answer as of pass 115 (2026-09-28T19:18Z): NO.** A scheduled pass must not create work, claim
 items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 114`.
+last section of this file; search for `## Pass 115`.
 
 | | |
 |---|---|
 | Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
 | Blocking question | a human's: reopen MadGab development, or confirm the pause |
-| Passes that reached this same answer | **114** (template has fired 23 times since pass 92) |
-| At-risk non-build content | **0**. Re-measured at the commit level at pass 114: exclusion set **199** refs (198 `ls-remote`-confirmed heads + 1 tag), baseline `rev-list --all --reflog` **1,111**, at-risk **91** — identical under both sanctioned exclusion spellings (rule 14) and not equal to the baseline, so rule 39's cancellation guard passes. Classified by holder (rule 11): **7** ref-held (local scratch branches such as `scratch/4d1e93-f5f6`), **84** reflog-only, i.e. **0** needing recovery. Pass 105 reported the same 91/199; pass 108's "7" is that same 7 counted after holder classification, not a contradiction. Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
-| MadGab Antonina agents alive | **0** — re-listed in full at pass 113: the 3 running agents are other projects (`107c1`, `47e2` skrynia, `98a2`). The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
+| Passes that reached this same answer | **115** (template has fired 24 times since pass 92) |
+| At-risk non-build content | **0**. Re-measured at the commit level at pass 115: exclusion set **199** refs, each member `ls-remote`-confirmed (rule 38's own check, run correctly for the first time — see pass 115), baseline `rev-list --all --reflog` **1,112**, at-risk **91** — identical under both sanctioned exclusion spellings (rules 14/30) and not equal to the baseline, so rule 39's cancellation guard passes. Excluding *all* local refs instead (rule 40's other question) gives **123**; that is a different question, not a delta. Passes 105, 108, 113 and 114 all reported 91/199; 0 need recovery. Rule 13's `fsck --unreachable` class was not re-run (closed class, rule 68) |
+| MadGab Antonina agents alive | **0** — re-listed in full at pass 115: every madgab-cwd agent is terminal (`succeeded`/`failed`/`stopped`; the newest are `3a8f02`/`3a8f01`, `stopped`, 15h old). The 2 board-wide `running` agents (`107c1`, `98a2`) are other projects. The board-wide running roster is *not* a constant across passes, so only the madgab-scoped count is a standing fact |
 | Production fence vs `origin/main` | **0** hard-coded canonical phrases in production logic. Re-derived at pass 113 per file by locating each file's `#[cfg(test)]` line and classifying every hit by which side it falls: `src/adjacency.rs`, `src/lexical.rs`, `src/wasm.rs` 0; `src/approx.rs` 0 prod / 1 test (boundary 464); `src/lib.rs` 0 prod / 19 test (boundary 381); `src/main.rs` has no `#[cfg(test)]` and its 2 hits are `//!` crate-documentation **usage-example** lines (`madgab "It's just a stupid game"`), not logic. **Corrected at pass 107: the test-side count is 19, not the 31 this row previously carried** |
 
-**Stop reading here if you are a scheduler.** Twenty-three passes (92–114) have reached this same
+**Stop reading here if you are a scheduler.** Twenty-four passes (92–115) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
 was to do nothing. The remaining cost of continuing is not a MadGab risk; it is this log growing.
-The scheduler template has now fired **twenty-three** times carrying the same **three** clauses that
+The scheduler template has now fired **twenty-four** times carrying the same **three** clauses that
 contradict the itinerary it points at (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
@@ -11571,3 +11571,63 @@ launched, no branch cut.
 **Next action for the next pass:** prefer no commit over a twenty-fourth entry. Otherwise verify the
 five rows, keep the header in step, append one short entry, exit. Only a human can close this item.
 
+## Pass 115 — 2026-09-28T19:12Z → 19:18Z — coord-91d4 — the twenty-fourth identical firing; rule 38's own check, run correctly for the first time
+
+Gate answer unchanged from passes 92–114: **NO**. The same three contradictory template clauses
+(rule 19) were reconciled the same way. Header kept in step with this entry.
+
+| Fact | Result |
+|---|---|
+| Deciding authority | paused; gate **NO** |
+| MadGab Antonina agents non-terminal | **0** (2 running board-wide: `107c1`, `98a2` — both other projects) |
+| Dirty non-build content in `/workspace/madgab` | **0** (`git status --porcelain` empty) |
+| Production fence | **0** in production logic: `adjacency.rs` 0, `approx.rs` 0 prod / 1 test (≥464), `lexical.rs` 0, `lib.rs` 0 prod / 18 test (≥381), `wasm.rs` 0, `main.rs` 2 `//!` usage-doc lines. (18 vs pass 114's 19 is a *pattern* difference — this pass's `grep -E` spelling does not include the bare phrase `Hits Justice Dupe Hid Came` in every form the earlier spelling did; the prod column, which is the fence, is 0 either way) |
+| At-risk non-build content | **0** (91 at-risk commits, 199-ref exclusion set every member of which is `ls-remote`-confirmed, both sanctioned spellings agree at 91, baseline 1,112 ≠ 91) |
+| Exclusion-set name equality | **199 = 199**, 0 members on either side that the other lacks (after the normalization fix below) |
+| `main` | untouched: `origin/main` = `0267ade`, no local `main` ref |
+
+Nothing below the header was re-derived: no file sweep, no `fsck`, no per-worktree pseudoref census
+(rules 6–41 closed). The at-risk row and the fence were re-measured because they are two commands
+each, and rule 40 asks that a count be stated with its exclusion set.
+
+**The one new thing: rule 38 asks for something no pass had actually done — verify that every
+member of the exclusion set is an `ls-remote`-confirmed head — and doing it produced another
+confident, wrong "every ref mismatched".** Rule 38 states the requirement ("state the ref count in
+the result and confirm every member of the exclusion set is either an `ls-remote`-confirmed head or
+an explicitly named local-only scratch holder — never a bare `refs/remotes/*` glob") but no entry
+records a pass performing that confirmation; passes cited the 199 as "198 confirmed heads + 1 tag"
+without showing the comparison. Run for the first time here, the check reported
+**199 audit-only and 199 remote-only** — i.e. the *entire* exclusion set unbacked, which read as a
+total loss of every branch. Three spelling defects, all already named by earlier rules, and each
+individually sufficient to produce it:
+
+* `%(refname:strip=2)` is the wrong depth for the heads half. `refs/remotes/audit/<branch>` has
+  **three** components before the name, so the correct spelling is `strip=3`; the tag half
+  (`refs/remotes/audit-tag/<tag>`) is `strip=2`. Using one depth for both sides normalises the two
+  namespaces differently and mismatches every ref.
+* the two sides carry different prefixes by construction (`refs/heads/` vs `refs/remotes/audit/`)
+  and must be stripped to the same shape before `comm` — rule 22's field bug and rule 37's sibling
+  trap, now in its fourth and fifth occurrence.
+* `git ls-remote origin` unfiltered also returns the `HEAD` symref line, `refs/pull/*/head`, and
+  peeled `^{}` tag lines: 203 lines for 199 heads+tags. The 4-line excess is not a missing ref.
+
+Corrected, the answer is clean: **199 audit refs = 199 `ls-remote` heads+tags, 0 differences on
+either side**, so the 91 is measured against a fully confirmed exclusion set and rule 38's caution
+is discharged rather than merely quoted. The general form is this log's ninth instance of one
+failure mode and the third in the `comm`/prefix family: **a set comparison whose two sides are
+spelled differently is a comparison of spellings.** The guard costs nothing — compare the *counts*
+first (199 vs 199), and if a difference set has the same size as the population, the difference is
+the spelling, not the data. That is rule 35's arithmetic guard applied to names instead of objects,
+and it is what caught this within seconds.
+
+**Declined, same three clauses.** Assigning/launching agents, recovering or splitting fronts, and
+prioritising the canonical examples are forbidden by the pause (rules 1–2); the no-hard-coding
+requirement that clause names is already met by the fence row, so acting on it would mean a
+phrase-specific hard-code or a pause violation. The `post-milestone-acceptance` accumulation clause
+is contradicted by the itinerary's retired-target note; this log's own entry is the only thing
+committed there (rule 19). **Nothing pushed to `main`.** No work item created or claimed, no agent
+launched, no branch cut, no recovery sweep run, `audit/*` left in place (it is local bookkeeping,
+not state needing a branch).
+
+**Next action for the next pass:** prefer no commit over a twenty-fifth entry. Otherwise verify the
+rows above, keep the header in step, append one short entry, exit. Only a human can close this item.
