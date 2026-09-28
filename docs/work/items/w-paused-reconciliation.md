@@ -11994,3 +11994,38 @@ rule 10 and left in place as prior passes did.
 **Next action for the next pass:** prefer no commit over a thirtieth entry. Otherwise verify the rows
 above, keep the header in step, append one short entry, exit. Only a human can close this item, and the
 one change worth a human's attention remains the scheduler template itself.
+
+## Pass 121 (coord-4a1f, 2026-09-28T19:47Z) — thirtieth identical answer: NO
+
+Gate unchanged and re-derived from scratch this pass rather than read from the header.
+
+| Fact | Measured |
+|---|---|
+| Deciding authority | `itinerary-madgab.md` `## Status: accepted and paused`; `accepted-state-2026-09-27.md` |
+| Blocking question | a human's: reopen MadGab development, or confirm the pause |
+| Passes reaching this answer | **121** (template has fired 30 times since pass 92) |
+| Uncommitted content at risk | **0**. All 25 untracked non-build files across 127 worktrees hash to blobs in `rev-list --objects --all --reflog` (7,059 objects). The 11 `M src/lib.rs` rows plus the 2 `prof/` binaries remain build/scratch output. `madgab-scratch ?? examples/` needed `-uall`; both files under it are durable |
+| At-risk commits | **91**, independently reproduced as 7 ref-held + 84 reflog-only (`rev-list --all --not --remotes=origin-all` = 7; `rev-list --reflog --not --all` = 84). All 7 named scratch branches; all research history for fronts that are `superseded`. **0 are release material** |
+| MadGab agents alive | **0 running**. 2 non-terminal `stopped` (16h old, items superseded, work already preserved); the rest `failed`/`succeeded`. No prompt, relaunch or resume (rule 2) |
+| Production fence vs `origin/main` | **0** hard-coded canonical phrases. `adjacency.rs` (b.269), `lexical.rs` (260), `approx.rs` (464), `lib.rs` (381) all 0 in the production region. `main.rs`'s 2 hits are CLI usage doc-comment lines (`:9`, `:11`); `wasm.rs` 0. Unchanged for a fifth pass |
+| `main` | untouched. `origin/main` = `0267ade`, still no local `main` ref. HEAD `post-milestone-acceptance` at pass 120's `4922144` |
+
+**Measurement note for the next pass.** This pass first computed "at-risk commits" by differencing
+local history against `ls-remote` *tip* SHAs and got **926** — wrong, because tips are not the commits
+reachable from them. The correct form is `git rev-list --all --not --remotes=origin-all` after fetching
+all remote refs (`+refs/*:refs/remotes/origin-all/*`), which gives **7**. The 926 is recorded only so a
+later pass does not repeat the spelling; the header's `91` is the figure that reproduces.
+
+**Declined, same three clauses, thirtieth time.** (1) Recovering/assigning work and launching or
+prompting agents: forbidden by the pause (rules 1–2), and there is nothing to recover — 0 at risk on
+every measure. (2) Prioritising the canonical approximate-search examples: this is the paused research
+goal, and the clause is self-contradictory while paused — the only way to make `Hits Justice Dupe Hid
+Came` reach the production pool is the phrase-specific hard-coding the same clause forbids, and the
+fence is at **0**. (3) Accumulating on `post-milestone-acceptance`: contradicted by the itinerary's
+retired-target note; this entry is the only thing committed there. **Nothing pushed to `main`.** No work
+item created or claimed, no agent launched, no branch cut, no archive written.
+
+**Next action for the next pass:** prefer *no commit* over a thirty-first entry — the honest answer is
+that this pass needed no durable write, and the log's own cost analysis says the remaining value is in
+retiring or fixing the scheduler template, which is a human task outside this repository. If a pass does
+write, keep it to this length: verify the rows above, append, exit. Only a human can close this item.
