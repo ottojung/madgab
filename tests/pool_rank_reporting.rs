@@ -280,7 +280,7 @@ fn the_flag_annotates_the_same_rows_the_default_path_prints() {
                 .iter()
                 .map(|(d, _)| *d)
                 .collect::<Vec<usize>>(),
-            (1..=TOP as usize).collect::<Vec<usize>>(),
+            (1..=TOP).collect::<Vec<usize>>(),
             "display positions for {target:?} should be 1..={TOP} in order"
         );
     }
