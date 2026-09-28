@@ -1,0 +1,166 @@
+---
+work_item: true
+id: w-3a8f02
+state: working
+priority: normal
+owner: front agent-3a8f02 (opened, claimed and launched 2026-09-28T03:44Z by pass coord-7d21; first prompt delivered 2026-09-28T04:16Z by pass coord-b7e2; terminal failure at 04:19Z, work preserved at 653c4de, relaunched 2026-09-28T04:21Z by pass coord-c4e1; see Handoff)
+updated: 2026-09-28T04:21:00Z
+branch: madgab-poolrank-3a8f02
+worktree: /workspace/madgab-poolrank-3a8f02
+---
+
+# CLI pool-rank observability: make the canonical milestone checkable from the executable
+
+## Goal
+
+Add an opt-in `--pool-rank` reporting surface to `madgab --approximate` so that **pool rank
+of a given clue is measurable from the executable**, and so the canonical milestone checks
+can be run as an executable-level regression test rather than only as a library-side probe.
+
+The measurement on record is that `--pool-rank` costs **+315 ms to +737 ms** per target.
+That cost must be measured again and stated, and it must be **opt-in and off by default**.
+
+## Why this front now
+
+`docs/work/items/w-4b1e07.md` has deferred this front in three consecutive passes with the
+same reason: *"`src/lib.rs` is owned by the live front, so the `--pool-rank` observability
+front stays queued behind it."* As of 2026-09-28T03:44Z **no agent is running** and
+`post-milestone-acceptance` is at `a7a406c` with the last front integrated. The queue
+condition is satisfied.
+
+This front is also directly enabling for [w-3a8f01](w-3a8f01.md) and for every future
+head-quality front, all of which are currently blocked on being unable to observe rank from
+the shipped binary.
+
+## Scope boundaries
+
+* **`src/main.rs` and a new test file are owned by this front.** Disjoint from `w-3a8f01`,
+  which owns `src/lib.rs`.
+* The surface must be a **flag**, not a default behaviour change. Default output must be
+  **byte-identical** to base; paste it verbatim to prove it.
+* No phrase literal in `src/`. `no_phrase_hard_coding` must stay **9/0** with `src/` at
+  zero allowlist entries. A user-supplied clue string on the command line is not a literal
+  in `src/`; a default *value* of the flag that happens to be a canonical clue **is**, and
+  is forbidden.
+* Pin `CARGO_TARGET_DIR` to this front's own directory.
+* Do not relax, re-pin, or skip `approximate_finds_classic_madgab_resegmentation`
+  (red at base, case 2).
+
+## Completion criteria
+
+1. `madgab --approximate <input> --pool-rank <clue>` prints the clue's rank in the generated
+   pool, or an explicit, unambiguous statement that the clue is **not in the pool**. The
+   "absent" case must be distinguishable from a failure, because "absent from the pool" and
+   "ranks out of the display" are different facts that this repository has repeatedly
+   conflated (see `docs/work/OBSTRUCTION-MAP.md` §"Conflicts", item 7).
+2. **Default output unchanged.** Verbatim before/after paste of
+   `madgab --approximate "recognize speech"` and
+   `madgab --approximate "It's just a stupid game"` at the shipped defaults, showing no
+   added line, column, or spacing.
+3. **Cost measured**, on at least 6 targets, reported as per-target and total seconds with
+   and without the flag. State the number; do not assume the historical +315..+737 ms still
+   holds.
+4. **Regression tests** in a new `tests/` file: the rank is reported correctly for a clue
+   that is in the pool; absent is reported as absent; the default invocation's stdout is
+   unchanged; the flag is a no-op on the exact mode. Phrase literals live in `tests/`.
+5. `cargo test --release --lib`, `--test no_phrase_hard_coding`, `--test corpus_integration`
+   green-or-known, plus the new test file. `cargo fmt` / `cargo clippy` are **not installed**
+   on this host — do not claim them unless they run.
+6. Report in `docs/work/REPORT-3a8f02.md`.
+
+## Handoff / notes
+
+Fresh front. Opened 2026-09-28T03:44Z by pass coord-7d21. Runs concurrently with
+[w-3a8f01](w-3a8f01.md) in a separate worktree; the two must not touch the same file. If
+integration later finds a conflict in `src/main.rs`, `w-3a8f01` does not own that file and
+`w-3a8f02` wins it.
+
+**Next action for a fresh pass.** `antonina agent status --id 3a8f02`. On terminal, review
+criterion 2 first — a default-output change is a hard reject for this item regardless of how
+good the feature is.
+
+## Recovery record - pass coord-b7e2, 2026-09-28T04:08Z-04:19Z
+
+At the start of this pass `agent-3a8f02` was **idle, alive=no, prompts=0, no output.log,
+started=-** — created at 03:44Z by pass coord-7d21 and never actually prompted. This is the
+created-and-never-prompted shape that delayed `agent-2c9d411` on w-2c9d41, and it left this
+item `working` while its agent had never run a turn.
+
+`agent-3a8f02` received its first prompt at **04:16Z** and is **running**. The prompt carries
+the item's boundaries — `src/main.rs` plus one new `tests/` file only, `src/lib.rs` belongs
+to w-3a8f01, default output byte-identical, no phrase literal in `src/` and no canonical
+default flag value, `no_phrase_hard_coding` 9/0, do not touch the red case-2 test — plus the
+host's release-link OOM workaround, so this front does not rediscover it the way
+`agent-3a8f01` just did on the concurrent worktree at 04:11Z.
+
+**State: still `working`, now genuinely running.** Nothing integrated, `main` untouched.
+
+## Recovery record - pass coord-c4e1, 2026-09-28T04:16Z-04:21Z
+
+`agent-3a8f02` was recorded as running by the prior pass but had **already gone terminal
+`failed`** (exit 1, finished 04:19Z, 1 prompt) with 116 uncommitted lines in `src/main.rs`.
+
+**The kill is measured.** Concurrent front `agent-3a8f01` was SIGKILLed twice in the same
+window, and the host's cgroup shows why: **30 GiB limit, 49 GiB used, 12 GiB available, no
+swap, 4345 `oom` / 410 `oom_kill` events**. See [../ENVIRONMENT-OOM.md](../ENVIRONMENT-OOM.md),
+written this pass. On the sibling front the kill landed on the **running test binary**, not
+only on `rustc` at link, so "it compiled" is not evidence a run will survive.
+
+Actions taken by this pass:
+
+1. **Durability.** The in-flight work is committed and pushed as **653c4de** on
+   `madgab-poolrank-3a8f02` (remote verified). It adds the trailing
+   `--pool-rank "<clue>"` query form: position-disambiguated from the pre-existing
+   annotate-every-row `--pool-rank` so the default path is untouched, a rank report on hit,
+   an explicit absent-from-pool report with **exit 3** so absence is distinguishable from
+   failure, exit 2 on a trailing flag with no clue. **Reviewed on the tree this pass: no
+   phrase literal in `src/` and no canonical clue as a default flag value** — the clue is
+   user-supplied on the command line, which this item's own scope boundary permits. Claims no
+   correctness and no validation, and **default-output invariance is still unproven**.
+2. **Resume.** `agent-3a8f02` re-prompted at 04:21Z and is **running** (prompts 2) with the
+   same memory-bounded build contract, pointed at 653c4de, and told to serialize heavy
+   builds against `agent-3a8f01` rather than link concurrently.
+3. **Hard reject restated first.** Criterion 2 before any feature work: paste the default
+   `--approximate` output for both canonical inputs and diff it against base. A default-output
+   change fails this item regardless of feature quality.
+
+**State: still `working`, owned by front agent-3a8f02, running.** Nothing integrated; `main`
+untouched.
+
+**Next action for a fresh pass.** `antonina agent status --id 3a8f02`. **First**, if the
+worktree is dirty, commit and push before anything else. Then verify criterion 2 on the tree
+yourself before reviewing anything else — the absent-vs-failure exit-code contract (exit 3)
+and byte-identical default output are the two things most likely to be quietly wrong.
+
+**Next action for a fresh pass.** `antonina agent status --id 3a8f02`; on terminal read
+criterion 2 first — a default-output change is a hard reject regardless of feature quality —
+then the absent-vs-failure distinction in criterion 1.
+
+## Reconciliation record - pass coord-f81a, 2026-09-28T04:26Z-04:34Z
+
+`agent-3a8f02` is **alive** (running, 2 prompts) and is spending its time on the host memory
+ceiling, not on the feature: its log shows the release lib-test **link** SIGKILLed, and then
+the **debug** lib-test binary SIGKILLed *at runtime* mid-suite. It is correctly treating these
+as environment facts and working toward per-test evidence with `--test-threads=1`.
+
+1. **Durability.** The worktree was dirty with one untracked file, `tests/pool_rank_query.rs`.
+   It is committed and pushed as **a279cc8** on `madgab-poolrank-3a8f02` (verified by
+   `ls-remote`). Pre-review on the tree: the canonical target/clue literals appear **only in
+   `tests/`**, never in `src/`, and the clue is user-supplied on the command line — inside this
+   item's stated scope. Claims no correctness and no validation.
+2. **New environment fact, worth adding to the OOM record.** The `signal: 9` on the *debug*
+   `--lib` binary is a **new kill mode** on this host: not a link-time OOM and not a rustc OOM,
+   but a test process dying mid-suite, which means **a green prefix of `cargo test --lib` is
+   not evidence that the suite passed** — the same trap that already cost two trees on
+   w-3a8f01. Report any suite result from this host as partial unless the run itself completed.
+3. **No new front opened, deliberately.** `memory.current` is 30.7 GB against a 30 GiB cgroup
+   limit with no swap. Capacity is the binding constraint; a third front would OOM a live one.
+
+**State: still `working`, owned by front agent-3a8f02, running.** Nothing integrated; `main`
+untouched.
+
+**Next action for a fresh pass.** `antonina agent status --id 3a8f02`; on terminal, criterion 2
+first — paste the default `--approximate` output for both canonical inputs and diff it against
+base, because a default-output change is a hard reject regardless of feature quality. Then
+check the exit-3 absent-vs-failure contract, which is the other thing most likely to be
+quietly wrong.

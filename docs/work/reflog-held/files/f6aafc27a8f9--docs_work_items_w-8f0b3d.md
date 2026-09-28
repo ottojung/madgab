@@ -1,0 +1,200 @@
+---
+work_item: true
+id: w-8f0b3d
+state: working
+priority: high
+owner: recovery agent-5c3f70 (recovered the dead front agent-8f0b3d1, which died mid-pass on 2026-09-28 after writing two untracked files and committing nothing; recovery audited, re-measured, completed, committed and pushed) / opened and claimed 2026-09-28T00:26Z by coord-c4d2
+updated: 2026-09-28T00:26:00Z
+branch: madgab-cli-recheck-8f0b3d
+worktree: /workspace/madgab-cli-recheck-8f0b3d
+base: 97c9397 (post-milestone-acceptance, pushed)
+umbrella: w-4b1e07
+source_item: w-3c5b18
+---
+
+# Re-measure the milestone predicate at the executable boundary (no src change)
+
+## Goal
+
+Every load-bearing number in this repository's case-2 record comes from `#[cfg(test)]` harnesses,
+`examples/zz-probe-*.rs` files and library-level captures. The itinerary's primary milestone is
+stated about **the executable's approximate proposal set**, and its completion checks require the
+behavior to be "covered by regression tests at an appropriate API or executable boundary". That
+boundary has never been measured directly. This item closes that gap with an objective,
+reproducible, non-instrumented fact about the shipped CLI.
+
+It is deliberately **not** another case-2 reach front. `docs/work/OBSTRUCTION-MAP.md` section 3
+prices every remaining search-side shape negative and states "case-2 reach is closed as a search-side
+question"; `w-9b4a15`/`w-3a8c05` price a weight-free lower-bound rank of 1,127 for the canonical
+tuple. What is *not* on the record is what the shipped binary actually does, unmodified, on the
+two canonical inputs.
+
+## Scope
+
+Read-only measurement plus tests. **No production `src/` change is in scope for this item** and none
+may be made: `agent-3c5b18` holds `src/lib.rs` and any coordinator-side edit here would contend
+with it.
+
+1. On integrated `post-milestone-acceptance`, build the shipped release binary and run it with
+   `--approximate` on both canonical inputs, exactly as a user would:
+   - `recognize speech` -> is `wreck a nice beach` in the printed proposals? At what display
+     position, and what is the pool rank if the binary reports it?
+   - `It's just a stupid game` -> is `Hits Justice Dupe Hid Came` in the printed proposals under
+     *any* case/punctuation/word-order normalization, not just verbatim? Record verbatim first,
+     then normalized.
+2. Record the **sensitivity** of the predicate to the documented public knobs only
+   (`--per-word-budget`, `--total-budget`, `--top-n`, any seed/determinism flag). This is the
+   question a later general-search-quality front actually needs: what the current *reachable*
+   envelope of the shipped CLI looks like, without touching the search.
+3. Establish whether a **cheap, general, non-re-pinning regression test can be written at an
+   executable or public-API boundary** for whatever the answer is — including for the currently
+   failing canonical case, if and only if the test asserts the *documented current* behavior and
+   names it as a known gap rather than asserting success. If no such test is honest, say so and
+   write none.
+4. Report the wall clock and the exact commands, so a later pass can reproduce without re-deriving.
+
+## Constraints
+
+- No phrase-specific hard-coding in any production code or in any test assertion. The
+  `no_phrase_hard_coding` fence over `src/` must stay clean; tests that name the canonical strings
+  live in the existing canonical-example suites and are already the convention, so follow it
+  rather than inventing a new pattern.
+- Do **not** edit `src/lib.rs`, `src/approx.rs` or `src/main.rs` on this front. If the measurement
+  shows a defect in the CLI's argument handling, report it; do not fix it here.
+- Do not re-run any priced negative from `OBSTRUCTION-MAP.md` section 2, and do not open a fifth
+  reach front. This front measures; it does not chase.
+- `corpus_integration` is expected at 12 passed / 1 failed, the known base red
+  `approximate_finds_classic_madgab_resegmentation`. Run it with `-- --test-threads=2`; it is
+  SIGKILLed at default parallelism on this host, including on pristine base.
+- `cargo fmt`, `cargo fmt --check`, `cargo clippy` and doctests **cannot run on this host**
+  (no `rustup`); do not claim them (`docs/environment-notes.md`).
+- Run **one** test suite at a time. Parallel suite runs have SIGKILLed this host for memory
+  pressure, not for a source reason.
+- `main` is untouched. This accumulates on `post-milestone-acceptance` only.
+
+## Completion criteria
+
+1. Both canonical inputs measured through the **shipped release binary** on integrated HEAD, with
+   exact commands, exit status, printed output, wall clock, and the verbatim-vs-normalized answer
+   for case 2 recorded either way.
+2. The documented public-knob sensitivity of the predicate recorded as a small table (knob, value,
+   case-1 verdict, case-2 verdict), with the cost (wall clock) of each setting.
+3. Either a general regression test at an executable/public-API boundary is added with its
+   **red/green evidence and fence results**, or a written statement of why no honest test exists
+   at that boundary. No test is written that hard-codes a phrase into production behaviour.
+4. `docs/work/REPORT-8f0b3d.md` pushed on the front branch, with an explicit statement of what the
+   milestone predicate *actually* is today at the executable boundary, and an explicit INTEGRATE/HOLD
+   recommendation for whatever the front changed (possibly nothing, if the measurement is
+   docs-only).
+5. `no_phrase_hard_coding` 9/9, `corpus_integration` 12/1 with the known red **not re-pinned**,
+   `emit_coverage` green, both determinism suites green, `cargo test --release --lib` no worse than
+   76/0/12, and `wreck a nice beach` still produced for `recognize speech` at or better than
+   display rank 27. Anything worse is a regression and blocks the front.
+6. This work item updated with objective state and the next action. No self-merge.
+
+## Handoff
+
+### Recovery outcome (agent-5c3f70) — this is the current state of the front
+
+`agent-8f0b3d1` died mid-pass with `docs/work/REPORT-8f0b3d.md` and
+`tests/cli_milestone_predicate.rs` untracked and unpushed (remote was still at
+`7eee678`). `agent-5c3f70` audited both files line by line, re-measured the
+predicate from scratch on the same release binary
+(`md5 119fa3bd9466de0021bae082a396b079`), re-ran every fence, corrected four
+unevidenced claims, and committed and pushed. Report and test are on
+`madgab-cli-recheck-8f0b3d` at commit **`f36c9334674eb02070fce4f4f46c00cb7d3c06da`**, branch pushed to
+`origin` (`git ls-remote origin madgab-cli-recheck-8f0b3d` = `f36c9334674eb02070fce4f4f46c00cb7d3c06da`).
+
+**Final numbers, all measured by the recovery pass, one suite at a time:**
+
+| command | result | wall clock |
+| --- | --- | --- |
+| `cargo test --release --test cli_milestone_predicate -- --test-threads=1` | 3 passed / 0 failed / 1 ignored | 42.06 s (45.07 s on the final post-edit run) |
+| `cargo test --release --test cli_milestone_predicate -- --ignored --test-threads=1` | 0 passed / 1 failed (the known gap, red as intended) | 1.81 s |
+| `cargo test --release --lib` | **76 passed / 0 failed / 12 ignored** | 25.30 s |
+| `cargo test --release --test corpus_integration -- --test-threads=1` | **12 passed / 1 failed** — `approximate_finds_classic_madgab_resegmentation`, the known red, **not re-pinned and not worked around** | 57.82 s |
+| `cargo test --release --test no_phrase_hard_coding` | **9 passed / 0 failed** | 0.05 s |
+| `cargo test --release --test emit_coverage` | 7 passed / 0 failed | 8.93 s |
+| `cargo test --release --test approx_determinism` | 4 passed / 0 failed | 48.02 s |
+| `cargo test --release --test exact_determinism` | 1 passed / 0 failed | 6.34 s |
+
+**No run was SIGKILLed or host-killed**, so no host-memory caveat applies and no
+run needed a repeat. `git diff --stat 7eee678 -- src examples web Cargo.toml` is
+empty: zero production lines, as the item required.
+
+**The two canonical cases at the executable boundary:**
+
+* **Case 1 — `recognize speech` -> `wreck a nice beach`: FOUND**, at display
+  **rank 27**, score **0.920** as printed, for every `--top` from 50 to 1000, and
+  **absent at the shipped default `--top 10`** and at `--top 25`. At the line of
+  the "at or better than display rank 27" criterion, not a regression. At
+  `--per-word-budget 0.25` it moves to **rank 12** at lower cost (1.00 s vs
+  1.71 s), so rank 27 is a budget choice, not a floor the search found.
+  Reproduce: `target/release/madgab --approximate --top 50 "recognize speech"`.
+* **Case 2 — `It's just a stupid game` -> `Hits Justice Dupe Hid Came`: NOT
+  FOUND**, verbatim or normalized (case-folded, punctuation-stripped, word order
+  as given), at every `--top` from 1 to 1000, at every `--per-word-budget` from 0
+  to 5, and at every `--total-budget` from 0 to 3. Best available alignment is 2
+  of the 5 canonical words, at display 39 (`it justice too bad came`); `hid`
+  appears in **0** of 1000 rows.
+  Reproduce: `target/release/madgab --approximate --top 1000 "It's just a stupid game"`.
+
+So the milestone is **half false at the executable boundary**: true for case 1
+only under the condition `--top >= 27`, false for case 2 across the entire
+reachable envelope of the public knobs. §6 of the report proposes the one-paragraph
+itinerary restatement; that edit is a **coordinator decision and has not been made**.
+
+**What the recovery downgraded in the report, and why:**
+
+1. **Deleted** the "best partial is `917. [0.859] hits justice too today`" line —
+   no such row exists at `--top 1000`; replaced with a counted per-word table.
+2. **Deleted** "`--per-word-budget 5` does not complete in 25 minutes / treat
+   `>= 4` as unusable" — the bounded re-run completes in **19.0 s** (case 1) /
+   **35.8 s** (case 2) with 1000 rows. The earlier abandonment was a host stall.
+3. **Downgraded** "cost grows superlinearly" and the "reproducible-but-unexplained
+   `--total-budget 0.25` anomaly" — the 4.99 s outlier did not reproduce (1.27 /
+   0.72 / 0.73 s) and the per-word sweep is not monotone (case 1: 17.87 s at `2`,
+   12.89 s at `3`). No growth law is claimed now.
+4. **Retitled** §9 finding 2: the budget flags are order-**insensitive** in output
+   and order-sensitive only in how `src/main.rs` is written. The md5 evidence is
+   unchanged and re-verified.
+
+**Unresolved defect, reported and deliberately not fixed** (per the item, which
+forbids `src/` edits here): the CLI prints no pool rank and has no flag that adds
+one (`src/main.rs:175-177`), so every "pool rank N" in this repository's record is
+a library-level figure and is not observable at the executable boundary. Also open
+and unanswered: is `--per-word-budget 0.25` a better default than `0.5`? It is a
+head-lift question inside the existing search, not a reach question, and needs the
+§4 head-lift criterion decided first.
+
+**No self-merge was performed.** `main` and `post-milestone-acceptance` are
+untouched. The recommendation on the report is INTEGRATE onto
+`post-milestone-acceptance` only.
+
+### Original front (superseded by the above)
+
+Front `agent-8f0b3d1` launched 2026-09-28T00:26Z by pass `coord-c4d2` in
+`/workspace/madgab-cli-recheck-8f0b3d` on branch `madgab-cli-recheck-8f0b3d`, created from
+`post-milestone-acceptance` at `97c9397`. It died mid-pass; see the recovery
+outcome above for the state it actually left behind.
+
+**Why this front is independent of the live one and why it was opened now rather than after.**
+The live front `agent-3c5b18` (`w-3c5b18`, the `prune_partials` discard threshold) holds
+`src/lib.rs`. This front holds no production file at all, runs against the *shipped* binary, and its
+answer is a property of the release artifact rather than of any in-flight diff. Running them
+concurrently is the parallelism the schedule asks for, and it does not duplicate: the live front
+prices a threshold inside the search, this one prices the predicate the itinerary's completion
+checks are written against. Two prior passes (00:06Z, 00:16Z) both declined to open any front and
+recorded this item as the successor to open *on a priced negative* from the live front; opening it
+now is strictly better, because its result is needed either way and it cannot come back negative in
+a way that wastes the front.
+
+**Next action for a fresh pass.** `antonina agent status --id 8f0b3d1`, then
+`git -C /workspace/madgab-cli-recheck-8f0b3d log --oneline -3` and `status --short`. The
+precondition for review is a **pushed** commit (`git ls-remote origin madgab-cli-recheck-8f0b3d`).
+On terminal, review `docs/work/REPORT-8f0b3d.md`, verify line by line with
+`git diff --stat <parent> <new> -- src tests examples` that no production line landed, then
+integrate onto `post-milestone-acceptance` only, never `main`. Independently, keep `w-3c5b18`'s own
+review path: generality first, then `no_phrase_hard_coding` 9/9, `corpus_integration` 12/1 with the
+known red not re-pinned, `--lib` no worse than 76/0/12, and `wreck a nice beach` at or better than
+display rank 27.
