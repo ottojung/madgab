@@ -1294,3 +1294,93 @@ passes that the yield was not new at-risk state but a new false-positive class.
   the human gate.** The repository has nothing left at risk, nothing left unexamined, and one
   open question that no amount of further sweeping can answer.
 
+
+### `coord-6c31` — twenty-first pass, 2026-09-28T09:07Z–09:14Z
+
+Reconciliation only. **No front opened, no agent launched, no item claimed, nothing integrated,
+`main` untouched at `0267ade`.** This pass continued the four-pass run of interrogating the
+*check* rather than the repository, and found a sixth object class — one that is invisible to
+**both** standing commit-level checks at once, which is why rules 10 and 13 could each be
+complete and correct while both missed it.
+
+  * **Cheap checks, all clean and as recorded.** `git ls-remote`: `main` = `0267ade` (untouched,
+    remote-only, no local `main` ref), `post-milestone-acceptance` = `7a9c5a2` (0 ahead / 0 behind
+    after fetch into `refs/remotes/audit/*`), and all four earlier `recovery/*` branches still on
+    the remote. Worktree clean. Census re-derived with the rule 10 parser: **87 `done`,
+    11 `superseded`, 1 `open`** (`TEMPLATE.md` placeholder, not claimable), **1 `working`**
+    (this log), 0 `blocked`. Agents: none alive for MadGab; `3a8f01`/`3a8f02` remain `stopped` on
+    superseded items, left stopped deliberately; the nonterminal agents host-wide
+    (`41a1`, `72a1`, `78c1`, `92a1`, `47b1a001`, `71a1`, plus `a11d` `idle` in
+    `/tmp/cwd-7ze5eU`) are all other repositories and were not touched.
+
+  * **New standing rule 15, above. The finding of this pass: `refs/stash` is one ref, not six.**
+    `git stash list` reports **six** entries. `refs/stash` is a *single* ref, and it points at
+    `stash@{0}` only. The other five are reachable solely through the reflog, which means:
+
+    | check | sees them? | why |
+    |---|---|---|
+    | rule 10, `git rev-list --all` | **no** | `--all` includes `refs/stash`, which is one commit |
+    | rule 13, `git fsck --unreachable` | **no** | reflog entries count as roots, so not "unreachable" |
+    | `git rev-list --all --reflog` | yes | the only form that finds them |
+
+    Measured on all five, identically: `--all=0`, `fsck-unreachable=0`, `--reflog=1`. A single
+    `git stash drop`, `git stash clear`, or `git reflog expire refs/stash` destroys all five
+    irrecoverably. This is the same lesson as rules 10, 11, 13 and 14 in the tightest form yet:
+    **`--all` is a list of ref *names*, not of ref *entries*, and a reflog is not a set of refs.**
+    Rules 10 and 13 were each individually correct and jointly blind, so a pass could have run
+    both, found both clean, and still lost five objects.
+
+  * **Four of the five carry content nothing reachable holds.** Their resulting `src/lib.rs`
+    blobs `07b29320`, `81a04204`, `a004d777`, `f7258d4d` are **absent** from the 5,534-object
+    reachable set. Content, per entry: `f6688de` (stash@{1}, base `f2fb62e`, w-5e2d41)
+    cheap-end retention-floor instrumentation, +60/−34; `5c21572` (stash@{2}, base `10e069f`,
+    w-7c1f64) `ZZ_PROBE_*` emission instrumentation, +36; `e34eb42` (stash@{3}, base `f2908d1`,
+    w-1c3e77) enumeration-claim WIP, +162/−48; `44e36a6` (stash@{5}, base the
+    `madgab-clue-objective` line) +821/−183, **the largest stash on the host**. The fifth,
+    `5cd0d2a` (stash@{4}, base `880d7bc`, w-3b8e15), is **redundant**: its `src/approx.rs` blob
+    `662eab99` is byte-identical to `b7b22b7:src/approx.rs`, already archived by `coord-2b74`.
+    Recorded as classified rather than left to be re-derived as a gap. `stash@{0}` (`496826b`)
+    is not repeated — it *is* held by `refs/stash`, so rule 10 does see it, and `coord-2b74`
+    already archived it.
+
+  * **Recovery, on its own branch per standing rule 5.**
+    `recovery/stash-reflog-2026-09-28` = **`a1d7425`**, pushed, **not merged**. Five patches
+    under `docs/work/stash-patches/` with a README giving per-entry provenance, the redundancy
+    finding, and the fence note.
+
+  * **Verified by forward application, five for five.** A throwaway worktree at each commit's own
+    parent, patch applied with `git apply --binary`, resulting blob compared by `git hash-object`
+    against `git rev-parse <commit>:<path>`: five `APPLIES`, five `MATCH`. The explicit two-dot
+    form `git diff --binary <c>^ <c>` is used rather than `format-patch` per **rule 12**, which
+    was learned on `stash@{0}` itself — `format-patch` on a stash commit silently emits the *index
+    parent's* diff and does not apply. Five more stash entries is five more chances to hit that,
+    so the check was re-run on each rather than assumed. Throwaway worktrees pruned.
+
+  * **Nothing here is a merge candidate.** These are in-flight WIP on closed and superseded
+    fronts; archiving is not promoting. The patches contain canonical phrases as probe literals,
+    `docs/` is not scanned by `tests/no_phrase_hard_coding.rs`, `ALLOWLIST_CAPS` is unchanged, and
+    any future promotion must strip the literals rather than waive them. The accepted state is
+    untouched: this pass changed nothing under `src/`, `tests/`, `web/`, `examples/` or
+    `Cargo.toml`, so `coord-4d31`'s green fence result still holds by content.
+
+  **The canonical-example instruction was read against the itinerary's pause gate for the
+  seventeenth time and declined for the seventeenth time.** It restates the programme's standing
+  goal; reopening requires an explicit human instruction, which has not been given. Its
+  *no-hard-coding* half remains discharged on the merits, by content rather than by re-running
+  the fence: the fence-scanned surface is byte-identical to `a676176`, the head `coord-4d31` ran
+  green by execution. The pause and its documented limitation stand. If development is ever
+  reopened, the named direction is still a qualitatively different whole-path algorithm (compact
+  pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+  **never** phrase-specific hard-coding.
+
+  **On the escalation, now five passes in a row superseded by a coverage gap rather than
+  confirmed.** The pattern is unchanged and worth restating once: the passes that found something
+  did so by **interrogating the check, not the repository**, and each cost a few commands against
+  twenty passes of hash sweeping that found nothing. The class found here is the cheapest yet —
+  one `git stash list` and five `grep`s — and it was invisible to *two* established checks
+  simultaneously, which is the strongest available evidence that `git rev-list --all` plus
+  `git fsck --unreachable` is **not** a sufficient at-risk inventory on their own. A twenty-second
+  pass should add `--reflog` to the standing sweep and should not re-run rules 10, 13, the hash
+  sweep or the fence. The remaining candidate classes are correspondingly few. **The human gate
+  question is unchanged and is still the only thing only a human can answer: is MadGab development
+  being reopened?**
