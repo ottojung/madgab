@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: working
 priority: normal
-owner: coord-5d40
-updated: 2026-09-28T07:10:00Z
+owner: coord-c8e1
+updated: 2026-09-28T07:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -352,6 +352,45 @@ recorded as a priced negative.
   this log as the only `working` entry.** The conclusion is unchanged: **the queue is empty and
   that is the expected state.** The stale number was harmless but it is the kind of drift that
   makes a later pass distrust the rest of the log, so it is corrected here rather than left.
+
+* **`coord-c8e1` (this pass), 2026-09-28T07:18Z–07:26Z** — reconciliation only, **no recovery
+  needed; fourth consecutive clean sweep**. Both prescribed checks run again, at the reduced
+  effort the cadence advice above permits for a clean pass. The instruction to prioritise the
+  canonical approximate-search examples was read against `## Status: accepted and paused` in
+  [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md): it restates the
+  programme's standing goal, and the itinerary's gate is *an explicit human instruction to
+  reopen development*. That gate is still closed, so no front was opened, no item claimed, no
+  agent launched and nothing integrated; `main` untouched at `0267ade`.
+
+  * **Agents: none alive for MadGab.** All **131** MadGab agents are terminal (109 `succeeded`,
+    20 `failed`, 2 `stopped` — `3a8f01`/`3a8f02`, stopped by the pause and deliberately left so).
+    The four nonterminal agents host-wide are in other repositories (`antonina-i5`,
+    `assemblyp1-issue89`, `qai-proviral-78`) plus `a11d`, `idle` in `/tmp/cwd-7ze5eU` at a
+    20724-day age. None is MadGab's; all left alone.
+  * **Worktrees: 24 unmatched files, the same two known buckets, nothing new.** All 21 worktrees
+    swept with `git status --porcelain -uall`, every dirty/untracked file under 2 MB hashed
+    against all **1512** reachable blob objects, filtering Cargo output by `target*` **path
+    component** per standing rule 9. Result: **8** `src/lib.rs` copies and **16**
+    `madgab-approx-runtime/prof/results*.txt` / `sum*.txt` harness outputs — byte-identical in
+    count and composition to the previous three passes.
+  * The 16 remain regenerable for the reason standing rule 8 established, which has not changed:
+    the archived harness reads only `$BIN` and `prof/targets.txt`, and all three harness inputs
+    are durable at `docs/work/probe-inputs/`. Re-reading the harness a fifth time would add
+    nothing, so it was not repeated.
+  * The 8 instrumented `src/lib.rs` copies were re-checked against
+    `docs/work/probe-patches/*.diff` by `git apply --check --reverse` and all eight reconstructed.
+    Note the honest detail: the two `floor-5e2d42-*` worktrees both satisfy the check against the
+    *same* `floor-5e2d42-baseprobe-src.diff`, so the one-to-one worktree↔patch mapping asserted in
+    earlier entries is not established by that test alone. What the test does establish — the only
+    thing standing rule 7 claims — is that every one of the eight is reconstructible from an
+    archived diff, and it still holds.
+  * **Durability re-confirmed cheaply**: `git ls-remote origin` returns `2408c25` for
+    `recovery/probe-scaffolding-2026-09-28` and `72801ae` for `post-milestone-acceptance`, both
+    matching the local refs; `main` remains `0267ade` and is not an ancestor of this branch.
+
+  No scaffolding commit, because there is nothing to put on it. **The sample of "nothing left at
+  risk" is now four passes deep**, and per the cadence advice this entry is deliberately short: a
+  future pass may record a single line and exit rather than re-running the sweep at all.
 
 ## Next action for a fresh pass
 
