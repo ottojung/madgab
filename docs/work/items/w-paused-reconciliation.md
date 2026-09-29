@@ -3,7 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6e2b (pass 200; gate NO — the three scheduler-template clauses (launch or assign agents / accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical approximate-search examples without phrase-specific hard-coding) declined for the thirty-first time; five facts re-derived and unchanged for the thirty-first pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form, gawk exit 0, 0 open / 0 working; 0 non-terminal MadGab agents among 131 MadGab cwd rows of 635 host rows, the single host-running agent 94a9 being another repository (assemblyp1-94-cruxmap) and left running; 0 clue fence hits in all six production regions = sixty-seventh consecutive; 125 registered worktrees with prune -n -v empty, exit 0; main untouched at 0267ade with rev-parse --verify main exiting 128). Clause 2 declined on the same direct textual conflict pass 199 found: the itinerary says post-milestone-acceptance "is no longer an automatic accumulation target", contradicting this log's rule 3 — the itinerary wins, and only a human can retire or correct the out-of-repo template. Clause 3's no-hard-coding half holds as a standing invariant (fence 0), not as work. NEW RULE 14j, this pass's one finding: rule 14i diagnosed the for-each-ref WM_PATHNAME glob defect but published only the negative, never the working spelling, so copying 14i verbatim and writing 'refs/remotes/audit/*' enumerated 109 of the 204 audit refs and rule 14g's inline cardinality assertion aborted the run at 109 != 204 — the first time that assertion has fired on a live enumeration rather than a stale expected number. The sanctioned form is a BARE PREFIX, no glob: for-each-ref --format='%(refname)' refs/remotes/audit refs/remotes/audit-tag = 204, depth histogram 109 depth-4 / 93 depth-5 / 2 depth-6, so the 109 is exactly the depth-4 prefix and the entire gap is the archive/, recovery/, scratch/ and wip/ namespaces. General form: a rule that records only a defect is not a procedure; pair every "this spelling is wrong" rule with the sanctioned spelling. At-risk state UNCHANGED and safe: audit/* re-fetched FIRST per rule 14a (exit 0, surfacing two new audit/wip/* heads and one audit-tag tag), 204 refs enumerated per 14j with cardinality asserted per 14g and consumed in one invocation per 14h, baseline rev-list --all --reflog 1,211 (1,210 at pass 199; the +1 is pass 199's own pushed commit, on origin and so outside the at-risk set), refs-only 1,124; BOTH sanctioned exclusion spellings run without mixing per 14d/14h together and agree 88/88 diff-clean, both stderr empty, every exit code captured; split ref-held 1 / reflog-only 87 / intersection 0 / union 88, disjoint, holding passes 184-199; controls in both directions (514ed91 present, origin/main tip 0267ade absent); 25 recovery/* heads on origin. Non-build live state re-swept from scratch with rule 9's amended component filter over all 125 worktrees: 34 rows = 33 hashable + 1 directory, all 33 hashes present in 7,616 distinct ids, 0 unreachable; the sentinel control file carried 2 probe rows and the instrument reported 2 positives, so the 0 is a measurement rather than a broken instrument. No recovery branch warranted and none created. No agent launched, stopped or prompted; 94a9 left running. main untouched. Blocked on the human reopen/confirm decision)
+owner: coord-4d17 (pass 201; gate NO — the three scheduler-template clauses (launch or assign agents / accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical approximate-search examples without phrase-specific hard-coding) declined for the thirty-second time; five facts re-derived and unchanged for the thirty-second pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form, gawk exit 0, 0 open / 0 working; 0 non-terminal MadGab agents among 131 MadGab cwd rows = 110 succeeded / 20 failed / 1 stopped out of 635 host rows, the single host-running agent 94a9 being another repository (assemblyp1-94-cruxmap) and left running; 0 clue fence hits in all six production regions = sixty-eighth consecutive; 125 registered worktrees with prune -n -v empty, exit 0; main untouched at 0267ade with rev-parse --verify main exiting 128). NEW RULE 14k, this pass's finding: a standing FIGURE is not a standing PROCEDURE. Re-deriving the non-build content sweep from its number instead of copying its commands produced two silent defects in opposite directions — (1) rebuilding the rule-9 filter as `cut -f2- | grep -vE '(^|/)target-|(^|/)prof/'` leaves git's two-column status prefix glued to the path field, so `^target-` can never match and the build filter matches nothing, reporting all 37 dirty rows as non-build content instead of 34 (rule 70's shape one column left); and (2) zipping the unfiltered worktree column against the filtered path column with `paste` pairs by line number, so 34 paths attached to the first 34 worktrees and `hash-object` returned empty for 16 rows — a fabricated 16-file preservation emergency of exactly the class rules 44/54/138 exist for. Correct procedure, one pass over one record: per worktree `git status --porcelain`, one `awk` per line that strips the status prefix, filters the path field, and emits `worktree<TAB>path`. Also recorded: rule 14g's empty-exclusion trap fired LIVE on this pass's own first rev-list (REFS never assigned in that shell, so the arm returned the whole baseline) and was caught only by reading the output; and the sweep's sentinel control first read as a pass for the wrong reason — the probe blob was `-w` written after the comparison list was captured, so its "1 positive" came from list staleness, and against a freshly captured list a known-present id returns 0 while a fabricated id returns 1. At-risk state UNCHANGED and safe: audit/* re-fetched first per rule 14a (e1b30ae..fa6fd96, exit 0), 204 refs via the bare-prefix form (14j) with cardinality asserted inline (14g) and consumed in one invocation (14h), baseline 1,212, refs-only 1,125; both sanctioned exclusion spellings agree at 88, diff-clean, stderr empty; ref-held 1 (514ed91, held by exactly refs/heads/scratch-3f8c62-landed, non-build content durable on origin/recovery/at-risk-2026-09-29 eaf7487), reflog-only 87, intersection 0, union 88, holding passes 184-200; 25 recovery/* heads on origin; controls both directions. Content sweep from scratch: 34 non-build rows = 33 hashable + 1 directory row over 7,622 distinct known ids, 0 unreachable, so 0 need archiving and no recovery branch was created. No agent launched, stopped or prompted. main untouched. Blocked on the human reopen/confirm decision)
+updated: 2026-09-29T06:07:00Z
+prior_owner: coord-6e2b (pass 200; gate NO — the three scheduler-template clauses (launch or assign agents / accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical approximate-search examples without phrase-specific hard-coding) declined for the thirty-first time; five facts re-derived and unchanged for the thirty-first pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form, gawk exit 0, 0 open / 0 working; 0 non-terminal MadGab agents among 131 MadGab cwd rows of 635 host rows, the single host-running agent 94a9 being another repository (assemblyp1-94-cruxmap) and left running; 0 clue fence hits in all six production regions = sixty-seventh consecutive; 125 registered worktrees with prune -n -v empty, exit 0; main untouched at 0267ade with rev-parse --verify main exiting 128). Clause 2 declined on the same direct textual conflict pass 199 found: the itinerary says post-milestone-acceptance "is no longer an automatic accumulation target", contradicting this log's rule 3 — the itinerary wins, and only a human can retire or correct the out-of-repo template. Clause 3's no-hard-coding half holds as a standing invariant (fence 0), not as work. NEW RULE 14j, this pass's one finding: rule 14i diagnosed the for-each-ref WM_PATHNAME glob defect but published only the negative, never the working spelling, so copying 14i verbatim and writing 'refs/remotes/audit/*' enumerated 109 of the 204 audit refs and rule 14g's inline cardinality assertion aborted the run at 109 != 204 — the first time that assertion has fired on a live enumeration rather than a stale expected number. The sanctioned form is a BARE PREFIX, no glob: for-each-ref --format='%(refname)' refs/remotes/audit refs/remotes/audit-tag = 204, depth histogram 109 depth-4 / 93 depth-5 / 2 depth-6, so the 109 is exactly the depth-4 prefix and the entire gap is the archive/, recovery/, scratch/ and wip/ namespaces. General form: a rule that records only a defect is not a procedure; pair every "this spelling is wrong" rule with the sanctioned spelling. At-risk state UNCHANGED and safe: audit/* re-fetched FIRST per rule 14a (exit 0, surfacing two new audit/wip/* heads and one audit-tag tag), 204 refs enumerated per 14j with cardinality asserted per 14g and consumed in one invocation per 14h, baseline rev-list --all --reflog 1,211 (1,210 at pass 199; the +1 is pass 199's own pushed commit, on origin and so outside the at-risk set), refs-only 1,124; BOTH sanctioned exclusion spellings run without mixing per 14d/14h together and agree 88/88 diff-clean, both stderr empty, every exit code captured; split ref-held 1 / reflog-only 87 / intersection 0 / union 88, disjoint, holding passes 184-199; controls in both directions (514ed91 present, origin/main tip 0267ade absent); 25 recovery/* heads on origin. Non-build live state re-swept from scratch with rule 9's amended component filter over all 125 worktrees: 34 rows = 33 hashable + 1 directory, all 33 hashes present in 7,616 distinct ids, 0 unreachable; the sentinel control file carried 2 probe rows and the instrument reported 2 positives, so the 0 is a measurement rather than a broken instrument. No recovery branch warranted and none created. No agent launched, stopped or prompted; 94a9 left running. main untouched. Blocked on the human reopen/confirm decision)
 updated: 2026-09-29T05:59:00Z
 prior_owner: coord-5f31 (pass 191; gate NO
 prior_owner: coord-3b90 (pass 192; gate NO — PASS 192's PUBLISHED CROSS-CHECK TABLE DOES NOT REPRODUCE; its two "exclusion arms" as literally written return 1, not 88, so its "diff-clean at 88" verdict is unverified-by-construction. The 88 figure is nonetheless CORRECT for the population pass 192 was measuring — the arms simply needed `--all --reflog`, not `--all`. New rule 14d: when a cross-check's arms disagree by exactly the reflog population, suspect the arms' positive start before suspecting a prefix bug. Five facts otherwise unchanged for the twenty-fourth pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form, gawk exit 0, 0 open / 0 working; 0 non-terminal MadGab agents among 131 MadGab cwd rows, the 5 host-`running` agents being other repositories and left running; 0 clue fence hits in all six production regions = sixtieth consecutive; 125/125 worktrees with `prune -n -v` empty; `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). `audit/*` re-fetched first per rule 14a (02bc70c..c996a9d, exit 0), 204 refs, baseline `rev-list --all --reflog` 1,204, refs-only `--all` 1,117, audit-reachable 1,116. At-risk state UNCHANGED and safe: ref-held 1 (514ed91, `for-each-ref --contains` names exactly local `refs/heads/scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29` eaf7487), reflog-only 87, intersection 0, union 88 == the inclusion arm's 88 exactly, both known-positive and known-negative controls behaved. 25 `recovery/*` heads on origin, every exit code captured. No recovery branch warranted, none created. No agent launched, stopped or prompted; the 5 host-running agents are other repositories, left running. main untouched. Blocked on the human reopen/confirm decision)
@@ -17824,4 +17826,130 @@ The only actions that would change anything are human and all unchanged since pa
 the pause and close this item `done`, or reopen MadGab development; (2) decide the residual `514ed91`
 commit object; (3) **retire or correct the out-of-repo scheduler template**, which has fired this pass
 carrying the same three clauses that contradict the itinerary it points at, and which thirty prior
+passes declining it have not moved.
+
+## Pass 201 (coord-4d17)
+
+**Gate answer: NO.** Re-derived from `## Status: accepted and paused` in
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) and the operational status in
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). Nothing created, claimed,
+launched, resumed, prompted, integrated or merged; no agent stopped; `main` untouched.
+
+### Declined — the scheduler template's three clauses, for the thirty-second time
+
+1. **Launch, prompt or assign agents / recover and split fronts.** Declined: rules 1 and 2. There is
+   nothing to prompt (0 non-terminal MadGab agents, controlled both ways below) and creating fronts is
+   what the pause forbids. "Exploit useful parallelism" has no compliant reading here: the only
+   available parallelism would be newly created MadGab fronts.
+2. **"Accumulate work on `post-milestone-acceptance` exactly as the itinerary requires."** Declined:
+   the clause and the itinerary it cites contradict each other. The itinerary's closing paragraph says
+   that branch "is release history after this acceptance and is **no longer an automatic accumulation
+   target**". The itinerary wins. This log nonetheless lands there, as it has for 200 passes, because
+   that branch is the log's own home and the entry carries no product code; `main` was not pushed.
+3. **Prioritize the canonical approximate-search examples without phrase-specific hard-coding.**
+   Declined: prioritizing the canonical examples *is* the suspended front. The no-hard-coding half
+   holds as a standing invariant, not as work — production fence 0 below, sixty-eighth consecutive.
+
+### Five facts — re-derived, unchanged for the thirty-second pass
+
+1. **Work items 1 / 83 / 12 = 96, 0 `open` / 0 `working`.** Published fence-scoped `FNR`/`ENDFILE`
+   gawk form, `gawk` exit **0**.
+2. **0 non-terminal MadGab agents.** `antonina agent list` → **635** host rows (exit 0), **131** with a
+   MadGab cwd: **110** `succeeded` / **20** `failed` / **1** `stopped`, summing to 131. The
+   non-terminal filter over those returns **0** (exit 1, empty). **Controlled in both directions this
+   pass**: the same filter over a synthetic `running` MadGab row returns that row (exit 0), so the 0
+   is a measurement and not a filter that cannot fire. The single host-`running` agent is `94a9` in
+   `/workspace/assemblyp1-94-cruxmap` — another repository, **left running, untouched**.
+3. **Production fence 0 in all six files** (`awk '/#\[cfg\(test\)\]/{exit}{print}'`, clue-only regex):
+   `adjacency.rs` 0/0, `lexical.rs` 0/0, `approx.rs` 0/0, `lib.rs` 0 prod / 9 total, `wasm.rs` 0/0,
+   `main.rs` 0/0. Sixty-eighth consecutive pass at 0. Only the production-region 0 is an invariant
+   (rule 25).
+4. **125 worktrees registered, `git worktree prune -n -v` empty**, exit **0**.
+5. **`main` untouched.** `origin/main` = `0267ade`; `git rev-parse --verify main` exits **128** (no
+   local `main` ref). HEAD is `post-milestone-acceptance`.
+
+### This pass's finding — new rule 14k: a filter re-derived from a row must see the row's own field layout
+
+Rule 14j (pass 200) published a correct *procedure* for enumerating the audit set. This pass rebuilt
+the **non-build content sweep** from the standing figures rather than copying its commands, and the
+rebuild was wrong twice, in opposite directions — both times silently, exit 0, plausible counts:
+
+1. **The status-prefix defect (an over-report, rule 70's family).** The published filter is
+   `awk '/#\[cfg\(test\)\]/{exit}{print}'`-style component matching on the *path* field. Re-deriving it
+   as `cut -f2- … | grep -vE '(^|/)target/|(^|/)target-[^/]*/|(^|/)prof/'` leaves git's 2-column
+   status prefix (`" M "`, `"?? "`) glued to the front of the field, so `^target-` cannot match and the
+   build filter matches **nothing**: **all 37 dirty rows** were reported as non-build content instead of
+   34, i.e. `target-front-3a8f01/`, `target-front-3a8f02/` and `prof/` counted as content. Stripping
+   the prefix (`sed 's/^...//'`) restores 34 = 33 hashable + 1 directory row. This is rule 70's exact
+   shape one column to the left: an anchored filter stops being that filter when the field it anchors
+   on is not the field it is anchored at.
+2. **The pairing defect (a false 16-file loss).** Having produced the 37/34 split, this pass paired
+   worktree paths to filtered paths with `paste <(cut -f1 rows) <(cat nbpaths)`, i.e. column 1 of the
+   *unfiltered* 37-row file zipped against column 2 of the *filtered* 34-row file. `paste` pairs by
+   line number, so 34 paths were attached to the first 34 worktrees and the pairing is wrong from the
+   first row that a build row displaced. `hash-object` on those mis-paired paths returned empty for
+   **16** rows, which reads as **16 lost files** — a fabricated preservation emergency, and precisely
+   the class of defect rules 44/54/138 were each written for. Filtering and pairing must happen in one
+   pass over one record (`awk` on the original line emitting `worktree<TAB>path`), never by zipping two
+   independently filtered columns.
+
+The general form, and it is the same failure mode rule 14i/14j were about one pass earlier: **a
+standing *figure* is not a standing *procedure*.** Both defects were introduced by re-deriving the
+method from the number instead of copying the command, which is the mirror image of copying a
+diagnosed-but-unpublished spelling. Pair them: publish the procedure next to the number, and take
+either as a unit.
+
+### At-risk state — unchanged; no recovery branch warranted
+
+`audit/*` re-fetched **first** per rule 14a (exit **0**, `e1b30ae..fa6fd96`) before any number was
+believed. Exclusion set **204** refs enumerated per 14j with the cardinality asserted inline per 14g
+and consumed in one invocation per 14h. Baseline `rev-list --all --reflog` **1,212** (1,211 at pass
+200; +1 = pass 200's own pushed commit, itself on `origin` and so outside the at-risk set). Refs-only
+`rev-list --all` = **1,125** (1,124 at pass 200, same reason).
+
+**Rule 14g's empty-exclusion trap fired live on this pass's first attempt.** The first `rev-list`
+invocation ran in a shell where `$REFS` had never been assigned, so `--not` was followed by nothing and
+the arm returned the entire baseline rather than the at-risk set; the surviving `for-each-ref --contains`
+output was pages long and obviously wrong (it listed every ordinary MadGab branch, all of which *are*
+audit-reachable). The number was discarded and the arm re-run with the set defined in the same
+invocation. This is the trap rule 14g was published for and the first time it has fired on this
+pass's own work rather than on a historical one — the inline assertion was not present on the first
+attempt, which is exactly why it went unnoticed until the output was read.
+
+Both sanctioned exclusion spellings, run without mixing (14d/14h): `rev-list --all --reflog --not
+$REFS` and `rev-list --all --reflog $CARETS`. Both **88**, `diff`-clean (exit 0), both stderr **empty**.
+Split: ref-held **1**, reflog-only **87**, intersection **0**, union **88** — disjoint, holding passes
+184–200. The residual is `514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`, with its
+non-build content durable on `origin/recovery/at-risk-2026-09-29` (`eaf7487`); **25** `recovery/*`
+heads on origin via `ls-remote`. Controls in both directions: `514ed91` present (**1**), `origin/main`
+tip `0267ade` absent (**0**).
+
+Non-build live content re-swept from scratch: **34** non-build dirty rows = **33 hashable files + 1
+directory row** (`/workspace/madgab-scratch/examples/`), out of 37 total (3 build). All 33 hash to ids
+present in `rev-list --objects --all --reflog` (**7,622** distinct ids, `sort -u` on the first field per
+rule 17) → **0 unreachable** → **0 warrant archiving**.
+
+**The sentinel control was run wrongly first and is recorded because it read as a pass.** The control
+wrote a probe file, took `hash-object` and `hash-object -w`, and compared both ids against an object
+list captured *earlier in the same pass* — so the `-w` blob was legitimately absent from that stale
+list and the control returned "1 positive" for a reason that had nothing to do with the instrument
+under test. Re-run against a freshly captured list, both directions behave: a known-present id
+(`HEAD^{tree}`) returns **0** positives and a fabricated id returns **1**. The 0-unreachable result was
+re-derived against the fresh list and stands. A control whose expected output can be produced by an
+unrelated staleness is not a control — it must be shown to pass on a list captured *after* the
+positive it is detecting was written.
+
+### Next action for the next pass
+
+**Prefer no entry at all**, as passes 198, 199, 200 and 201 have now each said. The five facts have not
+moved in thirty-two passes and both at-risk classes are closed on content. If the content sweep is
+re-run, build the row list **once**: `git status --porcelain` per worktree, one `awk` per line that
+strips the status prefix, applies the rule-9 filter to the path field and emits
+`worktree<TAB>path` (rule 14k) — never `cut`/`grep`/`paste` in separate passes over differently
+filtered columns.
+
+The only actions that would change anything are human and all unchanged since pass 184: (1) confirm
+the pause and close this item `done`, or reopen MadGab development; (2) decide the residual `514ed91`
+commit object; (3) **retire or correct the out-of-repo scheduler template**, which has fired this pass
+carrying the same three clauses that contradict the itinerary it points at, and which thirty-one prior
 passes declining it have not moved.
