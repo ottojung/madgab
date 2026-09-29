@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e88
-updated: 2026-09-29T23:20:00Z
+owner: coord-9c21
+updated: 2026-09-29T23:22:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -248,12 +248,21 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
 | 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
-| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, and any that is **remote-only** is flagged — added at pass 331, also cheap, and also run it directly |
+| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, and every branch published **with a sha** is checked against the live commit and base — added at pass 331, extended at pass 332, also cheap, and also run it directly |
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
 can change without anything in the repository changing: a human who deletes one of the branches named
 above will turn it red. That is the correct answer — the standing section would then name a branch
 that is gone, which is the defect it exists to catch.
+
+**Gate 7 now also adjudicates TIP and BASE, not just existence (pass 332).** It reads the human list
+— the `## Current gate status` block only, delimited by its own heading — and checks every
+`branch = sha` pair against the live commit, and every `review/` branch's parent against
+`origin/main`. On the section as it stands it finds **5 claims, 0 tip mismatches, 0 base
+mismatches**, so the merge target is `8c88a59` on base `0267ade` as documented. A branch that exists
+at a **different commit** now turns gate 7 red, which nothing did before: rule 323 said *"a review
+branch is its tip AND its base"* and three passes (319, 321, 323) described a mis-based branch as
+"prepared and validated" because **prose describing a branch is not a check on it**.
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -9788,3 +9797,119 @@ attribute the new member first (pass 328's rule: enumerate reflog transitions, k
 non-fast-forward ones; 125 of 1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not
 `.git/logs`). **(3)** Everything else is human, and retiring this recurring pass is still the
 highest-value action available.
+
+## Pass 332 (coord-9c21, 2026-09-29T23:12Z-23:26Z) — gate NO; six facts re-derived unchanged; ACTED — gate 7 resolved branch NAMES for a pass, so the shas the human list tells a human to merge and delete were checked by nothing, and rule 323's "a review branch is its tip AND its base" was advice rather than a check
+
+Gate answer **NO**, declined on `## Status: accepted and paused` plus the accepted-state document.
+The scheduler template's three clauses declined for the sixty-eighth time and **for the same
+reasons as the previous sixty-seven**: (1) launching/prompting MadGab agents and claiming or
+creating work is forbidden while paused; (2) accumulating on `post-milestone-acceptance` "exactly
+as the itinerary requires" is a direct textual conflict, because the itinerary's closing paragraph
+says that branch "is release history after this acceptance and is **no longer an automatic
+accumulation target**" — the itinerary wins, and only a human can retire or fix the out-of-repo
+template; (3) "prioritize the canonical approximate-search examples" is closed, because the
+no-hard-coding half of it is a **standing invariant measured at 0 this pass** rather than work, and
+the other half is the accepted known limitation the accepted-state document preserves on purpose.
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+**main untouched** (`rev-parse --verify main` exit 128, `origin/main` `0267ade`, HEAD on
+`post-milestone-acceptance` in sync with origin).
+
+**All six standing facts re-derived from the seven bare gates, all unchanged.** Census **96** =
+0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`, with the skills-doc fenced
+example correctly excluded (selector 0 / fence-blind 1). Clue fence **0** across all six production
+regions, every control firing (2/2 clues, 2/2 targets, 1/1 curly-apostrophe, 5 upper-case
+decomposed, literal-join split mid-word and at a word bound, planted above/below `mod tests`
+1/0), and the one per-word hit in `src/lib.rs` is the pass-216 adjudicated benign
+`.expect("key came from cells")`. Agents **0** non-terminal in a MadGab cwd over 131 MadGab rows of
+748 host rows = 110 `succeeded` / 20 `failed` / 1 `stopped`; the **7** host-`running` agents are
+other repositories and were **left running untouched**; `a11d` remains a stale `idle` row in `/tmp`
+and not a MadGab cwd. `main` untouched as above. `at-risk-delta.sh` bare **exit 0** at instrument
+90 / published 89 with the one delta named and attributed to the `514ed91` spelling difference, so
+**no growth** and no attribution owed. Worktrees: **126 listed = 1 primary + 125 registrations**,
+`.git/worktrees` = 125, `prune -n -v` **empty**, exit 0 — i.e. unchanged, and this pass did **not**
+re-derive the 125 row (pass 329 already settled this exact 126-vs-125).
+
+### ACTED: gate 7 checked branch NAMES, so the shas were unchecked, and rule 323 was prose
+
+Pass 331 built `branches.sh` to catch a human being pointed at a branch that does not exist where
+the log says it does. It resolves **names** against three namespaces. But the standing human list is
+not four names — it is four names **with commits**: merge `review/drop-dead-trace-and-fence` =
+`8c88a59`, delete `review/drop-dead-trace-env` (`a29f3d7`), `review/drop-dead-trace-env-on-main`
+(`66e28ff`), `review/run-clue-fence-in-ci` (`6edff83`). **No instrument read any of those four
+shas.** `grep -c 8c88a59` across `branches.sh`, `selfcheck.sh` and `refs.sh` = **0, 0, 0**.
+
+The consequence is the exact failure this log exists to prevent, in its purest form: a branch that
+exists at a **different commit** passes every name-level check, and a human merging "the branch"
+gets a commit the log never described. And this is not hypothetical — **rule 323 exists because
+pass 323 found `review/drop-dead-trace-env` parented on the accumulation line rather than on main**,
+which would have dragged 397 log commits to deliver 4 deleted lines. Passes 319, 321 and 323 each
+described that branch as "prepared and validated" without either noticing. The defect survived
+three passes of exactly this log because **prose describing a branch is not a check on it**, and
+rule 323 was recorded as advice where it needed to be an instrument.
+
+Extended gate 7 to adjudicate the two halves rule 323 names. Two checks, both reading the section
+rather than hard-coding it, so neither can become the stale figure rule 14k exists to prevent:
+
+- **tip** — every `branch = sha` pair in the human list is compared against
+  `git rev-parse <branch>^{commit}`. Currently **5 claims, 0 mismatches**: the merge target is
+  `8c88a59` on base `0267ade` exactly as documented.
+- **base** — every `review/` branch's parent is compared against `origin/main`, which is rule 323
+  stated as a command. Currently **0 mismatches**.
+
+**Two scoping decisions, both forced by the first run reporting FALSE POSITIVES, and both worth
+recording because the failures were in the direction this log cares about.**
+
+1. **The tip check is scoped to the `## Current gate status` block, delimited by its own heading.**
+   Unscoped, it flagged `recovery/probe-scaffolding-2026-09-28` (prose `51ebdd1`, live tip `2408c25`)
+   — **a false defect on a branch that has never been wrong.** The reader-facing section also
+   contains the historical recovery narrative, where that sha is a **record of what the branch was**
+   when each recovery pass pushed it; the branch has since advanced correctly. A record of the past
+   is not an instruction to the future.
+2. **The base check is scoped to `review/` and to single-commit branches.** Unscoped it reported
+   **3 base mismatches, all three false**: the two `recovery/*` archives are *supposed* to be off
+   main (5 and 37 commits), and `review/drop-dead-trace-env` is the pass-323 defect the standing
+   section already names and **explicitly forbids merging**. A branch a human is told to **delete**
+   has no base to be right about. My first filter also could not fail: it counted
+   `$mbparent..$mb`, which is the branch's own last commit and is therefore **always exactly 1** —
+   so it flagged the 397-commit branch on the strength of a predicate that could not discriminate.
+   Corrected to `origin/main..$mb`.
+
+Both are rule 292's shape (a check that reports clean without a population) and the pass-317 defect
+(a check that condemns correct text is worse than no check) reached from a new direction. **Rule
+332: a new check's population must be stated before its first run, and a first run that reports a
+defect in a class the repository is KNOWN to contain is presuming a finding until it is measured.**
+Here the presumptions were three false base mismatches and one false tip mismatch.
+
+**Three plants, all firing (rule 14q — a check with no plant is a hope):**
+
+| # | plant | expected | got |
+|---|---|---|---|
+| A | prose says `deadbee1` for the merge target | tip mismatch | `SHA MISMATCH … prose says deadbee1, branch is 8c88a59`, rc 1 |
+| B | `review/plant-moved` at `0267ade`, prose still says `8c88a59` — **name resolves, tip moved** | tip mismatch | `SHA MISMATCH … prose says 8c88a59, branch is 0267ade`, rc 1 |
+| C | `review/plant-base`, **1** commit ahead of main but parented on `main^` | base mismatch | `BASE MISMATCH … parent is c0ecd7c, origin/main is 0267ade`, rc 1 |
+
+Plant B is the one that matters and the one an earlier attempt at it did **not** produce: it was
+first built as a branch named `plant-moved` while the prose named `review/plant-moved`, so
+`rev-parse` failed, the claim was skipped, and the check printed **0 mismatches and rc 1** — a
+*false zero in the dangerous direction* with a red exit beside it. The unresolved-name branch is
+skipped deliberately (the name-level check already reports that class, and re-reporting it as a sha
+failure would double-count one defect as two), which is why the plant had to be built at the right
+namespace to test anything. Recorded because the failure mode — a plant that silently tests nothing
+and still exits non-zero — is indistinguishable from a working check at the exit code alone.
+
+`branches.sh` bare is **exit 0** and the full seven-gate list is **7/7 exit 0**. All plant branches
+and worktrees were removed; `git status` shows one modified file, this pass's intended edit.
+
+**Nothing else moved.** The at-risk family is closed on content since pass 184 and was not re-run.
+The three human items are unchanged: **merge `review/drop-dead-trace-and-fence` = `8c88a59`** (now
+machine-verified to be 1 commit on `0267ade`, +2/−4 in 1 file), delete the three superseded
+branches with `git push origin --delete review/drop-dead-trace-env-on-main` for the remote-only one,
+**retire this recurring pass**, and **fix the out-of-repo scheduler template**.
+
+NEXT: **(1)** Run the seven bare gates and nothing else; gate 7 now also verifies tip and base, so
+do not re-verify them by hand. **(2)** Do not re-run this pass's three plants; if you extend gate 7,
+plant your new check before trusting a green run, and state its population first (rule 332).
+**(3)** If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328's rule:
+enumerate reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
+`.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
+recurring pass is still the highest-value action available.
