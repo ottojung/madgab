@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e1b
-updated: 2026-09-29T09:05:00Z
+owner: coord-7f31
+updated: 2026-09-29T09:15:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20252,3 +20252,119 @@ this pass's own instrument, not in the repository; all five figures are unchange
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired sixty times against an itinerary that contradicts them;
 and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 230 (coord-7f31)
+
+Gate **NO** for the sixty-first time. Nothing claimed, launched, prompted, stopped or integrated; no
+new work item; no recovery branch; `main` untouched at `0267ade` (no local `main` ref,
+`rev-parse --verify main` exit 128). The three scheduler-template clauses are declined exactly as in
+pass 229: the itinerary's `## Status: accepted and paused` plus `docs/accepted-state-2026-09-27.md`
+govern the "launch or prompt Antonina agents" clause, and clause 2 remains the same direct textual
+conflict — the itinerary calls `post-milestone-acceptance` "no longer an automatic accumulation
+target", so "accumulate on `post-milestone-acceptance` exactly as the itinerary requires" cannot be
+satisfied by doing what the template says. Clause 3's no-hard-coding half was re-verified as a
+standing invariant, not as work (see below).
+
+**Five facts, re-derived (not carried):**
+
+1. **Work items 1 blocked / 83 done / 12 superseded = 96**, 0 `open`, 0 `working`. Fence-aware
+   `work_item: true` scan over `git ls-files 'docs/*.md' 'docs/**/*.md'` with code-fence skipping
+   (so `docs/skills/work-items.md`'s example header does not register), then a second fence-aware
+   per-file `state:` read. 96 reconciles with pass 229's 96; pass 203's 98 stays unreproduced.
+2. **Antonina: 0 non-terminal in a MadGab cwd.** Host census **655** rows (down from 656 — churn in
+   other repositories, untouched). `madgab` in the cwd column: **131** rows, every one terminal. The
+   host-wide non-terminal rows are 3 `running` — `92fa1` (`volodyslav-92-plan`), `78e1`
+   (`qai-proviral-78-reapply`), `94a9` (`assemblyp1-94-cruxmap`) — all other repositories, all left
+   running — plus one stale `idle` row in `/tmp`, not a MadGab cwd.
+3. **Production fence 0 for the joined-clue spelling; per-word 1 in `lib.rs`, adjudicated benign.**
+   Region line counts under the committed `fence.awk` reproduce pass 215/216/226/227 exactly:
+   adjacency 269, lexical 260, approx 464, lib **4,242**, wasm 67, main 269. Joined-clue
+   (`hits justice dupe hid came`, `wreck a nice beach`) **0 in all six**. Per-word
+   (`hits|justice|dupe|hid|came|wreck|beach`): 0 in five files, **1 in `lib.rs`** at
+   `src/lib.rs:3597` — `.expect("key came from cells")`, the ordinary English past tense in a panic
+   message, adjudicated benign at pass 216 and not re-opened here. Synthetic control reads 1, and a
+   5-word one-liner reads 5 under the match-counting spelling. `lib.rs` whole-file joined-clue is 9,
+   reproducing pass 229. The no-hard-coding invariant therefore genuinely holds: the only per-word
+   hit is a token collision, and every canonical phrase in `src/` lives in a test region.
+4. **`main` untouched; 125 registered worktrees, `git worktree prune -n -v` empty, exit 0.**
+5. **At-risk unchanged: 1 ref-held / 87 reflog-only / 0 intersection / 88 union, baseline 1,246.**
+   `audit/*` re-fetched FIRST by its real source namespace, no `--prune`, exit 0
+   (`5a76169..3f4da5a`). Exclusion set **205** refs (204 heads + 1 tag — read inline, not a
+   constant). Both sanctioned arms `diff`-clean at **88** using the per-ref caret spelling. Ref-held
+   `514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`, content durable on
+   `origin/recovery/at-risk-2026-09-29` = `eaf7487`, `ls-remote`-verified. **26** `recovery/*` heads
+   on origin. No recovery branch warranted and none created. Non-build content sweep re-run per
+   rule 14ah: **37** dirty rows = 3 build + 34 non-build, 33 files + 1 directory row
+   (`madgab-scratch/examples/`, members `structrank.rs` and `structs.rs` both durable), 33 rows →
+   32 distinct hashes, and with `LC_ALL=C sort -u` on **both** sides before `comm` the answer is
+   **0 unreachable**, independently confirmed by `grep -Fxc -f` = 32.    Pass 229's duplicate-pair false at-risk does not
+   recur: its `a0ef0cf` pair (`madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+   `madgab-probe-5b1e93/examples/probe_final.rs`) is the known same-content pair, 33 rows → 32
+   distinct hashes.
+
+**This pass's finding is a real regression in a STANDING FIGURE, and it is a false zero in the
+dangerous direction: pass 229 silently reverted pass 215's region repair.** Pass 229's published
+fence table quotes its region as `awk '/#\[cfg\(test\)\]/{exit}{print}'` — the *superseded*
+pre-pass-215 boundary, explicitly retired by rule 14y when it was found to cut `src/lib.rs` at line
+381 and exclude 3,861 lines of production code including the whole `impl Generator`. Run verbatim,
+that spelling gives `lib.rs` a **380**-line region, not 4,242. Two consequences, and both were
+published as facts by pass 229:
+
+- pass 229 published "per-word … is **0** in `lib.rs`'s production region". Under the committed
+  `fence.awk` it is **1** (`src/lib.rs:3597`). The 0 is exactly the false zero pass 216 diagnosed on
+  pass 215, reproduced by reverting the same repair, eight passes later. Pass 229's own *next
+  action* item 3 repeats the 0 and item 4 says "do not re-open `lib.rs`'s per-word `1` (pass 216's
+  `.expect` at 3597, adjudicated)" — the two instructions are mutually inconsistent, and item 4 is
+  the correct one.
+- the same reversion also **manufactures a false positive** in the opposite file: under the
+  superseded spelling `lexical.rs` reads per-word **1** (its line-19 module doc comment
+  `//! determiner while \`beach\` is not.`, which `fence.awk` correctly strips as a comment and the
+  bare `awk` does not). So one region defect simultaneously hid a real hit in `lib.rs` and invented
+  one in `lexical.rs`.
+
+**New rule 14ai: a superseded instrument spelling is not a shorthand for the current one.** A repair
+to a measurement instrument is not discharged by recording it as a new rule; the *published command*
+in the log body still carries the old behaviour, and any pass that copies a region by hand rather
+than invoking the committed `fence.awk` reverts it silently — with exit 0, no warning, and a
+plausible table. This is the same class as rules 14v (derive the alphabet from the property document,
+not from log memory) and 14q (a control that cannot be re-derived from the file it names
+manufactures confidence in the direction the conclusion already points), one level up: here the
+*conclusion already pointed at 0* and the reverted instrument agreed, so nothing in the pass could
+have flagged it. The only thing that caught it was re-deriving the region-line counts, which every
+pass since 215 has published and pass 229's did not. Therefore: **never hand-write the fence region**
+— call `gawk -f docs/work/paused-recon/fence.awk`, which fails open loudly (exit 2 on an empty
+region) rather than quietly shrinking to 380 lines; and when a log body quotes an instrument command,
+check it against the instrument's current source before trusting the figure beside it.
+
+Also recorded, no action: pass 229's `audit/*` count of **204** omits the tag namespace — the
+exclusion set is **205** (204 `refs/remotes/audit/*` + 1 `refs/remotes/audit-tag/*`, the
+`approximate-search-milestone-2026-09-25` tag), which is the "+1 tag = 205" the log has published
+since pass 202. Harmless here, because the tag commit is reachable from the milestone branch and so
+contributes nothing to the exclusion, but it is the same copy-without-re-deriving failure as the
+region. Pass 229's other figures reconcile exactly: baseline 1,245 → **1,246** (+1 = pass 229's own
+pushed commit, on `origin` and therefore outside the at-risk set), `recovery/*` heads 26 = 26,
+`lib.rs` whole-file joined-clue 9 = 9, per-word control 5 = 5, non-build 37 = 3 + 34 with 33 files
+and 0 unreachable, all reconciling under rule 14ah.
+
+### Next action
+
+1. Expect the fence region to be measured **only** by `gawk -f docs/work/paused-recon/fence.awk`,
+   with region-line counts **269 / 260 / 464 / 4242 / 67 / 269**. If any published table shows
+   `lib.rs` at 380, the instrument has been reverted (rule 14ai) and every figure in that table is
+   void in both directions.
+2. Expect joined-clue **0** in all six production regions; per-word **0 / 0 / 0 / 1 / 0 / 0** in
+   adjacency / lexical / approx / **lib** / wasm / main, the `1` being `src/lib.rs:3597`
+   `.expect("key came from cells")` — adjudicated at pass 216, do not re-open. `lexical.rs` is **0**;
+   a `1` there means comments are no longer being stripped.
+3. Expect census 96 (1 blocked / 83 done / 12 superseded, 0 open / 0 working), baseline **1,246**,
+   at-risk **1 / 87 / 0 / 88**, exclusion set **205** (204 heads + 1 tag), **26** `recovery/*` heads,
+   125 worktrees, `main` absent. Read the ref and head counts inline; they are not constants.
+4. Expect non-build **37 = 3 build + 34**, 33 files → 32 distinct hashes, **0 unreachable**, with
+   `LC_ALL=C sort -u` on both sides before `comm` (rule 14ah) or `grep -Fxc -f` instead.
+5. Otherwise **prefer no entry at all**. Pass 230's finding is a defect in a past pass's instrument,
+   not in the repository; all repository state reconciles and is safe.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired sixty-one times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
