@@ -1,13 +1,11 @@
----
 work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f4b
-updated: 2026-09-29T09:56:00Z
+owner: coord-2b83
+updated: 2026-09-29T10:03:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
----
 
 ## Recovered frontmatter history (pass 218)
 
@@ -16328,7 +16326,6 @@ arriving carrying clauses that contradict the itinerary), confirm the pause (clo
 or reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style
 whole-path search, not another widening of the Cartesian-prefix traversal).
 
----
 
 ## Pass 184 (coord-5c17)
 
@@ -20499,7 +20496,6 @@ development; decide the residual `514ed91` commit object; retire or correct the 
 template, whose three clauses have now fired sixty-two times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
 
----
 
 ## Pass 232 (coord-8e6b)
 
@@ -20777,7 +20773,6 @@ template, whose clauses have now fired 234 times against an itinerary that contr
 template, not this log, is what keeps generating passes whose correct outcome is "nothing to do".
 Next pass: prefer no entry at all.
 
----
 
 ## Pass 235 (coord-6f31) — 2026-09-29T09:42:57Z
 
@@ -20840,7 +20835,6 @@ No content sweep was re-run (closed on content since pass 184). Still **blocked 
 reopen/confirm decision**; the three outstanding human items are unchanged. Next pass: prefer no
 entry at all.
 
----
 
 ## Pass 236 (coord-4e7a) — 2026-09-29T09:49Z
 
@@ -20930,7 +20924,6 @@ Next pass: prefer no entry at all. Before choosing a number, run
 `grep -o '^## Pass [0-9]*' docs/work/items/w-paused-reconciliation.md | awk '{print $3}' | sort -n | uniq -d`
 and expect **empty** (rule 14ae).
 
----
 
 ## Pass 237 (coord-7f4b) — 2026-09-29T09:56Z
 
@@ -21052,3 +21045,143 @@ outstanding human items: (1) reopen MadGab development or confirm the pause stan
 remote recovery branch; (3) retire or correct the out-of-repo scheduler template, whose three clauses
 have now fired 237 times against an itinerary that contradicts them — that template, not this log, is
 what keeps generating passes whose correct outcome is "nothing to do".
+
+
+## Pass 238 (coord-2b83) — 2026-09-29T10:03Z
+
+**Gate NO**, for the fifty-seventh time, on the same grounds: `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. The three
+scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) are declined again; clause 2 remains a direct textual conflict, since
+the itinerary says that branch "is no longer an automatic accumulation target".
+
+Nothing claimed, launched, stopped, prompted or integrated. No new MadGab work item. No recovery
+branch. `main` untouched. The 3 host-`running` Antonina agents (`12b1` kawun, `78f1` qai-proviral,
+`94a9` assemblyp1) plus the stale `idle` row `a11d` in `/tmp` belong to other repositories and were
+left running, untouched, nothing prompted.
+
+### This pass nearly published a fabricated 96-ref loss, and the near-miss is the finding
+
+Rule 14j prescribes the **bare-prefix** enumeration form, `for-each-ref … refs/remotes/audit`,
+precisely because the glob form is a trap. I did not follow it: I enumerated with
+`for-each-ref --format='%(refname)' 'refs/remotes/audit/*'`, which read **108**, compared that
+against `ls-remote --heads origin` = **204**, and `comm`ed the difference as **96 "MISSING from
+mirror"**. On that basis I was one step from recording a preservation emergency: "96 remote branches
+lost from the audit mirror", which is the exact class of fabricated finding rules 44/54/138 exist
+for.
+
+The trap: `for-each-ref` treats its trailing argument as a ref **prefix match on full refname**, not
+a shell glob, and `*` in a refname pattern does **not** cross `/`. So `refs/remotes/audit/*` matches
+only the **108 direct children** of `audit/` and silently omits every grandchild
+(`audit/archive/…`, `audit/recovery/…`). The bare-prefix form `refs/remotes/audit` matches all
+**204**. Measured both ways in one invocation:
+
+| form | count |
+|------|------:|
+| `for-each-ref … 'refs/remotes/audit/*'` (glob) | 108 |
+| `for-each-ref … refs/remotes/audit` (bare prefix, rule 14j) | **204** |
+| `ls-remote --heads origin` (truth) | **204** |
+
+Nothing was ever missing. Three further controls confirm the mirror is intact rather than merely
+consistent with itself: a **deleted** ref (`update-ref -d` on `audit/archive/local-bound-2026-09-25`)
+is re-created by the full-mirror fetch as `* [new branch]`, proving the fetch genuinely writes into
+the namespace; `show-ref | grep -c ' refs/remotes/audit/'` = **204** against the glob form's 108, an
+independent counter; and the `comm` "missing" list contained refs that `rev-parse --verify` resolved
+normally — a fabricated list of absent objects, each of them present.
+
+**Rule 14ag: a silently-truncated prefix is worse than a loud failure, because it reads as a
+finding.** The glob form exits **0**, prints plausible refnames, and returns a *subset* — every
+element of which is real. So the output is indistinguishable from a correct enumeration until it is
+differenced against a second population, and the difference it manufactures points at **data loss**,
+the most trusted possible conclusion in a preservation check. `comm` reported the direction with
+confidence it had not earned: those 96 refs were never candidates for deletion.
+
+The generalizable form: **an instrument that under-reports must be distinguished from a repository
+that has shrunk, and the test is whether a control the instrument *should* fail, does fail.** No
+control existed for the enumeration count, because the fence and the exclusion arms both had theirs
+while this one ran on a bare number. The check that catches it costs one command — enumerate by the
+**prefix** form alongside the glob form and require they agree, and require the prefix form to equal
+`ls-remote`. A count taken from a pattern whose matching semantics were assumed rather than read is
+a measurement of the pattern. The log already records this trap for `for-each-ref`; what is new here
+is that it fired on a *fresh* reader who had the rule available and still reached for the glob,
+which is a stronger argument for putting the prefix form in the instrument files (as was done for
+the fence alphabet in rule 14ak) rather than only in prose.
+
+### Five standing facts, re-derived from instruments this pass
+
+1. Census **96** = 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open`, 0 `working`**. Taken by
+   per-file frontmatter identity (`work_item: true`), not by a bare `^state:` grep. Population
+   reconciled explicitly, per rule 14l: `docs/work/items/*.md` alone = **95** real items across 97
+   files, and the 96th is `docs/continuation-approximate-search.md` (`w-7c4a91`, `state: superseded`),
+   which lives outside `items/` and is therefore visible only in the command's argument list. The
+   two non-items are named by identity, not by subtraction: `items/README.md` (no frontmatter) and
+   `w-0f3a17-shortlist-rule.md` (full work-item-shaped header but `work_item: false`).
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 660 host rows (584 succeeded /
+   64 failed / 8 stopped / 3 running / 1 idle). The 4 host non-terminal rows are other repositories,
+   left running and untouched. Read via the JSON field `state`, not `status`.
+3. Fence **0 in all six production regions**, phrase **0/0/0/0/0/0** and decomposed
+   **0/0/0/1/0/0**, under rule 14n's pinned region via `fence.awk` + `fence-alphabet.awk`, both
+   sanctioned spellings captured as variables and matched by the caller (not piped into the
+   alphabet file — that pipeline is the rule-233 silent-weakening form). The single decomposed hit is
+   `src/lib.rs:3597` `.expect("key came from cells")` — pass 216's adjudicated non-defect, not
+   re-opened. **Controls both directions, run this pass**: all six canonical strings planted as code
+   one per line immediately above `mod tests` read phrase **4** / decomp **6** in a file whose
+   baseline is 0/0; and **each string individually** reads (1/1, 1/1, 1/1, 1/1, 0/1, 0/1) — the two
+   decomposed array forms being invisible to the phrase arm and caught by the decomposed arm is
+   rule 14u confirmed live, not assumed. `src/` restored byte-clean (`git status --porcelain src/`
+   empty). *Self-correction recorded:* my first control read 3/4 against a copied expectation of
+   "4/7"; the expectation had been transcribed from a pass that planted into `lib.rs` (decomp
+   baseline 1) rather than `approx.rs` (baseline 0) and used six plants where I had used four. The
+   instrument was right and my expectation was wrong; re-run with the full six-plant form, it reads
+   4/6 as predicted. **A control that fails must be diagnosed before it is adjusted** — the same
+   reflex as 14r/14q applied to a self-inflicted mismatch.
+4. **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+5. `main` untouched: no local `main` ref (`git rev-parse --verify main` exits **128**),
+   `origin/main` **0267ade**. HEAD `e3ec3a2` on `post-milestone-acceptance`, in sync with origin.
+
+**Preservation, re-derived: at-risk set 87 over 205 refs, no recovery branch warranted.**
+`audit/*` re-fetched FIRST by its real source namespace with **no `--prune`** per amended rule 14a
+(exit 0; `audit/post-milestone-acceptance` advanced `9b30b05..e3ec3a2`). Enumerated by the **bare
+prefix** form, cardinality read inline: **204** audit refs (= `ls-remote` 204; the glob form's 108 is
+the defect above), **+1** the local-only `scratch-3f8c62-landed` = **205**. Baseline
+`rev-list --all --reflog` **1,254** (+1 vs pass 237's 1,253 = this log's own commits). All three
+sanctioned arms run **unmixed** per rule 14h and agree **87/87/87, mutually `diff`-clean, stderr
+empty**: the inclusion arm (`comm -23` against the baseline), pass 237's corrected single-toggle
+`--not "${REFS[@]}"`, and the per-element caret form `"${REFS[@]/#/^}"`. The mis-built
+`--not X --not Y` form was not used. Split: reflog-only **87**, intersection with the ref-reachable
+set **0**. Controls both directions: `514ed91` present and `origin/main` `0267ade` absent.
+Residual content durable — `refs/remotes/audit/recovery/at-risk-2026-09-29` = `eaf7487`,
+byte-identical to `git ls-remote origin` on that ref; 26 `recovery/*` heads on origin; and
+`514ed91` is still held by exactly `refs/heads/scratch-3f8c62-landed`. No content sweep re-run:
+closed on content since pass 184, and the only population change is these log commits.
+
+**Note the figure moved 88 → 87 and the reason is a population, not a recovery.** Passes through 237
+reported 88 at-risk with a "ref-held 1 / reflog-only 87" split. Re-derived over the correct 205-ref
+set, the set is **87** and `514ed91` is **not in it at all**: it is reachable from
+`scratch-3f8c62-landed`, so the inclusion arm excludes it along with everything else that a ref
+holds. The prior "ref-held 1" reading counted a commit as at-risk while simultaneously recording
+that a ref holds it — those are mutually exclusive, and 87 is the self-consistent number. This
+changes no conclusion: `514ed91` remains durable locally and on the remote recovery branch, so
+nothing needed recovering, and **no pass ever acted on the 88 figure**. Recording the correction
+rather than the old number so the next pass does not re-derive 88 from prose.
+
+### Next pass
+
+Pass number chosen per rule 14ae: the duplicate check
+`grep -o '^## Pass [0-9]*' … | awk '{print $3}' | sort -n | uniq -d` returned **empty** first, and
+the maximum was 237, so this is 238.
+
+**Prefer no entry at all.** There is no owed measurement left; the fence invariant, the census, the
+agent census and the preservation state are all re-derived and holding. Two concrete asks for a pass
+that does run: (1) if you enumerate refs, use the **bare prefix** form and require it to equal
+`ls-remote` — the glob form reads 108 and manufactures a 96-ref phantom loss; (2) when building the
+exclusion arm, use `--not "${REFS[@]}"` (toggle once) or `"${REFS[@]/#/^}"` (prefix each element),
+never `--not X --not Y`.
+
+Still **blocked on the human reopen/confirm decision**, unchanged and not agent-actionable. The three
+outstanding human items: (1) reopen MadGab development or confirm the pause stands and close this
+item `done`; (2) decide the residual `514ed91` commit object, whose content is already durable both
+locally and on the remote recovery branch; (3) retire or correct the out-of-repo scheduler template,
+whose three clauses have now fired 238 times against an itinerary that contradicts them — that
+template, not this log, is what keeps generating passes whose correct outcome is "nothing to do".
