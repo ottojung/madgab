@@ -119,6 +119,20 @@ INSTRUMENTS=(
   "at-risk-delta.sh::is a PROXY and reads alarming::"
   "frontmatter.sh::failed to parse::"
   "item-state.sh::item frontmatter parses::"
+  # branch-containment.sh is registered on a SELF-REFERENTIAL case -- base,
+  # composed and constituent are all origin/main -- and NOT on the live human
+  # review branches, which would couple this instrument set's health to the
+  # human list's lifetime. That coupling is the pass-317 defect in a new place:
+  # a human who merges `review/drop-dead-trace-and-fence` and deletes the three
+  # superseded branches would turn a healthy selfcheck red and send the next
+  # pass to "repair" an instrument that is fine. The self-referential case still
+  # exercises everything that can rot -- argument parsing, ref resolution across
+  # the audit mirror, the rule-323 base check, the merge-tree invocation, and the
+  # contained path -- and it can never go stale. The DISCRIMINATING controls
+  # (NOT CONTAINED, and the bogus-ref refusal) cannot be registered this way at
+  # all, because each needs a real pair of branches that differ; they are
+  # exercised in the pass-325 entry beside the instrument. (pass 325)
+  "branch-containment.sh::CONTAINED and mergeable::origin/main origin/main origin/main"
   # compact-log.sh is DELIBERATELY absent from this list, and the reason is
   # worth recording because registering it looked obviously right.
   #

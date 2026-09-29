@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6b8d
-updated: 2026-09-29T21:52:00Z
+owner: coord-2f61
+updated: 2026-09-29T22:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -129,9 +129,26 @@ inferred: `corpus_integration` 12 passed / 0 failed / 1 ignored, `no_phrase_hard
 **Do not merge `a29f3d7`**: it is parented on this log rather than on `main`, so it would carry 397
 log commits (44,136 insertions) to deliver 4 deleted lines. Passes 319/321/323 each described that
 branch as prepared and validated, and the base defect survived all three; rule 323 is the check that
-catches it. The remaining human items are unchanged: **retire this recurring pass**, and **fix the
-out-of-repo scheduler template**, which has now fired with three clauses that contradict the
-itinerary it points at.
+catches it.
+
+**PASS 325 GIVES THAT CONTAINMENT CLAIM A COMMAND, because every command a reader would reach for
+first reports it FALSE on these very branches.** The claim above is an *effect*-containment claim
+(the composed branch carries each constituent's edit), and `git cherry` (patch-identity, so the
+composed branch's different combined patch reads as "unmerged" — pass 325 got a 397-line wall of `+`
+rows), a file-level `diff` ("differs", correctly, because the composed file has the *other*
+constituent's edit too), and `git apply --check --reverse` (the two edits are adjacent hunks, so
+removing one breaks the context the other matches on) all return the wrong answer. Run this instead:
+
+```sh
+docs/work/paused-recon/branch-containment.sh origin/main \
+  review/drop-dead-trace-and-fence \
+  review/drop-dead-trace-env-on-main review/run-clue-fence-in-ci
+```
+
+It reports `CONTAINED and mergeable`, names the base check, and gates the verdict on it. The
+remaining human items are unchanged: **retire this recurring pass**, and **fix the out-of-repo
+scheduler template**, which has now fired with three clauses that contradict the itinerary it points
+at.
 
 **How to read this log: the latest pass entry is the LAST section of this file** (`grep -n '^## Pass '`
 and take the highest number). Do **not** search for a number quoted here — this paragraph, and the
@@ -8848,3 +8865,158 @@ them, not to document the ordering. `EXPECT_REFS` is **209** and will go red on 
 push, which is expected and is this log's own history, not growth — and when it does, read the count
 off `at-risk.sh`'s own output, **not** off `git for-each-ref refs/remotes/audit | wc -l`, which is
 heads-only and one short of what the instrument counts (see the correction above).
+
+## Pass 325 (coord-2f61) — gate NO; six facts re-derived unchanged; ACTED — the human list's one-merge
+## claim had no command that decides it, and all three obvious ones return FALSE on these branches
+
+**Gate answer: NO**, for the same reason as every pass since 92: `## Status: accepted and paused` in
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) and the operational status in
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). **The three scheduler-template
+clauses are declined for the seventy-seventh time**, unchanged in substance:
+
+- *launch or prompt Antonina agents* — the itinerary forbids launching MadGab agents; 0 non-terminal
+  MadGab agents exist, so there is nothing to prompt;
+- *accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"* — a **direct textual
+  conflict**, unchanged since pass 199: the itinerary's closing paragraph says that branch "is release
+  history after this acceptance and is no longer an automatic accumulation target", so the clause
+  cannot be honoured by doing what it says. The itinerary wins; only a human can fix the out-of-repo
+  template;
+- *prioritize the canonical approximate-search examples* — the case-2 example is a **preserved known
+  limitation** of the accepted release, not a target. Its **no-hard-coding** half holds as a standing
+  invariant (re-measured this pass, below), not as work.
+
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+`main` untouched.
+
+### Six standing facts, re-derived from the instruments, not copied from pass 324
+
+1. **Work items: 96** = 1 blocked / 83 done / 12 superseded, **0 open / 0 working**, 0 unparsed
+   frontmatter — `census.sh`'s published fence-scoped form, gawk exit 0, with `docs/*.md` in the
+   argument list (rule 14l).
+2. **Agents: 0 non-terminal in any MadGab cwd**, over 131 MadGab rows of 733 host rows
+   = 110 succeeded / 20 failed / 1 stopped. The **3** host-`running` agents (`125a1`
+   `/workspace/antonina-125-storage`, `94c7` `assemblyp1-94-tw5-lambda`, `109a5`
+   `/workspace/skrynia-109-tranche6`) are **other repositories and were left running, untouched**.
+5 idle rows, none a MadGab cwd.
+3. **Fence: 0 canonical clue occurrences in all six production regions**, with the one adjudicated
+   benign per-word hit (`src/lib.rs:3597`, `.expect("key came from cells")`) — the ordinary English
+   past tense in a panic message, not a hard-code. **Region counts reproduce rule 14ai's pinned values
+   exactly: 269 / 260 / 464 / 4,242 / 67 / 269**, so the 3,861-line blind span that pass 215 closed is
+   still closed. All eight plant controls in `clue-fence.sh` fire.
+4. **Worktrees: 125 registrations, 125 live**, `git worktree prune -n -v` empty, exit 0. A note on
+   reading this: `git worktree list | wc -l` reads **126**, because it also lists the main worktree,
+   which has no entry under `.git/worktrees`. The standing figure is the **registration** count
+   (`.git/worktrees`, 125) and it is the one that means "could be lost".
+5. **`main` untouched**: `origin/main` = `0267ade`, still **no local `main` ref**
+   (`rev-parse --verify main` exits **128**), HEAD on `post-milestone-acceptance` in sync with origin.
+6. **At-risk: 90 total = ref-held 1 + reflog-only 89**, unchanged, `EXPECT_REFS` **209** green, both
+   arms agreeing with empty stderr, both controls firing. `at-risk-content.sh`: **0** non-build blobs
+   absent from origin, its control **f86907c9** firing and its fabricated-absent control firing. The
+   published **89** and the instrument's **90** are the known rule-273 pair and both are correct.
+
+### This pass's finding: a claim that protects a human from merging the wrong branch could not be
+### checked, and all three obvious checks say the opposite
+
+Pass 324's whole contribution was composing two review branches into **one** mergeable branch,
+`review/drop-dead-trace-and-fence` = `8c88a59`, so that a human is not handed three branches plus an
+ordering constraint. That is only safe if the composed branch carries the union of the constituent
+effects, and pass 324 **asserted** it — "all three are strictly contained in the composed branch and
+none carries anything unique" — while publishing **no command that decides it**. Pass 325 built the
+three commands a reader would reach for first. **All three report the claim FALSE on these branches,
+and all three are wrong**, in the same direction:
+
+- **`git cherry 8c88a59 <constituent>`** — reports *every* constituent commit as unmerged (`+`).
+  `cherry` compares **patch identity**, and the composed branch's patch is necessarily different: it
+  deletes the env block **and** adds the fence step, while each constituent does one of those. On
+  `a29f3d7` this returned a 397-line wall of `+` rows, a result indistinguishable from "nothing is
+  contained".
+- **File-level `diff` of the two `test.yml` blobs** — "differs", for the same reason, and *correctly*:
+  the composed file legitimately carries the *other* constituent's edit as well. Containment is about
+  a constituent's **effect** being present, not about the two files being byte-identical.
+- **`git apply --check --reverse <constituent.patch>` against the composed file** — "patch does not
+  apply", and this one is subtler: the two edits are **adjacent hunks five lines apart**, so removing
+  one changes the context lines the other's patch matches on. Pass 325 built this in a scratch repo
+  and it fails on both constituents.
+
+So the claim protecting a human from the worst outcome — merging `a29f3d7` and carrying 397 log
+commits — could not be verified by any obvious route, and a reader who trusted one of the three
+would have concluded the composed branch is **missing work** and gone looking for it. That is rule
+14q again (a control whose result cannot be re-derived manufactures confidence in the direction the
+conclusion already points) and rule 273 (a population published as a count has not been examined).
+**New rule 325: a human-facing claim needs a command, and if the obvious commands disagree with it,
+the claim is the thing that is under-evidenced — resolve it before anyone acts on it.**
+
+**ACTED:** added **[paused-recon/branch-containment.sh](paused-recon/branch-containment.sh)**, which
+asks the question in the only form git can answer exactly — merge **each** constituent into the
+composed branch and require every merge to be a **no-op on the tree**. A tree hash is a whole-content
+identity, so unlike all three commands above it cannot be fooled by adjacency or hunk offsets, and
+unlike one merged total it **names** the constituent that is not contained instead of only reporting
+that something is not. It resolves branch names across the audit mirror (a review branch is normally
+absent from `refs/remotes/origin/`, and `git rev-parse <name>` failing there means "never fetched",
+not "does not exist" — this pass hit that exact false input error before adding the resolution), and
+it **refuses** on an unresolvable ref rather than reporting 0, because a missing ref is an input
+error, not a containment result (the pass-182 false-zero class).
+
+The instrument is registered in **[paused-recon/selfcheck.sh](paused-recon/selfcheck.sh)** — 9 of 9
+instruments green — on a **self-referential** case (`origin/main` three times), deliberately **not**
+on the live review branches: pinning those would couple the instrument set's health to the human
+list's lifetime, so a human who merged the composed branch and deleted the three superseded ones
+would turn a healthy selfcheck red and send the next pass to "repair" an instrument that is fine.
+That is the pass-317 defect in a new place, and it is why the entry records the discriminating
+controls here instead.
+
+**Three defects in this pass's OWN new instrument, found by running it and are worth recording because
+two of them were the dangerous direction:**
+
+- `git merge-tree --write-tree` takes exactly **two** branch arguments on this git; a third is a usage
+  error exiting non-zero, which the fail-closed check reported as a *refused measurement* — an
+  instrument defect wearing the costume of a safety refusal.
+- The natural fix (merge the constituents together, compare the resulting **tree**) fails too:
+  merge-tree's arguments must be **commits**, so feeding an accumulated tree back in needs a
+  throwaway commit. The pairwise form avoids that entirely.
+- **The real one, and it is the direction that matters:** the first draft printed the rule-323 base
+  check as an *annotation* and let a `CONTAINED` verdict stand on a branch that **fails** it. Run on
+  `a29f3d7` it printed "**a human needs to merge the composed branch ONLY**" for a branch 397 commits
+  off the release line — precisely the advice rule 323 exists to prevent. Containment and base are
+  independent questions and a green one must never mask a red one. **The base check now gates the
+  verdict**, producing a third outcome: `CONTAINED BUT NOT MERGEABLE`.
+
+### Controls for the new instrument, all run, all firing in both directions
+
+| case | expected | got |
+|---|---|---|
+| `8c88a59` vs its two constituents | CONTAINED, base OK | `CONTAINED and mergeable`, base OK |
+| `6edff83` (fence only) vs `66e28ff` (env deletion) | NOT CONTAINED | `ADDS something the composed branch lacks:` + the 4-line diffstat, naming the constituent |
+| `a29f3d7` vs `66e28ff` | base check MUST fail | `FAIL (rule 323) … 397 commit(s) of extra history` → `CONTAINED BUT NOT MERGEABLE` |
+| bogus branch name | refuse, non-zero | `no such commit: review/nope-branch … refusing to report`, exit 1 |
+| `origin/main` ×3 (selfcheck registration) | CONTAINED | `CONTAINED and mergeable`, exit 0 |
+
+Independently, pass 325 confirmed by a **different** method that the two edits compose exactly:
+`git merge-tree --write-tree 66e28ff 6edff83` yields tree **`c605d7fb`**, **byte-identical** to
+`8c88a59^{tree}` = `c605d7fb`. And `a29f3d7`'s only code edit — its 4-line `test.yml` deletion — is a
+**byte-identical patch** to `66e28ff`'s, so the branch that must not be merged carries nothing that
+the composed branch lacks; its 397-commit base is its only defect, and it has exactly one.
+
+### Nothing else moved
+
+No new work item, no claim, no agent launched/stopped/prompted, no integration, no recovery branch
+(the two at-risk classes stay closed on content, and `at-risk-content.sh` answers 0 again). `main`
+untouched. The accepted state and `origin/main` were **not** re-verified by execution: pass 184 proved
+`main` and the accepted state agree byte-for-byte on all implementation, so that check does not need
+repeating, and pass 318 already established by RUNNING it that the `#[ignore]`d case-2 test genuinely
+fails, so the recorded limitation is real rather than assumed.
+
+NEXT: the human list is unchanged and remains one item — merge `review/drop-dead-trace-and-fence`
+(`8c88a59`) and delete the three superseded branches.** If a pass wants to re-check the containment
+claim rather than take it, run `docs/work/paused-recon/branch-containment.sh` as printed in the gate
+section above — **not** `git cherry`, **not** a file `diff`, **not** `git apply --reverse`, all three
+of which are recorded above as reporting this claim falsely. Do **not** re-prepare or re-validate the
+review branches. The standing facts need no hand re-derivation: `census.sh`, `clue-fence.sh`,
+`agents.sh`, `item-state.sh`, `selfcheck.sh`, `at-risk-delta.sh` and `branch-containment.sh` all exit
+0. Skip the `at-risk*` family; that line is closed. **(d)** retiring this recurring pass and **(e)**
+fixing the out-of-repo scheduler template are unchanged and still human; (e) remains worth more than
+any further declining pass, because the template has now fired **77** times with three clauses that
+contradict the document it points at. `EXPECT_REFS` is **209** and will go red on the next pass's own
+push, which is expected and is this log's own history, not growth — when it does, read the count off
+`at-risk.sh`'s own output, **not** off `git for-each-ref refs/remotes/audit | wc -l`, which is
+heads-only and one short of what the instrument counts.
