@@ -29,6 +29,37 @@
 #                                reports success while measuring nothing.
 #                                Same response as DEAD, different diagnosis.
 #
+# WHY AN INSTRUMENT MUST BE RUN WITH ITS OWN ARGUMENTS
+#
+# A THIRD and THIRD defect, found on this script's first live run (pass 300)
+# and not by a plant but by the real repository, which is the more expensive
+# kind to find late.
+#
+# at-risk.sh REFUSES ON ITS DEFAULT PATH, by design: if the audit mirror is
+# stale it exits 1 and tells the caller to re-run with --fetch, because
+# reporting a figure off a stale mirror is the pass-187 failure that pass 293
+# exists to prevent. This script ran every instrument with no arguments, so it
+# always measured at-risk.sh in its REFUSAL mode and reported a provably
+# healthy instrument as DEAD.
+#
+# The trigger is structural, not incidental: every pass pushes its commit, and
+# that push is precisely what staleness the mirror detects. The state pass 299
+# verified and published (all five exit 0) lasts only until its own commit
+# lands, so the false alarm was guaranteed on every pass from 300 onward, and
+# this script's verdict was permanently red. A liveness check that is always
+# red is a liveness check that gets ignored — the same loss of alarm value as
+# pass 293's stale mirror reported as a clean 91, reached from the opposite
+# direction.
+#
+# The fix is to run each instrument the way its own contract documents, NOT to
+# recognise the refusal and wave it through. A "maybe it is fine" branch here
+# would be the fail-open direction (rules 14q, 14r): a genuinely broken
+# instrument that happens to print to stderr would be excused by the same test
+# that excuses a healthy one. Measuring in the fully-measuring mode instead
+# keeps the check fail-closed — a broken at-risk.sh still reads DEAD below,
+# with or without --fetch. The --fetch side effect is the same idempotent,
+# no---prune mirror refresh (rule 14a) that every pass performs anyway.
+#
 # Usage:  selfcheck.sh [INSTRUMENT-DIR]     (default: this script's directory)
 # The argument exists so the failure cases can be PLANTED: point this at a
 # throwaway directory of fake instruments and it must refuse each one.
@@ -48,12 +79,15 @@ DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 # hiding the one alarm this directory exists to raise. An anchor must name the
 # SHAPE of the invariant, never its current value. A liveness check that pins a
 # moving figure is a standing fact that will be reported as broken.
+# A THIRD field carries the arguments the instrument's OWN contract documents.
+# It is empty for instruments that take none, and it is load-bearing, not
+# decoration: see "WHY AN INSTRUMENT MUST BE RUN WITH ITS OWN ARGUMENTS" below.
 INSTRUMENTS=(
-  "census.sh::work items (identity: work_item:true"
-  "clue-fence.sh::canonical clue occurrences in all"
-  "agents.sh::non-terminal madgab agents ="
-  "at-risk.sh::at-risk: "
-  "frontmatter.sh::failed to parse"
+  "census.sh::work items (identity: work_item:true::"
+  "clue-fence.sh::canonical clue occurrences in all::"
+  "agents.sh::non-terminal madgab agents =::"
+  "at-risk.sh::at-risk: ::--fetch"
+  "frontmatter.sh::failed to parse::"
 )
 
 tmp="$(mktemp -d)"
@@ -81,7 +115,9 @@ echo "selfcheck: $(( ${#INSTRUMENTS[@]} - missing )) of ${#INSTRUMENTS[@]} instr
 
 for entry in "${INSTRUMENTS[@]}"; do
   name="${entry%%::*}"
-  want="${entry#*::}"
+  rest="${entry#*::}"
+  want="${rest%%::*}"
+  args="${rest#*::}"
   path="$DIR/$name"
   base="$(basename "$path")"
 
@@ -107,7 +143,14 @@ for entry in "${INSTRUMENTS[@]}"; do
   # stdout, stderr and the exit code are captured SEPARATELY. Reading only
   # stdout, or only the exit code, is pass 298's defect 3 verbatim: the two
   # carry different information and either alone is a half-measurement.
-  if "$path" >"$tmp/out" 2>"$tmp/err"; then rc=0; else rc=$?; fi
+  #
+  # $args is the instrument's own documented invocation, unquoted, so that a
+  # multi-word remedy would split into words. It is empty for four of the five.
+  if [ -n "$args" ]; then
+    if "$path" $args >"$tmp/out" 2>"$tmp/err"; then rc=0; else rc=$?; fi
+  else
+    if "$path" >"$tmp/out" 2>"$tmp/err"; then rc=0; else rc=$?; fi
+  fi
   errlines="$(wc -l <"$tmp/err" | tr -d ' ')"
 
   if [ "$rc" -ne 0 ]; then

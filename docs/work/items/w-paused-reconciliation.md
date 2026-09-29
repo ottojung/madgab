@@ -27911,3 +27911,124 @@ instrument, every instrument has been audited by planting, and the set now has a
 liveness check, which was the last gap pass 298 named. Nothing further here is
 actionable without the human reopen decision.
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 300 (coord-3a5e) — the liveness instrument pass 299 added reports a healthy instrument DEAD on every pass from here on, and the trigger is structural
+
+Gate **NO** again, the sixty-third time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict — the itinerary's closing paragraph says post-milestone-acceptance
+"is no longer an automatic accumulation target", so the template's "exactly as the
+itinerary requires" cannot be honoured by doing what the template says. Nothing
+claimed, launched, stopped, prompted or integrated; no new MadGab work item; no
+recovery branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; skills-doc control selector 0 / fence-blind 1.
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0` (`.expect("key came from cells")` at lib.rs:3597, adjudicated
+   at pass 216). Regions 269/260/464/4242/67/269. The ninetieth consecutive
+   pass. `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   715 host rows, {succeeded 110, failed 20, stopped 1}. The 1 host-`running`
+   agent (109a4, /workspace/skrynia-109-tranche5) is another repository and was
+   left running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD 1f7f70d on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1336, refs-only 1248. Audit mirror
+   re-fetched FIRST per rule 14a with no `--prune`, verified fresh, so no
+   recovery branch warranted and none created.
+
+### ACTED — selfcheck.sh measured instruments in the wrong mode, so it was red before this pass began
+
+Pass 299 added `selfcheck.sh` and published that it was green, with "all five
+instruments exit 0" and "two consecutive runs byte-identical on stdout". Both
+claims were true when written and neither survives contact with the next pass.
+On this pass's first run it refused:
+
+    at-risk.sh   DEAD   exit=1 stderr_lines=1
+    selfcheck: REFUSING — the instrument set is not trustworthy as it stands
+
+**Nothing was wrong with at-risk.sh.** It exited 0 with every control behaving
+when run as `at-risk.sh --fetch`, which is the spelling rule 14a mandates. The
+defect is in selfcheck.sh: it ran every instrument with **no arguments**, and
+`at-risk.sh` *by design* refuses on its default path when the audit mirror is
+stale, telling the caller to re-run with `--fetch` — because reporting a figure
+off a stale mirror is the pass-187 failure pass 293 exists to prevent. So the
+liveness check was permanently measuring at-risk.sh in its **refusal** mode and
+reading that refusal as a dead instrument.
+
+**The trigger is structural, not incidental, and that is what makes this worth a
+rule rather than a patch.** Every pass pushes its commit; that push is exactly
+what the mirror's staleness check detects. Pass 299 verified the set at
+bbde5da and then pushed 1f7f70d to record itself — so the green state it
+published expired at the instant of its own commit, and the alarm was
+**guaranteed** on every pass from 300 onward. A liveness check that is always
+red is a liveness check that gets ignored, which loses its alarm value in the
+same way pass 293's stale mirror reported as a clean 91 — reached from the
+opposite direction, and therefore harder to see, because pass 299 spent that
+pass building the very instrument that was about to condemn it.
+
+**The fix is to run each instrument the way its own contract documents, and NOT
+to recognise the refusal and wave it through.** INSTRUMENTS gains a third field
+carrying the instrument's own arguments (empty for four of the five; `--fetch`
+for at-risk.sh). A "maybe it is fine" branch that classified the refusal would
+be the fail-open direction of rules 14q/14r: a genuinely broken instrument that
+happens to print to stderr would be excused by the same test that excuses a
+healthy one. Measuring in the fully-measuring mode instead keeps the check
+fail-closed, and plant B below is the proof rather than the assertion. The
+`--fetch` side effect is the same idempotent, no-`--prune` mirror refresh every
+pass performs anyway.
+
+Eight plant directions, all discriminating (throwaway `/tmp` trees; `src/`
+untouched throughout):
+
+| plant | expected | got |
+|---|---|---|
+| A healthy real set | 0 | 0 |
+| B at-risk broken — exits 1 *even with* `--fetch` | 1, DEAD | 1 |
+| C at-risk silent — exit 0, no invariant | 1, SILENT | 1 |
+| D at-risk mode 644 | STATIC-FAIL NOT-EXECUTABLE | 1 |
+| E census absent | 2, BROKEN POPULATION | 2 |
+| F agents.sh syntax error | STATIC-FAIL DOES-NOT-PARSE | 1 |
+| G at-risk no shebang | STATIC-FAIL NO-SHEBANG | 1 |
+| H healthy copy, idempotence | 0 | 0 |
+
+Plant B is the one that matters: it is the direction this fix could plausibly
+have broken, and it still reads DEAD.
+
+**Two harness defects, recorded rather than hidden, because this is the sixth
+pass to find one.** The first plant run returned rc=127 for all six directions
+— the harness invoked `$P/selfcheck.sh`, which I had never created, because the
+copies went into per-plant subdirectories. The rebuild then collided a plant
+directory named `e` with my own output file `$P/e`, so two directions reported
+garbage and were re-run. Six passes on have now recorded a broken instrument or
+a broken harness in the very file whose job is to catch one; the general form
+stands unchanged from pass 299 — **building an instrument is not the work, the
+plants are** — and this pass's plants were preceded by two failures of the
+harness that builds them, which is the strongest available evidence for that
+rule rather than against it.
+
+**The seventh consecutive instance of the same shape, now stated once:** passes
+278, 280, 281, 293, 294, 298, 299 and this one all found their instrument
+defective — but this one was found by the REAL repository on the first live run
+rather than by a plant, which suggests the plant suites are currently checking
+the happy path more thoroughly than the failure modes that only the world
+produces. That is the limitation pass 299 named as its honest limit ("an
+instrument that is alive, well-formed, and wrong about the world"), reached
+from the other side: this instrument was well-formed, ran, and was wrong about
+the mode it measured in.
+
+NEXT: the pause still holds and the five facts stand unchanged for the
+ninetieth consecutive fence measurement. Nothing further here is actionable
+without the human reopen decision. If this schedule continues, the next
+non-gate action worth taking is a check that does not depend on the instrument
+set at all.
+**Blocked on the human reopen/confirm decision.**
