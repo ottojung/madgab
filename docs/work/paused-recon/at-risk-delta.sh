@@ -42,7 +42,19 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 FETCH=0
-[ "${1:-}" = "--fetch" ] && FETCH=1
+PREV_ARMS=${PREV_ARMS:-}
+PREV_PUB=${PREV_PUB:-}
+# Arguments, not only environment: selfcheck.sh invokes `"$path" $args`, so the
+# script is $1 and there is no place to put a `NAME=v` prefix. Accept both.
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --fetch) FETCH=1 ;;
+    --prev-arms) PREV_ARMS=${2:-}; shift ;;
+    --prev-pub)  PREV_PUB=${2:-};  shift ;;
+    *) echo "at-risk-delta: usage: $0 [--fetch] [--prev-arms N --prev-pub N]" >&2; exit 1 ;;
+  esac
+  shift
+done
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -95,6 +107,30 @@ n_invdelta=$(wc -l < "$TMP/invdelta")
 [ $(( at_risk - published )) -eq "$n_delta" ] \
   || { echo "at-risk-delta: DEAD -- arithmetic $((( at_risk - published ))) != $n_delta named deltas; no number reported" >&2; exit 1; }
 
+# --- (1b) growth guard: the named delta explains a SPELLING gap, never growth --
+#
+# The named delta member is ref-held, so it is absent from the published form and
+# present in the instrument arms. That accounts for `at_risk - published` and
+# NOTHING else. If either arm exceeds the count the previous pass recorded, that
+# movement is new at-risk history which no spelling argument covers, and pass 322
+# ordered that it be given identity rather than absorbed. The old verdict line
+# hard-coded "88" and asserted the whole difference was spelling, which silently
+# absorbed real growth: on 2026-09-29 the arms read 90/89 against a recorded
+# 89/88 and the instrument still printed "not a new at-risk commit".
+#
+# So: a movement in either arm beyond the recorded baseline is reported loudly
+# and exits non-zero. Set PREV_ARMS/REFS to the counts the last pass recorded
+# after attributing the movement.
+PREV_ARMS=${PREV_ARMS:-89}
+PREV_PUB=${PREV_PUB:-88}
+if [ "$at_risk" -gt "$PREV_ARMS" ] || [ "$published" -gt "$PREV_PUB" ]; then
+  printf 'at-risk-delta: GROWTH -- arms %s/%s exceed the recorded %s/%s (previous pass).\n' \
+    "$at_risk" "$published" "$PREV_ARMS" "$PREV_PUB" >&2
+  printf 'at-risk-delta: the %s named commit(s) above are a SPELLING gap and do NOT explain this.\n' "$n_delta" >&2
+  printf 'at-risk-delta: attribute the movement by identity, then set PREV_ARMS=%s PREV_PUB=%s.\n' "$at_risk" "$published" >&2
+  exit 3
+fi
+
 # --- (2) the twin gap, answered by CONTENT not by the proxy ---------------
 
 # Distinct trees the at-risk set introduces.
@@ -146,8 +182,17 @@ if [ "$n_delta" -eq 1 ]; then
   printf '               %s\n' "$(git log -1 --format='%ci  %s' "$d" 2>/dev/null | cut -c1-100)"
   printf '               held by: %s\n' "$(git for-each-ref --contains "$d" --format='%(refname)' | paste -sd, -)"
   printf '               on origin? %s\n' "$(git branch -r --contains "$d" 2>/dev/null | sed 's/^ *//' | paste -sd, - | sed 's/^$/(no origin ref contains it)/')"
-  printf '               => the 88 -> %s delta is a SPELLING difference between two published\n' "$at_risk"
-  printf '                  forms, not a new at-risk commit. Do not report it as growth.\n'
+  printf '               => that ONE commit is a SPELLING difference between the two\n'
+  printf '                  published forms: the extra `--not --all` also excludes everything\n'
+  printf '                  any local ref reaches, and this commit is ref-held. It is\n'
+  printf '                  therefore NOT growth, and must not be reported as growth.\n'
+  printf '               => BUT that verdict covers ONLY that commit. The arms read %s\n' "$at_risk"
+  printf '                  (instrument) and %s (published). The standing published figure\n' "$published"
+  printf '                  was 88 at pass 322. If at_risk or published exceeds the figure\n'
+  printf '                  the previous pass recorded, the movement is REAL GROWTH and\n'
+  printf '                  needs identity -- pass 322 ordered exactly this. The one named\n'
+  printf '                  commit above does not explain it. Do not report growth as a\n'
+  printf '                  spelling artifact.\n'
 else
   printf '  named       (see below)\n'
   sed 's|^|               |' "$TMP/delta"

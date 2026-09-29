@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9f2e
-updated: 2026-09-29T22:12:00Z
+owner: coord-7b31
+updated: 2026-09-29T22:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -9079,9 +9079,20 @@ and must never appear in a bare-run gate list as "exits 0". Read a non-zero gate
 whether the script takes positional arguments before concluding anything about repository state.
 
 **Corrected gate list for the next pass**, all run bare and all actually exiting 0:
-`census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh`, `at-risk-delta.sh`.
-`branch-containment.sh` is the seventh but is **argument-taking** — run it only as line 143 prints it,
+`census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh`.
+`branch-containment.sh` is **argument-taking** — run it only as line 143 prints it,
 and read `selfcheck.sh` (which registers it correctly) for its liveness.
+
+**PASS 327 CORRECTS THIS LIST AGAIN, AND THE CHANGE IS THE OTHER DIRECTION:
+`at-risk-delta.sh` IS NOW ARGUMENT-TAKING TOO, and it exits 3 on live data.**
+Pass 326's list above is right that `branch-containment.sh` must not be run bare,
+and wrong to imply `at-risk-delta.sh` still can be: it now takes optional
+`--fetch` / `--prev-arms N --prev-pub N`, and its new growth guard **fires on the
+current repository state** (arms 90/89 against the recorded 89/88). So the gate is
+now: `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh`
+run bare and exit 0; `at-risk-delta.sh` run bare **exits 3 by design** and that is
+the guard reporting unattributed growth, not a dead instrument. Do not "fix" it
+until pass 327's entry's open question is answered.
 
 ### ACTED (b): the scheduler template's three contradicting clauses, quoted
 
@@ -9115,3 +9126,134 @@ pass and **(e)** fixing the out-of-repo scheduler template are still human; (e) 
 clauses quoted above, so it is a few minutes of editing rather than a diff. Do **not** re-prepare or
 re-validate the review branches, and do **not** re-derive the standing facts by hand: use the
 corrected gate list in this entry.
+
+## Pass 327 (coord-7b31, 2026-09-29T22:07Z-22:5xZ) — gate NO; six facts re-derived unchanged; ACTED — the at-risk delta instrument was ABSORBING real growth, and the standing count has in fact moved 89 → 90 without anyone noticing
+
+**Gate: NO.** The itinerary's `## Status: accepted and paused` is unchanged and no human has
+reopened development, so the scheduler template's three clauses (launch/prompt agents; accumulate
+on `post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are declined for the **79th** time — see pass 326's table for the
+verbatim clause/itinerary-text pairs. Nothing created, claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched at `0267ade`.
+
+Standing facts re-derived with pass 326's corrected gate list, unchanged: census **96** = 0 `open` /
+0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`; **0** non-terminal MadGab agents among 131
+MadGab cwd rows of 736 host rows (4 host-running agents — `120e5`, `125a1`, `94c7`, `109a5` — are
+other repositories and were left running); clue fence **0** in all six production regions; 125
+worktrees; `EXPECT_REFS` **209** and not raised (this pass creates no new ref); instruments 9 of 9
+green. `at-risk-content.sh` was not re-run (closed on content since pass 184).
+
+### ACTED (a): the delta instrument was swallowing a real movement, and the movement is real
+
+`at-risk-delta.sh` exists to answer "is the at-risk count growing, and what is the new member?" —
+pass 322 built it for exactly the 88 → 89 question and closed with an explicit standing order:
+**"treat any FURTHER growth as a real delta needing identity, because the spelling explanation covers
+exactly this one commit."**
+
+Run bare, the count has moved again, in **both** arms:
+
+```
+$ docs/work/paused-recon/at-risk-delta.sh
+at-risk-delta: instrument arms 90   published form 89   exclusion refs 208
+  delta       1 commit(s) the extra `--not --all` removes, 0 the other way (nested: yes)
+  named       514ed91741b848fb6b200fcb15dae5ae351c4155
+  ...
+  => the 88 -> 90 delta is a SPELLING difference between two published
+     forms, not a new at-risk commit. Do not report it as growth.
+```
+
+90/89 against the 89/88 recorded at pass 322: **+1 in each arm**, and the instrument still printed
+"Do not report it as growth." The old verdict line was the defect. It hard-coded the literal `88`
+and generalised a claim that is true of **one named commit** — `514ed91`, ref-held, hence removed by
+the extra `--not --all` — into a claim about the **whole difference**. The one named commit explains
+`at_risk - published` and nothing else. It cannot explain the arms moving, and the instrument had no
+way to say so, because it never compared its arms against the previous pass's figures at all. Every
+pass since 322 that ran this gate read "not growth" and had no reason to look further. **That is a
+fail-open in the exact direction the log exists to prevent, and it is the same shape as pass 317's
+"repair a healthy instrument" and rule 14q's fabricated control: the instrument manufactures
+confidence in the direction its own conclusion already points.**
+
+This is also the *second* time in this file's history that a plausible fix was wrong only on
+execution. The obvious repair — disarm the guard in `selfcheck.sh` with an environment prefix — does
+not work, and the reason is structural: `selfcheck.sh` invokes `"$path" $args`, so the script is
+`$1` and there is no position for a `NAME=v` prefix; `env NAME=v CMD` degenerates into the script
+being handed `env`, `NAME=v` and `CMD` as positional arguments, and since the script tests
+`[ "${1:-}" = --fetch ]` the assignments never bind. The guard stayed armed and `selfcheck` stayed
+red. It now takes real arguments (`--prev-arms`, `--prev-pub`), verified in all three directions:
+
+| invocation | exit | meaning |
+|---|---|---|
+| bare | **3** | growth guard fires: arms 90/89 exceed recorded 89/88 |
+| `--prev-arms 99999 --prev-pub 99999` | **0** | guard disarmed, invariant printed (`selfcheck`'s registration) |
+| `--nope` | **1** | usage refusal, no number reported |
+
+The verdict text no longer asserts a conclusion; it states what the named commit explains, prints the
+live arms, and says explicitly that movement beyond the previous pass's figures is REAL GROWTH
+needing identity. `selfcheck.sh` registers the instrument with the guard disarmed, preserving the
+self-referential discipline the other registrations use (it cannot go stale as the counts move) while
+still exercising the guard's comparison and its exit-0 path. `selfcheck` is 9 of 9 green again.
+
+**Rule 327** — *a verdict that names one member may not generalise to the population.* An instrument
+that explains a difference **between two of its own forms** is answering a spelling question, and it
+must not be the thing that answers a **growth** question, because a growth is a movement over time
+and a form-difference is not. "Which commit is in A and not C" and "did the count change since last
+time" are different questions with different evidence, and the first cannot answer the second. The
+general form of the standing rule this completes: **compare a live count against the previous pass's
+count, or do not claim to know whether it grew.**
+
+### ACTED (b): the growth is real, and I could not attribute it — that is now the open question
+
+What I established, and what I did not:
+
+- **Established by enumeration, not inference.** Arms 90 (instrument) / 89 (published) vs the 89/88
+  recorded at pass 322. Both arms moved by exactly 1, so the movement is in the at-risk *set*, not in
+  the spelling gap: the named delta member `514ed91` is unchanged and is still the only member of
+  `A - C`. Re-derived independently of the instrument by the same bare-prefix exclusion form (rule
+  14i/14g/14m), 209 refs, `A = 90`, `A - C = {514ed91}` exactly.
+- **It is NOT new MadGab work.** `git log --no-walk` over the 90 members, sorted by committer date,
+  puts the newest at **`2bbcac6`** (2026-09-29 21:20:11), which is pass 322's *own* claim commit and
+  is already documented in pass 322's correction entry as a content-safe reflog-only draft (the
+  amend was pre-push, so lossless). No at-risk member was created after 21:20; nothing at risk is
+  newer than the pass that recorded 89. So the growth is **not** an agent having written work.
+- **Controls all behave.** `f86907c9` (514ed91's `src/lib.rs`) ref-held and fires; `0267ade`
+  (origin/main tip) absent from the at-risk set and fires; a fabricated-absent sha is rejected.
+  `514ed91` is still held by exactly `refs/heads/scratch-3f8c62-landed` and still on no origin ref,
+  and its non-build content is still durable on `origin/recovery/at-risk-2026-09-29` (`eaf7487`).
+- **Not attributed.** I could not name the new member. The candidates I could rule in or out by
+  measurement: no worktree HEAD is at risk (all 125 checked against `A`); `ORIG_HEAD`
+  (`65d39aec`, pass 271) is reachable from `audit/post-milestone-acceptance`, so it is not at risk;
+  no `refs/heads` deletion appears in the reflog since pass 322; and the one commit whose history I
+  did trace (`review/drop-dead-trace-env` → `a29f3d7`, and the local `review/*` set) is carried by
+  refs that are all still present. So the movement is most consistent with a **ref-side** event — a
+  ref that used to hold a commit no longer holding it — rather than new history, but "most
+  consistent with" is not identity, and per rule 14o I record the gap rather than close it with a
+  guess.
+- **Consequence for the standing verdict: none yet, and that is the point.** `at-risk-content.sh`'s
+  direct question — is any NON-BUILD blob these commits carry absent from origin? — was not
+  re-measured this pass, so I am **not** publishing a new at-risk headline. The durable position is
+  unchanged and safe: content has been closed since pass 184, and this pass introduced no new
+  at-risk *content*, only a count movement whose member is unidentified.
+
+**The guard deliberately stays ARMED (exit 3) until this is answered.** That is the intended state,
+not a broken instrument: it is the first time in this log that a standing fact is known to be
+*unexplained* rather than *settled*, and the instrument now says so out loud instead of explaining it
+away. A later pass should either name the member and set `PREV_ARMS=90 PREV_PUB=89`, or establish
+that the movement is an artefact of a ref-side change and say which ref. Until then, do **not**
+"repair" the exit-3 into a green, and do not re-run the tree-proxy or content numbers.
+
+### Nothing else moved
+
+No new work item, no claim, no agent launched/stopped/prompted, no integration, no recovery branch.
+`EXPECT_REFS` stays **209**: this pass advanced `post-milestone-acceptance` and created no new ref.
+The human list is untouched and still decidable by the command at line 143 — merge
+`review/drop-dead-trace-and-fence` (`8c88a59`) and delete `review/drop-dead-trace-env` (`a29f3d7`),
+`review/run-clue-fence-in-ci` (`6edff83`), `review/drop-dead-trace-env-on-main` (present only as
+`audit/…`). **(d)** retiring this recurring pass and **(e)** fixing the out-of-repo scheduler template
+remain human; (e) now has its three clauses quoted verbatim at pass 326.
+
+NEXT: **(1)** name the at-risk member the 89 → 90 movement added, or establish which ref-side change
+produced it, then set `--prev-arms 90 --prev-pub 89` and the guard goes quiet — this is the one piece
+of genuinely new work this pass created, and it is deliberately left open rather than guessed. **(2)**
+Do not re-prepare or re-validate the review branches. **(3)** Use the gate list at the top of this
+file, which pass 327 has corrected a second time. **(4)** The at-risk family stays closed on content;
+the remaining question is a count movement, not lost content.

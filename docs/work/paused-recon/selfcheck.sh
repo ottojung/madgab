@@ -115,8 +115,27 @@ INSTRUMENTS=(
   # would go red the moment that commit is finally pushed, and pinning
   # "62 without" would go red on any commit added. The instrument is fail-closed
   # on its own controls, so a green liveness check here is the honest one.
-  # (pass 322)
-  "at-risk-delta.sh::is a PROXY and reads alarming::"
+  # (pass 322; guard added at pass 327)
+  #
+  # Pass 327 added a GROWTH GUARD that exits 3 when either arm exceeds the
+  # count the previous pass recorded, because the old verdict line hard-coded
+  # "88" and absorbed real growth as a "spelling difference". A guard that fires
+  # on live data would turn this liveness check red for a reason that is not a
+  # defect, so the guard is disarmed HERE ONLY, by pinning PREV_* above the live
+  # arms. That keeps the self-referential discipline of the other registrations
+  # (this can never go stale as the counts move) while still exercising the
+  # guard's comparison and exit-0 path. The `--prev-arms/--prev-pub` flags are
+  # ARGUMENTS, not an environment prefix, because this harness invokes
+  # `"$path" $args` — the script comes FIRST, so there is nowhere to put a
+  # `NAME=v` prefix and `env NAME=v CMD` degenerates into the script being run
+  # with `env`, `NAME=v` and `CMD` as $1 $2 $3. (That was tried and it does not
+  # work: at-risk-delta.sh tests `[ "${1:-}" = --fetch ]`, so the assignments
+  # never bind, the guard stays armed and this check stays red for a reason
+  # that is not a defect. Recording it because it is the second time in this
+  # file's history that a plausible-looking fix was wrong in a way that only
+  # showed up on execution — rule 14q.) The guard's FIRED case is exercised in
+  # the pass-327 entry beside this instrument, where both directions are shown.
+  "at-risk-delta.sh::is a PROXY and reads alarming::--prev-arms 99999 --prev-pub 99999"
   "frontmatter.sh::failed to parse::"
   "item-state.sh::item frontmatter parses::"
   # branch-containment.sh is registered on a SELF-REFERENTIAL case -- base,
