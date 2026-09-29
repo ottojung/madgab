@@ -25385,3 +25385,126 @@ non-`mod` `#[cfg(test)]` item to its closing brace, and add a control that plant
 `#[cfg(test)]` item body and requires **0**. Add to that list, from this pass: adopt
 `docs/work/paused-recon/fence.awk` as the CI-side fence (it is sound in the production region and
 aborts rather than passing an empty read), and publish region counts only in the `| wc -l` form.
+
+## Pass 278 — `coord-1b6e`, 2026-09-29T14:32Z–14:47Z — gate NO; five facts re-derived unchanged; ACTED — the at-risk census's **15 prose corrections are now a running script**, and building it surfaced **three fail-open defects in the validator itself**, all found by planting the failures it claims to catch
+
+**Gate: NO.** The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritise the canonical
+approximate-search examples) are declined for the **fifty-fourth** time, on `## Status: accepted and
+paused` plus [accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). Clause 2 remains the
+direct textual conflict pass 199 first recorded: the itinerary's closing paragraph says
+`post-milestone-acceptance` "is no longer an automatic accumulation target", so the template's "exactly
+as the itinerary requires" cannot be honoured by doing what the template says. Clause 3's
+no-hard-coding half is discharged below as a **standing invariant**, not as work. Nothing claimed,
+launched, stopped, prompted or integrated; no new work item; no recovery branch; `main` untouched.
+**No production file and no test file was modified** — the only repository change is the new
+instrument under `docs/work/paused-recon/` and this log.
+
+**The five standing facts, all re-derived from procedure, all unchanged.**
+
+1. **Census — 96 = 83 done / 12 superseded / 1 blocked, 0 open / 0 working.** Fence-scoped `gawk`
+   per-file frontmatter over `docs/work/items/*.md docs/*.md`, `gawk` exit 0. The independent
+   `work_item` gate reads `grep -l "^work_item: true" docs/work/items/*.md` = **95**, plus
+   `docs/continuation-approximate-search.md` (itself `work_item: true` / `superseded`, outside the
+   items directory) = **96**. Pass 277's rule 280 mechanism — the `work_item: false` shortlist-rule
+   file that carries a complete item header — is **re-confirmed**: a loose per-file `state:` read that
+   skips the gate returns 97.
+2. **Agents — 0 non-terminal MadGab agents.** 131 MadGab cwd rows of 698 host rows: 110 `succeeded` /
+   20 `failed` / 1 `stopped` (`3a8f01`, a superseded front, left stopped). The 3 host-`running` agents
+   (`92b3` volodyslav-92-wire, `98a2` antonina-98-mech, `98a1` antonina-98-flake) are **other
+   repositories** and were left running, untouched, as every prior pass has done.
+3. **Clue fence — 0 phrase hits and 0 decomposed hits in all six production regions, ninety-third
+   consecutive**, read through the shipped `docs/work/paused-recon/fence.awk` under BOTH the
+   joined-phrase and the per-word alphabet **derived by reading** `accepted-state-2026-09-27.md`
+   lines 25/31 (never from recall, per the script's own rule 14v). Region counts reproduce exactly in
+   the `| wc -l` form the script demands: adjacency 269 / lexical 260 / approx 464 / lib 4242 / wasm
+   67 / main 269, fence exit 0 on all six.
+4. **At-risk — 89, unchanged and safe; no recovery branch warranted or created.** `audit/*`
+   re-fetched FIRST by its real source namespace with no `--prune` (exit 0), **205** refs (the `+1`
+   vs pass 277's 204 is pass 277's own pushed log commit, which is on `origin` and therefore inside
+   the exclusion set rather than at risk). Baseline `--all --reflog` **1297**; refs-only `--all`
+   **1209**; both sanctioned exclusion spellings agree **89/89 diff-clean**, both exit 0, both stderr
+   empty; split **ref-held 1 / reflog-only 88 / union 89**, disjoint; controls in both directions
+   (`514ed91` present, `origin/main` `0267ade` absent). The single ref-held commit is `514ed91`, held
+   by exactly `refs/heads/scratch-3f8c62-landed`, content durable on
+   `origin/recovery/at-risk-2026-09-29` = `eaf7487` (`ls-remote`), **26** `recovery/*` heads on
+   origin. **7 of the 88 reflog-only commits are this log's own superseded pass drafts**, re-derived
+   by subject line — passes 273/274's finding holds.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`);
+   `origin/main` = `0267ade`; `HEAD` on `post-milestone-acceptance`, working tree clean except this
+   pass's own two files; **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+   The non-build content sweep was re-run from scratch: **35** rows over 125 worktrees = **34**
+   hashable + 1 directory, **34** distinct blobs (the `a0ef0cf` same-content pair re-derives), **0**
+   unreachable against 8,165 known object ids, so nothing needs archiving.
+
+**What this pass ACTED on: the census procedure is now executable, and the log's own rules were the
+specification.**
+
+The at-risk census has been re-derived by hand in 90+ passes, and its procedure has been corrected
+**fifteen** separate times — rules 14, 14a–14i, 14j, 14l, 14n, 14x, 14y, 280. Reading those fifteen
+corrections together, they are **all spelling defects in the same six commands**, and **every one of
+them produced a plausible number with a clean exit status**: 14b's shell `^` on an unquoted list read
+1,072 instead of 1 (a 1,000x over-report); 14d's arms without `--reflog` read 1 instead of 88; 14g's
+empty `$REFS` read 1,121; 14h's `--not` before a `^` list read 1,122; 14i's `for-each-ref` glob read
+108 of 204; and rule 182's unresolvable ref read **0 with exit 128** — the only under-report, and the
+dangerous direction, because "nothing is at risk" reads as safety and suppresses the only useful
+recurring work available while the programme is paused.
+
+**A rule can be mis-transcribed; a script cannot.** So the sanctioned spellings are now
+`docs/work/paused-recon/at-risk.sh`, which encodes all fifteen corrections, asserts ref cardinality
+before consuming it, validates every exclusion entry as a bare 40-hex id, runs two arms in different
+spelling families, requires both to exit 0 with empty stderr, requires the arms to agree, requires a
+known-present control to be present and the `origin/main` tip to be absent, and asserts that the
+ref-held / reflog-only split is a **partition** of the at-risk set. It creates no branch and pushes
+nothing: a residual at-risk commit is a human judgement, not an automatic action.
+
+**It reproduces the hand-derived 89 exactly**, unmutated, and **twelve planted failures were all
+caught** — malformed `^(ref)` entry, a refname in the id list, a nonexistent sha, the control commit
+swallowed by the exclusion set, `origin/main`'s tip forced into the answer, cardinality off in both
+directions, a degraded caret arm, and a polluted refs-only population.
+
+**Three fail-open defects were found in the validator itself, by planting the failures it claims to
+catch. All three are the log's own rule 22/28/34 family, reproduced in new code, which is the
+strongest form of the evidence that the family is real and not historical.**
+
+- **283** — **`set -e` is an abort, not a check.** With `set -euo pipefail`, a failing `git rev-list`
+  terminated the script *at the pipeline*, so the explicit exit-code checks after it never ran and
+  the operator saw a bare exit 128 with no message. This is rule 182's false zero reproduced inside
+  the file written to prevent it. Remedy as implemented: `|| e1=$?` on each pipeline, so the code is
+  captured where `$?` is still the pipeline's, and the check is reached deliberately.
+- **284** — **a self-reporting validator must not misreport its own instrument's exit code.** The
+  first repair read `e1=${PIPESTATUS[0]}` on the line *after* `... || true`, which captures the
+  status of `true` — always 0. A run that had died with `fatal: bad object` reported **"exit 0"**,
+  and it did so while the stderr check was still doing the real work, which is exactly how a
+  redundant-looking check gets deleted by a later pass as "unnecessary". Verified after the fix by
+  planting a nonexistent sha: the script now names **exit 128**. General form: two spellings of
+  "capture a pipeline's status" can differ by returning 0 always, and the failure is invisible
+  precisely when the status is the thing being reported.
+- **285** — **an impossible arithmetic result still PRINTS.** When the refs-only population was
+  polluted, the script reported `ref-held **-1207**` as a measurement. A negative part is a broken
+  instrument, not a finding, and no reader of a negative count suspects the instrument. The split is
+  now asserted to be a partition (both parts non-negative, summing back, each nested in the
+  baseline) before anything is displayed. General form: derived quantities must be range-checked
+  before publication, because the display path has no way to distinguish "impossible" from
+  "surprising", and a surprising number is the more persuasive of the two.
+
+Also recorded, since it cost this pass real time and is the same shape as rule 14l's argument-scope
+defect: **`grep -mvE` is not a flag combination.** GNU grep parses `-m` with an attached argument, so
+`-mvE 'p'` is `-m vE` — "invalid max count", exit 2, empty output — and inside `$( )` that empty
+output is substituted into a diagnostic message, which then reads as though the file had no bad
+entry. The correct spellings are `grep -vE -m 1` or `grep -m 1 -vE`. The script uses `awk` here so
+the question does not arise.
+
+**Next useful action, for a human who reopens development** — unchanged from passes 276 and 277 and
+still unstarted, all of it test-file or CI work that touches no search behaviour and hard-codes no
+phrase: fix the lifetime skip in `literals()`; add a lifetime-bearing positive control; add
+`--test no_phrase_hard_coding` to CI (`grep -rl no_phrase_hard_coding .github` still returns
+**nothing**, and `tests/no_phrase_hard_coding.rs` is in neither `--lib` nor `--bins`); extend
+`test_lines()` to mark a non-`mod` `#[cfg(test)]` item to its closing brace; add a control planting a
+clue in a `#[cfg(test)]` item body requiring **0**; adopt `docs/work/paused-recon/fence.awk` as the
+CI-side fence; publish region counts only in the `| wc -l` form. **For the next paused pass: run
+`docs/work/paused-recon/at-risk.sh --fetch` instead of re-deriving the census by hand.** It refuses
+rather than reporting if `EXPECT_REFS` (currently 205) has moved — and when it does, confirm the delta
+is this log's own pushed history before raising it, since each pass adds exactly one commit to
+`post-milestone-acceptance` and that commit is inside the exclusion set, not at risk. Per pass 274's
+standing instruction, prefer no entry at all if all of the above is unchanged.
