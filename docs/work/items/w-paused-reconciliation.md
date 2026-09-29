@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3d17 (pass 162; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:26:00Z
+owner: coord-5a02 (pass 163; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
+updated: 2026-09-29T02:23:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -14698,3 +14698,94 @@ the annotation was correct, but the *number-bearing row* it was meant to replace
 because a diff that adds rows and a diff that replaces rows look identical in a commit message. **When
 rewriting a row, assert the old label occurs exactly once afterwards** (`grep -c '| Deciding authority |'` → 1),
 not merely that the new text was inserted.
+
+## Pass 163 (coord-5a02)
+
+Wall clock at start **2026-09-29T02:21Z**, logged out **02:23Z** — no sleep, no blocking wait, no
+agent launched. Gate re-derived from
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused`
+before any action: **NO.** Nothing created, claimed, launched, prompted, resumed, or integrated.
+`origin/main` untouched at `0267ade`, still no local `main` ref (`git rev-parse --verify main` fails).
+HEAD stayed on `post-milestone-acceptance`; this entry and the header owner line are the only
+changes, pushed to `origin` and `ls-remote`-verified.
+
+### The five facts, re-derived
+
+| Fact | Re-derived at pass 163 |
+|---|---|
+| `origin/main` | `0267ade`, untouched; `git rev-parse --verify main` still fails |
+| Work items | **0 open / 0 working**, 1 blocked (this one), 83 done, 12 superseded (**96**), via the published gawk `FNR`/`ENDFILE` form |
+| Production fence | **0** in the production region of all six production files — **thirty-fifth consecutive pass**, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex, no cached totals; `src/main.rs` (no `#[cfg(test)]` boundary) quotes only the *target* on its CLI usage lines, 0 clue literals |
+| MadGab agents | **0 non-terminal** among the **131** agents whose cwd matches `madgab` (110 succeeded / 20 failed / 1 stopped); `3a8f01` still `stopped` — no superseded front's agent has restarted |
+| At-risk | **7** on no `audit/*` ref + **84** reflog-only = **91**, disjoint (`comm -12` = 0), over **199** re-fetched refs, baseline **1,167** (1,164 at pass 160; the delta is passes 161 and 162's own pushed commits, themselves on `origin` and so not entering the set), **0** of the 91 ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, not batched), all **20** `recovery/*` on `origin` by `ls-remote` |
+
+Content sweep: **37** dirty rows over **127** linked worktrees under the rule-9 filter as amended at
+pass 148 (`*/target/*|*/target-*/*|*/prof/*`) = **3** build + **34** non-build, of which **33** are
+hashable files and **1** a directory row; all 33 hash to blobs present in
+`rev-list --objects --all --reflog` (**7,348** ids via `awk '{print $1}' | sort -u` per rule 17) →
+**0 unreachable**, so **0 need archiving** and no recovery branch was created. Every figure matches
+pass 160 exactly.
+
+Host `running` agents: `116b2` (`volodyslav-116-camera`), `109b2` (`skrynia-109-catalogue-audit`),
+`79a1` (`qai-proviral-79-ingest`), `94f8` (`assemblyp1-94-collision`), `94e6`
+(`assemblyp1-94-nocollision`) — **5 agents, all other repositories, all left running**, none touched.
+
+### Why an entry at all: two structural defects, both in the log's own navigation
+
+Pass 160's next action said to prefer **no entry** if the five facts held. They held. An entry is
+still written because the *next pass* could not reliably have read pass 160's corrections, and could
+not have reproduced the check pass 162 published to prove its own fix.
+
+**1. Passes 161 and 162 have no `## Pass ` heading.** Both were appended as trailing paragraphs
+inside `## Pass 160`'s section, so `grep -n '^## Pass '` returns a highest value of **160** while
+the last *content* in the file is pass 162's. The header's stated navigation rule — "the latest pass
+entry is the LAST section of this file (`grep -n '^## Pass '` and take the highest number)" — is
+therefore wrong in the second half: a fresh pass that takes the highest number lands on pass 160 and
+misses 161's and 162's corrections entirely, which is the same hop-the-log failure pass 157–160 were
+about, one level up. The rule as printed invites the reader to do both halves and believe both.
+**This entry is the first appended under its own `## Pass 163` heading**; the correct navigation is
+the *last* `## Pass ` heading, which is now also the last section, and past passes 161/162 that
+equality is restored only from here forward. The `## Pass 92`–`## Pass 160` headings remain 69 and
+the count is re-derived with `grep`, not read from the header.
+
+**2. Pass 162's published verification is unreproducible as written.** It instructs a future pass:
+"When rewriting a row, assert the old label occurs exactly once afterwards
+(`grep -c '| Deciding authority |'` → 1)". Unscoped, that command returns **13** on this file today,
+not 1. The header really does hold exactly one such row — but 12 further occurrences live in
+historical pass entries from line 11696 on, which is expected and benign. The correct scoped forms
+are `sed -n '41,51p' … | grep -c` → 1, or `sed -n '1,11695p' … | grep -c` → 1. This is rule 25
+pointed at the fix once more: pass 161's fix was verified by an unscoped command whose real answer is
+13, so the "→ 1" in the log is an assertion about a command nobody ran in that form. **A check
+published as a command must be runnable as written; scope it in the text when the file legitimately
+contains the same token elsewhere.**
+
+The preservation sweep stays saturated at **0 needing recovery** (rule 4's one permitted recurring
+action), so there was no `recovery/*` work to do and no branch was created.
+
+**Declined (rule 19), as every pass since 92:** "recover or assign work" — recovery is permitted
+(rule 4) and the preservation sweep is saturated, so nothing was assigned; "launch or prompt Antonina
+agents", "split independent fronts", "review/integrate finished work", "exploit useful parallelism" —
+barred while paused, and there was nothing to split: 0 open, 0 working, 0 non-terminal MadGab
+agents, no unintegrated front, and `main` is explicitly not a push target; "leave running Antonina
+agents running for a later fresh pass to inspect" — none was launched and none in a MadGab cwd is
+running, so nothing was awaited or stopped. The prompt's "accumulate work on
+`post-milestone-acceptance` exactly as the itinerary requires" contradicts the itinerary, which calls
+that branch release history and no longer an automatic accumulation target; this entry accumulates
+there anyway because the log is its own home and carries no product code, and **`main` was not
+pushed**.
+
+The "prioritize the canonical approximate-search examples without phrase-specific hard-coding" clause
+is **read as a constraint on how reopened work must be done, not an instruction to reopen it**: the
+fence at 0 for the thirty-fifth pass is precisely that constraint holding, re-derived per file rather
+than from a cached total. The standing limitation remains **preserved, not fixed** — approximate mode
+still emits `wreck a nice beach` for `recognize speech`, and the production candidate pool still
+cannot generate `Hits Justice Dupe Hid Came` for `It's just a stupid game`. Fixing that is what the
+pause defers.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
+exit without committing if they hold. Navigate by the **last** `## Pass ` heading, which from here
+on is also the last section; do not trust a pass number quoted inside any entry. Read the
+"Current gate status" table's gate answer, and treat every number in it as a snapshot. Only a human
+can change the gate: fix or retire the out-of-repo scheduler template, confirm the pause (close this
+item `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best
+/ A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
