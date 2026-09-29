@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b81
-updated: 2026-09-29T10:49:00Z
+owner: coord-9c2e
+updated: 2026-09-29T10:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -21868,3 +21868,62 @@ the pass itself has nothing left to establish.
 Prefer **no entry at all**. If one is written, use census arm C, assert the fence's positive
 control, and do not open a MadGab research front or create a work item until a human reopens
 development.
+
+## Pass 246 (coord-9c2e, 2026-09-29T10:58Z) — gate NO; rule 14m regression check discharged; short entry
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-fourth time on `## Status: accepted and
+paused` plus the accepted-state document. Nothing claimed, launched, prompted, stopped or
+integrated; no new work item; no recovery branch; `main` untouched.
+
+Five facts re-derived from the procedure, unchanged from pass 245:
+
+- **Census 96 = 1 blocked / 83 done / 12 superseded; 0 open, 0 working** (arm C, published scope
+  `docs/work/items/*.md docs/*.md`, `gawk` exit 0, stderr empty). The blocked item is this one.
+- **Agents: 677 host rows, 131 MadGab cwd rows, 0 non-terminal MadGab agents.** The one
+  non-`succeeded`/`failed` MadGab row is `3a8f01` at `stopped` on a superseded item — terminal,
+  nothing to recover. The 5 host-`running` agents (`94a9` assemblyp1, `109a3` skrynia, `92e2`
+  volodyslav, `98f1` antonina, `78e3` qai-proviral) belong to other repositories and were left
+  running untouched.
+- **Phrase fence: 0 in all six production `src/` regions** via `gawk -f
+  docs/work/paused-recon/fence.awk` (rule 14ai), with the synthetic positive control planted at
+  `lib.rs:300` reading **1** on the same instrument, so the zero is a measurement and not a
+  fail-open (rules 14r/14v).
+- **Refs: no local `main`** (`rev-parse --verify main` fatal), `origin/main` `0267ade`, HEAD
+  `post-milestone-acceptance` in sync with origin.
+- **125 worktrees registered, `prune -n -v` empty, exit 0.**
+
+**This pass discharged the one check the At-risk-commits row explicitly owes a later pass** and
+which no pass since 202 had recorded running: *"A later pass should check that
+`refs/remotes/audit/*` still numbers 204 and that `recovery/at-risk-2026-09-29` is still `eaf7487`;
+if either moved, the repair regressed."* Run this pass, full-form against full-form (rule 14p):
+
+- `refs/remotes/audit/*` = **204** refs. **The pass-202 self-inflicted prune has not regressed.**
+- `refs/remotes/audit/recovery/at-risk-2026-09-29` =
+  `eaf748762e17da17dcfda8472714485fa076b143`, **byte-identical** to
+  `git ls-remote origin refs/heads/recovery/at-risk-2026-09-29`. 26 `recovery/*` heads in the
+  mirror.
+- `git cat-file -t 514ed91` = `commit`; `for-each-ref --contains 514ed91` names exactly
+  `refs/heads/scratch-3f8c62-landed`. The residual at-risk object is still live and still
+  content-durable on the remote recovery branch.
+
+So rule 14m's repair holds **44 passes after it was made**. That check is now discharged and
+should not be re-run by the next pass; the standing facts above are the pass's budget from here.
+
+**No new rule.** Rules 14ap and the preceding series describe defects in the *log's own
+instruments*, which is not where a passing pass earns its keep, and inventing a successor would add
+noise rather than information. The escalation below is now the only thing left.
+
+**Escalation, unchanged in substance and now three passes overdue.** This log is **21,870 lines /
+1.80 MB** with **166** `## Pass ` headings, of which **151** are passes ≥ 92 that all reached the
+same answer; the last **12** entries each close with "prefer **no entry at all**" and this is the
+twelfth pass to write one anyway. The standing recommendation is unchanged: **either retire the
+recurring pass or have a human reopen MadGab development.** This item is blocked on that human
+decision and on nothing a pass can perform.
+
+### Next pass
+
+Prefer **no entry at all**. If one is written, use census arm C, assert the fence's positive
+control, skip the rule-14m check (discharged above), and do not open a MadGab research front or
+create a work item until a human reopens development.
