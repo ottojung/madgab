@@ -25650,3 +25650,152 @@ should refuse to publish a verdict. (2) Script it the way `at-risk.sh` was scrip
 `-uall` spelling cannot be dropped by a later pass re-deriving it from the number. Until then,
 treat the published "0 unreachable" figures in this log as **unverified for untracked directories**.
 Per pass 274's standing instruction, prefer no entry at all if all of the above is unchanged.
+
+## Pass 280 (coord-3b1a) — gate NO; five facts re-derived unchanged; ACTED — pass 279's two unstarted instrument fixes are **done**, and building the script found **two more fail-open defects in it**, both of the "guard that fires for the wrong reason" family
+
+**Gate: NO**, for the fifty-sixth time, on `## Status: accepted and paused` plus
+[accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). The three scheduler-template clauses (launch
+or prompt Antonina agents / accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" /
+prioritise the canonical approximate-search examples) are declined as in every prior pass. Clause 2 remains
+a direct textual conflict: the itinerary's closing paragraph says `post-milestone-acceptance` "is release
+history after this acceptance and is no longer an automatic accumulation target", so the template's "exactly
+as the itinerary requires" cannot be honoured by doing what the template says. Clause 3's no-hard-coding half
+is discharged below as a **standing invariant**, not as work. Nothing claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched; no Antonina agent launched, because
+launching one is the declined clause and because there is no non-terminal MadGab agent to prompt. **No
+production or test file was modified** — the only repository change is the new instrument under
+`docs/work/paused-recon/` and this log.
+
+**The five standing facts, all re-derived from procedure, all unchanged.**
+
+1. **Census — 96 = 83 done / 12 superseded / 1 blocked, 0 open / 0 working.** Fence-scoped `gawk` FNR/ENDFILE
+   form over `docs/work/items/*.md docs/*.md`, `gawk` exit 0. Independent `work_item: true` gate reads **95**
+   in `docs/work/items/` plus `docs/continuation-approximate-search.md` (itself `work_item: true` /
+   `superseded`, outside the items directory) = **96**. Pass 277's rule 280 mechanism re-confirmed and not
+   re-litigated.
+2. **Agents — 0 non-terminal MadGab agents.** 702 host rows; membership **join** of `git worktree list
+   --porcelain` paths against the JSON `cwd` field, giving 106 distinct joined worktree paths and **124**
+   joined agent rows = 107 `succeeded` / 16 `failed` / 1 `stopped` (`3a8f01`, a superseded front, left
+   stopped). The **7** host non-terminal rows (`98d4`, `122a1` running; `78b2`, `92f3`, `92e3`, `98f3` idle;
+   `a11d` at a `/tmp` cwd) are **other repositories** and were left running and untouched. **The joined-row
+   count reads 124 this pass, not the 131 that 20+ prior passes published** — the standing figure is a
+   function of the host's agent table, which grows and is pruned independently of this repository, so it is
+   a property of the host, not a measurement of this work; the only claim that is actually about MadGab is
+   the non-terminal count, which is **0** in both spellings. Recorded so the next pass does not read 124 as
+   a 7-agent loss.
+3. **Clue fence — 0 phrase hits in all six production regions, ninety-fifth consecutive**, via the shipped
+   `docs/work/paused-recon/fence.awk` under BOTH the joined-phrase and the per-word alphabet **derived by
+   reading** `accepted-state-2026-09-27.md` lines 25/31. Region counts reproduce exactly in the `| wc -l`
+   form the instrument demands: **269 / 260 / 464 / 4242 / 67 / 269**; fence exit 0 on all six; stderr empty.
+   The per-word arm's single hit re-derives at **`src/lib.rs:3597`**, `.expect("key came from cells")` — the
+   pass-216 benign adjudication, not re-opened.
+4. **At-risk — 89, unchanged and safe; no recovery branch warranted or created.** `docs/work/paused-recon/at-risk.sh
+   --fetch` run per pass 278's standing instruction: mirror verified at **`16e2bc8`**, **89 = ref-held 1 +
+   reflog-only 88** (disjoint, asserted as a partition), both arms agree with both exit 0 and empty stderr,
+   controls behaving both ways (`514ed91` present, `0267ade` absent), **205** exclusion refs. Baseline moved
+   1300 → **1301** and, per the standing instruction, the delta was confirmed to be pass 279's own pushed
+   commit `16e2bc8`, an ancestor of the mirrored tip and therefore inside the exclusion set, not at risk.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`);
+   `origin/main` = `0267ade`; working tree clean apart from this pass's own two files; **125** registered
+   worktrees, `git worktree prune -n -v` empty, exit 0.
+
+### ACTED: the content sweep is now a running instrument that REFUSES instead of classifying
+
+Pass 279 ended with two unstarted items: use `git status --porcelain -uall`, treat any surviving `?? path/`
+row as an **error** rather than a directory to skip, and script it the way `at-risk.sh` was scripted so the
+spelling cannot be dropped again. Both are done, in `docs/work/paused-recon/content-sweep.sh` (commit
+`9ee5093`), and the script encodes the log's own history as explicit guards: rule 9/265's **anchored** build
+filter as a **literal in the awk program text** (never `-v` or `ENVIRON`, per 265's measurement that a
+variable-passed regex silently disables itself), rule 17's `awk '{print $1}'` object-id extraction, rule 22's
+`sort -u` **before** any `comm`, rule 138's `worktree<TAB>path` separator, and pass 279's `hash-object` with
+**no `-w`**.
+
+**The published "0 unreachable" survives, and it is now a measurement rather than a coincidence.** Over the
+same **125** worktrees, the same build filter and the same object store: **35 non-build dirty rows from 17
+contributing worktrees = 35 hashable + 0 unhashable**, **34 distinct blobs**, against **8,199** known object
+ids, **0 unreachable**, so **0 files need archiving and no recovery branch is warranted**. Both plants and
+both controls were run, not assumed:
+
+- **Pass 279's plant, re-run in the new instrument.** `zzprobe_dir/only.txt` with no counterpart anywhere in
+  the repository reads `?? zzprobe_dir/` under the collapsed spelling and **`?? zzprobe_dir/only.txt`** under
+  `-uall`; the sweep goes from `0` to **`2 UNREACHABLE` and names the file**. Plant removed, and
+  `git status --porcelain -uall` in that worktree re-verified clean before continuing.
+- **The refusal itself, exercised directly.** The same script with `--porcelain -uall` rewritten to
+  `--porcelain` **exits 2 and publishes no verdict**, naming `/workspace/madgab-scratch ?? examples/`. This
+  is the control the published procedure could not have: it converts a silent under-count into a loud
+  non-answer.
+- **A positive/negative pair on the join**, on this run's own data, so `0 unreachable` is not
+  indistinguishable from a broken join: a hashed blob **is** present in the known-id set, and a fabricated
+  all-zero id is **absent** from it.
+
+**The `1 directory row` that anchored this row for 100+ passes is reconciled, and it was 2 real files.**
+Published: **34 = 33 hashable + 1 directory row**. Measured: **35 = 35 hashable + 0 unhashable**. The
+difference is exactly the two files behind `madgab-scratch/examples/` — `examples/structrank.rs` and
+`examples/structs.rs` — which the collapsed form carried as one unhashed `?? examples/` row for its entire
+life. The content is the same and the verdict is the same, so no earlier published *conclusion* is wrong; but
+**"1 directory row" was a count of unexamined content reading as a small reassuring number**, which is
+pass 279's rule 288 one level down. The `34 distinct blobs` from `35` hashable rows re-derives the
+`a0ef0cf` same-content pair, so rule 22's `sort -u`-before-`comm` repair is still load-bearing and still
+necessary — the duplicate pair is what fabricated "1 unreachable" at pass 264.
+
+### Two more fail-open defects, both found by running the new instrument rather than reading it
+
+Pass 278 found three of these in `at-risk.sh`; this pass found two more in `content-sweep.sh`, which is
+either a coincidence of instrument type or a property of writing a validator at all.
+
+- **289 — a control that shares stdin with the thing it is measuring reports the measurement's status.**
+  The build-filter control was written `printf 'x\n' | grep -qE '...' <<<"${c}"`. The here-string **replaces**
+  the pipe's read end, so `printf` takes `SIGPIPE`, and under `set -o pipefail` the pipeline's status is
+  `printf`'s — the control reports **FAILURE for a filter that matched**. It was caught because the same
+  regex run directly on the same eight strings matched four and missed four, in the same pattern the script
+  claimed, and the two disagreed. The general form, and it is a sibling of rule 284 (`PIPESTATUS[0]` read
+  after `|| true` is the status of `true`): **in a pipeline under `pipefail`, the status is the rightmost
+  non-zero, so any input-feeding stage that can be short-circuited must be the one whose status you meant to
+  read.** The tell is a control that fails for inputs it was written to accept.
+- **290 — a guard re-parsing the instrument's own intermediate file with the wrong field separator is a
+  guard that never fires.** The first version of the `-uall` refusal re-read the raw `git status --porcelain`
+  output with `awk -F'\t'`, but porcelain is **space**-separated, so it matched nothing, the refusal set was
+  always empty, and the collapsed spelling sailed through with a clean verdict — the exact defect the file
+  was written to prevent, shipped inside the file, and it was only caught because the refusal control was
+  re-run **after** the guard was edited. Fixed by deriving the refusal from the already-marked rows the sweep
+  builds, so there is one parse of git's output rather than two. The general form: **a check that re-reads an
+  intermediate through a different parser than the one that wrote it is a second, unchecked instrument**,
+  and the fix is to have exactly one.
+
+Both are instances of the single sentence pass 278 ended on — *a safety mechanism is only a safety mechanism
+if its success is verified against an independent source and its failure is verified to be the failure it
+claims* — which is now six live instances on this repository (pass 202's prune, rule 14a's fetch, pass 278's
+refspec, pass 279's collapsed rows, and these two). It is the strongest recurring signal in this log, and it
+is a property of instrument-writing rather than of any one file.
+
+**New rules.**
+
+- **289** — see above. In a pipeline under `set -o pipefail` the status is the rightmost non-zero, so a
+  control that feeds stdin through a pipe that its own here-string overrides measures the wrong stage.
+- **290** — see above. A guard that re-parses an intermediate file with a different field separator than the
+  producer used is an unchecked second instrument; parse each source once.
+
+**Next useful action, for a human who reopens development** — unchanged from passes 276–279 and still
+unstarted, all of it test-file or CI work that touches no search behaviour and hard-codes no phrase: fix the
+lifetime skip in `literals()`; add a lifetime-bearing positive control; add `--test no_phrase_hard_coding` to
+CI (`grep -rl no_phrase_hard_coding .github` still returns **nothing**, and the test is in neither `--lib`
+nor `--bins`); extend `test_lines()` to mark a non-`mod` `#[cfg(test)]` item to its closing brace; add a
+control planting a clue in a `#[cfg(test)]` item body requiring **0**; adopt `fence.awk` as the CI-side
+fence.
+
+**For the next paused pass: run the two instruments, do not re-derive the censuses.**
+
+    docs/work/paused-recon/at-risk.sh --fetch      # 89 = ref-held 1 + reflog-only 88
+    docs/work/paused-recon/content-sweep.sh         # 0 unreachable over 35 rows / 34 blobs
+
+Both **refuse rather than report** a population they cannot enumerate (at-risk on ref cardinality, sweep on a
+surviving untracked-directory row), so a non-zero exit is a finding about the instrument and not a failure of
+the run. The sweep exits **4** when it finds genuinely unreachable content and names the file; that has never
+happened on a healthy tree, and the one time it fired this pass it fired on the sweep's own new file, which
+the commit resolved. Still open and worth a next pass, neither started: (1) the sweep's `d="dir"` marker
+classifies a row as a directory from a **trailing slash alone**, which is right for git's own output but would
+be wrong for a path git prints with a trailing slash inside quotes — there are none today, and the right fix
+is to confirm with `test -d` rather than to trust the spelling; (2) `content-sweep.sh` and `at-risk.sh` both
+read the object store and both embed their own spelling of the exclusion set, so the next real step is a
+single shared census that both consume, which is a design task rather than a correction. Per pass 274's
+standing instruction, prefer no entry at all if all of the above is unchanged.
