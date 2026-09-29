@@ -18064,3 +18064,65 @@ if either moved, the repair regressed; (2) that the census is still run at the *
 including `docs/*.md`. The only actions that would change anything remain human and are unchanged
 since pass 184: confirm the pause and close this item `done`, or reopen MadGab development; decide
 the residual `514ed91` commit object; and **retire or correct the out-of-repo scheduler template**.
+
+## Pass 204 (coord-5f19)
+
+**Gate: NO**, unchanged — the three scheduler-template clauses (launch/prompt agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical examples)
+are declined for the **thirty-fifth** time on `## Status: accepted and paused` plus the
+accepted-state document. Clause 2 conflicts with the itinerary's own sentence that
+`post-milestone-acceptance` "is no longer an automatic accumulation target"; the itinerary wins and
+only a human can retire the out-of-repo template. Clause 3's no-hard-coding half is not work: it is
+a standing invariant, re-verified this pass at **0**.
+
+This pass existed because pass 203 left three checks and **wrote no body section** — it committed
+frontmatter only, so the log's own "the latest pass entry is the LAST section" rule would send a
+fresh pass to pass 202. A frontmatter-only pass is invisible to the reader the log is written for.
+
+### Pass 203's three checks, all run
+
+1. **Rule-14a repair held, not regressed.** `audit/*` re-fetched FIRST by its real source namespace
+   with **no `--prune`** (rule 14m), exit 0; bare-prefix enumeration (14j) with the cardinality
+   asserted inline (14g) = **204**; `refs/remotes/audit/recovery/at-risk-2026-09-29` = `eaf7487`,
+   byte-identical to `git ls-remote origin` = `eaf7487`. Cleared.
+2. **The `+1 done / +2 total` census delta is NOT real — pass 203's `98` does not reproduce.** On
+   pass 203's *own* commit `c23fecc`, the published-scope form returns **1 blocked / 83 done /
+   12 superseded = 96**, gawk exit 0. Five other populations were run to find the phantom rows and
+   **none yields 98**: items-only 95 (11 superseded), published scope 96, `+docs/skills/*.md` 96,
+   `+docs/work/*.md` 96, and *every* `docs/**.md` 96 — the last including
+   `docs/work/recovery/3f8c62-landed/README.md`, which has **no frontmatter at all** and is
+   therefore correctly not counted (rule 34's known class). So 98 was not a wider population; it is
+   an unreproducible figure and **the standing census returns to 96**, the value passes 184–202
+   recorded. The likely mechanism is a variant of rule 14m's lesson: a count was published from a
+   shell whose per-file state was not reset, so a file seen twice in one argument list was counted
+   twice. **Rule 14o: a census delta is a claim about the population, and a delta that no
+   enumerated population reproduces is a defective measurement, not a discovery — re-run the
+   population before publishing a new total.** This discharges pass 203's item (2).
+3. **Fence re-verified under rule 14n's pinned REGION** (production `src/` only, `//` comments and
+   the `#[cfg(test)]` tail stripped), per file: `adjacency.rs` 0, `approx.rs` 0, `lexical.rs` 0,
+   `lib.rs` 0, `main.rs` 0, `wasm.rs` 0. Synthetic control reads 1, so the 0 is a measurement.
+   **Seventy-first consecutive pass at 0.**
+
+### The other three facts, re-derived
+
+- **Work items:** 0 `open` / 0 `working`; 1 `blocked` (this one) / 83 `done` / 12 `superseded` = **96**
+  at the published scope.
+- **Agents:** **0 non-terminal MadGab agents** — `0` host-`running` agents at all, so there was
+  nothing to leave running and nothing to touch. Nothing launched, stopped or prompted.
+- **Worktrees:** **125 registered**, `git worktree prune -n -v` **empty**, exit 0.
+- **`main`:** untouched — no local `main` ref (`rev-parse --verify main` exit 128),
+  `origin/main` = `0267ade`, HEAD on `post-milestone-acceptance`.
+
+The non-build content sweep was deliberately **not** re-run: pass 184 closed that class on content,
+passes 185–203 re-derived it unchanged, and the budget went to the census correction instead. No
+recovery branch warranted and none created.
+
+### Next action
+
+**Prefer no entry at all.** A pass that re-derives 96, 0, 0, 125, `0267ade` and appends a paragraph
+about it is the standing reason this log is 18,000 lines. The only actions that would change anything
+remain human and are unchanged since pass 184: confirm the pause and close this item `done`, or
+reopen MadGab development; decide the residual `514ed91` commit object; **retire or correct the
+out-of-repo scheduler template**, which has now fired thirty-five times carrying clauses that
+contradict the itinerary it points at; and fix this log's frontmatter-only passes, which leave the
+reader stranded one entry behind.
