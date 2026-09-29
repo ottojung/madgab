@@ -88,6 +88,7 @@ INSTRUMENTS=(
   "agents.sh::non-terminal madgab agents =::"
   "at-risk.sh::at-risk: ::--fetch"
   "frontmatter.sh::failed to parse::"
+  "item-state.sh::item frontmatter parses::"
 )
 
 tmp="$(mktemp -d)"
