@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4f0a
-updated: 2026-09-29T12:01:00Z
+owner: coord-9b4d
+updated: 2026-09-29T12:04:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -22925,3 +22925,89 @@ since pass 184 and its population did not change. **No recovery branch warranted
 fence alphabet from the file rather than from memory, and never widen an inclusion arm's
 subtrahend past the ref set under test. Prefer no entry at all. Blocked on the human
 reopen/confirm decision.
+
+## Pass 258 — `coord-9b4d`, 2026-09-29T12:02Z–12:04Z — gate NO; one finding, in this pass's own first control, in the dangerous direction
+
+**Declined, for the sixty-third time, the three clauses of the scheduler template that contradict the
+itinerary it points at** — launch/prompt Antonina agents, accumulate on `post-milestone-acceptance`
+"exactly as the itinerary requires", and prioritise the canonical approximate-search examples. The
+deciding text is unchanged: `docs/skills/itinerary-madgab.md` `## Status: accepted and paused`, plus
+`docs/accepted-state-2026-09-27.md` `## Operational status`. Clause 2 remains a direct textual
+conflict — the itinerary's closing paragraph says the branch "is no longer an automatic accumulation
+target", so "exactly as the itinerary requires" cannot be honoured by doing what the template says.
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+**main untouched at `0267ade`**.
+
+**Standing facts, re-derived from the instruments and not copied** (all reproduce):
+
+1. **Census 96** = 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open` / 0 `working`**, by the
+   published-scope fence-scoped gawk over `docs/work/items/*.md docs/*.md` (rule 14l: the second
+   argument is load-bearing; rule 34: no per-file loop). This item is the single `blocked` one.
+2. **0 non-terminal MadGab agents** among **131** MadGab-cwd rows of **686** host rows
+   (110 `succeeded`, 20 `failed`, 1 `stopped` — `3a8f01` on the superseded
+   `madgab-diversity-3a8f01` front, still stopped exactly as pass 152 left it). The 4 host-`running`
+   agents (`94d6` assemblyp1, `79e2` qai-proviral, `109a3` skrynia, `98f1` antonina) are other
+   repositories and were **left running, untouched**; the idle rows are other repositories, except
+   `a11d` in `/tmp`, which is not a MadGab cwd.
+3. **Fence 0 / decomp 0-0-0-1-0-0** over all six production files, region counts
+   **269/260/464/4242/67/269** in the `wc -l < FILE` form per rule 14y (not via `$( )`, which
+   under-reads by exactly 1 in every file). The single non-zero re-derived **by reading the line**:
+   `src/lib.rs:3597` `.expect("key came from cells")` — the ordinary English past tense, adjudicated
+   benign at pass 216, not re-opened.
+4. **Controls in both directions, with a code-line carrier**: `wreck a nice beach` planted at
+   `lib.rs` line 300 reads **1** inside the region; the same plant at line 5000 inside `mod tests`
+   reads **0**. This is where the pass's finding is — see below.
+5. **125 registered worktrees**, `git worktree prune -n -v` **empty**, exit 0, holding the
+   by-construction equality settled at pass 170. **main untouched**: `git rev-parse --verify main`
+   exits **128**, `origin/main` `0267ade`, HEAD `post-milestone-acceptance`.
+
+### This pass's finding — a positive control whose carrier is a comment measures the stripper, not the region
+
+`fence.awk` is the **region stripper**: it removes `//` and `/* */` comments before the caller's
+matcher sees anything (its own header, and rule 14x). The `Production fence` row quotes its control
+as "a literal `wreck a nice beach` planted at `lib.rs` line 300" **without naming the carrier**. This
+pass's first control was therefore written the way the row reads — planted as `// CONTROL PLANT:
+wreck a nice beach` — and it read **0 at line 300 and 0 at line 5000**. A pass that stopped there
+would have had a control that is *flat zero in both positions*: which is exactly the signature the
+control exists to rule out (pass 54's executable negative control), except that here the zero is
+manufactured by the control's own carrier rather than by the thing under test. The pass caught it
+only because it re-ran the same plant as a `const … = "wreck a nice beach";` code line and got
+**1 / 0**. General form, and an instance of pass 209's rule 14r (a control must exercise the same
+filter the measurement does): **a control must exercise the filter the measurement exercises.** Here
+the measurement runs *after* comment stripping, and a comment-borne control is destroyed by that same
+stripping before the measurement ever runs — so the control exercises the stripper, whose correct
+behaviour is the 0, and the region filter is left untested. A control that cannot fail in the
+direction that matters is more dangerous than a missing one, for the reason pass 207's rule 14q gave:
+it manufactures confidence in the direction the conclusion already points. **When quoting a fence
+control, always name the carrier, and never carry the plant as a comment.**
+
+### Also recorded, no new rule: the mirror-cardinality assertion nearly read as pass 202's regression
+
+The `At-risk commits` row instructs a later pass to "check that `refs/remotes/audit/*` still numbers
+204". Implemented with `for-each-ref` over the two prefixes the log elsewhere uses —
+`refs/remotes/audit refs/remotes/audit-tag` — that enumerates **205** and the inline rule-14g
+assertion aborts, in the precise shape of the pass-202 prune loss. It is not a regression: the
+population is **204 heads + 1 tag**, `ls-remote --heads` is **204**, and the name sets are
+**diff-clean, zero lines, exit 0** in pass 252's sanctioned form. The 205 is the row's own `*`
+spelling being read as covering the tag mirror. No change made to the row beyond this note — its
+`204` is correct for heads, and rule 14g's job here is to abort on a *stale* number, which is
+precisely what it did.
+
+### At-risk state, re-derived from a freshly fetched exclusion set
+
+`git fetch origin '+refs/heads/*:refs/remotes/audit/*'` FIRST per rule 14a/14m, **no `--prune`**,
+exit 0 (`c44bdc8..96965b9`, the pass-257 entry commit). Exclusion set **204** heads, cardinality
+asserted inline. Baseline `rev-list --all --reflog` **1,275** (+1 over pass 257's 1,274 = its own
+entry commit, on `origin` and therefore outside the set). **Arm A** (reflog-inclusive, audit-only
+subtrahend per pass 257's correction) **88**; **Arm B** (refs-only) **1**; the reflog-only/ref-held
+split reproduces as **87 / 1**, intersection 0, union 88, disjoint. Controls in both directions:
+`514ed91` present in the reflog-inclusive arm, `origin/main` `0267ade` absent. `recovery/*` heads
+**26** (command-derived, per pass 255/256 — no number recorded in the row), and
+`origin/recovery/at-risk-2026-09-29` = `eaf7487` is **byte-identical** on `ls-remote` and on
+`audit/recovery/at-risk-2026-09-29` per rule 14p. Content sweep not re-run: closed on content since
+pass 184 and its population did not change. **No recovery branch warranted; none created.**
+
+**Next pass:** quote a fence control *with its carrier*, and treat a control that reads 0 in both
+directions as a broken control rather than as a passing invariant — then re-run it as a code line
+before believing it. Never widen the mirror enumeration to the tag namespace when checking the head
+count. Prefer no entry at all. Blocked on the human reopen/confirm decision.
