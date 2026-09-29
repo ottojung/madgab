@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-4b1f (pass 283; gate NO; five facts re-derived unchanged; ACTED - pass 282's open fence item was a live fail-open, fixed at b14f7a0, and its census sentinel now runs in both directions. See the pass-283 entry at the end of this file)
-owner: coord-7c58
-updated: 2026-09-29T15:30:00Z
+prior_owner: coord-7c58 (pass 284; gate NO; five facts re-derived unchanged; ACTED - pass 283's published guard control names an input the instrument no longer keys on, so following that stale label would have restored the pass-214 blind spot. See the pass-284 entry at the end of this file)
+owner: coord-9a1b
+updated: 2026-09-29T15:44:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -26185,3 +26185,81 @@ changed), and do not re-run pass 283's `work_item: false` sentinel control — i
 changed no repository file, and pass 284 confirmed the guard it was built to test is sound under the
 correct (`mod tests`) input spelling. The one genuinely open item is the CI wiring above, which needs
 a human decision, not another pass.
+
+## Pass 285 (coord-9a1b) — gate NO; five facts re-derived unchanged; ACTED — the census instrument's
+### over-report mode is named, and it is an OVER-count of 17, not the under-count rule 34 predicts
+
+**Gate: NO.** The three scheduler-template clauses are declined for the fifty-eighth time, unchanged
+from pass 284 and for the reasons restated there: MadGab is `accepted and paused`
+(`docs/skills/itinerary-madgab.md` `## Status: accepted and paused`, and
+`docs/accepted-state-2026-09-27.md` `## Operational status`), so nothing is claimed, created,
+launched, prompted, stopped or integrated; clause 2 remains a direct textual conflict, since the
+itinerary's closing paragraph says `post-milestone-acceptance` "is no longer an automatic accumulation
+target"; clause 3's no-hard-coding half is a standing invariant, not work. There is also nothing to
+assign: 0 `open` and 0 `working` items exist, so no front can be split or handed on. The pause holds
+with no human reopen anywhere in the log — of the 494 commits on `origin/post-milestone-acceptance`
+since 2026-09-27, 330 are this log and every remaining one is a dated pre-acceptance retirement or
+release fix.
+
+**Five standing facts, all re-derived from their instruments and all unchanged.**
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working** — `docs/work/items/*.md`
+   plus `docs/*.md`, frontmatter anchored at line 1, code fences skipped, every exit code captured.
+2. **Fence 0.** Through `fence.awk` on all six production files, regions **269 / 260 / 464 / 4242 /
+   67 / 269** — the `| wc -l` form `fence.awk`'s own header publishes, reproduced exactly and not
+   through command substitution (rule 14ao). Phrase arm **0 0 0 0 0 0**; decomposed arm
+   **0 0 0 1 0 0**, the single non-zero being the `src/lib.rs` `.expect("key came from cells")` at
+   line 3597 adjudicated benign at pass 216 and not re-opened.
+3. **0 non-terminal MadGab agents.** 706 host agent rows; the only MadGab-cwd row is `3a8f01`
+   `stopped` on a superseded front, left stopped. The three host-`running` agents (`92e4`
+   volodyslav, `109f1` skrynia, `94e7` assemblyp1) are other repositories and were left running,
+   untouched. The stale `a11d` `idle` row sits in `/tmp` and is not a MadGab cwd.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched.** No local `main` ref (`rev-parse --verify main` exit 128), `origin/main`
+   `0267ade`, `HEAD` = `origin/post-milestone-acceptance` = `7fa1ffe`, 0/0 ahead-behind.
+
+**Fence controls, all seven run in both directions before publishing the zero** (rule 14t/14v, and
+the strengthened control requirement of pass 281). Plants, all required non-zero: the decomposed
+array `["hits","justice","dupe","hid","came"]` → phrase 0 / decomp 1 (the split the two arms exist
+for, rules 14t/14u); joined `"wreck a nice beach"` → 1/1; the ASCII-apostrophe target
+`"it's just a stupid game"` → 1/1; the U+2019 typographic form `it’s just a stupid game` → 1/1
+(pass 253's sixth control, and the one the C locale would otherwise drop); and `mod tests {` inside
+a block comment with a clue literal on line 2 → region 2, 1/1, proving rule 14aq's collapse repair
+holds. Negative controls, both required to be non-clean: a comment-only plant aborts **rc=2** with
+the empty-region message, and a test-fence-on-line-1 file aborts **rc=2** with the same message —
+so pass 283's `emitted` repair fires on the shape it was written for, not only on a zero-byte file.
+
+**THIS PASS'S FINDING — a census instrument can over-report, and the mechanism is a sticky flag
+across a re-opened frontmatter block.** Rule 34 tells every pass to run the published fence-scoped
+`FNR`/`ENDFILE` gawk form *first* because hand-written variants come back wrong, and every recorded
+instance so far has been a near-**empty** result. This pass's first hand-written variant came back
+**131 — an over-count of 35**, which is the direction rule 14b names as the more dangerous one. It
+was not a boundary defect: requiring the frontmatter to open at line 1 changes nothing on this
+corpus, and a planted non-work-item document with body `---` rules is still correctly excluded by
+both forms. The cause is narrower and it is a real fail-open. The variant resets `wi` only on
+`FNR==1`, so once a work item's frontmatter closes, a `---` **horizontal rule in the body** re-opens
+the block, `wi` is still `true` from the frontmatter, and the `ENDFILE` check fires a **second**
+time. Decomposed: 114 counted at the closing `---` plus 17 counted again at `ENDFILE` = 131, and
+the 17 are named — `w-2e5b93`, `w-3a7f0d`, `w-3c5b18`, `w-3f6a21`, `w-3fa1c7`, `w-5c1a3e`,
+`w-5d03af`, `w-5f1c04`, `w-7e1a04`, `w-7fa26c`, `w-9c4d21`, `w-9e2b41`, `w-a7e2b3`, `w-b3e91a`,
+`w-c1d3a7`, `w-c3f81a`, `w-e07c42` — all real items, all counted twice. The `st` value is sticky in
+the same way, which is why the 17 land in `done` and `superseded` and inflate those two buckets
+rather than creating an impossible state. Anchor the block to line 1 **and** reset the flag at the
+closing `---`, or count only at the close, and the form reproduces 96 exactly.
+
+The general form, extending rule 34 rather than replacing it: a hand-written census variant is not
+biased toward emptiness, and a rule that only records the empty direction leaves the over-report
+direction undocumented — so the standing instruction is to **check the variant's total against the
+published total in both directions**, and to prefer a form whose tally is a *set of filenames* over
+one whose tally is a counter, because a duplicated row is visible in a filename list and invisible in
+a count. The published 96 is unaffected: it was produced by the anchored form, and the anchored form
+reproduces 1/83/12.
+
+**Not re-run, deliberately:** the at-risk census and the content sweep (closed on content since
+pass 184; neither population has moved), and pass 283's `work_item: false` sentinel control, which
+lives in `/tmp`, changed no repository file, and which pass 284 already confirmed is sound under the
+correct `mod tests` input spelling. The one genuinely open item remains pass 267's CI wiring: the
+repository ships an executable hard-coding fence that no CI job runs, which is a human decision
+rather than a pass action. The log's own "prefer no entry at all" (pass 204) is in tension with
+pass 274's finding that silence is itself a defect when a live finding exists; this pass had a
+measured finding, so it recorded it, and it kept the entry short.
