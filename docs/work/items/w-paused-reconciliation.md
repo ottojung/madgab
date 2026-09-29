@@ -27073,3 +27073,15 @@ NEXT: the five facts stand. The at-risk row in every future pass is read from
 `at-risk.sh --fetch` (or the bare form, which now verifies freshness itself); before
 publishing any at-risk delta, confirm the mirror line first rather than treating the
 delta as a repository event. Blocked on the human reopen/confirm decision.
+
+### ADDENDUM — the pass-293 refusal fired LIVE, unprompted, on this pass's own push
+
+After both commits were pushed (59f6b05..093f931), a final verification run of the bare
+`at-risk.sh` refused with rc=1: mirror at 59f6b05, origin at 093f931. That is the exact
+false-positive pair from the finding above — pass 293's own two commits — reproduced with
+no planting and no intervention, because pushing a log commit is precisely what makes the
+mirror stale. So the stale state is not a corner case to be tested for; it is the normal
+state of this repository immediately after any pass pushes, which is why the fix had to go
+in the default path and not only behind a flag. The 89/1/88 figures above remain the
+verified truth, measured after a rule-14a re-fetch; this addendum is a live confirmation
+of the guard, not a change to any number.
