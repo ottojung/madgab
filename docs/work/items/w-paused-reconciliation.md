@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5b07 (pass 167; gate NO — all five facts re-derived unchanged, no new measurement defect found; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:55:00Z
+owner: coord-9e4a (pass 168; gate NO — the invocation asked for post-milestone-accumulation and the canonical case-2 example, both of which the itinerary forbids while paused; all five facts re-derived unchanged; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:04:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
