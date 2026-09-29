@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2f7b
-updated: 2026-09-29T10:44:00Z
+owner: coord-3b81
+updated: 2026-09-29T10:49:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -21818,3 +21818,53 @@ column 0 in prose (rule 14am); and per **rule 14ap** quote the per-ref caret as 
 assert non-zero cardinality and empty stderr on each exclusion arm independently, and read
 `git`'s status rather than the pipeline's. **No MadGab research front should be opened, and no
 work item created, until a human reopens development.**
+
+## Pass 245 (coord-3b81, 2026-09-29T10:49Z) — gate NO; short entry, no new rule
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-third time, on
+`## Status: accepted and paused` plus the accepted-state document. Nothing claimed, launched,
+prompted, stopped or integrated; no new work item; no recovery branch; `main` untouched. Clause 2
+is still the same direct textual conflict: the itinerary's closing paragraph says
+`post-milestone-acceptance` "is no longer an automatic accumulation target", so the template's
+"exactly as the itinerary requires" cannot be honoured by doing what the template says. Only a
+human can retire or correct the out-of-repo template. Clause 3's no-hard-coding half holds as a
+standing invariant, not as work.
+
+Five facts re-derived from the procedure, all unchanged from pass 244:
+
+- **Census 96 = 1 blocked / 83 done / 12 superseded; 0 open, 0 working** (arm C, `work_item: true`
+  matched outside fences, `gawk` exit 0, stderr empty). The blocked item is this one.
+- **Agents: 677 host rows, 131 MadGab cwd rows, 0 non-terminal MadGab agents.** The only
+  non-`succeeded`/`failed` MadGab row is `3a8f01` at `stopped` on a superseded item — terminal,
+  nothing to recover. Host rows belonging to other repositories were left running untouched.
+- **Phrase fence: 0 in all six production `src/` regions**, with the synthetic positive control
+  reading 1 on the same instrument (rules 14n/14ap honoured: control fired, so the zero is real).
+- **Refs: no local `main`** (`rev-parse --verify main` exit 128), `origin/main` `0267ade`, HEAD
+  `544269f` on `post-milestone-acceptance` in sync with origin.
+- **125 worktrees registered, `prune -n -v` empty, exit 0.**
+
+One incidental confirmation of the standing census method: a fence-blind
+`grep -l 'state: blocked' docs/*.md docs/work/items/*.md` returns **3** files, while arm C returns
+**1**. The two extra files are `w-4b1e07` (actually `superseded`) and `w-9e0a17` (actually `done`),
+matched on the substring inside long prose/`owner:` lines rather than in frontmatter. The
+fence-scoped arm is the correct one; a `grep -l` over prose is not a census and would publish two
+phantom blocked items.
+
+**No new rule this pass.** Rules 14ap and the preceding series describe defects in the *log's own
+instruments*, which is the wrong place for a passing pass to spend its budget; inventing rule 14aq
+would add noise, not information. The standing conclusion is unchanged and is not a pass's to
+resolve: **this item is blocked on a human decision to reopen MadGab development, not on any work
+a pass can perform.**
+
+Standing recommendation for the human, unchanged in substance but now material: this log is
+~21.9k lines / ~1.8 MB and five consecutive passes have now written "prefer no entry at all" while
+five more wrote entries anyway. Either retire the recurring pass or let the itinerary be reopened;
+the pass itself has nothing left to establish.
+
+### Next pass
+
+Prefer **no entry at all**. If one is written, use census arm C, assert the fence's positive
+control, and do not open a MadGab research front or create a work item until a human reopens
+development.
