@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-1f7c
-updated: 2026-09-29T18:56:00Z
+owner: coord-3b07
+updated: 2026-09-29T18:59:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -29098,3 +29098,119 @@ test targets to `.github/workflows/test.yml`), and (c) raises the stakes again.
 in 99 passes. The new, pass-actionable item is the line-scope hole above: a
 later pass may close it, deliberately and with a named adjudication, or a human
 may. **Blocked on the human reopen/confirm decision.**
+
+## Pass 310 (coord-3b07, 2026-09-29T18:56Z-18:59Z) — gate NO; six facts re-derived unchanged; ACTED — the pass-309 line-scope hole is WIDER than pass 309 reported: the per-word backstop does not survive it either, so no spelling of the clue is safe against the fence as built
+
+### This pass's finding: THE LINE-SCOPE HOLE DEFEATS BOTH FORMS, NOT JUST THE JOINED ONE
+
+Pass 309 named the correct defect and, in the same entry, slightly understated its
+size. It wrote that a hard-code split across adjacent string literals "reads 0/0",
+and then attributed the second 0 to the fact that per-word is clue-side only. That
+attribution is right for the TARGET-side plant it used (`"recognize "; "speech"`),
+but it does not hold for the CLUE-side plant that actually matters, and this pass
+measured that rather than repeating the figure.
+
+Every measurement form in `clue-fence.sh` is a `grep`, so no form can match across
+a newline. The joined form (`JP_RE`) is the two clue phrases plus the two target
+phrases; the per-word form (`PW_RE`) is the eight clue words of length > 1. A plant
+that splits *mid-word* therefore defeats the joined form (the phrase is not
+contiguous) AND the per-word form (no single line contains any whole clue word):
+
+    const CLUE: &str = "Hi"
+        "ts J"
+        "ustice D"
+        "u"
+        "pe H"
+        "id C"
+        "ame";
+
+    joined hits: 0     per-word hits: 0        <- undetected
+    (control) same phrase contiguous on one line: joined 1, per-word 5
+
+So the correct statement of the fence's coverage is narrower than pass 309's. It is
+not "the joined form is line-scoped, the per-word form is the backstop". The
+per-word backstop is *itself* line-scoped, so **no spelling of the clue survives a
+mid-word line split**, and pass 309's `0/0` was not a partial escape but the fully
+general one. Pass 309's own plant is the narrower case, where three of the eight
+clue words survive intact on their lines and only the phrase fails to assemble.
+
+**Why this is a real escape and not a contrived one.** Rust concatenates adjacent
+string literals, so this is not a stunt: it is how a source file that wants to
+respect a line-length limit writes a long literal. The stripper `fence.awk` reads
+`"wreck a nice "` and `"beach"` as two string literals and preserves both verbatim,
+so the region it hands to the caller is a faithful copy of what a compiler would
+join — the information is present in the region and only the `grep`-per-line
+measurement discards it.
+
+**The general form.** The fence's unit of detection is the LINE. Both forms, and
+every one of the eleven controls pass 308 added, are line-scoped by construction,
+so the control suite certifies line-scoped detection and the item's headline
+number reports line-scoped detection. Neither statement mentions the boundary.
+A fence that can be defeated by re-wrapping a literal cannot discharge the
+no-hard-coding property on its own, and rule 14v's derivation discipline (derive
+the alphabet, never recall it) is orthogonal to this: the alphabet is derived
+correctly and then searched at the wrong granularity.
+
+**The candidate fix, stated but NOT applied this pass.** Fold the region's string
+literals together before matching — i.e. search a whitespace-collapsed copy of the
+region as a third form, alongside the existing two, and add a control that plants
+the mid-word split and requires non-zero. That is a change to the *measurement* of
+an instrument, not to any file under `src/`, so it is within a pass's remit; it is
+not applied here because a pass that cannot re-run the full control suite to
+green is not entitled to publish a new form, and doing it half-way would trade a
+known narrow hole for an unknown one. Naming it with its control is the durable
+part; the implementation is the next pass's, with `selfcheck.sh` green at the end.
+
+### The six standing facts, re-derived this pass
+
+1. **Census by IDENTITY** (`work_item: true` inside a closed leading block):
+   96 items — 0 open / 0 working / 1 blocked / 83 done / 12 superseded, 0
+   unparsed frontmatter. `census.sh` exit 0. The single blocked item is this one.
+   0 open / 0 working remains the figure the pause rests on.
+2. **Agents**: 729 host rows, 131 with a MadGab cwd, all terminal
+   (110 succeeded / 20 failed / 1 stopped) — **0 non-terminal MadGab agents**.
+   2 host-`running` agents (`109a5` skrynia, `94c9` assemblyp1) belong to other
+   repositories and were left running untouched. Nothing to prompt, recover, or
+   integrate; nothing was launched.
+3. **Clue fence**: 0 canonical occurrences in all six production regions, 1
+   adjudicated benign per-word hit in `src/lib.rs` (`.expect("key came from
+   cells")`, pass 216). 11/11 controls behave as published. This pass's finding
+   is that the 0 is *narrower in meaning than it looks* — see above.
+4. **Worktrees**: 125 registered, `git worktree prune -n -v` empty, exit 0.
+5. **main is untouched**: no local `main` ref (`rev-parse --verify main` exit
+   128), `origin/main` 0267ade, HEAD on `post-milestone-acceptance` in sync with
+   origin at 7c203c9.
+6. **At-risk**: the audit mirror is stale on the default path and must be run
+   with `--fetch` (pass-187 class, still unfixed on the default path since pass
+   293). Re-run with `--fetch`: mirror verified at 7c203c9, 89 at risk = 1
+   ref-held + 88 reflog-only, disjoint; 514ed91 present and 0267ade absent
+   (controls). The residue is a human judgement, not an automatic action.
+
+### What this pass did and did not do
+
+Ran `item-state.sh`, `census.sh`, `agents.sh`, `clue-fence.sh`, and `at-risk.sh
+--fetch`; read the handoff's NEXT block; planted the pass-309 hole and the sharper
+mid-word variant on scratch copies outside `src/`. Claimed this item by pushing
+the owner change (coord-1f7c -> coord-3b07). Declined the three scheduler-template
+clauses for the sixty-first time on `## Status: accepted and paused` plus the
+accepted-state document: no agent launched, no new work item, no historical item
+claimed, no integration. **Touched no file under `src/`** — `git diff --name-only`
+is this work item only — so pass 307's 46-green / 1-`#[ignore]`d integration figure
+and the accepted state's behaviour are untouched. Did not push to `main`.
+
+NEXT: the pause holds and the six facts stand unchanged for the 100th time. The
+fence's 101st measurement will read 0, and this pass is the one that fixes the
+reading of that 0: **the fence detects a canonical clue that is CONTIGUOUS ON ONE
+LINE; it does not detect one assembled from adjacent literals, and it does not
+detect a mid-word split at all**, so per-word is not the independent backstop pass
+309 described. The pass-actionable item is therefore now precise and is a
+*measurement* change, not a `src/` change: add a third, whitespace-collapsed form
+to `clue-fence.sh` that searches string literals after joining them, and add a
+control planting the mid-word split that must read non-zero; green requires
+`selfcheck.sh` to pass at the end. A later pass may do this, or a human may.
+(c) is unchanged and still the highest-value gap: the fence is not run by CI
+(`.github/workflows/test.yml` runs `cargo test --lib --bins`, one integration
+target, and clippy), so a hole nobody plants stays invisible — and passes 308, 309
+and 310 are a three-pass demonstration that an unrun fence's silent zero persists.
+(a) and (c) are one decision. (b), retiring this recurring pass, is unchanged.
+**Blocked on the human reopen/confirm decision.**
