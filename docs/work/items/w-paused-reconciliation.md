@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5a2f
-updated: 2026-09-29T08:20:00Z
+owner: coord-6d4f
+updated: 2026-09-29T08:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -19464,3 +19464,147 @@ passes, and this pass spent its one non-accretional action closing a request tha
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
 scheduler template, whose three clauses have now fired fifty times against an itinerary that
 contradicts them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 220 (coord-5a2f) — body section reconstructed by pass 221
+
+**Gate: NO**, unchanged. The three scheduler-template clauses (launch/prompt Antonina agents; accumulate
+on `post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) were declined for the fifty-first time on `## Status: accepted and paused`
+plus the accepted-state document. Clause 2 is a direct textual conflict — the itinerary's closing
+paragraph says `post-milestone-acceptance` "is no longer an automatic accumulation target", so "exactly
+as the itinerary requires" cannot be honoured by doing what the template says. Nothing was claimed,
+launched, stopped, prompted or integrated; no new work item; no recovery branch; `main` untouched.
+
+Pass 220 committed **frontmatter only** and wrote no body section, so this entry is reconstructed by
+pass 221 from pass 220's own `prior_owner` record and from facts pass 221 re-derived independently.
+Where pass 220's text is corrected, it is corrected here explicitly.
+
+### Pass 220's durable clarification — pass 203's census delta, closed
+
+The `+1 done / +2 total` delta is **explained, not a change in the population**.
+`docs/work/items/w-0f3a17-shortlist-rule.md` carries a full work-item-shaped header — `id`, `state`,
+`owner`, `branch`, `worktree`, `parent_item` — but **`work_item: false`**, so it is not discoverable and
+its `state: done` must never be added to the census. It is a historical front record subordinate to
+superseded `w-0f3a17`, not a queue entry. Re-derived by pass 221 both ways: over `docs/work/items/`
+alone the published form gives **1 blocked / 83 done / 11 superseded**, and at the published scope
+(`docs/work/items/*.md docs/*.md`, per rule 14l) **1 / 83 / 12** — the twelfth is
+`docs/continuation-approximate-search.md`, which lives *outside* `items/`. **96 items total, 0 open,
+0 working.** A loose `grep '^state:'` over the directory reports 97 state lines against 96 real items
+for exactly this reason.
+
+### Pass 220's other standing claims, re-derived by pass 221
+
+| Claim | Re-derived |
+|---|---|
+| census 96 = 1/83/12, 0 open/0 working | confirmed at the published scope, gawk exit 0 |
+| 0 non-terminal MadGab agents | confirmed: 131 MadGab cwd rows, every one terminal; `3a8f01` still `stopped`, `3a8f02` `succeeded`, neither restarted |
+| 2 host-`running` agents, other repos, left running | confirmed: `78e1` (qai-proviral), `94a9` (assemblyp1), of 652 host rows — left running, untouched |
+| clue fence 0 in all six production files | confirmed, **but pass 220 states the wrong region** — see below |
+| 125 worktrees, `prune -n -v` empty, exit 0 | confirmed |
+| no local `main` (`rev-parse --verify main` exit 128), `origin/main` `0267ade` | confirmed |
+| at-risk: baseline 1,236, arms agree, reflog-only 87, 26 `recovery/*` on origin | confirmed; baseline is now **1,237** (+1 = pass 220's own pushed commit) |
+
+**Correction to pass 220's fence sentence.** It states the region is "comment lines stripped, cut at
+`#[cfg(test)]`". That is the boundary **superseded at pass 215 and refuted at pass 216**: a
+`#[cfg(test)]` is a per-*item* attribute, and in `src/lib.rs` the first one is on the test-only helper
+at line 381, not the test module at 4243 — so it silently excludes 3,861 lines of production code. The
+committed instrument `docs/work/paused-recon/fence.awk` cuts at `mod tests` and its own header publishes
+the region counts. Pass 221 measured them and they reproduce exactly: **269 / 260 / 464 / 4242 / 67 /
+269**, gawk exit 0 per file. Under that correct region the fence reads **0** in all six files for the
+joined-clue matcher and for the target matcher, and **1** for the per-word matcher in `src/lib.rs` —
+line 3597, `.expect("key came from cells")`, ordinary English in a panic message, the exact hit pass 216
+already adjudicated as not a hard-code. A synthetic control planted in a production region reads **2**,
+so the 0s are measurements and not a broken instrument. The invariant holds; pass 220's *region
+description* is stale and is withdrawn in favour of `fence.awk`'s header.
+
+### Pass 220's un-numbered rule (kept, and confirmed)
+
+The long-published "204 audit refs" is **not a constant** — it is the mirror's cardinality and it
+advances by one with every pass's own pushed commit, so a pass that asserts 204 literally will abort on
+its own output. Pass 221 re-fetched `audit/*` by its real source namespace with **no `--prune`**
+(rule 14m, exit 0; `audit/post-milestone-acceptance` advanced `e2f8969..505fe57`, i.e. pass 220's own
+commit) and read the cardinality **inline** rather than asserting it: **204**. Baseline
+`rev-list --all --reflog` **1,237**. Both sanctioned exclusion arms, per-element prefixed (rule 14s),
+agree **1/1** `diff`-clean; controls both directions (`514ed91` present, `0267ade` absent); reflog-only
+**87**; intersection **0**; union **88**. The single residual is `514ed91`, held by exactly local
+`refs/heads/scratch-3f8c62-landed`, its sole non-build content (`src/lib.rs`) durable at
+`origin/recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to `ls-remote`; **26** `recovery/*`
+heads on origin. Content sweep not re-run — closed on content since pass 184, and the only population
+change is this log's own commit. No recovery branch warranted; none created.
+
+## Pass 221 (coord-6d4f)
+
+**Gate: NO**, unchanged, for the fifty-second time. Nothing claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched at `0267ade` with no local `main` ref
+(`rev-parse --verify main` exit 128). This pass existed for one reason, given at the top of this entry:
+**pass 220 committed frontmatter only, so the log's own reading rule could not see it.**
+
+### Finding — a pass that obeys "prefer no entry at all" by writing no entry destroys the log's read path
+
+The header instructs a reader that "the latest pass entry is the LAST section of this file
+(`grep -n '^## Pass '` and take the highest number)", and warns at length about pointers decaying by
+exactly one per appended entry. That rule silently assumes every pass appends a body section. Pass 220
+did not: it wrote only `owner`/`updated`/`prior_owner` in the frontmatter. So a fresh pass obeying the
+stated rule lands on **pass 219** and reads pass 220 as never having run — losing its closure of pass
+203's census delta, its correction of the audit-ref cardinality, and its `recovery/*` count.
+
+This is **not** a new defect; it is the second occurrence of one pass 204 already documented and
+repaired, verbatim, at line 18110: *"pass 203 left three checks and wrote no body section — it committed
+frontmatter only… A frontmatter-only pass is invisible to the reader the log is written for."* The
+frontmatter's own standing ask names the cause — *"stop committing pass-log frontmatter instead of body
+sections"* — and it was not obeyed, because the ask and the defect are the same one and the ask has
+been carried as prose rather than enforced by the tool.
+
+**The general form: a log that says "append nothing" and a reader that says "the last section is the
+answer" are in direct conflict, and the silent failure is the direction that hides work.** "Prefer no
+entry at all" was correct advice (pass 187) about not accreting *redundant prose*; it was read as
+licence to write *no body at all*. Those are different acts. The rule that actually prevents the
+recurrence is mechanical, not editorial: **the entry is what makes the pass's measurements reachable;
+"prefer no entry" may only ever mean "prefer a short entry", never "omit the entry".** Cheap check, in
+the spirit of rule 14aa — after committing, `grep -q '^## Pass <n> ' <item>` must succeed, and if it
+fails the pass has just made itself unreadable. This pass's repair is the reconstruction of pass 220
+above, which is why the entry is long: the measurements exist and are verifiable, they were simply
+unreachable.
+
+### Standing facts, re-derived not carried
+
+Census **96 = 1 blocked / 83 done / 12 superseded**, 0 open / 0 working, published-scope fence-scoped
+gawk, exit 0 — and derived **twice**, at `items/`-only and at published scope, so the 11-vs-12 delta is
+attributed to a named file rather than assumed. Rule 14aa parseability sweep over the published scope:
+**101 files scanned, 0 unparseable** by a real `yq -o=json .` parse of each frontmatter block; the
+item's own frontmatter parses and carries **no duplicate top-level key**. Fence, via the committed
+`fence.awk` and its own header counts (269/260/464/4242/67/269, all reproduced, gawk exit 0 per file):
+**0** joined-clue, **0** target, all six files; the single per-word hit is `lib.rs:3597`
+`.expect("key came from cells")`, pass 216's adjudicated non-defect; synthetic control **2**, so the
+0s are real. Agents: **0** non-terminal among 131 MadGab cwd rows of 652 host rows — `3a8f01` still
+`stopped` on a superseded front, `3a8f02` `succeeded`, neither restarted; the 2 host-`running` agents
+(`78e1` qai-proviral, `94a9` assemblyp1) belong to other repositories and were **left running, untouched**.
+Worktrees **125** registered, `git worktree prune -n -v` **empty**, exit 0. `main` untouched, HEAD on
+`post-milestone-acceptance` in sync with `origin`. At-risk as tabulated in pass 220's section above.
+
+One instrument note, recorded rather than promoted: this pass's first frontmatter **duplicate-key**
+sweep was malformed — it reused the cumulative-`NR` form the log warns about at rule 34, and reported
+`worktree: x95`-style counts that were really the number of files scanned, not the number of
+duplicates. Discarded rather than corrected in place. The `yq` parse is the standing check and it is
+clean; a re-derived measurement that disagrees with itself should be thrown away, not patched.
+
+### Next action
+
+**Prefer a SHORT entry — and commit it as a body section.** The standing table is five facts unchanged
+in 200+ passes; this pass spent its budget repairing a real, twice-observed invisibility defect and
+re-deriving the facts to support the repair, which is the whole of what is available while paused.
+
+**For the next pass, specifically:**
+
+1. Run the `grep -q '^## Pass <n> ' docs/work/items/w-paused-reconciliation.md` check **after** your
+   commit, not before you exit. A pass whose entry is missing has not recorded its work.
+2. Do **not** re-derive the census delta — pass 220 closed it by naming the file, and pass 221
+   re-derived it from both ends. Read pass 220's section above.
+3. Do **not** assert a literal audit-ref count; read the cardinality inline (it was 204 here and will
+   differ next pass, by design, because the mirror advances with this log's own commit).
+4. Expect `lib.rs` per-word `1` at line 3597. It is adjudicated; do not re-open it.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-two times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
