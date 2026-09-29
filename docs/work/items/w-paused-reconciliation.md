@@ -3,7 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5c17 (pass 184; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the fifteenth pass (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions = fifty-first consecutive, 125/125 worktrees with `prune -n` clean, `main` untouched at 0267ade with no local `main` ref); **the preservation question was NOT saturated and this pass acted** — the standing row claimed 7 ref-held at-risk commits were "re-fetchable from the remote by name", an assertion never run: `ls-remote` shows 0 of their 4 scratch branches on any origin head, 0 of their tip trees in the 6,837-object `audit/*` stream, and `patch-id --stable` finds no duplicate diff, so 7 commits of real work existed on no remote. Recovered: 6 pushed to `recovery/*` branches, and `514ed91` — which GitHub correctly REJECTED (GH001) for committing 329 build-output paths including a 129MB .rlib, not worked around — had its sole non-build content (`src/lib.rs`, +390/-38, NOT the "+428" in its mixed stat line) archived as a sha256-verified byte-exact patch+blob against durable parent `8bfe7de` on `recovery/at-risk-2026-09-29`. Ref-held at-risk 7 -> 1 over baseline 1,194; the residual is the commit object, not its content; `recovery/*` heads 20 -> 25. Also discharged pass 183's untried claim: the accepted state and `origin/main` agree byte-for-byte on all implementation (0-line diff over src + Cargo; 0 changed paths outside `docs/`), so the release state is intact and that check should not be re-run. New rule 26: "re-fetchable by name" is a claim about a remote, not about local ref-holding, and must be run rather than inferred from the local holder. No agent launched, stopped or prompted; the 2 host-`running` agents are other repositories and were left running.)
+owner: coord-9e2a (pass 185; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the sixteenth pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with its exit code captured, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 626 host rows, 0 clue fence hits in all six files' production regions = fifty-second consecutive with `lib.rs` whole-file = 9 under the same clue-only regex published beside it, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128); at-risk state re-derived from scratch after a fresh `audit/*` fetch — exclusion set **204** refs (pass 184's five `recovery/*` heads account for exactly the 199 -> 204 delta, so the growth is this log's own durable output, not unexplained churn), baseline `rev-list --all --reflog` **1,195**, ref-held at-risk **1** / reflog-only **87** / intersection **0** — holding pass 184's post-recovery figures and confirming the 7 it recovered stayed recovered; and **pass 184's recovery was independently re-verified rather than trusted**: `recovery/at-risk-2026-09-29` is on `origin` (`ls-remote` = eaf7487), its recorded PARENT `8bfe7de` is the real `514ed91^` and is an ancestor of `origin/post-milestone-acceptance` (`is-ancestor` exit 0), the 330-path diff filtered by path *component* per rule 9 leaves **exactly 1** non-build path (`src/lib.rs`, against pass 184's 329 build + 1 non-build), and the archived patch applies cleanly to `8bfe7de:src/lib.rs` in a scratch tree reproducing a **sha256 three-way match** — applied result = archived blob = `514ed91:src/lib.rs` = `95b58230…`. So the content-level recovery is reproducible, not an archived blob of unknown provenance, and the residual at-risk entry is still the `514ed91` *commit object* whose content is durable. One measurement detail recorded rather than promoted: GNU `patch` reported "22 out of 22 hunks ignored" and exited without failing on a wrong-directory scratch layout, where `git apply` failed loudly — the same class as rule 7, so use `git apply`, and treat a non-zero `patch` hunk count as a failure even when the exit status looks clean. No agent launched, stopped or prompted; the 4 host-`running` agents (`81a1`, `80c1`, `78d3` qai-proviral-*, `74e4` antonina-74-globreview) are other repositories and were left running. Preservation is saturated for the second consecutive pass; the only open thread remains the residual commit object, which is a human judgement.)
+prior_owner: coord-5c17 (pass 184; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the fifteenth pass (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions = fifty-first consecutive, 125/125 worktrees with `prune -n` clean, `main` untouched at 0267ade with no local `main` ref); **the preservation question was NOT saturated and this pass acted** — the standing row claimed 7 ref-held at-risk commits were "re-fetchable from the remote by name", an assertion never run: `ls-remote` shows 0 of their 4 scratch branches on any origin head, 0 of their tip trees in the 6,837-object `audit/*` stream, and `patch-id --stable` finds no duplicate diff, so 7 commits of real work existed on no remote. Recovered: 6 pushed to `recovery/*` branches, and `514ed91` — which GitHub correctly REJECTED (GH001) for committing 329 build-output paths including a 129MB .rlib, not worked around — had its sole non-build content (`src/lib.rs`, +390/-38, NOT the "+428" in its mixed stat line) archived as a sha256-verified byte-exact patch+blob against durable parent `8bfe7de` on `recovery/at-risk-2026-09-29`. Ref-held at-risk 7 -> 1 over baseline 1,194; the residual is the commit object, not its content; `recovery/*` heads 20 -> 25. Also discharged pass 183's untried claim: the accepted state and `origin/main` agree byte-for-byte on all implementation (0-line diff over src + Cargo; 0 changed paths outside `docs/`), so the release state is intact and that check should not be re-run. New rule 26: "re-fetchable by name" is a claim about a remote, not about local ref-holding, and must be run rather than inferred from the local holder. No agent launched, stopped or prompted; the 2 host-`running` agents are other repositories and were left running.)
 prior_owner: coord-1b6d (pass 183; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions, 7/87/0 at-risk commits over 199 audit refs and a 1,192 baseline with the two-arg `merge-base --is-ancestor` instrument verified at exit 0 on a known-true instance and 1 on a known-false one before the population was read, 125/125 worktrees with `prune -n` clean for the fourteenth consecutive pass); **both items owed by pass 182 discharged** — the at-risk non-build file sweep re-run from scratch with exit codes captured on every step (34 non-build rows = 33 hashable + 1 directory row, 32 distinct hashes after the named same-content pair `a0ef0cf` re-derives, 0 unreachable, 0 need archiving, and a non-empty sentinel control reading 1 so the 0 is a measurement rather than a broken instrument); and the orphan-namespace question **settled at 0 with a sensitive control** — pass 182's "undetermined" was caused by its own control, which placed the probe ref *inside* the exclusion set, so both spellings were excluding the commit they were meant to test; with the probe ref moved to the positive side the `--not` and `^` forms **agree exactly** (both 0 over the 400 orphan seeds against 574 non-orphan exclusions, `diff` clean), the instrument returns 1 on a constructed known-positive and 0 on the same query with the probe removed, and no `recovery/*` branch is warranted. No agent launched, stopped or prompted; the 3 host-`running` agents are other repositories and were left running.
 prior_owner: coord-9a31 (pass 182; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions, 7/87/0 at-risk commits over 199 audit refs and a 1,191 baseline with the two-arg `merge-base --is-ancestor` instrument itself verified at exit 0/1/128 before the population was read, 125/125 worktrees with `prune -n` clean for the thirteenth consecutive pass); the at-risk non-build file sweep deliberately not re-run (its population was unchanged and this pass spent the budget on the validity of the instrument instead); and one new finding — the `--not <list>` and `^<list>` spellings of a multi-ref containment query **disagree on a constructed known-positive instance**, `--not` reporting 0 where two independent censuses (a two-arg `is-ancestor` loop over all 579 non-orphan refs, and `for-each-ref --contains`) say the commit is held by none of them, so pass 181's "0 held only by the orphan" is recorded as **undetermined, not 0**, and no `recovery/*` branch was created on a number this pass does not trust; plus a second false zero that is live on this repository's own layout — an unresolvable ref inside a `rev-list --not` exclusion set makes rev-list print `fatal: ambiguous argument` and emit **zero lines**, which `wc -l` reads as a real "nothing is at risk" and which only the **exit code 128** distinguishes, and since this repository has **no local `main` ref** any check naming `main` reports 0 while measuring nothing. This is the first *under*-report in a preservation sweep on this repository — every earlier wrong count (rules 9/10/11/14/17/22/28) over-reported — and it is the dangerous direction, because it reads as safety and suppresses the recovery action that is the only useful recurring work while paused (rule 4). Rule: capture exit codes on every preservation step and treat fatal-empty-stdout as instrument failure, not a zero result; prefer the stateless `^<ref>` spelling; blocked on the human reopen/confirm decision)
 updated: 2026-09-29T04:37:00Z
@@ -16378,3 +16379,102 @@ Only a human can change the gate: fix or retire the out-of-repo scheduler templa
 carrying clauses that contradict the itinerary), confirm the pause (close this item `done`), or reopen
 development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path search,
 not another widening of the Cartesian-prefix traversal).
+
+## Pass 185 (coord-9e2a)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused`, which this pass read at the top of the file and which is unchanged.
+No work item created or claimed, no agent launched/stopped/prompted, no front resumed, **nothing
+pushed to `main`** (`ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main`
+still exits **128**, so no local `main` ref exists to push to; HEAD remains `post-milestone-acceptance`).
+
+### The invocation's three unexecutable clauses, declined (rule 19)
+
+1. **"Accumulate work on `post-milestone-acceptance` exactly as the itinerary requires."** The
+   itinerary does not require it. `itinerary-madgab.md` closes: the historical
+   `post-milestone-acceptance` branch "is release history after this acceptance and is **no longer an
+   automatic accumulation target**", and reopened work must start "on a fresh focused branch from
+   `main`". This log file is the sole exception and only because it is the log's own home; it carries
+   no product code.
+2. **"Launch or prompt Antonina agents", "split independent fronts", "recover or assign work."** Rules
+   1–2. There is nothing to split: the queue is empty (§ five facts), so any split would be invented
+   work on a paused programme.
+3. **"Prioritize the canonical approximate-search examples without phrase-specific hard-coding."** The
+   second half is already an invariant and was re-derived this pass (**0** clue-literal hits in all six
+   production regions, fifty-second consecutive), so there is nothing to fix and nothing may be
+   "prioritized" into production. The first half is the *accepted known limitation*: the
+   `Hits Justice Dupe Hid Came` clue for `It's just a stupid game` is documented in
+   `accepted-state-2026-09-27.md` as acceptable for the release, and its fix direction is precisely
+   what the pause defers. On any reopen the itinerary requires a *whole-path* search over a
+   pronunciation DAG (k-best / A*-style), never a hard-coded phrase — so the clause as written would
+   push the programme toward the one implementation the itinerary forbids.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form, **exit code captured** (0). **0 `open`, 0 `working`.** Unchanged for the sixteenth pass. |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** `antonina agent list` = **626** data rows; **131** match `madgab` in the cwd column and the non-terminal filter over those returns **nothing** (the filtered pipeline's own exit status is 0, i.e. the filter ran and matched nothing, not a broken filter). Host `running`: `81a1`, `80c1`, `78d3` (`qai-proviral-*`) and `74e4` (`antonina-74-globreview`) — all other repositories, **left running**, untouched. |
+| `main` | **untouched.** `0267ade`; `rev-parse --verify main` exits **128**. |
+| Production clue fence | **0** in all six production regions, per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach\|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. `lib.rs` whole-file = **9** under that same clue-only regex, published beside the number per rule 25. **Fifty-second consecutive pass at 0.** |
+| Worktrees | **125 registered**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **sixteenth** consecutive pass. |
+
+### At-risk state, re-derived from scratch
+
+Fresh `audit/*` + `audit-tag/*` fetch first (rule 10's traps), then:
+
+* exclusion set **204** refs. The 199 -> 204 delta is **exactly** the five `recovery/*` heads pass 184
+  pushed, and all **25** `recovery/*` heads are confirmed on `origin` by `ls-remote`. So the growth is
+  this log's own durable output, not unexplained churn — a delta that reconciles is worth stating, not
+  worth a second census.
+* baseline `rev-list --all --reflog` **1,195** (+1 on pass 184's 1,194 — pass 184's own pushed commit,
+  which is on `origin` and so cannot enter the at-risk set).
+* ref-held at-risk **1**, reflog-only **87**, intersection **0** — disjoint and holding pass 184's
+  post-recovery figures, so the 7 commits pass 184 recovered **stayed recovered**.
+
+### Pass 184's recovery independently re-verified (rule 26 is about claims, and this was the newest claim)
+
+The last pass's durable output is a claim, and this pass ran it rather than inheriting it:
+
+* `recovery/at-risk-2026-09-29` is on `origin` (`ls-remote` = `eaf7487`).
+* Its recorded `PARENT` is `8bfe7de`, which is the real `514ed91^`, and that parent **is** an
+  ancestor of `origin/post-milestone-acceptance` (`merge-base --is-ancestor` exit 0) — so archiving a
+  delta against it is sufficient, as pass 184 argued.
+* The 330-path diff filtered **by path component** per rule 9 leaves **exactly 1** non-build path,
+  `src/lib.rs` — confirming pass 184's "329 build + 1 non-build" and, again, that the commit's own
+  mixed stat line is not the non-build figure.
+* The archived patch **applies** to `8bfe7de:src/lib.rs` in a scratch tree and reproduces a
+  **sha256 three-way match**: applied result = archived blob = `514ed91:src/lib.rs` =
+  `95b58230…`. The content-level recovery is therefore reproducible, per rule 8, and not an archived
+  blob of unknown provenance.
+
+The sole residual at-risk entry is still the `514ed91` **commit object**, whose content is now durable
+on `origin`. Rewriting that scratch commit to drop its 329 build paths in order to push the object
+itself is a human judgement about a never-to-be-integrated research commit, and rule 2 forbids this
+pass from touching it. **Unchanged from pass 184; not re-litigated.**
+
+### One measurement detail, recorded rather than promoted to a rule
+
+My first attempt at the verification above laid the scratch file out as `lib.rs` instead of
+`src/lib.rs` and `git apply` **failed loudly** (good), but the `patch` fallback in the same line
+printed `22 out of 22 hunks ignored` and did not fail the command — a near-miss recovery verification
+that a `set -e` shell would have carried forward. Same class as rule 7: **verify an archive by
+applying it**, and apply it with `git apply`, because a `patch` hunk count of *ignored* is a failure
+even when the exit status reads clean. Not promoted to a standing rule because the class is already
+covered; noted so the next pass does not rediscover it.
+
+### Next action for the next pass
+
+Prefer **no entry at all**; re-derive the five facts cheaply and exit without committing if they hold.
+The preservation question is now saturated for the **second** consecutive pass, and pass 184's output
+has been verified rather than merely re-counted. Navigate by the **last** `## Pass ` heading; do not
+trust a pass number quoted inside any entry, and do not re-point the gate pointer.
+
+The only open thread is the residual `514ed91` commit object, which needs a human decision (rewrite
+it without its build paths, or accept the content-level recovery as sufficient).
+
+Only a human can change the gate: fix or retire the out-of-repo scheduler template — which keeps
+arriving carrying these same three contradictory clauses and which the log notes is worth more than any
+further declining pass — confirm the pause (close this item `done`), or reopen development (fresh
+branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another
+widening of the Cartesian-prefix traversal, and never a hard-coded canonical phrase).
