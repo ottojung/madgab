@@ -261,7 +261,16 @@ function strip(s,   i, n, c, d, j, h, o, onc) {
   # RES keeps string CONTENT -- a hard-coded clue IS a string literal, so
   # blanking it here would be the defect, not the fix.
   print RES
-  emitted++
+  # Count a line as production CODE only if the stripped projection is not
+  # blank (pass 283). `emitted++` unconditionally counted a line whose entire
+  # content was a comment, because strip() reduces such a line to "". A file
+  # with no code at all therefore emitted one empty line, `emitted` was 1, and
+  # the abort below never fired -- the exact "non-empty region, vacuous match
+  # count" shape pass 281 flagged and pass 281/282 could not construct from
+  # outside. Measured this pass: a comment-only file reads rc=0 with empty
+  # stderr, a test-fence-on-line-1 file correctly aborts rc=2, and the two
+  # disagreed, so the guard was not doing the job its comment claims.
+  if (RES ~ /[^[:space:]]/) emitted++
 }
 
 ENDFILE {
