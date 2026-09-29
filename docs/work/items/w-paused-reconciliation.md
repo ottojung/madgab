@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-2f83
-updated: 2026-09-29T20:58:00Z
+updated: 2026-09-29T21:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -8103,3 +8103,135 @@ Run the accepted-state command above before ever asserting the canonical status 
 has been merged by a human, verify `origin/main` advanced and drop item (b), leaving (c), (d), (e). If
 it has **not**, do not re-prepare it. The next useful action is (c) as a prepared branch on the same
 terms pass 319 used for (b), or (d).
+
+## Pass 321 (coord-2f83, 2026-09-29T20:52Z-21:14Z) — gate NO; six facts re-derived unchanged; ACTED — item (c) is a prepared, validated review branch, and the finding under it is that CI ran 1 of the 10 test targets
+
+### The six standing facts, re-derived this pass (unchanged for the 111th consecutive time)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** / 83
+done / 12 superseded, this item the only non-terminal one; `agents.sh` exit 0 — 729 host rows, 131
+MadGab cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1
+host-`running` agent (`109a5` skrynia) another repository and **left running untouched**; `clue-fence.sh`
+exit 0 — **0 canonical occurrences in the 6 `src/` regions**, 1 adjudicated benign per-word hit
+(`src/lib.rs:3597`), every control as published; `selfcheck.sh` **7/7**. **main untouched**: no local
+`main` ref (`rev-parse --verify main` exit 128), `origin/main` 0267ade, and `git diff
+origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml .github/` **empty**.
+
+The accepted state was re-verified **by execution** before being asserted, per pass 318's standing
+instruction: `corpus_integration` = **12 passed, 0 failed, 1 ignored** (the deliberate `#[ignore]`),
+13.51 s, rc 0. The forced `--ignored` case-2 was not re-run and is not a regression.
+
+**126 worktrees**, 125 before this pass: the extra one is this pass's own review worktree
+`/workspace/madgab-cifence`, which is a legitimate registration and `prune -n -v` is still empty.
+
+### ACTED: item (c) is prepared — `review/run-clue-fence-in-ci` (6edff83), on pass 319's terms for (b)
+
+One commit, one file, `.github/workflows/test.yml`, +2 lines. It adds the clue fence as its own CI
+step:
+
+```yaml
+      - name: no-phrase-hard-coding fence
+        run: cargo test --release --test no_phrase_hard_coding --no-fail-fast
+```
+
+**The finding is the one the item (c) label never made explicit: the fence was never run in CI, and
+neither were 8 of the other 9 test targets.** The workflow's test selection is
+`cargo test --lib --bins` plus `cargo test --release --test corpus_integration`, which selects **1 of
+the 10 test targets in `tests/`**. `cargo clippy --all-targets` *type-checks* every target but
+executes none of them, so `tests/no_phrase_hard_coding.rs` — the repository's only automated
+enforcement of "validate general behaviour rather than hard-coding canonical phrases" — could not
+have failed a single CI run, and a hard-coded canonical clue would have reached `main` with every
+gate green. This is the standing clause-3 invariant *unbacked in CI*: the fence reads 0 locally
+every pass (verified again this pass) and was never wired to the place where it would matter.
+
+Verified in **both directions with the exact command the step runs**, in a fresh worktree at
+`origin/main`:
+
+| tree | exit | result |
+|---|---|---|
+| clean | **0** | 9 passed, 0 failed, 0.01 s |
+| `const ZZ_PLANT: &str = "wreck a nice beach";` appended to `src/lib.rs` | **101** | 8 passed, 1 failed, naming `src/lib.rs:9479 [whole-sentence-equality]` |
+
+YAML parses (js-yaml), step list **7 → 8**, no tab characters, no other line touched. The worktree
+was restored to clean afterwards; the only file the commit touches is the workflow.
+
+**Why one target and not a widened selector, stated so a human can overrule it.**
+`cargo test --release --tests` would run all 10 targets and is the more natural fix, but it adds
+**145.19 s** of measured test time (all 12 targets run green on this pass, so it is not a
+correctness question) and it silently changes what every future PR executes. The one-step form adds
+0.01 s and changes nothing else. **The wider gap is therefore recorded for a human rather than taken
+here** — and it is the same judgement pass 315 recorded for the dead env block, in the opposite
+direction: (b) deleted a step that did nothing, (c) adds one that does something small.
+
+### ACTED: `at-risk.sh` went red on this pass's own push, and the delta was confirmed before the number moved
+
+`selfcheck.sh` reported `at-risk.sh DEAD exit=1`: `ref cardinality 207 != expected 206`. The
+instrument requires confirmation, so it was done the way pass 320 prescribed, and **the first
+attempt at the name comparison was wrong in the dangerous direction** — it reported a ~180-row
+difference, because it normalised with `%(refname:strip=4)` and the audit mirror is
+`refs/remotes/audit/<name>`, **three** components, so strip=4 eats the branch name and leaves an
+empty string for every ref; `comm` then reports nearly every remote branch as missing from the
+mirror. The correct normalisation is `sed 's|^refs/remotes/audit/||'` (equivalently `strip=3`). With
+it, both directions are empty over **206 rows each**, so the mirror is exactly the remote's heads.
+Removing exactly the one new ref returns exactly 206, so the delta is that ref and not a change in
+the tag arm or the enumeration spelling. The new ref is
+`refs/remotes/audit/review/run-clue-fence-in-ci` (6edff83) — **this log's own pushed history**, the
+only thing the comment above `EXPECT_REFS` permits. `EXPECT_REFS` raised 206 → 207 with the
+derivation and the normalisation trap recorded beside it. `selfcheck.sh` back to 7/7.
+
+### The at-risk set is 89, not 88, and the +1 is this log's own commit — but the figure needs a caveat
+
+`at-risk.sh` exit 0: **89 total = ref-held 1 + reflog-only 88** (disjoint), baseline
+`--all --reflog` 1374, refs-only 1286, exclusion refs 207, both exclusion arms agree with empty
+stderr, controls both directions (`514ed91` present, `0267ade` absent). **No recovery branch is
+warranted and none was created**: every one of the 89 has its **tree** held by some commit in
+`--all --reflog` (0 of 87 distinct at-risk trees are unique to the at-risk commit), the 7 commits
+pass 273 named as this log's own history are all still present, and the newest at-risk commit is
+`0f51e2e` (pass 272's amend draft) — **not** anything from this pass, whose own commits `c992b2d`
+and `6edff83` are both on `origin` and therefore outside the set by construction.
+
+**The caveat, because a count that grew by one is exactly the kind of figure this log has been
+burned by: the +1 was not isolated to a named commit.** The set is 89 against pass 273's published
+88, the composition above explains why every member is safe, but no pass has yet attributed the
+extra member, and 62 of the 87 distinct trees are shared with no *ref-held* commit even though all
+87 are shared with some commit reachable from `--all --reflog`. That gap between "safe" and "attributed"
+is the next useful thing to close, and it is a measurement, not an action.
+
+### What this pass did and did not do
+
+Claimed the item by pushing the owner change (`coord-4e2b` → `coord-2f83`, commit `c992b2d`) before
+acting, prepared and verified item (c) as a pushed review branch, repaired `at-risk.sh`, and recorded
+all of it. Declined the three scheduler-template clauses for the **seventy-second** time on
+`## Status: accepted and paused` plus `accepted-state-2026-09-27.md`: **no MadGab agent launched or
+prompted** — there is no claimable MadGab work to launch one for and the itinerary forbids
+manufacturing any; **no** historical item claimed, **no** new MadGab work item, **no** integration,
+**no** push to `main`, and nothing merged. The single host-`running` agent is another repository and
+was left running. No file under `src/`, `tests/`, `web/`, `examples/`, `Cargo.toml` or `.github/` was
+touched on the accumulation branch; the zero production drift against `origin/main` is unchanged. The
+two branches prepared for review are `review/drop-dead-trace-env` (b, pass 319) and
+`review/run-clue-fence-in-ci` (c, this pass), both awaiting a human merge decision.
+
+**Blocked on the human reopen/confirm decision**, and on human **merge** decisions. The human list is
+still three: **(b)** `review/drop-dead-trace-env`, **(c)** `review/run-clue-fence-in-ci` — both pushed
+and validated; **(d)** retire this recurring pass; and **(e)** fix the out-of-repo scheduler template,
+which still carries the three clauses this pass declined. Item (c)'s preparation strengthens (d)
+rather than weakening it: this pass found a real MadGab-side defect — a gate that was never wired —
+and it was findable only because a standing instrument (the fence) already existed and was already
+being run by hand every pass.
+
+### Pass 321 claim commit
+
+`c992b2d` — claim only (owner `coord-4e2b` -> `coord-2f83`, frontmatter only, no body section), pushed
+to `post-milestone-acceptance` before preparing the branch, so a competing coordinator would have
+seen the claim. This entry, the review branch and the `at-risk.sh` repair are one further push.
+
+NEXT: items (b) and (c) are both prepared branches and must **not** be re-prepared. If either has been
+merged, verify `origin/main` advanced and drop it. The standing facts still need no hand
+re-derivation: `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh` and `selfcheck.sh`, exit 0
+each. Skip `at-risk*` unless a new argument requires it, but if red, confirm the ref delta **by ref
+name using `sed 's|^refs/remotes/audit/||'`, not `strip=4`** (see the trap recorded in `at-risk.sh`),
+and by removing the single candidate, before raising `EXPECT_REFS`. **Attribute the at-risk 88 → 89
+member by identity** — do not report the count as settled while its delta is unattributed, which is
+the same defect rule 273 was written for. Run the accepted-state command before asserting canonical
+status in prose, and do not report the forced `--ignored` case-2 as a regression. The next useful
+action after that is (d) or (e).

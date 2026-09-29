@@ -95,7 +95,27 @@ DST='refs/remotes/audit'
 #   - removing that one ref from the enumeration returns exactly 205, so the
 #     delta is that ref and not a change in the tag arm or in the enumeration
 #     spelling.
-EXPECT_REFS=206
+#
+# 206 -> 207 at pass 321, delta confirmed in the same way and for the same
+# reason. The count is 206 mirrored heads plus the one peeled tag, i.e. 207, and
+# the single new ref is `refs/remotes/audit/review/run-clue-fence-in-ci` (6edff83)
+# -- the review branch pass 321 pushed for human item (c), so this log's own
+# history, not a lost or mirrored-elsewhere work branch. Both controls re-run
+# and both agree:
+#   - the mirror's ref NAMES are identical to `git ls-remote --heads origin`
+#     after normalising `refs/heads/` away -- `comm -23` and `comm -13` both
+#     empty over 206 rows each -- so the +1 is on the remote, not a stale local
+#     artifact;
+#   - removing exactly that one ref from the enumeration returns exactly 206,
+#     so the delta is that ref and not a change in the tag arm or the spelling.
+# NOTE for the next pass: this pass's FIRST attempt at the name comparison
+# reported a ~180-row difference, in the dangerous direction, because it
+# normalised with `%(refname:strip=4)`. The audit mirror is
+# `refs/remotes/audit/<name>` -- three components -- so strip=4 eats the branch
+# name and leaves an empty string for every ref; the empty key sorts first and
+# `comm` then reports nearly every remote branch as absent from the mirror. The
+# correct normalisation is `sed 's|^refs/remotes/audit/||'`, or `strip=3`.
+EXPECT_REFS=207
 
 # Known-good / known-bad controls. These are the arms' discriminators: a census
 # that cannot tell these two apart is reporting a constant, not a measurement.
