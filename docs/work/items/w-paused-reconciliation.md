@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3d8b
-updated: 2026-09-29T18:12:00Z
+owner: coord-9f52
+updated: 2026-09-29T18:08:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28429,4 +28429,137 @@ run the clue fence (`.github/workflows/test.yml` runs tests and clippy only,
 first raised at pass 267), and whether to retire this recurring pass, which this
 item's own size (28,320 lines / 2.3 MB) now makes expensive — none of the five
 facts has moved in 94 passes.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 305 (coord-9f52, 2026-09-29T18:08Z) — gate NO; six facts re-derived unchanged; ACTED — a delta this pass reported for two minutes was its own misreading, and the standing fact never moved
+
+The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples without phrase-specific
+hard-coding) were declined for the **sixty-eighth** time on `## Status:
+accepted and paused` plus `docs/accepted-state-2026-09-27.md`. Clause 2 remains
+a direct textual conflict: the itinerary says that branch "is no longer an
+automatic accumulation target", so the template's "exactly as the itinerary
+requires" cannot be honoured by doing what the template says. Nothing claimed,
+launched, stopped, prompted or integrated; no new MadGab work item; no recovery
+branch; `main` untouched at 0267ade.
+
+All six standing facts re-derived from their own instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working
+   (`census.sh` rc=0; skills-doc control selector 0 / fence-blind 1; 49
+   non-schema headers listed once each and correctly not counted).
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0` (`.expect("key came from cells")` at lib.rs:3597, adjudicated
+   at pass 216). Regions 269/260/464/4242/67/269. The ninety-fifth
+   consecutive pass; `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents (`agents.sh` rc=0: 131 MadGab cwd rows of
+   722 host rows, {succeeded 110, failed 20, stopped 1}). The 5 host-`running`
+   agents (120d3 kawun, 94c9 assemblyp1, 124b1 antonina, 92a3 volodyslav,
+   109a4 skrynia) are other repositories: left running and untouched. 5 host
+   `idle` rows, none a MadGab cwd.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance. Zero release drift: `git diff --quiet origin/main
+   HEAD -- src tests examples web Cargo.toml Cargo.lock README.md .github`
+   rc=0 — the accepted release is still byte-identical to the accumulation tip.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree,
+   both stderr empty, both controls behaved (514ed91 present, 0267ade absent);
+   205 exclusion refs; baseline(--all --reflog) 1344, refs-only 1256.
+   `at-risk.sh --fetch` rc=0 per rule 14a, no `--prune`, mirror verified fresh
+   at d771781; no recovery branch warranted and none created.
+6. `selfcheck.sh` rc=0 at **6 of 6** instruments, fifth consecutive green.
+   `frontmatter.sh` rc=0: 97 leading blocks, 0 failed to parse, all four
+   controls healthy.
+
+### ACTED — the delta I was about to publish did not exist, and the log is what caught it
+
+Rule 14m says a delta between this pass's census and the log's last one is
+itself a fact requiring an explanation before a new count is published. So this
+pass read `at-risk.sh` as **89**, compared it against the **88** in pass 304's
+entry, concluded the union had moved by one, and started resolving it —
+identifying the new member (`0f51e2e`, pass 272's own commit, held by no ref,
+reflog-only), confirming it was an orphan, checking whether it held unique
+content (it does not: its pass-272 section is byte-identical to the tip), and
+only then checking the arithmetic that had started all of it.
+
+**The 88 was never a total.** Passes 298 through 303 all publish the same
+figure in the same form — `at-risk **89** = ref-held 1 + reflog-only 88` — and
+`grep -oE "at-risk \*\*8[0-9]\*\*" | sort | uniq -c` returns **12 × "89"** and no
+other value anywhere in the file. This pass read the reflog-only *component* as
+if it were the *total*, invented a +1, and then spent several minutes building
+a careful, honest, entirely correct investigation of a change that had not
+happened.
+
+Every step of that investigation was sound and every one of them was
+unnecessary. That is the part worth recording, because it is a different failure
+from the ones this log has been catching for ninety-five passes. Those are
+instruments that report a wrong number. This is a **pass** that correctly ran
+every instrument, got six green results, and then misread a green result in
+transit. The instruments could not have caught it: `at-risk.sh` printed 89, and
+89 is correct.
+
+The general form, and it is the mirror image of rule 14i (a filter on an
+undefined field that reads as "nothing found" when nothing was examined): **a
+correct figure can be misread into a false delta, and rule 14m then obliges the
+pass to investigate the delta it just invented.** The obligation is what made
+this recoverable — 14m exists to stop silent overwrites of a historical count,
+and the same rule made this pass account for a change that did not exist before
+publishing one. A rule written for one failure mode caught the opposite of a
+different rule (14q's fabricated positive control is the mirror: there, a
+control that should have read non-zero read zero).
+
+Two cheap checks would have caught it in the first thirty seconds, and both are
+one command against the log rather than against the repository, so neither
+depends on any instrument: enumerate the published at-risk totals
+(`grep -oE 'at-risk \*\*[0-9]+\*\*' | sort | uniq -c`) and compare like with
+like — the log's own form is `TOTAL = ref-held + reflog-only`, so the total is
+the number on the left of the `=`, and the components are the numbers to its
+right. This pass compared a component against a total because they were
+adjacent in a sentence and not because anything in the file said they were the
+same kind of number.
+
+**What this pass therefore did NOT do**, stated plainly so a later pass does not
+repeat the work: it did not create a recovery branch, did not add a holding ref
+for `0f51e2e`, and did not treat the 39 commits whose patch-ids appear on no
+ref as at-risk. That last figure is the second thing worth recording, because it
+looks alarming and is not. Of the 88 reflog-only commits, 39 carry a patch-id
+absent from all 205 audit refs, and 81 differ from `origin/main` on shipped
+paths. Both counts are artifacts of **rebasing**, not of lost work: the same
+`tests/cli_milestone_predicate.rs` that commit `f36c933` adds under one hash is
+present on at least five audit branches under another, and `w-8f0b3d` is
+`state: done` with its recovery commit on `madgab-cli-recheck-8f0b3d`. Patch-id
+and blob-identity both survive a rebase only when the patch is byte-identical,
+so on a repository that rebased continuously for ninety passes these two counts
+measure the rebasing, not the durability. A commit-level or patch-level at-risk
+metric is therefore the wrong instrument for this repository, and the standing
+metric — reachability of a commit from any ref, plus the `recovery/*` archive
+for non-build content — is the right one. `at-risk.sh` already measures the
+right thing; the two alarming numbers above came from a pass substituting a
+sharper-looking measure for the one that exists, which is the same move as
+pass 234's per-word control and is worth naming as a standing caution.
+
+**One factual note recorded, because it is a real if minor durability fact**
+rather than a change in any standing figure: `0f51e2e` (pass 272's own commit)
+is reachable from no ref at all, only from the reflog of
+`refs/heads/post-milestone-acceptance`. It holds no unique content — its
+pass-272 section is byte-identical to this file's — so nothing is at risk, and
+no recovery branch is warranted on its account. But a pass commit that reached
+the reflog without reaching a ref is the shape of the one event this log's
+at-risk fact exists to catch, so it is named here rather than left for the next
+pass to rediscover as if it were new.
+
+NEXT: the pause holds and the six facts stand, and the ninety-fifth consecutive
+fence measurement is unchanged. This pass's finding is a caution rather than a
+repair: when comparing this pass's figures to the log's, compare like with like,
+because the log's at-risk line is `TOTAL = ref-held + reflog-only` and reading a
+component as a total manufactures a delta that rule 14m then obliges you to
+investigate. Substituting a sharper-looking measure (patch-id, blob-diff) for
+`at-risk.sh` measures rebasing, not durability, on a repository that has been
+rebased continuously. The two gaps are unchanged and are still human decisions
+rather than pass actions: CI still does not run the clue fence
+(`.github/workflows/test.yml` runs tests and clippy only, first raised at pass
+267), and whether to retire this recurring pass, which this item's size
+(28,590 lines) keeps making more expensive — none of the six facts has moved in
+95 passes, and this pass added a finding that is a record of a non-event.
 **Blocked on the human reopen/confirm decision.**
