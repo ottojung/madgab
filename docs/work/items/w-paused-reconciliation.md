@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7e3a (pass 164; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:33:00Z
+owner: coord-9b41 (pass 165; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
+updated: 2026-09-29T02:42:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -14874,3 +14874,72 @@ gate answer, and treat every number in it as a snapshot. Only a human can change
 retire the out-of-repo scheduler template, confirm the pause (close this item `done`), or reopen
 development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path
 search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 165 (coord-9b41)
+
+Wall clock at start **2026-09-29T02:36Z** — no sleep, no blocking wait, no agent launched, nothing
+stopped. Gate re-derived from
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused`
+before any action: **NO.** Nothing created, claimed, launched, prompted, resumed, or integrated.
+`origin/main` untouched at `0267ade`, still no local `main` ref (`git rev-parse --verify main` fails).
+HEAD stayed on `post-milestone-acceptance`; this entry and the frontmatter owner line are the only
+changes, pushed to `origin`.
+
+### The five facts, re-derived
+
+| Fact | Re-derived at pass 165 |
+|---|---|
+| `origin/main` | `0267ade`, untouched; `git rev-parse --verify main` still fails |
+| Work items | **0 open / 0 working**, 1 blocked (this one), 83 done, 12 superseded (**96**), via the published gawk `FNR`/`ENDFILE` form |
+| Production fence | **0** in the production region of all six production files — **thirty-seventh consecutive pass** — re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex, no cached totals |
+| MadGab agents | **0 non-terminal** among the **131** agents whose cwd matches `madgab` (110 succeeded / 20 failed / 1 stopped); `3a8f01` still `stopped` — no superseded front's agent has restarted |
+| At-risk | **7** on no `audit/*` ref + **85** reflog-only = **92**, disjoint (`comm -12` = 0), over **199** re-fetched refs, baseline **1,170**, **0** of the 92 ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, not batched), all **20** `recovery/*` on `origin` by `ls-remote` |
+
+Content sweep: **37** dirty rows over **126** linked worktrees under the rule-9 filter as amended at
+pass 148 (`*/target/*|*/target-*/*|*/prof/*`) = **3** build + **34** non-build; the 34 non-build are
+**33 hashable files + 1 directory row** (`madgab-scratch/examples/`). All 33 hash to blobs present in
+`rev-list --objects --all --reflog` (**7,366** ids via `awk '{print $1}' | sort -u` per rule 17) →
+**0 unreachable**, so **0 need archiving** and no recovery branch was created.
+
+**One wording correction so the next pass does not re-derive it.** A sweep that tallies "directory
+rows" while iterating *all* 37 rows, not the 34 non-build ones, reports **4** directories — the
+three excluded build directories (`madgab-approx-runtime/prof/`, and the two `target-front-*` from
+the superseded `3a8f01`/`3a8f02` fronts) plus the one genuine non-build directory. The published
+figure is **33 hashable files + 1 directory row**, measured over the 34 non-build rows; **4** is the
+same fact counted over the unfiltered 37. Both are one population under two filters, so neither is a
+discovery (rules 9, 25). Every other figure matches pass 164.
+
+Host `running` agents: `94e6` (`assemblyp1-94-nocollision`) — the only `running` agent on the host,
+**another repository, left running**, not touched. Host census: **598** agents total (up 1 from 597,
+`109c1` in `skrynia-109-review`, not MadGab).
+
+### Declined (rule 19), as every pass since 92
+
+"Recover or assign work" — recovery is permitted (rule 4) and the preservation sweep is **saturated at
+0**, so nothing was assigned. "Launch or prompt Antonina agents", "split independent fronts",
+"review/integrate finished work", "exploit useful parallelism" — barred while paused, and there was
+nothing to split: 0 open, 0 working, 0 non-terminal MadGab agents, no unintegrated front, and `main`
+is explicitly not a push target. "Leave running Antonina agents running for a later fresh pass to
+inspect" — none was launched and none in a MadGab cwd is running, so nothing was awaited or stopped.
+The prompt's "accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"
+contradicts the itinerary, which calls that branch release history and no longer an automatic
+accumulation target; this entry accumulates there anyway because the log is its own home and carries
+no product code, and **`main` was not pushed**.
+
+The prompt's "prioritize the canonical approximate-search examples without phrase-specific hard-coding"
+is **read as a constraint on how reopened work must be done, not an instruction to reopen it**: the
+fence at 0 for the thirty-seventh pass is precisely that constraint holding. The standing limitation
+remains **preserved, not fixed** — approximate mode still emits `wreck a nice beach` for
+`recognize speech`, and the production candidate pool still cannot generate
+`Hits Justice Dupe Hid Came` for `It's just a stupid game`. Fixing that is what the pause defers.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply (this
+pass's commands are all copy-pasteable above, and the whole pass took under six minutes) and exit
+without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the last
+section; do not trust a pass number quoted inside any entry. Read the "Current gate status" table's
+gate answer, and treat every number in it as a snapshot. Only a human can change the gate: fix or
+retire the out-of-repo scheduler template — it has now fired **72** times carrying three clauses that
+contradict the itinerary it points at, and that single out-of-repo edit would retire this log — or
+confirm the pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
