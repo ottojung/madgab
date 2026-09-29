@@ -16993,6 +16993,13 @@ shared *false zero*; 14b is a shared *false positive* introduced by the very fix
 unquoted list; and validate an arm against a **counted** population (the ref count, plus a
 constructed known-positive) rather than against its sibling spelling.
 
+**Rule 14b is ARM-QUALIFIED by rule 14ad (pass 224) — read both before using either.** 14b's remedy
+is correct only for the **positional** form (`git rev-list --all ^a ^b …`). Feeding the same
+`^`-prefixed list to the **`--not`** form is a double negation and *includes* rather than excludes:
+`--not $(sed 's|^|^|' refs)` reads 1,153 where `--not $(cat refs)` reads 1, and
+`--all $(sed 's|^|^|' refs)` reads 1. The 14ad asymmetry is the whole content of 14b now; nothing
+above is withdrawn.
+
 ### At-risk state — unchanged and safe, measured with the corrected arms
 
 `--all --not <204 refs>` = **1**, `--all` + per-ref carets = **1**, `diff` clean. The residual is
@@ -19879,3 +19886,72 @@ per-element-form requirement is now arm-qualified rather than withdrawn.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-five times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 225 (coord-9d1b)
+
+Gate **NO** for the fifty-sixth time. Nothing claimed, launched, stopped, prompted or integrated;
+no new work item; no recovery branch; `main` untouched at `0267ade` (no local `main`,
+`rev-parse --verify main` exit 128). No Antonina agent was created for MadGab: the itinerary's
+`## Status: accepted and paused` forbids it absent an explicit human reopen, and none appears in
+durable state. The three scheduler-template clauses (launch/prompt agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are declined as in every prior pass — clause 2 is a direct textual
+conflict, since the itinerary's closing paragraph calls that branch "no longer an automatic
+accumulation target".
+
+### Pass 224's owed action discharged: rule 14b no longer conflicts with 14ad
+
+Pass 224 published 14ad (an exclusion prefix is arm-specific: `^` belongs only to the positional
+form) while rule 14b's own text at its original site still prescribed `sed 's|^|^|'` as *the*
+remedy, un-qualified — the silent conflict pass 224 asked the next pass to close. 14b's text now
+carries the arm qualification inline, naming the 1,153-vs-1 vs 1 reading that motivates it. No
+count, census or figure changes; this is a documentation repair to a rule, verified by
+`grep -c 'ARM-QUALIFIED by rule 14ad'` reading 1 at the rule-14b site.
+
+### Standing facts, re-derived not carried
+
+Census **96** = 1 blocked / 83 done / 12 superseded at the published scope, gawk exit 0, and **95**
+= 1/83/11 at `docs/work/items/`-only in the same run, so the rule-14l delta is re-derived from both
+ends (`docs/continuation-approximate-search.md` is the 12th). Fence via the committed `fence.awk`:
+region counts reproduce exactly (**269 / 260 / 464 / 4242 / 67 / 269**), and **0** joined-clue and
+**0** target hits in all six production regions, with a non-zero synthetic control reading 1 so the
+0 is a measurement and not a dead matcher. Per-word regex reads **1** at `src/lib.rs:3597`,
+`let members = cells.get_mut(&key).expect("key came from cells");` — the word "came" in an
+`.expect` message, past the `mod tests` boundary at 4243, i.e. **not** in the production region;
+pass 216's adjudication stands and is not re-opened. Agents: **0** non-terminal among **131**
+cwd-filtered MadGab rows of a **653**-row host census; the 2 host-`running` agents (`78e1`
+qai-proviral, `94a9` assemblyp1) are other repositories and were **left running, untouched**.
+Worktrees **125** registered with `git worktree prune -n -v` **empty**, exit 0.
+
+At-risk, re-derived: `audit/*` re-fetched **first** by its real source namespace
+(`+refs/heads/*:refs/remotes/audit/*`) with **no `--prune`**, exit 0, cardinality read **inline**
+at **204** and not asserted. Baseline `rev-list --all --reflog` **1,241** (1,240 at pass 224; the
+delta is pass 224's own pushed commit). The two arms were run in their **14ad-correct** spellings
+and agree `diff`-clean at **1**, exit 0 and empty stderr each: `--all --not "${R[@]}"` with **bare**
+names, and `--all` with a per-ref `^`-prefixed array. Ref-held **1** (`514ed91`, held by exactly
+`refs/heads/scratch-3f8c62-landed`), reflog-only **87**, intersection **0** — disjoint.
+Durability verified against the remote, not against itself: `ls-remote` reports
+`recovery/at-risk-2026-09-29` = `eaf7487` and the local mirror ref `audit/recovery/…` is the same
+object; **26** `recovery/*` heads on origin. Content sweep re-run from scratch per rule 17
+(`awk '{print $1}' | sort -u`, never `cut -d' ' -f1`): **34** distinct non-build dirty rows over
+125 worktrees (136 raw rows — a worktree-path list parsed from `worktree list --porcelain` repeats
+one worktree per metadata line, so the figure is the `sort -u` count, and the raw total is quoted
+so the two cannot be confused), all present in the 7,821-object reachable set → **0 unreachable**,
+so no recovery branch is warranted and none was created.
+
+### Next action
+
+**Prefer a short entry, and commit it as a body section** (pass 221's rule). Then:
+
+1. Apply rule 14ac before publishing any instrument defect: `grep` the cited artifact for the
+   mechanism and show the reconstruction differs from the original.
+2. Do not assert a literal audit-ref cardinality; read it inline (204 here, different next pass).
+3. Publish the **distinct** non-build row count with the dedup stated, and quote the raw total
+   beside it, per the 136/34 note above.
+4. Expect `lib.rs` per-word `1` (the `.expect` at 3597). Adjudicated; do not re-open.
+5. 14b/14ad is now closed; do not re-open it unless a new arm spelling appears.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
+scheduler template, whose three clauses have now fired fifty-six times against an itinerary that
+contradicts them; and stop committing pass-log frontmatter instead of body sections.
