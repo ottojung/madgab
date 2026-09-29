@@ -269,7 +269,21 @@ function strip(s,   i, n, c, d, j, h, o, onc) {
   #
   # Tested against RESNC, not the raw line: a string literal reading
   # `mod tests {` must not be able to move the boundary (rule 14aq).
-  if (RESNC ~ /^[[:space:]]*mod tests[^{]/) { nextfile }
+  #
+  # `([^{]|$)`, not `[^{]`, as of pass 288. `[^{]` requires ONE character after
+  # `mod tests`, so a line that is exactly `mod tests` -- no brace, nothing
+  # after the word -- did not match, the boundary stayed dead, and the region
+  # became the WHOLE file. Two consequences, both measured: a file whose line 1
+  # is a bare `mod tests` read rc=0 and scanned the test body as production, and
+  # a TEST-ONLY file spelled that way did not trip the empty-region abort below
+  # (rc=0 against rc=2 for the `mod tests {` spelling) -- so the guard against
+  # emitting a clean 0 covered only the braced spelling. `$` closes the hole
+  # without widening the fence: `mod tests{` (no space) still does not match, and
+  # that is deliberate, because it is not a boundary this repository writes (all
+  # four `mod tests {` fences carry the space). Regions on all six production
+  # files are BYTE-IDENTICAL before and after, and the eight fence controls
+  # (five positive, three negative) are unchanged.
+  if (RESNC ~ /^[[:space:]]*mod tests([^{]|$)/) { nextfile }
 
   # RES keeps string CONTENT -- a hard-coded clue IS a string literal, so
   # blanking it here would be the defect, not the fix.
