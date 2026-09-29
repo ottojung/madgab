@@ -164,6 +164,22 @@ INSTRUMENTS=(
   # beside it, in both directions, because pass 320's lesson is that registering
   # an instrument is not the same as having planted it.
   "refs.sh::cross-references resolve::"
+  # branches.sh is registered on its CLEAN line, "every branch the section names
+  # exists", for the same reason and with the same accepted coupling as refs.sh
+  # above: its subject IS the standing item's own branch pointers. Unlike
+  # refs.sh it is NOT a free-standing check, because it consults the remote
+  # (`git ls-remote --heads origin`) to decide what resolves. That makes it the
+  # one instrument here whose answer can change without anything in the
+  # repository changing -- a human who deletes a branch the standing section names
+  # will turn this red. That is the correct answer and not a false alarm, for
+  # exactly the reason given above: the fix is to update the standing section,
+  # which is the cheap action, and a stale branch name in a handoff is the defect
+  # this instrument exists to catch. Its FAILING cases (a branch that exists
+  # nowhere, a renamed `## Pass ` heading, a missing item) and its
+  # FALSE-POSITIVE direction (worktree paths and directory rows, which are not
+  # branches) are planted in the pass-331 entry beside it, because pass 320's
+  # lesson is that registering an instrument is not the same as having planted it.
+  "branches.sh::every branch the section names exists::"
   # compact-log.sh is DELIBERATELY absent from this list, and the reason is
   # worth recording because registering it looked obviously right.
   #

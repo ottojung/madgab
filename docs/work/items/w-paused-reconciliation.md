@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f2a
-updated: 2026-09-29T23:05:00Z
+owner: coord-4e88
+updated: 2026-09-29T23:20:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -131,6 +131,23 @@ log commits (44,136 insertions) to deliver 4 deleted lines. Passes 319/321/323 e
 branch as prepared and validated, and the base defect survived all three; rule 323 is the check that
 catches it.
 
+**All three deletions are REMOTE operations, and one of the three is remote-ONLY.** The other two
+also exist as local branches, so a reader who has them checked out may reasonably assume
+`git branch -D` suffices. **`review/drop-dead-trace-env-on-main` has no local branch at all** — it
+exists only as `refs/heads/review/drop-dead-trace-env-on-main` on `origin` (`66e28ff`) and its local
+`audit/` mirror — so deleting it locally is impossible and only a push can remove it:
+
+```sh
+git push origin --delete review/drop-dead-trace-env-on-main
+```
+
+Verify with `git ls-remote --heads origin 'refs/heads/review/*'` and expect **3** rows, down from 4.
+Passes 326–330 each published this branch as "present only as `audit/…`", which is a statement about
+the *local* mirror and reads as "there is no branch to delete" — a reader who takes it that way
+leaves a live remote branch behind. The parenthetical was wrong; the branch is a first-class remote
+head like the other two. `branches.sh` (gate 7) now reports this class directly as **remote-only**
+and is the control that keeps it from being re-asserted.
+
 **PASS 325 GIVES THAT CONTAINMENT CLAIM A COMMAND, because every command a reader would reach for
 first reports it FALSE on these very branches.** The claim above is an *effect*-containment claim
 (the composed branch carries each constituent's edit), and `git cherry` (patch-identity, so the
@@ -231,6 +248,12 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
 | 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
+| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, and any that is **remote-only** is flagged — added at pass 331, also cheap, and also run it directly |
+
+Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
+can change without anything in the repository changing: a human who deletes one of the branches named
+above will turn it red. That is the correct answer — the standing section would then name a branch
+that is gone, which is the defect it exists to catch.
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -9610,7 +9633,7 @@ Plant 4 is the one that matters and the one whose absence would have shipped v1:
 established when it is shown NOT to fire on the correct text it sits next to.** Every other plant
 proves the instrument can complain.
 
-### The standing gate list is now six, and the human list is untouched
+### The standing gate list is now seven, and the human list is CORRECTED
 
 `refs.sh` is gate 6 and is cheap; run it directly rather than trusting gate 5 to have run it. The
 human list is unchanged and still decidable by the command `item-state.sh` prints: merge
@@ -9635,3 +9658,133 @@ review branches. **(2)** If `at-risk-delta.sh` bare exits **3**, attribute the n
 files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(3)** Do not re-run this pass's
 plants; they are recorded above and `refs.sh` will report any regression itself. **(4)** Everything
 else is human, and retiring this recurring pass is the highest-value action available.
+
+## Pass 331 (coord-4e88, 2026-09-29T23:00Z-23:20Z) — gate NO; six facts re-derived unchanged; ACTED — the human list sent a human to a branch that is a live REMOTE head, and the fix is a seventh gate that names the class
+
+**Gate: NO.** `## Status: accepted and paused` is unchanged and no human has reopened development, so
+the scheduler template's three clauses (launch/prompt agents; accumulate on `post-milestone-acceptance`
+"exactly as the itinerary requires"; prioritize the canonical approximate-search examples) are
+declined for the **83rd** time — pass 326's table holds, and clause 2 remains a direct textual
+conflict with the itinerary's own closing paragraph. Nothing created, claimed, launched, stopped,
+prompted or integrated; no new MadGab work item; no recovery branch; `main` untouched at `0267ade`
+(`rev-parse --verify main` exit 128, `origin/main` `0267ade`).
+
+Standing facts, from the gate list only, all unchanged: census **96** = 0 `open` / 0 `working` /
+1 `blocked` / 83 `done` / 12 `superseded`; **0** non-terminal MadGab agents among 131 MadGab cwd rows
+of 744 host rows (5 host-`running` agents — `92a6`, `125e1`, `125a1`, `94c7`, `109a5` — are other
+repositories and were left running, untouched); clue fence **0** in all six production regions;
+**125** registered worktrees (`prune -n -v` empty, exit 0); `at-risk-delta.sh` bare **exit 0**, arms
+90 / published 89, growth guard still quiet. The at-risk family was not re-run; closed on content
+since pass 184. `HEAD` on `post-milestone-acceptance`, in sync with `origin`, working tree clean.
+
+### ACTED: the human list's one false statement, and the fourth kind of pointer
+
+Pass 330's `refs.sh` polices three kinds of pointer in this file's reader-facing section: file links,
+instrument paths, and self-references. **A branch name is a fourth kind, and it was the one the human
+list is actually made of** — the list a human is told to act on is four branch names and an action
+each. It had no control, and the gap was live.
+
+Passes 326, 327, 328 and 330 each published the third branch as **`review/drop-dead-trace-env-on-main`
+(present only as `audit/…`)**. That parenthetical is **false**, and false in the direction that loses
+work. The branch is a first-class live remote head:
+
+```
+$ git ls-remote --heads origin 'refs/heads/review/*'
+66e28ff  refs/heads/review/drop-dead-trace-env-on-main     <-- a real remote branch
+6edff83  refs/heads/review/run-clue-fence-in-ci
+8c88a59  refs/heads/review/drop-dead-trace-and-fence
+a29f3d7  refs/heads/review/drop-dead-trace-env
+```
+
+What is true is narrower and is not what the sentence says: the branch has **no local branch** — it is
+`refs/remotes/audit/review/drop-dead-trace-env-on-main` locally and `refs/heads/…` remotely. The other
+two deletions are `local,audit,remote`, so a reader who has them checked out may reasonably assume
+`git branch -D` covers all three. It does not, and for this one it **cannot**: there is no local
+branch to delete. A human who takes "present only as `audit/…`" at face value leaves a live remote
+branch behind and reports the cleanup done. Corrected in the standing section with the command
+(`git push origin --delete review/drop-dead-trace-env-on-main`) and a verification (`ls-remote` down
+from 4 rows to 3). The four erroneous statements in the pass-326/327/328/330 **log bodies** are left
+verbatim: that section is history, and history is not an instruction to the next pass.
+
+**Rule 332 — "where is it" is a claim about a namespace, and the sentence that makes it is the one
+thing no control can adjudicate.** `refs.sh` can prove a named branch *resolves*; it cannot prove a
+prose aside about *which of three namespaces* is true, because that is English, and the scan that
+tried to police it (refs.sh v1/v2) is this log's standing cautionary tale. So the instrument reports
+the **decidable** part — the resolution, per branch, against all three — and names the class that
+caused the defect as a first-class verdict rather than trying to read the prose.
+
+### `branches.sh`: gate 7, and the two ways it was wrong before it was right
+
+`docs/work/paused-recon/branches.sh` resolves every branch-shaped token in the reader-facing section
+against all three places a branch can live — `local` (`refs/heads/`), `audit` (the local mirror of
+remote heads) and `remote` (`ls-remote --heads origin`, so the answer cannot be satisfied by a stale
+mirror) — and **flags any branch that is remote-only with no local branch**. Registered in
+`selfcheck.sh` (**11 of 11**), and added to the standing gate list as **gate 7**.
+
+It is the only gate that consults the remote, so its answer can change without the repository
+changing: a human who deletes a branch the standing section names will turn it red, and that is the
+correct answer rather than a false alarm — the section would then name a branch that is gone.
+
+Three defects were in this pass's own first working version, and **the first two were found by its
+first live run, not by a plant** — which is the pass-320 lesson arriving from a new direction:
+
+| # | defect | how it showed up |
+|---|---|---|
+| 1 | `\b` in the extractor fires **after** a `/`, so the standing section's worktree paths `/tmp/opencode/verify/w` and `/tmp/opencode/zzcheck` and its directory row `madgab-scratch/examples/` were read as branch names in the `tmp/` and `scratch/` namespaces and reported **UNRESOLVED** | first live run, exit 1 with 3 false positives — refs.sh's v1 defect in a new hat: the check fired on correct text |
+| 2 | the remote-only test was `[ "$loc" = "remote" ]`, but the branch also has an `audit/` mirror, so `$loc` read `audit,remote` and the branch was printed in the **ordinary** list with no flag | reading the script's own output against its own header: it did not flag the exact case it was written for while reporting itself clean. **Rule 298's shape** |
+| 3 | a backticked `` `scratch/examples/` `` begins at a token boundary, so the lookbehind cannot see it; the leaf was captured bare and reported unresolved | plant 2, the false-positive direction |
+
+Defect 2 is the one worth keeping. It is not an extraction bug and no amount of re-deriving the
+extraction would have found it: the branch **did** resolve, the script **did** print it, and the
+verdict was computed from a string that had been assembled to be a human-readable summary rather
+than to be the thing under test. A summary field is not a predicate. The fix tests the property —
+*is there a local branch?* — rather than the string that displays it.
+
+Plants, in both directions, run in place so only the planted defect can fire:
+
+| plant | what is broken | expected | got |
+|---|---|---|---|
+| 0 (control) | nothing | **exit 0** | as expected |
+| 1 | two branches named that exist nowhere | **exit 1**, `2 unresolved` | as expected |
+| 2 | **false-positive direction**: worktree paths, a directory row, a backticked trailing-slash token | **exit 0** | as expected — defect 1 and defect 3 both failed here first |
+| 3 | a real 3-component branch (`wip/scratch/9c6f2b-harness-d4991dd`) | **exit 0**, resolves | as expected — 2 of the 208 remote heads are 3-component, so depth is not 2 |
+| 4 | `## Pass ` heading renamed | **exit 2**, `BROKEN POPULATION` | as expected — fail-closed, per `refs.sh` |
+| 5 | item missing | **exit 2**, `MISSING item` | as expected |
+| 6 | the minimal case: **one** nonexistent branch | **exit 1**, `1 unresolved` | as expected |
+| 7 | the remote-only class, asserted both ways | `review/drop-dead-trace-env-on-main` **flagged** with `66e28ff`; a **local** branch **not** flagged | as expected |
+
+Plants 2 and 7 are the two that earn the instrument, and they are the same two directions pass 330
+recorded for `refs.sh`. Every other plant only proves the check can complain.
+
+**Rule 333 — the control for a pointer must assert the pointer's CLASS, not just that it resolves.**
+A check that returns "resolves" for `audit,remote` and for `remote` has verified existence and
+learned nothing about the difference, and the difference was the entire defect. Reporting the
+resolution of each branch separately, and making the actionable class its own verdict, is what turns
+"this branch exists" into "this branch can only be removed by a push".
+
+### The human list is now decidable end to end, and the rest is human
+
+The list in the standing section is unchanged in substance and now carries the one fact that was
+missing: merge `review/drop-dead-trace-and-fence` (`8c88a59`, re-verified this pass —
+`branch-containment.sh` prints `CONTAINED and mergeable`), and delete the other three, **all three by
+remote push**, one of which has no local branch. **(d)** retiring this recurring pass and **(e)**
+fixing the out-of-repo scheduler template remain human; **(e)** has its three clauses quoted verbatim
+at pass 326.
+
+**Recommendation for the human, unchanged and now with four passes of evidence.** Passes 327, 328, 330
+and 331 have each found a real defect in this log's own instruments and pointers — a fail-open growth
+guard, an amend-orphan, a pointer into nothing, a pointer into the wrong line, a broken `docs/` link,
+an invented line count, and a human instruction pointing at the wrong namespace. **Not one of the
+seven is a MadGab finding.** The pause is real, the accepted state is documented and verified by
+execution, and everything that remains is the human list. That is the argument for **(d)**: the
+recurrence is no longer protecting anything, it is generating work — and note that this pass's only
+finding was found *by running a gate a previous pass had built*, which is the one argument for
+keeping it that has survived four passes.
+
+NEXT: **(1)** Run the seven bare gates at the top of this file and nothing else. Do NOT re-derive the
+standing facts by hand, do not re-run the at-risk family, do not re-prepare or re-validate the review
+branches, and do not re-run this pass's plants. **(2)** If `at-risk-delta.sh` bare exits **3**,
+attribute the new member first (pass 328's rule: enumerate reflog transitions, keep the
+non-fast-forward ones; 125 of 1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not
+`.git/logs`). **(3)** Everything else is human, and retiring this recurring pass is still the
+highest-value action available.
