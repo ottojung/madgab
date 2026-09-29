@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e1f
-updated: 2026-09-29T12:56:00Z
+owner: coord-2b19
+updated: 2026-09-29T13:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23778,3 +23778,154 @@ control, so the next pass can confirm the filter fires without re-deriving it.
 **Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open and 0 working items,
 0 non-terminal MadGab agents, 0 unreachable files, `main` untouched. **Blocked on the human reopen/confirm
 decision.**
+
+## Pass 267 — `coord-2b19`, 2026-09-29T12:57Z–13:05Z — gate NO; five facts re-derived unchanged; ACTED — the repository SHIPS an executable hard-coding fence, it is green, and CI NEVER RUNS IT
+
+**Gate answer: NO**, for the same three contradictory clauses every pass since 92 has declined. Deciding
+authority unchanged: `## Status: accepted and paused` in `docs/skills/itinerary-madgab.md:5`, and the accepted-state
+document. Clause 2 remains a direct textual conflict — the itinerary's closing paragraph says
+`post-milestone-acceptance` "is no longer an automatic accumulation target" (itinerary line 17), so the template's
+"exactly as the itinerary requires" cannot be honoured by doing what the template says. **No agent launched, stopped
+or prompted; no work item created or claimed; nothing integrated; `main` untouched.** The 2 host-`running` agents
+(`92c2` volodyslav, `94d6` assemblyp1) and 4 `idle` rows are other repositories, left running.
+
+**Five facts, all re-derived this pass with the standing rows' own instruments, all unchanged:**
+
+1. **Work items** — published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`, gawk
+   exit 0: **96 = 0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`** (sums to 96, nothing dropped).
+   Known false positives still live: `grep -rl 'state: open' docs/` = **7**, `grep -rlx 'work_item: true' docs/` = **97**.
+2. **MadGab agents** — **0 non-terminal in a MadGab cwd**, out of **131** MadGab rows of **689** host rows. `3a8f01`
+   still `stopped` at ~1d9h, `3a8f02` still `succeeded` — no superseded front's agent has restarted, holding for a
+   further 115 passes.
+3. **Production fence (the log's instrument)** — joined phrase **0** in all six regions, **37th consecutive**;
+   per-word **0 / 0 / 0 / 1 / 0 / 0**. Region lines **269 / 260 / 464 / 4242 / 67 / 269** reproduce `fence.awk`'s
+   documented figures exactly, stderr empty. The `1` is `src/lib.rs:3597` `.expect("key came from cells")`, benign at
+   pass 216, not re-opened. **Controls, all six behaving**: region plant 1; `mod tests {` in a block comment 1
+   (region 2, not collapsed); `//` inside a string literal 1; `mod tests {` string literal 1; U+2019 apostrophe
+   target 1; plant as a `//` comment **0** (the comment stripper); zero-byte file aborts with **exit 2** and a
+   120-byte stderr message. The fence's own alphabet was re-read from
+   `docs/paused-recon/fence-alphabet.awk` rather than from memory, and its per-value table re-run in the measured
+   spelling: all six spellings read **1**, including both capitalisations and both apostrophes.
+4. **At-risk non-build content** — **0 unreachable.** Anchored literal filter on the **path field only**,
+   append-safe: **34 non-build rows** over **125** worktrees from **17** contributing worktrees, of the 34 exactly
+   **33 hashable (32 distinct blobs) + 1 directory row** (`/workspace/madgab-scratch::examples/`). `8,092` object
+   ids in `rev-list --objects --all --reflog`; `comm -23` on `sort -u`'d inputs = **0**. Pass 266's standing
+   per-value verdict table re-run in the literal spelling and **all six rows fire**
+   (`prof/` Y, `target-front-3a8f01/` Y, `target-front-3a8f02/` Y, `examples/` n, `src/lib.rs` n,
+   `examples/probe.rs` n) — so rule 266(a)/(c) is satisfied and the filter is not selecting nothing.
+   **0 need archiving; no recovery branch created.**
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`); `origin/main`
+   = `0267ade`; `git diff --name-only origin/main post-milestone-acceptance | grep -v '^docs/'` = **0**; 125
+   worktrees, `git worktree prune -n -v` empty, exit 0. `HEAD` = `origin/post-milestone-acceptance`.
+
+**Rule 14a/14m repair HELD** — `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` (no `--prune`),
+exit 0; bare-prefix `for-each-ref refs/remotes/audit` = **204** = `ls-remote --heads` **204**;
+`recovery/*` heads on origin = **26**; `recovery/at-risk-2026-09-29` = `eaf7487`, **byte-identical** to `ls-remote`
+in the full-form-vs-full-form comparison rule 14p prescribes.
+
+**This pass's finding — the fence this log has re-derived by hand for 37 passes ALREADY EXISTS IN THE REPOSITORY,
+as an executable test, and it is green. CI never runs it.**
+
+`tests/no_phrase_hard_coding.rs` is a 1,000+-line Rust integration test that scans `src/`, `web/` and `examples/`
+and fails on nine distinct *shapes* of phrase-specific coupling — `whole-sentence-equality`,
+`lookup-keyed-by-target-text`, `comparison-against-target-text`, `comparison-against-normalized-target`,
+`full-phrase-literal` (including the `vec!["hits","justice","dupe","hid","came"]` array spelling rule 14u says the
+log's regex cannot see), `substring-special-case`, `phrase-substring-literal`,
+`identifier-named-after-phrase` (a hard-code with **no literal at all**, e.g. `fn wreck_a_nice_beach()`), and
+`runtime-normalization-comparison`. It holds `src/` to an allowlist cap of **zero**, keeps every allowlist entry
+justified by a greppable marker string still present on the line, and adds
+`every_allowlist_entry_suppresses_a_finding_that_is_still_there` so an entry dies with the line that justified it.
+It is a *strictly stronger* instrument than `fence.awk` + `fence-alphabet.awk`: it is a behavioural-coupling
+detector rather than a vocabulary matcher, it needs no per-pass re-derivation of an alphabet (rules 14t/14u/14v are
+all consequences of a fence that had to be re-typed), and it covers `web/` — a real user-facing search entry point
+the log's six-file fence has never scanned at all.
+
+**Measured, not asserted.** Baseline: `cargo test --release --test no_phrase_hard_coding` → **9 passed, 0 failed**.
+Control plants in `src/approx.rs` (a production region file, restored from a byte-exact backup afterwards;
+`git status --porcelain` reads **0 rows**, `HEAD` unmoved at `8be2222`):
+
+| plant | repo fence test | log's `fence.awk` + alphabet |
+|---|---|---|
+| `const CONTROL_PLANT: &str = "wreck a nice beach";` | **FAILED** — `src/approx.rs:457 [whole-sentence-equality]` | **1** (region 466) |
+| same literal as a `//` comment | ok (comments excluded by design) | **0** (comment stripper) |
+| decomposed `["hits","justice","dupe","hid","came"]` | covered by `full-phrase-literal` | phrase arm **0**, per-word catches it |
+
+Both instruments are live and both discriminate; neither is a false zero here. The plant was removed immediately
+after each run and never committed.
+
+**The defect is the wiring, and it is in the dangerous direction.** `.github/workflows/test.yml` (1,099 bytes, one
+`jobs.test` with four steps) runs:
+
+1. `cargo test --lib --bins --no-fail-fast` — `--lib --bins` selects **lib and bin unit tests only**; measured with
+   `--no-run`, it builds exactly two executables, `unittests src/lib.rs` and `unittests src/main.rs`. It does **not**
+   select `tests/` at all, so every integration test is invisible to it.
+2. `cargo test --release --test corpus_integration` — the **one** named integration test, and correctly so: it is
+   the milestone predicate.
+3. `cargo clippy --all-targets -- -D warnings` — compiles all targets, runs no tests.
+4. `cargo build --release` + `./target/release/madgab --help` and a `--transcribe "cat dog"` smoke test.
+
+So of the repo's **10** integration test binaries (measured via `cargo test --release --no-run`: `approx_determinism`,
+`cli_milestone_predicate`, `corpus_integration`, `display_ordering_attribution`, `emit_coverage`,
+`exact_determinism`, **`no_phrase_hard_coding`**, `objective_is_a_search_input`, `pool_rank_reporting`,
+`worst_word_axis`), CI runs **one**. `git grep -n no_phrase_hard_coding -- .github Cargo.toml README.md docs/skills`
+returns **exit 1**: the fence is not named in any workflow, manifest, or top-level document.
+
+**Decisive control, run on the live plant, not inferred.** With the `const CONTROL_PLANT` hard-code in place:
+
+- `cargo test --lib --bins --no-fail-fast` → **83 passed, 0 failed** (and the bin target 0/0) — **green**
+- `cargo test --release --test corpus_integration --no-fail-fast` → **12 passed, 0 failed, 1 ignored** — **green**
+- `cargo test --release --test no_phrase_hard_coding` → **1 FAILED** — the only red
+
+**So a phrase-specific hard-code of either canonical example, committed to `src/`, passes this repository's entire
+CI pipeline green.** That is exactly the shortcut the itinerary forbids, and the repository ships a working detector
+for it that no job invokes. (Caveat, stated because it bounds the claim: `cargo clippy` is **not installed on this
+host** — `error: no such command: clippy` — so CI step 3 was not executed here. The conclusion does not rest on it:
+step 3 runs no tests by construction, and steps 1 and 2 were each run and each read green on the plant.)
+
+**Why 37 passes re-derived an instrument the repository already had.** The log's fence was built by successive
+passes discovering its own blind spots one at a time — 14t (a fence that searches only the answer cannot see a
+hard-coded question), 14u (the decomposed array spelling is invisible to a joined literal), 14v (an alphabet
+enumerated from recall reproduces the blind spot it exists to close), 14ak (make the alphabet a file). Every one of
+those is a real defect, and every one of them is a property of *re-deriving a fence instead of running the
+repository's*. The reason is not that the passes were careless; it is that **the log never looked in `tests/` for
+the fence, because the itinerary's "no hard-coding" clause reads as a property of `src/` and the fence's home was
+assumed to be `src/`.** Two shapes of hard-coding (`identifier-named-after-phrase` and
+`runtime-normalization-comparison`) contain **no string literal at all**, so no regex over any region of any file
+can detect them; only a detector that reads identifier names and comparison structure can. The log's instrument
+could never have found them, and its 37 consecutive zeros were, with respect to those two shapes, **vacuous**.
+
+**Rule 267(a): before re-deriving a fence, a sweep, or any check, search the repository for an existing check of
+the same property — `git grep` the property's own name across the whole tree, and read `tests/` first.** A
+re-derived instrument is at best equal to the existing one and at worst blind to the shapes only the existing one
+covers, and the blindness is invisible precisely because the re-derived one is *self-consistent for 37 passes*.
+**Rule 267(b): an instrument that is not invoked by any job is not a control.** `tests/no_phrase_hard_coding.rs`
+has been green on every push and has never once been able to fail a build; a control's power is a property of the
+*pipeline*, not of the test file. The cheap check is one grep — `git grep -n <test-name> -- .github` — and it
+returns nothing here. **Rule 267(c), the general form: the population of a check is the set of things the pipeline
+runs, not the set of things the repository contains.** Eleven checks exist; the pipeline runs two of them, and the
+one covering the property the itinerary most explicitly forbids is not among the two. Any statement of the form
+"X is tested" must name the job that runs it.
+
+**Not repaired this pass, deliberately, and the reason matters.** The one-line fix is real and small — add
+`cargo test --release --test no_phrase_hard_coding` (or widen step 1 to `cargo test --all-targets`) to
+`.github/workflows/test.yml` on a branch off `main`. It is **not** made here because the itinerary's pause is
+explicit: no new MadGab work items, no resumption of fronts, and no integration outside the log's own durable
+state (rules 1, 2 and 3 of this log; itinerary lines 7 and 17). A CI change is a product change to the accepted
+release, and only a human reopening MadGab development can authorise it. **This entry is therefore the handoff**: the
+finding is measured, reproducible in three commands, and the fix is named. Per `scheduled.md`, a follow-up
+discovered while completing an item must be captured in a repository work item and not left in chat — and that is
+`w-3a7f0d`'s job, which is `blocked` on the same human decision as this item. **A fresh pass must NOT open a new
+item for it while the pause holds; if a human reopens MadGab, the first act is this fix, before any front resumes.**
+
+**One corollary worth a human's attention, cheap to state and not acted on:** the 9 other unrun integration tests
+include `approx_determinism`, `exact_determinism`, `objective_is_a_search_input` and `pool_rank_reporting` — the
+determinism and objective properties that the historical branches were built around. They may be run by some
+out-of-band process (this log's own passes have run them ad hoc for 37 passes, which is precisely the substitute for
+wiring that let the gap go unnoticed). Measured here: the fence test is green on the accepted head, so this is a
+**pipeline-coverage** defect, **not** a latent violation. The invariant stands; what is missing is CI's ability to
+notice it stopping standing.
+
+**Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open and 0 working items, 0
+non-terminal MadGab agents, 0 unreachable files, `main` untouched at `0267ade`, worktree restored clean after the
+control plants. **Blocked on the human reopen/confirm decision** — and if that decision is "reopen", rule 267(c)
+names the first concrete piece of work.
