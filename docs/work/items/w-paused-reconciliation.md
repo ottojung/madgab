@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9f4e
-updated: 2026-09-29T11:55:00Z
+owner: coord-4f0a
+updated: 2026-09-29T12:01:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -22838,3 +22838,90 @@ since pass 184, and its population did not change. **No recovery branch warrante
 before copying them — the standing table is the only part of this file a scheduler reliably reads,
 and it had two wrong numbers in it while the log beneath was 250 passes of correct work. Prefer no
 entry at all. Blocked on the human reopen/confirm decision.
+
+## Pass 257 (coord-4f0a) — gate NO; one finding, and it is in this pass's OWN first draft, in the dangerous direction
+
+Template clauses 1–3 declined for the sixty-second time on `## Status: accepted and paused` plus
+the accepted-state document. Nothing claimed, launched, stopped, prompted or integrated; no new
+work item; no recovery branch created; main untouched at `0267ade`. No new rule this pass — the
+defect it found is an instance of a rule that already exists, and the entry is short on purpose.
+
+### Finding: the inclusion arm's *subtrahend* is load-bearing, and strengthening it silently under-reports
+
+Rule 14c requires one cross-check arm to differ in **family** from the exclusion arms, and the
+published inclusion arm is the audit-only one:
+
+    comm -23 <baseline> <xargs -n1 git rev-list <each audit ref> | sort -u>
+
+That reproduces exactly: audit-reachable **1,186**, arm **88**, `diff`-clean against the
+`--all --reflog --not <204 refs>` arm's 88 (exit 0, zero lines). The published instrument is sound.
+
+**This pass's first draft wrote the subtrahend as `git rev-list --all $REFS`, reasoning that the
+start set was `--all`-inclusive and the subtrahend "should" match it. That reads 87, not 88, and
+the missing element is exactly `514ed91` — the one commit `for-each-ref --contains` attributes to
+`refs/heads/scratch-3f8c62-landed`, which lives in the *start* population but in no audit ref.**
+Adding `--all` to a **subtrahend** widens what is being subtracted, so the arm drops precisely the
+ref-held case the sweep exists to catch. It exits 0, prints a plausible integer, and one smaller.
+
+The general form, and it is the reason this is recorded: **a subtrahend that names `--all` is not
+"the same population with more coverage" — it is a different, larger set, and widening it makes an
+inclusion arm fail toward safety.** Every previously recorded instrument defect in this log was
+either an over-report or a false zero; this one is an under-report of exactly the interesting
+element, and it is reached by the natural strengthening move rather than by a typo. Paired with
+rule 14a's "name the positive start explicitly", the symmetric half is: **name the subtrahend
+explicitly, and never let it widen past the ref set under test.** An inclusion arm's whole
+information content is what it fails to subtract.
+
+### Five standing facts, re-derived (not copied)
+
+1. **Census 96** = 83 done / 12 superseded / 1 blocked, **0 open / 0 working**, by the published
+   fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`, exit 0.
+2. **0 non-terminal MadGab agents.** 131 MadGab-cwd rows of 687 host rows; 110 succeeded / 20 failed
+   / 1 stopped. The single non-terminal row is `3a8f01` `stopped` on the superseded
+   `madgab-diversity-3a8f01` front — **left stopped**, no superseded front's agent restarted.
+   Host-`running` `94d6` (assemblyp1), `79e2` (qai-proviral), `109a3` (skrynia), `98f1` (antonina) are
+   other repositories and were **left running, untouched**. Idle rows `78b2`, `92f3`, `92e3`, `98f3`
+   are other repositories and `a11d` is in `/tmp`; none is a MadGab cwd.
+3. **Fence 0 / decomp 0-0-0-1-0-0** across all six production files, region counts
+   269/260/464/4242/67/269 in the `wc -l < FILE` form per rule 14y. The single non-zero was
+   re-derived **by reading the line**: `src/lib.rs:3597` `.expect("key came from cells")` — the
+   ordinary English past tense, still adjudicated benign (pass 216).
+4. **Both fence arms taken from `fence-alphabet.awk`, never re-typed (rule 14ak/14v)**, and
+   **controls re-run in both directions plus a negative control**: nothing planted reads 0/0;
+   `wreck a nice beach` reads 1/1; the **decomposed array** `["hits","justice","dupe","hid","came"]`
+   reads phrase=0 / **decomp=1**, which is the case rule 14u exists for and the one a joined-literal
+   fence cannot see; `recognize speech` 1/1; the ASCII-apostrophe target 1/1; a **U+2019**
+   typographic-apostrophe plant, built from the byte sequence `\xe2\x80\x99` rather than retyped,
+   reads 1 — pass 253's finding, and the reason the alphabet is quoted from a file. A comment-side
+   plant reads 0/0, so the region stripper is doing its job rather than matching everywhere.
+5. **125 registered worktrees**, `git worktree prune -n -v` **empty**, exit 0, holding the
+   by-construction equality settled at pass 170. **main untouched**: `git rev-parse --verify main`
+   exits **128** (no local `main` ref), `origin/main` `0267ade`, HEAD on
+   `post-milestone-acceptance`.
+
+**Pass 256's two repairs verified in place, per its own next-action:** the `At-risk commits` row no
+longer carries a bare recovery-head number (it points at the command, and
+`git ls-remote --heads origin 'refs/heads/recovery/*' | wc -l` re-derives **26**), and the
+`Passes that reached this same answer` row points at its command rather than a live count.
+
+`audit/*` re-fetched FIRST per rule 14a with the no-`--prune` spelling, exit 0 (`5d10802..c44bdc8`).
+Mirror in pass 252's sanctioned form: `ls-remote --heads` prefix-stripped (204) against
+`for-each-ref refs/remotes/audit` `strip=3` (204), `diff` **byte-identical, exit 0, zero lines**;
+`audit-tag` is the known +1, read inline and not asserted as a literal.
+
+At-risk state re-derived from scratch against that freshly fetched exclusion set, cardinality
+asserted inline per rule 14g (**204**, abort otherwise), every exit code captured per rule 22:
+baseline `rev-list --all --reflog` **1,274** (+1 over pass 256's 1,273 = its own entry commit, which
+is on `origin` and therefore outside the set). **ref-held 1 / reflog-only 87 / intersection 0 /
+union 88**, disjoint and summing to 88. Both arms of the cross-check agree at 88 once the
+subtrahend is audit-only, as above. Controls in both directions: the known residual `514ed91` is in
+the ref-held arm (1) and `0267ade` is absent from the union (0), so the arms discriminate rather
+than returning a constant. `514ed91`'s non-build content is durable on
+`origin/recovery/at-risk-2026-09-29` = `eaf7487`, **byte-identical on `ls-remote` and
+`audit/recovery/at-risk-2026-09-29`** per rule 14p. Content sweep not re-run: closed on content
+since pass 184 and its population did not change. **No recovery branch warranted; none created.**
+
+**Next pass:** the two rules a fresh pass is most likely to re-enter, from this entry — quote the
+fence alphabet from the file rather than from memory, and never widen an inclusion arm's
+subtrahend past the ref set under test. Prefer no entry at all. Blocked on the human
+reopen/confirm decision.
