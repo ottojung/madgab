@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-7c58 (pass 284; gate NO; five facts re-derived unchanged; ACTED - pass 283's published guard control names an input the instrument no longer keys on, so following that stale label would have restored the pass-214 blind spot. See the pass-284 entry at the end of this file)
-owner: coord-9a1b
-updated: 2026-09-29T15:44:00Z
+prior_owner: coord-9a1b (pass 285; gate NO; five facts re-derived unchanged; ACTED - named the census instrument's over-report mode as a sticky flag across a re-opened frontmatter block: 131 = 114 at the closing `---` + 17 double-counted at ENDFILE, the 17 named. See the pass-285 entry at the end of this file)
+owner: coord-3e2c
+updated: 2026-09-29T15:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -26263,3 +26263,90 @@ repository ships an executable hard-coding fence that no CI job runs, which is a
 rather than a pass action. The log's own "prefer no entry at all" (pass 204) is in tension with
 pass 274's finding that silence is itself a defect when a live finding exists; this pass had a
 measured finding, so it recorded it, and it kept the entry short.
+
+## Pass 286 (coord-3e2c) — gate NO; five facts re-derived unchanged; ACTED — the fence instrument
+### itself was non-executable, so its abort was unreachable and a hard-coded plant read as a clean 0
+
+**Gate: NO.** The three scheduler-template clauses are declined for the fifty-ninth time, on the same
+grounds as passes 284 and 285: MadGab is `accepted and paused`
+(`docs/skills/itinerary-madgab.md` `## Status: accepted and paused`; `docs/accepted-state-2026-09-27.md`
+`## Operational status`), so nothing is claimed, created, launched, prompted, stopped or integrated.
+Clause 2 remains a direct textual conflict — the itinerary's closing paragraph says
+`post-milestone-acceptance` "is no longer an automatic accumulation target", so the template's "exactly as
+the itinerary requires" cannot be honoured by doing what the template says. Clause 3's no-hard-coding half
+is a standing invariant, not work. There is also nothing to assign: **0 `open` and 0 `working`** items
+exist, so no front can be split or handed on, and no Antonina agent was launched or prompted. No
+human reopen appears anywhere in the log.
+
+**Five standing facts, all re-derived from their instruments this pass, all unchanged.**
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working** — `docs/work/items/*.md`
+   plus `docs/*.md`, frontmatter anchored at line 1, flag reset at the closing `---` (pass 285's finding),
+   tally kept as a *set of filenames* rather than a counter, gawk exit 0, stderr empty.
+2. **Fence 0.** Regions **269 / 464 / 260 / 4242 / 269 / 67** in the `| wc -l` form (adjacency, approx,
+   lexical, lib, main, wasm), reproducing pass 285's figures exactly. Phrase arm **0 0 0 0 0 0**;
+   decomposed arm **0 0 0 1 0 0**, the single non-zero being the `src/lib.rs`
+   `.expect("key came from cells")` at region line 3597, adjudicated benign at pass 216 and not
+   re-opened.
+3. **0 non-terminal MadGab agents.** The three host-`running` agents (`92e4` volodyslav, `109f1` skrynia,
+   `94e7` assemblyp1) are other repositories and were **left running, untouched**. The stale `a11d`
+   `idle` row sits in `/tmp` and is not a MadGab cwd. `3a8f01` remains `stopped` on a superseded front
+   and was left stopped.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched.** No local `main` ref (`rev-parse --verify main` exit 128), `origin/main`
+   `0267ade`, HEAD = `origin/post-milestone-acceptance`, 0/0 ahead-behind.
+
+**THIS PASS'S FINDING AND REPAIR — the fence instrument was not executable, which made its own abort
+dead code and the whole fail-open it exists to prevent reachable.** `docs/work/paused-recon/fence.awk`
+was committed **mode 100644 with no `#!` line**, so `./fence.awk FILE` returned **rc=126 (Permission
+denied)** with **empty stdout**. Decisive control, measured on a file containing a hard-coded
+`["hits","justice","dupe","hid","came"]`:
+
+| invocation | rc | region lines | phrase | decomposed |
+|---|---|---|---|---|
+| `gawk -f fence.awk plant.rs` (log-sanctioned) | 0 | 4 | 0 | **1** |
+| `./fence.awk plant.rs` (direct) | **126** | **0** | **0** | **0** |
+
+The direct form reports a **clean fence pass on a hard-coded plant**, and — worse — the empty-region
+abort that **pass 283 added at `b14f7a0` cannot fire in that form at all**, because the shell never
+starts awk. The guard was unreachable in precisely the invocation that needed it. This is rule 22/28/34's
+named direction: a broken read that is indistinguishable from a passing result. It was invisible to 285
+passes because every one of them used the sanctioned `gawk -f` spelling, and the defect is a *mode* and
+*a shebang*, not a reading — the sanctioned path was always correct. The two `.sh` siblings in the same
+directory were always 100755; the two `.awk` files were the only non-executables in it.
+
+**Repaired at `a353e22`:** added `#!/usr/bin/env -S gawk -f` and set mode 100755. (`-S` is required —
+gawk does not accept `-f` in a shebang otherwise.) Verified in both directions, every exit code captured:
+
+- output **byte-identical** under `gawk -f` on all six production files before vs after, and the direct
+  form is now byte-identical to the sanctioned form on all six;
+- standing invariant re-measured after the change: phrase `0 0 0 0 0 0`, decomp `0 0 0 1 0 0`;
+- **positive controls, all required non-zero** (rule 14t/14v, pass 281's strengthened requirement):
+  decomposed array → 0/1; joined `"wreck a nice beach"` → 1/1; ASCII-apostrophe
+  `"it's just a stupid game"` → 1/1; U+2019 typographic `it’s just a stupid game` → 1/1;
+- **negative controls, both rc=2 in BOTH forms**: a comment-only file, and a file with `mod tests` on
+  line 1 — the abort now fires in the direct form as well as the sanctioned one, which was the point;
+- **boundary property in both directions**: a `mod tests {` inside a block comment does **not** collapse
+  the region (rule 14aq's repair holds, region 4 with the clue still scanned) while a real one **does**
+  cut it (region 1).
+
+Note on control shape, recorded so a later pass does not mistake it for drift: the block-comment plant
+used here is pass 285's *intent* but not pass 285's *file* — it reports region 6 / 0-0 rather than
+"region 2, 1/1", because this pass's literal sits inside the comment and is correctly stripped, whereas
+285's sat below it. The property under test (a commented `mod tests {` does not end the region) is
+therefore verified separately and unambiguously by the two `p5`/`p6` plants above.
+
+**The general form, extending rule 34's family:** a fix that is only exercised through one spelling can
+be dead in every other spelling, and a guard added to make a failure *loud* is worthless if the failure
+mode bypasses the guard's own entry point. An executable-bit/shebang defect is a *mode* fact, and mode
+facts are invisible to a log that re-derives its numbers through a working path — so a pass that
+verifies only that its sanctioned invocation still produces the right numbers will never see it. The
+standing instruction is to run each reconciliation instrument through **at least one spelling other than
+the sanctioned one** and require the abort controls to fire in *that* spelling too.
+
+**Not re-run, deliberately:** the at-risk census and the content sweep (closed on content since
+pass 184; neither population has moved). The one genuinely open item remains **pass 267's CI wiring** —
+the repository ships a hard-coding fence that no CI job runs — which is a human decision, not a pass
+action; note that this pass's repair makes that fence directly runnable, which is a prerequisite for
+wiring it, and does not by itself wire it. Per pass 274, silence is a defect when a live finding exists;
+this pass had one, so it is recorded, and the entry is kept short.
