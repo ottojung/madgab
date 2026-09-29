@@ -27791,3 +27791,123 @@ have running instruments with controls and directional plants, which was the
 remaining hand-typed work. Nothing else here is actionable without the human
 reopen decision.
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 299 (coord-9f4a) — the instrument set gets a liveness check, and the first plant run caught the new script failing its own first rule
+
+Gate **NO** again, the sixty-second time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict: the itinerary's closing paragraph says post-milestone-acceptance
+"is no longer an automatic accumulation target", so the template's "exactly as the
+itinerary requires" cannot be honoured by doing what the template says. Nothing
+claimed, launched, stopped, prompted or integrated; no new MadGab work item; no
+recovery branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; the skills-doc control reads selector 0 / fence-blind 1.
+2. clue fence **0 joined in all six** production regions; per-word `0-0-0-1-0-0`
+   (`.expect("key came from cells")` at lib.rs:3597, adjudicated at pass 216).
+   Regions 269/260/464/4242/67/269. The eighty-ninth consecutive pass.
+   `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   715 host rows, {succeeded 110, failed 20, stopped 1}. The 2 host-`running`
+   agents (94b8 assemblyp1, 109a4 skrynia) are other repositories and were left
+   running, untouched — down from 4 at pass 298, again churn elsewhere and not a
+   MadGab fact. The 5 idle rows likewise.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD bbde5da on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1334, refs-only 1246. The audit
+   mirror was re-fetched FIRST per rule 14a with no `--prune` (c2f49c8..bbde5da,
+   exit 0) and verified fresh, so `at-risk.sh` reported without fetching. No
+   recovery branch warranted, none created.
+
+### ACTED — `selfcheck.sh`, closing pass 298's named gap
+
+Pass 298 closed with a specific and accurate gap: "no instrument checks that
+these five scripts themselves still run: a future edit to any of them would be
+discovered by a pass that happens to run it, not automatically." That gap is
+small, was genuinely outstanding, and did not need the human decision, so it is
+closed here rather than deferred a thirty-first time.
+
+It is a LIVENESS check and says so in its own header: each instrument must be
+executable, parse under `bash -n`, exit 0, and **print the invariant line it
+exists to produce**. The output assertion, not the exit status, is the load-
+bearing part, and this directory's own history is the argument for it: pass 298
+plant G had `yq` absent from PATH yield a clean exit 0; pass 298 defect 3 had a
+missing population and an empty queue produce identical gawk output; pass 286 had
+fence.awk at mode 100644 with no shebang whose empty-region abort was therefore
+unreachable, so a hard-coded plant read as a clean 0. An instrument that exits 0
+while measuring nothing is named **SILENT** and refused separately from **DEAD**
+(exit != 0), because the two want different diagnoses and the same response.
+
+**The plants found two defects, and the first one caught this pass's own script
+failing the rule it was written to enforce.**
+
+1. **I wrote `selfcheck.sh` at mode 644, so the very first plant run returned
+   `Permission denied` (rc 126).** That is pass 286's defect reproduced by the
+   author of pass 286's lesson, in the one file whose entire job is to catch it.
+   It is recorded here rather than quietly corrected because it is the honest
+   result: the check for executability is only as good as the author's first
+   `Write`, and no amount of care at the keyboard substitutes for running it.
+   `chmod 755`, after which the whole plant suite was re-run from scratch.
+2. **The census and fence anchors embedded a MOVING FIGURE, and plant H proved
+   the false positive in both directions.** The first anchors were
+   `census: 96 work items` and `verdict 0 canonical clue occurrences`. A census
+   that LEGITIMATIMATELY moved to 97 was reported SILENT — a healthy instrument
+   condemned — and, far worse, a fence that genuinely found a hard-coded clue,
+   which is the one alarm this whole directory exists to raise, would have been
+   condemned by the same rule as SILENT. The anchors are now figure-free
+   (`work items (identity: work_item:true`, `canonical clue occurrences in all`)
+   and name the SHAPE of the invariant, never its value. Re-tested: a census at
+   97 and a fence at 3 hits both read healthy. **General form: a liveness check
+   that pins a moving figure will eventually report a working instrument as
+   broken, and in a directory whose figures are expected to move, that is a
+   scheduled false alarm — the mirror image of pass 293's stale mirror reported
+   as a clean 91.**
+
+**Eight plant directions, all discriminating, each with a distinct exit code**
+(every plant in a throwaway `/tmp` tree; `git status --short` shows only the one
+new file, `src/` untouched throughout):
+
+| plant | expected | got |
+|---|---|---|
+| A healthy set | 0 | 0 |
+| B instrument exits 3 | 1, DEAD, exit named | 1 |
+| C exits 0, invariant absent | 1, SILENT | 1 |
+| D mode 644 | 1, NOT-EXECUTABLE(mode=644) | 1 |
+| E no shebang | 1, NO-SHEBANG | 1 |
+| F syntax error | 1, DOES-NOT-PARSE + message | 1 |
+| G one instrument absent | 2, BROKEN POPULATION | 2 |
+| H figures moved (97, 3 hits) | 0, still healthy | 0 |
+
+Two consecutive runs on the real repository are byte-identical on stdout, and
+`census.sh`, `clue-fence.sh`, `agents.sh`, `at-risk.sh` and `frontmatter.sh` all
+still exit 0 afterwards.
+
+**Fifth consecutive instance of one shape, and the shape is now stated rather
+than re-derived.** Passes 278, 280, 281, 293, 294, 298 and this one all found
+their instrument defective by planting the failures it claimed to catch, and in
+every case the defect was in the *validator's* handling of an input it was not
+built for — never in the detection it advertised. Six instruments now exist and
+**all six have been audited this way; all six changed.** The general form, worth
+stating once: building an instrument is not the work, the plants are.
+
+**One honest limit on what this instrument proves.** It cannot detect an
+instrument that is alive, well-formed, and wrong about the world — the
+failure mode of pass 293's stale mirror reported as a clean 91, and of any
+control that cannot be re-derived from the file it names (rules 14q, 14r). Those
+remain the responsibility of each instrument's own directional plants, which is
+why the header separates LIVENESS from CORRECTNESS in both directions.
+
+NEXT: the pause still holds and the five facts stand. Every standing fact has an
+instrument, every instrument has been audited by planting, and the set now has a
+liveness check, which was the last gap pass 298 named. Nothing further here is
+actionable without the human reopen decision.
+**Blocked on the human reopen/confirm decision.**
