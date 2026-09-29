@@ -110,6 +110,24 @@ INSTRUMENTS=(
   "at-risk-content.sh::of those, NON-BUILD (component-wise filter) =::"
   "frontmatter.sh::failed to parse::"
   "item-state.sh::item frontmatter parses::"
+  # compact-log.sh is DELIBERATELY absent from this list, and the reason is
+  # worth recording because registering it looked obviously right.
+  #
+  # selfcheck liveness-checks the instruments that print a STANDING FACT, and it
+  # does that by running each one bare and requiring exit 0. compact-log.sh is
+  # not such an instrument: it is a one-shot maintenance action, and it is
+  # correctly fail-closed once it has run -- a second run refuses with "archive
+  # already exists". Registering it therefore turned correct behaviour into a red
+  # selfcheck ("compact-log.sh DEAD exit=1") on a healthy script, which is the
+  # exact failure this log records as the pass-317 defect: an instrument set that
+  # condemns something healthy and sends the next pass to "repair" it.
+  #
+  # A dry run on a FRESH item does exit 0, so the alternative -- liveness-check it
+  # only while the archive is absent -- would make the instrument set's health
+  # depend on whether a one-shot job has already run. That is a worse coupling
+  # than not checking it. It is exercised instead by its own --apply path, which
+  # verifies its own output and refuses to write unless the split is a proven
+  # line-multiset partition of the original. (pass 320)
 )
 
 tmp="$(mktemp -d)"

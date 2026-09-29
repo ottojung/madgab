@@ -80,7 +80,22 @@ DST='refs/remotes/audit'
 # The count grows by one per pass, because each pass pushes its own log commit
 # to post-milestone-acceptance and that commit is in the exclusion set. A human
 # raising this number must confirm the delta is this log's own history.
-EXPECT_REFS=205
+#
+# 205 -> 206 at pass 320, and the delta was confirmed rather than assumed, in
+# the way the comment above demands. The count is 205 mirrored heads plus the
+# one peeled tag, i.e. 206; and the set difference against the previous
+# expectation is exactly ONE ref, `refs/remotes/audit/review/drop-dead-trace-env`
+# (a29f3d7) -- the review branch pass 319 pushed, which is this log's own
+# history, not a lost or mirrored-elsewhere work branch. Two further checks
+# agree and are worth recording because rule 14g's assertion is blind to
+# freshness by construction and only these two speak to it:
+#   - the mirror's ref NAMES are identical to `git ls-remote --heads origin`
+#     after normalising `refs/heads/` away -- `comm -23` and `comm -13` both
+#     empty -- so the +1 is on the remote, not a stale local artifact;
+#   - removing that one ref from the enumeration returns exactly 205, so the
+#     delta is that ref and not a change in the tag arm or in the enumeration
+#     spelling.
+EXPECT_REFS=206
 
 # Known-good / known-bad controls. These are the arms' discriminators: a census
 # that cannot tell these two apart is reporting a constant, not a measurement.
