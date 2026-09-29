@@ -136,7 +136,35 @@ DST='refs/remotes/audit'
 # of rule 273, reached here by removing a ref rather than by amending a commit.
 # `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` (never --prune, rule
 # 14m) restores it and the count returns to 90 = ref-held 1 + reflog-only 89.
-EXPECT_REFS=208
+#
+# PASS 324 RAISES THIS 208 -> 209, for the same reason and by the same two-step
+# confirmation. This pass pushed ONE new branch, `review/drop-dead-trace-and-fence`
+# (8c88a59), taking 208 heads + 1 tag = 209.
+#
+# NOTE THE ORDER OF THE TWO NUMBERS, because this pass read them in the opposite
+# order on arrival and it briefly looked like a phantom. `git for-each-ref refs/
+# remotes/audit | wc -l` counts HEADS ONLY and read 208, and `ls-remote --heads |
+# wc -l` also read 208, so the two agreed and the instrument still failed at 209.
+# The 209 is heads + TAG, and this is the second time in three passes that a
+# head-only count has been the number a reader checks first (pass 261 amended the
+# 204 for exactly this reason). The instrument counts the union of the mirror and
+# the tag namespace, so HEAD it with the TOTAL -- `git for-each-ref --format=
+# '%(refname)' refs/remotes/audit refs/remotes/audit-tag | wc -l` -- and never
+# with a heads-only `ls-remote --heads`, which cannot see the tag that a
+# `refs/heads/*` refspec also cannot fetch. Rule 14l again: a count carries its
+# population, and here the two populations differ by one and agree on nothing.
+#
+# Confirmed before raising, in pass 322's order and not another:
+#   1. by ref NAME, both sides normalised identically (`sed 's|^refs/remotes/
+#      audit/||'` against `sed 's|.*\trefs/heads/||'`, per pass 323's correction):
+#      mirror 208 heads, `ls-remote --heads` 208, `comm -13` 0 missing and
+#      `comm -23` 0 phantom -- a faithful mirror, so the growth is real and not a
+#      prune scar (rule 14m);
+#   2. by removing the single candidate -- `git update-ref -d refs/remotes/
+#      audit/review/drop-dead-trace-and-fence` returns the instrument to green at
+#      207+1, proving the delta is exactly that one ref; re-fetched immediately
+#      afterwards per the note above, and the count returned to 209.
+EXPECT_REFS=209
 
 # Known-good / known-bad controls. These are the arms' discriminators: a census
 # that cannot tell these two apart is reporting a constant, not a measurement.
