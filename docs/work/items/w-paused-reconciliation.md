@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7b31 (pass 169; gate NO — same three contradictory clauses declined; five facts re-derived, 7/86/0 at-risk unchanged, worktree denominator derived at 124 live paths; new closure: rule 30's combined-spelling failure measured at 1090 vs 7 with all 1083 false positives proven audit-held; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:20:00Z
+owner: coord-9c47 (pass 170; gate NO — same contradictory clauses declined; five facts re-derived and unchanged, 7/86/0 at-risk; one durable action taken: two stale prunable worktree registrations pruned losslessly after confirming each commit is ref-held, so the denominator is 125 registered == 125 live and `prune -n` is clean for the first time; at-risk non-build content 0; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:35:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -49,6 +49,7 @@ reading the fix. Keep checking the hop, then the entry it points at.
 | Production fence | **0** hard-coded canonical phrases in the production region of all six production files, **re-derived at pass 144** (nineteenth consecutive pass at 0) per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and not from a cached total: `src/adjacency.rs` 0, `src/lexical.rs` 0, `src/approx.rs` 0 prod / 1 total, `src/lib.rs` 0 prod / 18 total (9 on a clue-only regex), `src/wasm.rs` 0. `src/main.rs` has **no** `#[cfg(test)]` boundary; its 2 hits are lines 9 and 11 of the `//!` CLI usage doc comment (`madgab "It's just a stupid game"`), i.e. a documented invocation example, not clue selection in logic — this pass confirmed both are *targets* being quoted on a command line, never a generated *clue*. **Pass 145 corrects pass 144's own "defect 2" on the `lib.rs` test-region count:** pass 144 published "0 prod / 9 total" and called the earlier "18 test" a carried-forward error, but the two numbers count *different regexes* and both are correct for their own. The **9** counts **clue** literals only (`wreck a nice beach` | `hits justice dupe hid came`); the **18** counts clues **plus the target** literals `recognize speech` and `It's just a stupid game`, which is what passes 138–143 used. The 18 lines are 4703, 4747, 4775, 4825, 4868, 4901, 6052, 8598, 8599 (clues) + 4357, 5985, 5993, 6373, 6375, 7606, 7608, 8744, 8746 (targets). So pass 144 changed the regex and reported it as a defect in the number — a spurious "fix" that made the log quote two different populations under one label. **Always publish the regex with the count; only the production-region 0 is an invariant** (rule 25). `src/approx.rs` is 0 prod / **1** total (line 1040, a test-region `const CASE2`), also 9-vs-18 blind. Re-verified independently at passes 146 and 147 with the same regex, so the counts stand. **Fence still 0, twenty-fifth consecutive pass — and now an invariant across ALL SIX production files, `src/main.rs` included.** **Pass 149 corrects the header's own `main.rs` count:** it read "its 2 hits are lines 9 and 11", but the row's stated regex is the *clue*-only one, and against that regex `main.rs` returns **0** — the file is clean. The 2 is the **target** regex (`recognize speech|It's just a stupid game`) hitting the `//!` CLI usage doc comment, i.e. targets quoted on a command line, never generated clues. A file with no `#[cfg(test)]` boundary is not a file *exempt* from the fence: its production region is the whole file, and the whole file is clue-clean. Counts with their regexes, whole-file: `adjacency.rs` 0/0, `lexical.rs` 0/0, `wasm.rs` 0/0, `approx.rs` **0 clue / 0 clue+target** in production (1 clue+target test-region total, line 1041 spells the clue as 5 separate array elements so the contiguous-phrase regex cannot see it), `lib.rs` **0 prod / 9 clue / 18 clue+target**, `main.rs` **0 prod / 0 clue / 2 clue+target (usage doc)**. **Always publish the regex with the count; only the production-region 0 is an invariant** (rule 25). **Pass 151 corrects the `approx.rs` half of this row, which contradicts itself:** it asserts `src/approx.rs` is "0 prod / **1** total (line 1040, a test-region `const CASE2`)" under the clue-only regex, but line 1040 is `const CASE2: &str = "It's just a stupid game"` — a **target**, which the clue-only regex does not match — and the *same row* later says the clue there is split into 5 array elements the contiguous-phrase regex cannot see. Measured at pass 151, `approx.rs` is **0 prod / 0 total** on the clue-only regex and **0 prod / 1 total** on the clue+target regex. So the "1" was real but attributed to the wrong regex, the same defect as pass 144's `lib.rs` "fix". **Clue-only regex, `prod/total`, re-derived at pass 151:** `adjacency.rs` 0/0, `lexical.rs` 0/0, `wasm.rs` 0/0, `approx.rs` **0/0**, `main.rs` 0/0 (no test fence, whole file), `lib.rs` **0/9** — **fence 0, twenty-sixth consecutive pass**. **Re-derived independently at pass 153** with the same two regexes, counting both the production region (`awk '/#\[cfg\(test\)\]/{exit}{print}'`) and the whole file: `adjacency.rs` 0 prod / 0 total and 0/0 clue-only; `lexical.rs` 0/0 and 0/0; `wasm.rs` 0/0 and 0/0; `approx.rs` **0 prod / 1 total** on clue+target and **0/0** clue-only; `lib.rs` **0 prod / 18 total** clue+target and **0/9** clue-only; `main.rs` **2/2** clue+target (its production region is the whole file — no `#[cfg(test)]` fence — so the 2 are `//!` CLI-usage lines quoting a *target* on a command line) and **0/0** clue-only. **Fence 0, twenty-seventh consecutive pass.** The production-region clue-only 0 is the invariant and it holds across all six files; the totals are published with their regexes and are not themselves invariants. **Re-derived again at pass 154** with both regexes, production region and whole file, all six files: `adjacency.rs` 0/0, `lexical.rs` 0/0, `wasm.rs` 0/0 on both regexes in both regions; `approx.rs` **0 prod**, 1 whole-file on clue+target, **0/0 clue-only**; `lib.rs` **0 prod**, **9** whole-file clue-only, **11** whole-file clue+target; `main.rs` **0 prod clue / 2 prod target** (its whole file *is* its production region — no `#[cfg(test)]` fence — the 2 being `//!` CLI-usage lines quoting a target) and **0 clue**. **Fence 0, twenty-eighth consecutive pass; the production-region clue-only 0 holds across all six files.** One arithmetic note for the next reader: pass 153 published `lib.rs` as "9 clue / 18 clue+target" and this pass measures 9 / **11**, because the 18 was the *line* count of a single combined regex while 11 counts the target regex alone, and the two sets of lines overlap (9 + 11 − 18 = 2 lines carry both a clue and a target literal). **Quote one regex per count**; the production-region 0 is the invariant and is unaffected. **Re-derived at pass 158**, production region per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and no cached totals: clue-only regex `wreck a nice beach|hits justice dupe hid came` → `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. The clue+target regex adds nothing anywhere except `main.rs`, which is **2** — lines 9 and 11 of the `//!` CLI usage doc comment quoting a *target* on a command line, in a file with no `#[cfg(test)]` fence, so its whole file is its production region and it is still **clue-clean**. **Fence 0, thirty-second consecutive pass; the production-region clue-only 0 holds across all six files.** Only the two regexes' production-region counts are published here — the whole-file totals this row accumulates in its history are not invariants and are not re-quoted. **Re-derived at pass 160**, production region per file with the same `awk` boundary and no cached totals: clue-only regex -> `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Fence 0, thirty-fourth consecutive pass; the production-region clue-only 0 holds across all six files.** |
 | Work items | **0 `open` / 0 `working`**, 1 `blocked` (this one), **83 `done`**, **12 `superseded`** (**96** total), parsed from the frontmatter `state:` line only and **re-confirmed at pass 146** (1 / 83 / 12, unchanged) with the fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. A repo-wide `grep -rl '^state: open'` on this pass returns only `docs/skills/work-items.md` and `docs/work/TEMPLATE.md` — the *example* header and the template, neither a work item, which is why rule 34 requires a fence-scoped count reproduced pass 141's failure mode before falling back to the published form:** the naive `grep -rl 'state: open'` plus a cumulative-`NR` gawk produced a nonsense table of ~430 rows (one per file, because `c[]` was never reset and `ENDFILE` re-printed the whole accumulator once per file). The published fence-scoped form returns exactly **1 / 83 / 12** on the same inputs. **Use the published form, not a cumulative-`NR` variant** — the two differ only in whether per-file state is reset. No item file has been added since pass 133. Known census false positives, all confirmed still live: a repo-wide `grep -rlx 'work_item: true'` returns **97** because `docs/skills/work-items.md` carries the *example* header; a `state:` scan that is not fence-scoped reports `docs/environment-notes.md` as `state: failed` when that file has no frontmatter at all. **A file counts only if `work_item: true` appears inside its own leading `---` fence.** Reliable form: `awk 'FNR==1&&$0!="---"{nextfile} FNR>1&&$0=="---"{nextfile} FNR==1{next} /^work_item: /{wi=$2} /^state: /{st=$2} ENDFILE{if(wi=="true"&&st!="")print st; wi=""; st=""}' docs/work/items/*.md docs/*.md | sort | uniq -c` — it needs **gawk** for `nextfile`/`ENDFILE`; re-confirmed working on this host's GNU Awk 5.3.0 at passes 144 and 146 |
 | `main` | untouched: `origin/main` = `0267ade`, still no local `main` ref (so a push to it would require creating one), HEAD is `post-milestone-acceptance`. **Do not pin HEAD to a SHA in this row** — it is whatever the last pass committed; the stable facts are the *branch* and `origin/main` |
+| Worktrees | **125 registered, 125 live**, and `git worktree prune -n -v` is **empty** — settled at pass 170, which **pruned** the two stale registrations (`/tmp/opencode/verify/w` @ `1973f05`, `/tmp/opencode/zzcheck` @ `69b5a07`) that passes 167–169 had merely named. Both were already git-prunable, both directories were gone from disk, and each commit was **confirmed ref-held first** (`for-each-ref --contains`), so the prune was provably lossless. Passes 167/168/169 published 125, 125 and **124** live paths and each correctly called its number a snapshot; this row is different in kind — the two counts are now *equal by construction*, not equal by luck. **So if the next pass measures anything other than 125/125 with a clean `prune -n`, something has genuinely moved and that is a signal, not volatility.** The lesson, stated generally because three passes mistook it for noise: when a re-derived measurement disagrees across passes, separate **churn** (a moving population — report a snapshot) from a **stale registration** (a fixable bookkeeping defect — fix it and say so). Same discipline as pass 152, which found `3a8f01` was *running* rather than *stopped* and acted on it instead of re-deriving. |
 
 **Stop reading here if you are a scheduler.** Sixty-nine passes (92–160) have reached this same
 answer, and each one's own "Next action" said the correct response to another identical invocation
@@ -15230,4 +15231,84 @@ moves: 125 at pass 168, **124** this pass); if you publish an at-risk figure, pu
 scheduler template — it has now fired **76** times carrying clauses that contradict the itinerary
 it points at, and that single out-of-repo edit would retire this log — or confirm the pause (close
 this item `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
+k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 170 (coord-9c47)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` and a fresh `git fetch` of `origin/main` (still `0267ade`, the
+accepted merge). No work created, claimed, launched, resumed, or integrated; nothing pushed to
+`main`. The invocation again carried the same two unexecutable clauses — accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" (the itinerary's line 17 says that
+branch "is no longer an automatic accumulation target"), and prioritize the canonical
+approximate-search examples (case 2 is an **accepted known limitation**, and its fix direction is
+what the pause defers). Both declined for the reasons in rules 19 and 25.
+
+**One durable action was taken: the worktree denominator conflict is closed at last.** Passes 167,
+168 and 169 published 125, 125 and **124** live worktree paths, and each was careful to say the
+number was a snapshot. This pass found the reason the snapshots disagreed, and removed it, rather
+than publishing a fourth one.
+
+### The action: two stale registrations pruned
+
+`git worktree list --porcelain` reported **127** registrations while only **125** paths existed on
+disk. The two extras were `/tmp/opencode/verify/w` @ `1973f05` and `/tmp/opencode/zzcheck` @
+`69b5a07`, both already flagged `prunable` by git, and both genuinely gone from disk. Pass 167
+identified them but only *named* them and then published 125; pass 169 published 124 without
+resolving them.
+
+Before pruning, **each pruned commit was confirmed to be held by a real ref** (the
+`for-each-ref --contains` discipline from pass 169's closure), so the prune is provably lossless:
+
+| pruned | commit | holders (non-exhaustive) |
+|---|---|---|
+| `/tmp/opencode/verify/w` | `1973f05` | `madgab-reserve-c3f81a`, `madgab-review-reserve`, `scratch/review-c3f81a` |
+| `/tmp/opencode/zzcheck` | `69b5a07` | `recovery/zz-axis-probe-2026-09-28` (and its `audit/` and `origin-all/` mirrors) |
+
+`git worktree prune` then removed exactly those two (`gitdir file points to non-existent
+location`) and nothing else. After: **125 registered, 125 live** — a `[ -d ]` probe of every
+registered path finds no dead entry, and `git worktree prune -n -v` is now **empty**, which is the
+property that was false for three passes. `git status --porcelain` stayed empty, `HEAD` stayed
+`post-milestone-acceptance` @ `4940dbe`, and `git fsck --connectivity-only` reported only
+dangling objects, all pre-existing.
+
+**The general form, and why it was not written off as noise:** a denominator that several passes
+each correctly labelled "a snapshot, not an invariant" can still be *fixable* rather than merely
+volatile. A `[ -d ]` probe returning 125 of 127 is not a race with an external process — nothing
+else creates worktrees in this repo — it is two entries git itself marks prunable. Re-deriving it a
+fourth time would have been the wrong response; the durable move was to make the two count
+identically. **When a reconciliation pass finds its own measurement disagreeing across passes,
+distinguish churn (a moving population, report a snapshot) from a stale registration (a fixable
+bookkeeping defect, fix it and say so).** This is the same discipline as pass 152's, which found
+that `3a8f01` was *running* rather than *stopped* and acted on it instead of re-deriving.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Filtered the full `antonina agent list` on the cwd column: **131** MadGab agents, **every one terminal**. The two host-`running` agents this pass (`43a1` in `antonina-43-reconcile`, `79b1` in `qai-proviral-79-defects`) are other repositories and were **left running**, untouched. |
+| `main` | **untouched.** `origin/main` = `0267ade`; still **no local `main` ref**. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Thirty-seventh consecutive pass at 0.** |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,177**, exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed = **0**, so disjoint, union **93**; **0** of the 86 are ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, never batched). All **20** `recovery/*` branches on `origin` by `ls-remote`. Delta over pass 169's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live** — equal for the first time in the recorded history, after the prune above. `git worktree prune -n` clean. |
+
+Also re-derived: **at-risk non-build content is 0.** Over the (now 125) live worktrees, 37 dirty
+rows = **3 build** + **34 non-build** = **33 hashable files** + **1 directory row**
+(`madgab-scratch/examples/`), contributed by 17 worktrees. All 33 hash to blobs present in
+`rev-list --objects --all --reflog` → **0 unreachable**, so nothing needs archiving and no recovery
+branch was created. Extraction used rule 17's amended `awk '{print $1}' | sort -u`, never
+`cut -d' ' -f1`. The two dead `/tmp/opencode` paths were correctly *absent* from this sweep (they no
+longer exist), so the population is unchanged by the prune — and the 33 is 33 files yielding **32**
+distinct hashes, one exact-duplicate pair
+(`madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+`madgab-probe-5b1e93/examples/probe_final.rs`, same blob `a0ef0cf`), which is why an
+earlier pass that compared counts without de-duplicating would have reported a spurious mismatch.
+
+**Next action for the next pass:** re-derive the five facts cheaply; the worktree row should now
+read **125/125** and, if it does not, something has genuinely moved rather than the number being
+volatile — that is now a signal, not noise. Navigate by the **last** `## Pass ` heading. Only a
+human can change the gate: fix or retire the out-of-repo scheduler template (it has now fired
+**77** times carrying clauses that contradict the itinerary), or confirm the pause (close this item
+`done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
 k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
