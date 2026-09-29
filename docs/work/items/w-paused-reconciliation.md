@@ -22242,3 +22242,80 @@ branch, publish region counts **only** in the `| wc -l` form (269/260/464/4242/6
 268/259/463/4241/66/268 is reading through command substitution), and **re-derive any correction
 published by the immediately preceding pass rather than trusting it**. Do not open a MadGab research
 front or create a work item until a human reopens development.
+
+## Pass 251 (coord-2b9e, 2026-09-29T11:20Z) — gate NO; the instrument's own USAGE block contradicted its header; repaired; one pass wrote an entry that found something
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-ninth time on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary
+says that branch "is no longer an automatic accumulation target". Nothing claimed, launched,
+prompted, stopped or integrated; no new work item; no recovery branch; `main` untouched at `0267ade`.
+
+**This pass found a real defect, in the instrument rather than in the code under test.**
+`fence-alphabet.awk` is the file that exists to stop the alphabet being re-derived from memory, and
+its USAGE block spelled the region count as `$(gawk -f fence.awk "$f" | wc -l)` — the exact
+command-substitution form that `fence.awk`'s own header (lines 49-81) had forbidden since pass 249,
+with the magnitude, the cause, and the corrected figures all written out **in the same repository,
+one file away**. Any pass copying the usage block would land on 268/259/463/4241/66/268 and
+contradict the header's 269/260/464/4242/67/269, which is the off-by-one pass 249 spent a pass
+re-deriving. The contradiction sat in the file whose stated purpose is preventing re-derivation.
+
+Fixed: the block now captures the region once to a file, guards on `fence.awk`'s exit status, and
+reads `$(wc -l < FILE)`. Re-ran the corrected block verbatim — it reproduces
+**269/260/464/4242/67/269, phrase 0, decomp 0-0-0-1-0-0**, identical to the direct measurement.
+
+**The fix also closes a fail-open the header had not mentioned.** The old spelling discarded
+`fence.awk`'s exit status entirely, and `fence.awk` exists *specifically* to abort (exit 2) rather
+than emit a clean 0 for an empty region. Controlled directly: on a zero-byte file `fence.awk`
+exits **2** and writes nothing, while the old spelling prints `region=0 phrase=0 decomp=0` — a
+passing-looking fence reading produced by the exact failure the abort was written to prevent. The
+`|| continue` guard is what makes the abort visible.
+
+**All five facts re-derived, all unchanged**, and the log's own standing figures survive a third
+consecutive pass unchanged: census **96** = 1 blocked / 83 done / 12 superseded, 0 open, 0 working
+(fence-scoped `gawk` over `docs/work/items/*.md docs/*.md`, exit 0); **0 non-terminal MadGab
+agents** among 131 MadGab cwd rows of 681 host rows (the 2 host-`running` agents 109a3, 98f1 and the
+5 `idle` rows are other repositories, left untouched; stale `idle` row `a11d` sits in
+`/tmp/cwd-7ze5eU`, not a MadGab cwd); phrase fence **0** and decomp **0-0-0-1-0-0**, the 1 being
+`src/lib.rs:3597` `.expect("key came from cells")`, benign per pass 216, not re-opened; no local
+`main` (`rev-parse --verify main` exit 128), `origin/main` `0267ade`; **125** worktrees, `prune -n -v`
+empty.
+
+All five control plants fired in the **code** form (`wreck a nice beach`, `recognize speech`,
+`it's just a stupid game`, the decomposed array), the comment-form plant added **nothing** (decomp
+unchanged at 1), and a plant at line 5000 — inside `mod tests` — read 0, so the strip stage and the
+region boundary are both exercised in both directions. The zeros are measurements, not a fence that
+fails open.
+
+**Mirror: 204 heads byte-identical to a fresh `ls-remote --heads`, `diff` exit 0**, verified in
+pass-248's order (push, then fetch). Getting there cost two bad instruments of my own, both caught
+by their controls: an `ls-remote` `sed` that stripped the SHA from one side only, and a
+`for-each-ref` format that disagreed on field order. Each produced a 204-line "difference" that was
+pure formatting — the mirror was never in doubt, the comparison was. Recorded because the control
+(a planted extra line, `diff` exit 1) is what distinguishes "verified" from "compared two different
+shapes and called it a finding". `recovery/at-risk-2026-09-29` = `eaf7487` local and remote; 26
+`recovery/*` heads; `cat-file -t 514ed91` = `commit`, held by exactly `scratch-3f8c62-landed`; the
+tag mirror `c0ecd7c` has no `refs/heads/` counterpart, correctly.
+
+### Escalation
+
+Seventeen consecutive entries have now closed by asking the next pass to write nothing, and this
+one is the first to justify that instruction: the last two passes found only a verification of each
+other, while the standing "copy the usage block" instruction was actively producing wrong numbers.
+That is the argument for a short entry made concrete — the log's value is not the invariant count
+but the occasional defect in an instrument the next pass would otherwise trust. The invariants have
+not moved in forty-nine passes and both open questions are a human's: reopen MadGab development, or
+retire this recurring pass.
+
+### Next pass
+
+Prefer **no entry at all** unless you find something: the last entry found something, so the
+"nothing to report" case is now the live one again. If an entry is written: **push before you
+re-fetch**; assert the mirror as a byte-`diff` against a fresh `ls-remote --heads` with **both sides
+in the same field order**, and run a planted-line control before believing a 0; publish region
+counts only in the `wc -l < FILE` form (**269/260/464/4242/67/269** — 268/259/463/4241/66/268 means
+you are reading through command substitution or copying a stale usage block); and **re-derive any
+correction published by the immediately preceding pass rather than trusting it**, including any
+correction to the instruments themselves. Do not open a MadGab research front or create a work item
+until a human reopens development.

@@ -47,11 +47,23 @@
 #   PHRASE=$(gawk -f docs/work/paused-recon/fence-alphabet.awk)
 #   DECOMP=$(gawk -v decomposed=1 -f docs/work/paused-recon/fence-alphabet.awk)
 #   for f in src/adjacency.rs src/lexical.rs src/approx.rs src/lib.rs src/wasm.rs src/main.rs; do
+#     gawk -f docs/work/paused-recon/fence.awk "$f" > /tmp/region.txt || continue
 #     printf '%s region=%s phrase=%s decomp=%s\n' "$f" \
-#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | wc -l)" \
-#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | grep -ciE "$PHRASE")" \
-#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | grep -ciE "$DECOMP")"
+#       "$(wc -l < /tmp/region.txt)" \
+#       "$(grep -ciE "$PHRASE" /tmp/region.txt)" \
+#       "$(grep -ciE "$DECOMP" /tmp/region.txt)"
 #   done
+#
+#   # The region count is `$(wc -l < FILE)`, NOT `$(fence.awk FILE | wc -l)`.
+#   # `$( ... )` strips one trailing newline and the LAST line of every production
+#   # region is non-blank, so the command-substitution form under-reads by exactly
+#   # 1 in all six files. fence.awk's own header calls this out and publishes
+#   # 269/260/464/4242/67/269; this file's usage block repeated the bad spelling
+#   # for the whole time the header warned about it, so a pass copying the usage
+#   # block would land on 268/259/463/4241/66/268 while the header says otherwise
+#   # (measured 2026-09-29, pass 251). It also fails OPEN: a non-zero fence.awk
+#   # exit yields an empty capture that `wc -l` still reports as 0, which is a
+#   # clean-looking fence reading on an aborted region.
 #   # Piping the region INTO this file (as pass 232's next action instructed) instead
 #   #   of capturing its output and matching yourself yields the one line of regex
 #   #   TEXT, which any counter reads as a constant 1 in all six files. Measured
