@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-5e73 (pass 281; gate NO - five facts re-derived unchanged; ACTED - new rule 14aa on controls. See the pass-281 entry at the end of this file)
-owner: coord-7e04
-updated: 2026-09-29T15:16:00Z
+prior_owner: coord-7e04 (pass 282; gate NO; ACTED - the pass-202 census delta closed as an instrument artefact (97 not 96 was a key-match without a value comparison), so the repository never moved. See the pass-282 entry at the end of this file)
+owner: coord-4b1f
+updated: 2026-09-29T15:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -25977,3 +25977,107 @@ Prefer no entry at all. Two items are genuinely open, both cheap:
 Everything else is unchanged. The item remains `blocked` on the human reopen/confirm decision, and
 pass 203's standing note — that the delta it asked about was an instrument artefact, not repository
 drift — is now discharged.
+
+## Pass 283 (coord-4b1f)
+
+Gate: **NO.** The three scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples without phrase-specific hard-coding) are declined for the **thirty-sixth**
+time, on the itinerary's own `## Status: accepted and paused` plus the accepted-state document,
+unchanged from pass 282. Clause 2's conflict is textual and unchanged: the itinerary says
+post-milestone-acceptance "is no longer an automatic accumulation target", so this log does not treat
+it as one; only a human can retire the out-of-repo template. Clause 3's no-hard-coding half holds as a
+standing invariant, re-measured below, not as work.
+
+**This pass discharged BOTH of pass 282's two open items, and one of them was a live fail-open in the
+committed fence — the instrument this whole log's clause-3 half is certified by.**
+
+Five facts, all executed this pass, all consistent with the last twenty:
+
+1. **Census — 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.** The published gawk form
+   copied **verbatim** (rule 14aa's procedure), over the published scope `docs/work/items/*.md
+   docs/*.md`, gawk exit 0. **Pass 282's second suggestion — a `work_item: false` sentinel control —
+   is now built and behaves, in both directions.** Over a plant scope holding the real
+   `work_item: false` / `state: done` file plus a fresh one-line `work_item: false` / `state: done`
+   plant, the published form returns **empty** (both sentinels correctly excluded), while the
+   value-blind variant that re-derived the filter as `/^work_item:/{wi=1}` returns **2 done** against
+   the same inputs. So the "97 vs 96" that pass 282 diagnosed is now reproducible on demand, in the
+   direction that matters, and the published form is confirmed **value-sensitive** rather than
+   key-sensitive. The instrument is not merely correct; it is now shown to be able to fail, which is
+   what makes its 96 credible.
+
+2. **Agents — 0 non-terminal MadGab agents.** Joined on field `$5` (rule 272) against all **125**
+   registered worktree paths: **131 rows = 110 succeeded / 20 failed / 1 stopped**, 0 non-terminal.
+   The three host-`running` rows (`92e4` volodyslav, `109f1` skrynia, `94e7` assemblyp1) and the
+   host-`idle` rows all have non-MadGab cwds and were **left running / untouched**. Nothing launched,
+   stopped or prompted.
+
+3. **Production fence — 0 in all six files except the one adjudicated-benign line, with all seven
+   property strings as live controls.** Region via `gawk -f docs/work/paused-recon/fence.awk`,
+   region counts **269/260/464/4242/67/269** — identical to the committed instrument's documented
+   figures, so the repair below changed no region. Matcher alphabet re-derived by **reading**
+   `docs/accepted-state-2026-09-27.md` lines 25 and 31 per rule 14v, not from recall: all four
+   canonical strings on both sides of both examples, the joined clue in both capitalisations, the
+   decomposed `["hits","justice","dupe","hid","came"]` spelling, the U+2019 apostrophe form, and the
+   per-word disjunction. Readings **0 / 0 / 0 / 1 / 0 / 0** across adjacency / lexical / approx /
+   **lib** / wasm / main; the `1` is `src/lib.rs:3597` `.expect("key came from cells")`, adjudicated
+   benign at pass 216, **not re-opened**. All **seven** control plants read **1**, so the zero is a
+   measurement. The fence's four standing controls all pass: `mod tests` inside a block comment → 1,
+   `//` inside a string literal → 1, `mod tests` string literal → 1 with the region NOT shrinking
+   (1 line), U+2019 form → 1. Region filter verified in both directions by absolute line: a plant at
+   `lib.rs:300` reads **2** (baseline 1 + plant), the same plant at `lib.rs:5000` inside `mod tests`
+   reads **1** (baseline only).
+
+4. **main untouched** — `git rev-parse --verify main` exits **128** (no local `main` ref; the exit
+   code is the point), `refs/remotes/origin/main` still `0267ade` "Merge accepted MadGab approximate-
+   search release state". Nothing merged or pushed to main.
+
+5. **125 worktrees registered, `git worktree prune -n -v` empty, exit 0.** HEAD on
+   `post-milestone-acceptance` at `b14f7a0`, equal to `origin/post-milestone-acceptance` after a clean
+   `git fetch origin` (exit 0) — no divergence, no race, nothing to reconcile with another
+   coordinator.
+
+### ACTED — pass 282's second open item was a LIVE FAIL-OPEN, and it is now fixed (`b14f7a0`)
+
+Pass 282 left: *"`fence.awk`'s refuse-on-empty-region guard … a matcher input that is itself degenerate
+can produce a non-empty region with a vacuous match count. Worth one assertion if anyone revisits the
+fence."* The degenerate input was constructible after all, and it broke the guard rather than just
+weakening it.
+
+**The defect.** `fence.awk` aborts (`exit 2`) when a file's production region is empty, and its own
+comment claims this prevents "a broken read that is indistinguishable from a passing one". But the
+counter it tested was `emitted++`, incremented on **every line it printed** — including a line whose
+entire content was a comment, because `strip()` reduces such a line to `""`. A file with **no
+production code at all** therefore emitted one empty line, `emitted` was 1, and the abort **never
+fired**. Measured on the pre-fix instrument: a comment-only file reads `rc=0` with **empty stderr**,
+while a test-fence-on-line-1 file correctly reads `rc=2` with a message — the guard's two legs
+disagreed, and the leg with the code in it was the blind one.
+
+**The repair.** `if (RES ~ /[^[:space:]]/) emitted++` — a line counts as production code only if its
+stripped projection carries a non-blank character. Verified in both directions: comment-only now
+`rc=2` with the abort message (was `rc=0`/silent), test-fence-at-line-1 still `rc=2`, and a normal
+one-line source still `rc=0`. The six production region counts are **byte-unchanged** at
+**269/260/464/4242/67/269**, which is the evidence this is a repair and not a loosening: no region
+grew and none shrank, and all six fence readings are identical before and after. A file whose
+production region is one block comment followed by code still reads `rc=0`, as it should.
+
+**Rule 14ab (new).** A guard that tests a *counter incremented on the wrong event* is worse than no
+guard, because the log then cites it as a standing fact. The abort was documented for twenty passes
+as fail-closed; the event it actually counted — a line printed — is true for a region containing no
+code, so the guard's own claim was false in the direction that hides a broken read. The general form
+is rule 14aa's, one level down: **a control must exercise the same event the measurement does, and a
+guard must be probed with the input it was written for.** Here the degenerate input that would have
+exposed it — a region with no code — is exactly the input the guard names, and nobody had built it,
+because pass 281 and pass 282 both tried to reach it through the *matcher* when the defect was in the
+*region counter*. **An assertion nobody can construct is not a pending assertion; it is a missing
+test, and it is cheaper to write the failing input than to keep describing it.**
+
+No work claimed, no work assigned, no agent launched, no agent stopped, no agent prompted. No
+recovery branch warranted and none created. Blocked on the human reopen/confirm decision.
+
+### Next pass
+
+Prefer no entry at all. Nothing is open. Both items pass 282 left are closed — one by a control that
+now runs, one by a commit. Do not re-open pass 216's `key came from cells` adjudication, do not re-open
+pass 202's census delta, and do not re-run the at-risk census or the content sweep (closed on content
+since pass 184; their populations have not changed).
