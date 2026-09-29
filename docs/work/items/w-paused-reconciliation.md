@@ -19807,3 +19807,75 @@ commit. No recovery branch warranted; none created.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-four times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 224 (coord-5e91)
+
+Gate **NO** for the fifty-fifth time. Nothing claimed, launched, stopped, prompted or integrated;
+no new work item; no recovery branch; `main` untouched at `0267ade`. No Antonina agent was created
+for MadGab: the itinerary's `## Status: accepted and paused` forbids it absent an explicit human
+reopen, and this pass found no such instruction in durable state.
+
+Five facts re-derived from their procedures, all unchanged: census **96** = 1 blocked / 83 done /
+12 superseded at published scope, **95** = 1/83/11 at the `docs/work/items/`-only scope (rule 14l,
+`docs/continuation-approximate-search.md` is the 12th); **0** non-terminal MadGab agents among **131**
+cwd-filtered rows of a **653**-row host census; production fence **0** clue literals in all six files'
+production regions; **125** worktrees with `git worktree prune -n -v` empty; `origin/main` `0267ade`
+with no local `main` ref. Host `running` agents are **2** (`78e1` qai-proviral, `94a9` assemblyp1) —
+other repositories, left running, untouched.
+
+At-risk, re-derived after re-fetching `audit/*` **first** by its real source namespace with **no
+`--prune`** (exit 0, `audit/post-milestone-acceptance` `d9b11f1..ff3ca87`): **204** refs read inline
+(not asserted), baseline `rev-list --all --reflog` **1,240**. Both sanctioned arms **diff-clean at 1**
+(`514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`), exit 0 and empty stderr each;
+reflog-only **87**, intersection **0**. Content durable at `origin/recovery/at-risk-2026-09-29` =
+`eaf7487`, **byte-identical to `ls-remote`**; **26** `recovery/*` heads on origin. Content sweep
+re-run from scratch per rule 17 (`awk '{print $1}' | sort -u`, never `cut -d' ' -f1`) over 125
+worktrees: **34** non-build dirty rows, all hashable, all present in the 7,815-object reachable set
+→ **0 unreachable**, so no recovery branch is warranted and none was created.
+
+### This pass's finding: rule 14b's remedy is arm-asymmetric — new rule 14ad
+
+Rule 14b prescribes per-ref `^`-prefixing as *the* correct spelling for exclusion lists. That is
+right for the `^`-form arm and **silently wrong for the `--not` arm**, which is why 25 passes of
+rule-14 cross-checking never saw it. Run:
+
+    git rev-list --all --not $(sed 's|^|^|' refs)     -> 1153   exit 0, empty stderr
+    git rev-list --all --not $(cat refs)              ->    1   exit 0, empty stderr
+    git rev-list --all $(sed 's|^|^|' refs)           ->    1   exit 0, empty stderr
+
+`--not ^X` is a **double negation**: `--not` inverts an argument that the caret has already inverted,
+so the ref is *included* rather than excluded. Isolated on one ref, where truth is 0: `rev-list ^A`
+reads 0, `rev-list --not A` reads 0, and `rev-list --not ^A` reads **927** — the full ancestry of `A`.
+`git rev-parse '^refs/remotes/audit/post-milestone-acceptance'` exits 0 and prints `^ff3ca87`, so git
+accepts the caret here without complaint; the error is undetectable by exit code or stderr. The
+direction of the error is an **over-report** (1,153 vs 1), so unlike pass 182's under-report it is not
+the dangerous direction, but it is exactly the "1,000x over-report" shape rule 14b was written to
+kill — rule 14b's own remedy reintroduces it in the one arm where the caret is not the right token.
+
+Per rule 14ac this was demonstrated on the instrument **as the log publishes it** (grep confirms the
+`sed 's|^|^|'` remedy is present at 4 sites) and the reconstruction differs from the original query
+only by which arm receives the prefixed list. The published census form needs no change.
+
+**New rule 14ad: an exclusion prefix is arm-specific — `^` belongs only to the positional form
+(`git rev-list --all ^a ^b …`); the `--not` form takes **bare** ref names. Never feed a `^`-prefixed
+list to `--not`, and when cross-checking, confirm the two arms differ in *both* the flag and the
+argument spelling, or the agreement certifies only the flag.** Rule 14a/14b/14h/14s stand; the
+per-element-form requirement is now arm-qualified rather than withdrawn.
+
+### Next action
+
+**Prefer a short entry, and commit it as a body section** (pass 221's rule). Then:
+
+1. Amend rule 14b's own text at its line 16992 with the arm asymmetry, or record here that it is
+   superseded by 14ad — do not leave the two in silent conflict.
+2. Run `grep -q '^## Pass <n> ' docs/work/items/w-paused-reconciliation.md` **after** the commit.
+3. Apply rule 14ac before publishing any further instrument defect: grep the cited artifact for the
+   mechanism and show the reconstruction differs.
+4. Do not assert a literal audit-ref cardinality; read it inline (204 here, different next pass).
+5. Expect `lib.rs` per-word `1` at line 3597 (`.expect("key came from cells")` — the word "came",
+   a test-region line past the `#[cfg(test)]` boundary at 381). Adjudicated; do not re-open.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-five times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
