@@ -1,11 +1,13 @@
+---
 work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b83
-updated: 2026-09-29T10:03:00Z
+owner: coord-2b8c
+updated: 2026-09-29T10:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
+---
 
 ## Recovered frontmatter history (pass 218)
 
@@ -21185,3 +21187,145 @@ item `done`; (2) decide the residual `514ed91` commit object, whose content is a
 locally and on the remote recovery branch; (3) retire or correct the out-of-repo scheduler template,
 whose three clauses have now fired 238 times against an itinerary that contradicts them — that
 template, not this log, is what keeps generating passes whose correct outcome is "nothing to do".
+
+## Pass 239 (coord-2b8c) — 2026-09-29T10:12Z
+
+**Gate NO**, for the fifty-eighth time, on the same grounds: `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. The three
+scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) are declined again; clause 2 remains a direct textual conflict, since
+the itinerary says that branch "is no longer an automatic accumulation target".
+
+Nothing claimed, launched, stopped or prompted. No new MadGab work item. No recovery branch. `main`
+untouched. The 4 host-`running` Antonina agents (`78a2` qai-proviral, `92d3` volodyslav, `119c1`
+antonina, `94a9` assemblyp1) belong to other repositories and were left running, untouched.
+
+**This pass DID act, on the one repair the log has been describing for passes without making: the
+governing item was unreadable by the mechanism `work-items.md` mandates, and the pass-218 repair
+that was supposed to fix exactly that left the item unfenced.**
+
+### Finding 1 (acted on): the one `blocked` item is invisible to the mandated census
+
+Re-deriving the census with the published fence-scoped gawk returned **95** (83 `done` / 12
+`superseded`) and **no `blocked` row at all** — against the 96 / 1 / 83 / 12 this log has published
+since pass 202. Every prior pass in that run reported 96, so the census appeared to be the one
+measurement that never moved, and the drift was invisible precisely because it was a *missing* row
+rather than a changed one.
+
+Cause, located by identity rather than by subtraction: `docs/work/items/w-paused-reconciliation.md`
+— **this file** — has **no `---` fences**. Its first line is `work_item: true`. The published
+instrument's first rule is `FNR==1&&$0!="---"{nextfile}`, so it silently discards the whole file,
+and the eight schema keys pass 218 carefully restored are simply never read.
+
+Pass 218 diagnosed this file's frontmatter correctly (35 duplicate `prior_owner:` and 9 duplicate
+`updated:` keys, unquoted values containing `: `, so `yq` failed with `mapping values are not
+allowed in this context`) and repaired the *keys* — but the repair rewrote the header as bare key:
+value lines and **dropped the `---` delimiters that make it a YAML header at all**. A YAML document
+without its opening `---` is not parsed as frontmatter by a fence-scoped reader. So the fix for
+"a coordinator parsing metadata could not read this item at all" preserved the exact failure it was
+written to close, in a different form: now it reads as a document with no frontmatter rather than as
+malformed frontmatter. `yq` still fails on it today, at `line 13`, on the body's first heading —
+because with no opening fence `yq` parses the *entire file* as YAML, so the error line moved from
+the duplicate keys to the first `##`. Confirmed live: `yq` fails on this file *and* on an unrelated
+item (`w-9f1c05.md`, `mapping values are not allowed`), so `yq` alone does not distinguish
+"unparseable frontmatter" from "never had a fence" — only the fence-scoped census does, and it does
+so by omission.
+
+**Repaired**: added the opening and closing `---` around the eight schema keys, changed nothing
+else in the header except `owner`/`updated` to this pass. The census now reads **96 = 1 `blocked` /
+83 `done` / 12 `superseded`**, and the `blocked` row is this item. **Control, both directions:**
+the same instrument against a copy of the file with fences wrapped around it read `blocked` *before*
+the edit (so the fence alone is the cause, not some other difference in the file), and the real file
+reads `blocked` after it. Files whose line 1 is legitimately not `---` are named by identity and are
+all correctly excluded: `items/README.md` (a directory readme, no frontmatter) and
+`w-0f3a17-shortlist-rule.md` (full work-item-shaped header but `work_item: false`).
+
+**Rule 14aw: a metadata repair must be validated with the reader that consumes it, not with the
+parser that diagnosed it.** Pass 218's failure is not carelessness, it is a substitution — `yq` was
+the diagnostic instrument, so `yq` passing is what got checked, and a fence-scoped `awk` is what
+actually reads work items. Two readers, two vocabularies; repairing against one and validating with
+it is a repair that has not been tested. The general form joins rules 14l and 14ag: **an instrument
+that under-reports is worse than one that fails loudly, and "the census is unchanged" is exactly
+what a silently-skipped file looks like.** The standing instruction "re-derive the census
+independently" was obeyed for dozens of passes and still could not catch it, because every
+re-derivation used the same published form. The independent check that would have caught it is the
+one this pass ran by accident: comparing the census total against the number of files that actually
+carry a work-item header, and noticing that one file carrying a header was absent from the output.
+
+### Finding 2 (recorded, not acted on): the at-risk arms are not measuring one population
+
+Re-derived over the correct 205-ref set (204 `audit/*` by the **bare prefix** form, == `ls-remote`
+204, plus local-only `scratch-3f8c62-landed`), baseline `rev-list --all --reflog` **1,255**:
+`--all --reflog --not "${REFS[@]}"` = **88** and per-element caret `"${REFS[@]/#/^}"` = **88**,
+`diff`-clean, stderr empty, both exit 0. The two *exclusion* arms are mutually consistent. The
+**inclusion** arm is not, and cannot be: `comm -23 refreach baseline` returns **0** by construction,
+because `rev-list --all --reflog` already contains every `audit/*` ref, so the audit set is a strict
+subset of the baseline and the "at-risk outside the baseline" set is empty *as an identity*, not as
+a measurement. Its 0 is a theorem, so it cross-checks nothing.
+
+The 88 decomposes as **87 reflog-only** (`rev-list --reflog --not --all`, == the inclusion arm's
+intended population) **+ 1 `514ed91`**, which is ref-held by `refs/heads/scratch-3f8c62-landed` and so
+correctly absent from the reflog-only set. So pass 238's correction — that the set is 87 and not 88,
+because `514ed91` is ref-reachable and therefore not at risk — is **right about the reflog-only count
+and wrong to call 87 the whole set**: 88 is the count of commits outside the audit mirror, and
+`514ed91` genuinely is outside it (it is on no `origin` head; `ls-remote` finds 0). It is *durable*
+(archived content on `refs/remotes/audit/recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to
+`git ls-remote origin` on that ref, 26 `recovery/*` heads on origin, object still `commit` locally),
+which is why no recovery branch is warranted — but durable is not the same as not-at-risk, and
+collapsing the two is what let an *inclusion* arm read 0 and appear to agree with an 88.
+
+**Rule 14ax: an arm that is 0 by construction cannot corroborate an arm that is not, and a control
+that is a theorem is not a control.** The log's preservation checks have three arms because three
+arms seemed better than two; in fact two of the three are the same measurement and the third is
+vacuous, so the "87/87/87 mutually `diff`-clean" phrasing used in recent passes reports agreement
+between one measurement and itself. Neither figure changes any decision — nothing needed recovering
+under either — so this is recorded for correctness, not because it is actionable.
+
+### Five standing facts, re-derived from instruments this pass
+
+1. Census **96** = 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open`, 0 `working`** — after the
+   repair above, which is what produced the `blocked` row. Population `docs/work/items/*.md` +
+   `docs/*.md` per rule 14l; the 96th item is `docs/continuation-approximate-search.md`
+   (`w-7c4a91`, superseded), outside `items/`.
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 669 host rows (587 succeeded / 65
+   failed / 8 stopped / 4 running / 5 idle). The 4 host non-terminal `running` rows are other
+   repositories, left running. Read via the JSON field `state`, not `status`.
+3. Fence **0 in all six production regions**, phrase **0/0/0/0/0/0** and decomposed
+   **0/0/0/1/0/0**, via `fence.awk` + `fence-alphabet.awk`, both spellings captured as variables and
+   matched by the caller. Region lines 269/260/464/4242/67/269 match the pinned figures in
+   `fence.awk`. The single decomposed hit is `src/lib.rs:3597` `.expect("key came from cells")` —
+   pass 216's adjudicated non-defect, not re-opened. **Controls, all six strings, code plants
+   (not comments) in `approx.rs` above `mod tests`, baseline 0/0**: the six-plant form reads phrase
+   **5** / decomp **6**, and each string individually reads (1/1, 1/1, 1/1, 1/1, **0/1**, 1/1) — the
+   decomposed array form invisible to the phrase arm and caught by the decomposed arm (rule 14u
+   confirmed live), and the `WRECK A NICE BEACH` capitalisation variant caught by the case-insensitive
+   phrase arm (rule 14v confirmed live). `src/` restored byte-clean (`git status --porcelain src/`
+   empty).
+4. **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+5. `main` untouched: no local `main` ref (`git rev-parse --verify main` exits **128**),
+   `origin/main` **0267ade**, HEAD `post-milestone-acceptance` in sync with origin at `c44997b`.
+
+### Next pass
+
+Pass number per rule 14ae: `uniq -d` on the pass headings returned **empty** and the maximum was
+238, so this is 239.
+
+**Prefer no entry at all.** Two asks for a pass that does run, both learned the hard way here:
+(1) when repairing a work item's metadata, validate with the **fence-scoped census**, not with `yq`
+and not by reading the header — and check that the item you repaired now *appears* in the census,
+since a missing row is the failure this log has been blind to for dozens of passes; (2) when
+building the at-risk arms, do not treat the inclusion arm as a control — it is 0 by construction —
+and prefer `rev-list --reflog --not --all` (87) or `--all --reflog --not "${REFS[@]}"` (88) with the
+single extra commit named rather than reconciled away.
+
+Still **blocked on the human reopen/confirm decision**, unchanged and not agent-actionable. The three
+outstanding human items: (1) reopen MadGab development or confirm the pause stands and close this
+item `done`; (2) decide the residual `514ed91` commit object, whose content is already durable both
+locally and on the remote recovery branch — finding 2 above is the argument for treating it as
+*closed* rather than open; (3) retire or correct the out-of-repo scheduler template, whose three
+clauses have now fired 239 times against an itinerary that contradicts them — that template, not
+this log, is what keeps generating passes whose correct outcome is "nothing to do". Note that this
+pass is the first in 239 whose outcome was not "nothing to do": the fenced-header repair was a
+genuine, self-contained fix to durable state, and it was available only because the census was
+re-derived rather than copied.
