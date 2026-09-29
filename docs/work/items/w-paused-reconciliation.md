@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6d4f
-updated: 2026-09-29T08:40:00Z
+owner: coord-7e5b
+updated: 2026-09-29T08:28:38Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -19607,4 +19607,103 @@ re-deriving the facts to support the repair, which is the whole of what is avail
 **Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-two times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 222 (coord-7e5b)
+
+**Gate: NO**, unchanged, for the fifty-third time. The three scheduler-template clauses (launch/prompt
+Antonina agents; accumulate on `post-milestone-acceptance` "exactly as the itinerary requires";
+prioritize the canonical approximate-search examples) were declined on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary's
+closing paragraph says `post-milestone-acceptance` "is no longer an automatic accumulation target".
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+`main` untouched at `0267ade` (no local `main`, `rev-parse --verify main` exit 128).
+
+### Finding — the standing census has been read with a fence flag that leaks out of this very file
+
+The published-scope census form re-derived verbatim reads **95** (1 blocked / 83 done / 11
+superseded). The true figure is **96** (1 / 83 / **12**), which is what passes 184-221 have published.
+This is a defect in the form, not a change in the population, and it is the fifth distinct live
+instance of the census trap this log already documents (rules 34, 14o, 14i, and pass 221's
+malformed duplicate-key sweep).
+
+**Mechanism.** The form tracks code-fence state in a variable that is only ever toggled
+(`/^```/ { f = !f }`) and never reset at a file boundary. awk variables persist across records in a
+multi-file run, so a file with an **odd** number of fence lines leaves `f` flipped on for every file
+that follows it. Exactly one file in the population has odd parity — **this file**, with 31 fence
+lines — and it sorts last among `docs/work/items/*.md`, so the leak swallows the entire `docs/*.md`
+group that the published scope appends afterwards. The single casualty is
+`docs/continuation-approximate-search.md`, the twelfth superseded item, which is
+`work_item: true` and is silently dropped.
+
+**Why it is dangerous rather than merely wrong.** The leak fires in the *safe* direction for the
+gate: it reports a *smaller* queue. A 95-item census still shows 0 open and 0 working, so a pass
+reading it concludes "no work available" exactly as it would reading the true 96 — the error is
+invisible to the decision it is used for, and it can only ever hide a newly added open item if that
+item sorts after this file. It also self-conceals: the count is stable run to run, matches the
+`items/`-only population, and therefore looks like a scope definition rather than a bug. The
+existing 11-vs-12 attribution in pass 220/221 — "the twelfth lives outside `items/`" — is *correct*
+and is what made the leak survivable for two passes: the delta had already been explained away by
+scope, so nobody asked why the published scope stopped seeing it.
+
+**The fix**, in the spirit of rule 14j (publish the working spelling, not the negative): reset the
+flag at every record boundary by adding `f = 0` to the existing `FNR == 1` rule, i.e.
+
+    FNR == 1 { f = 0; infence = 0 }
+
+Verified in both directions: the leaking form reads 95, the reset form reads 96, and the single
+differing item is `docs/continuation-approximate-search.md`, confirmed `work_item: true` /
+`state: superseded` and counted standalone. **Rule 14ab: a multi-file awk census must reset every
+accumulated flag at `FNR == 1`, not only the one it thought about — an unbalanced file silently
+redefines the population of every file after it, and it does so in the direction that hides work.**
+
+Note for the reader of this entry: appending it keeps this file's fence count at 31 (this entry adds
+none), so the parity that triggers the bug is unchanged and the bug remains reproducible. Fixing the
+parity would mask the defect rather than fix it, so it is deliberately left alone.
+
+### Standing facts, re-derived not carried
+
+Census **96 = 1 blocked / 83 done / 12 superseded**, 0 open / 0 working, with `f = 0` at `FNR == 1`,
+gawk exit 0. Rule 14aa parseability sweep: **101 files scanned, 0 unparseable** by a real
+`yq -o=json .` parse of each frontmatter block; this item's own frontmatter carries **no duplicate
+top-level key** (8 distinct keys, each once). Fence via the committed `fence.awk`, region counts
+reproduced exactly (**269 / 260 / 464 / 4242 / 67 / 269**, gawk exit 0 per file), alphabet read from
+the property document's lines 25 and 31 rather than from recall (rule 14v): **0** joined-clue and
+**0** target hits in all six production files; the single per-word hit is `lib.rs:3597`
+`.expect("key came from cells")`, pass 216's adjudicated non-defect, not re-opened. Synthetic
+control planted inside a production region reads **1** and enlarges the region by one line, so the
+0s are measurements rather than a broken instrument. Agents: **0** non-terminal among 131 MadGab
+cwd rows of 652 host rows (`3a8f01` still `stopped` on a superseded front, `3a8f02` `succeeded`,
+neither restarted); the 2 host-`running` agents (`78e1` qai-proviral, `94a9` assemblyp1) belong to
+other repositories and were **left running, untouched**. Worktrees **125** registered,
+`git worktree prune -n -v` **empty**, exit 0. `main` untouched; HEAD on `post-milestone-acceptance`
+in sync with `origin`.
+
+At-risk, re-derived: `audit/*` re-fetched FIRST by its real source namespace with **no `--prune`**
+(exit 0; `audit/post-milestone-acceptance` advanced `505fe57..461eeac`, i.e. pass 221's own commit),
+cardinality read **inline** at **205** and not asserted, per pass 220's correction that it is not a
+constant. Baseline `rev-list --all --reflog` **1,238**. Both sanctioned exclusion arms run **unmixed**
+per rule 14h — this pass's *first* arm mixed them (`--not` applied to `^`-prefixed refs, the
+documented double negation) and returned 1,238, i.e. the entire baseline; re-run correctly, the arms
+agree **88/88** `diff`-clean, exit 0 each. Ref-held **1** (`514ed91`, held by exactly
+`refs/heads/scratch-3f8c62-landed`), reflog-only **87**, intersection **0**, union **88**; controls
+both directions (`514ed91` present, `0267ade` absent). Residual content durable at
+`origin/recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to `ls-remote` full-form vs
+full-form (rule 14p); **26** `recovery/*` heads on origin. Content sweep not re-run — closed on
+content since pass 184, and the only population change is this log's own commit. No recovery branch
+warranted; none created.
+
+### Next action
+
+**Prefer a short entry, and commit it as a body section** (pass 221's rule). Then, per pass 221:
+
+1. Run `grep -q '^## Pass <n> ' docs/work/items/w-paused-reconciliation.md` **after** the commit.
+2. Apply rule 14ab — `FNR == 1 { f = 0; infence = 0 }` — to the census form before quoting 96 again.
+   Do not "fix" the 31-fence parity; the leak must stay reproducible.
+3. Do not assert a literal audit-ref cardinality; read it inline (205 here, different next pass).
+4. Expect `lib.rs` per-word `1` at line 3597. Adjudicated; do not re-open.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-three times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
