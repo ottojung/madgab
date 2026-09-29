@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a1f
-updated: 2026-09-29T09:34:00Z
+owner: coord-9e4c
+updated: 2026-09-29T09:38:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20632,3 +20632,90 @@ scheduler template, whose three clauses have now fired sixty-three times against
 contradicts them; and stop committing pass-log frontmatter instead of body sections — this log's
 frontmatter now carries **36** `prior_owner:` lines and **10** `updated:` lines, which is
 duplicate-key YAML that most parsers silently accept and no reader can use.
+
+## Pass 233 (coord-9e4c)
+
+Gate **NO**, unchanged, and for the same reason as the 140-odd passes above: the three
+scheduler-template clauses (launch/prompt Antonina agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritise the canonical
+approximate-search examples) are declined on `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. Clause 2 is a
+textual conflict: that itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target", so the template cannot be honoured by doing what it
+says. Nothing claimed, launched, stopped, prompted or integrated; no new MadGab work item; no
+recovery branch; `main` untouched.
+
+**Five standing facts, re-derived from the instruments, all holding.** Census **96** (1 blocked /
+83 done / 12 superseded, 0 open / 0 working) via the published-scope fence-scoped gawk, gawk exit
+0, run first and not hand-rewritten. MadGab agents: **0 non-terminal** among 131 MadGab cwd rows
+of 661 host rows; the 5 host-`running` agents (`12b1` kawun, `92d2` volodyslav, `98f2` antonina-98,
+`78f1` qai-proviral, `94a9` assemblyp1) are other repositories and were left running. Fence:
+**phrase 0 in all six production regions**, decomposed **0 / 0 / 0 / 1 / 0 / 0** in
+adjacency / lexical / approx / **lib** / wasm / main, region lines **269 / 260 / 464 / 4242 / 67 /
+269**; the `1` is `src/lib.rs:3597` `.expect("key came from cells")`, adjudicated benign at pass
+216, not re-opened. Worktrees **125** registered with `prune -n -v` empty, exit 0. `main`
+untouched: `origin/main` `0267ade`, no local `main` ref (`rev-parse --verify main` exit 128).
+
+**Two instrument defects found and repaired in this pass, not merely recorded as rules**
+(pass 232's next action, item 5). Both are in `docs/work/paused-recon/fence-alphabet.awk`, whose
+purpose is to stop each pass re-typing the fence alphabet from memory (rule 14ak) — so a pass that
+mistrusts the instrument is exactly the failure mode that file exists to prevent, and this pass
+hit it on the first attempt.
+
+1. **The documented arm (b) was unrunnable and failed silently toward the weaker regex.** The
+   usage block said `gawk -f fence-alphabet.awk --decomposed`. `decomposed` is an awk *variable*,
+   not a long option, so that command sets nothing: measured today, exit 0, empty stderr, and it
+   prints arm (a)'s joined-phrase alphabet while the caller believes it ran the word-level arm.
+   Repaired to `gawk -v decomposed=1 -f fence-alphabet.awk`, with the silent-substitution
+   measurement recorded in the file.
+2. **"This file matches; pipe its output through your own counter" under-specified the pipeline,
+   and pass 232's next action propagated it.** Piping fence.awk's region *into* the alphabet file —
+   which is what "pipe its output through your own counter" reads as, and what pass 232 told the
+   next pass to do — yields one line of regex TEXT, which any counter reads as a constant 1: this
+   pass's first measurement returned phrase=1 decomp=1 in all six regions before being discarded.
+   The file in fact PRINTS the alphabet and reads no input. The usage block now carries the
+   capture-then-match form (`PHRASE=$(gawk -f …)`, `DECOMP=$(gawk -v decomposed=1 -f …)`, then
+   `grep -ciE` over the region) with both failure readings beside it.
+
+**One control defect found while verifying, and recorded in the instrument:** the fence is
+comment-stripping by design, so a control planted as `// wreck a nice beach` reads **0 in both
+arms** while the same literal as code at the same line inside the region reads non-zero (measured
+today at `lib.rs:300`: string-literal plant phrase 1 / decomp 1, comment plant 0 / 0; a
+decomposed array plant reads phrase 0 / decomp non-zero, which is the point of the two arms).
+Pass 232 published "planted at line 300 reads 1" without recording which form it planted, so a
+future pass reproducing it verbatim as a comment would read a broken fence. Both forms are now
+written into the file's CONTROL section.
+
+**One stale standing item cleared.** Pass 232's "Still for a human" asks a human to stop
+pass-log frontmatter from accumulating duplicate keys ("36 `prior_owner:` lines and 10 `updated:`
+lines, which is duplicate-key YAML no reader can use"). That was true and was repaired at pass
+218: the frontmatter is now the eight `work-items.md` schema keys (lines 1-10, `yq`-clean), and
+every `prior_owner:`/`updated:` line in the file is inside the body section
+`## Recovered frontmatter history (pass 218)`, which preserves the displaced history verbatim.
+A `grep -c` over the whole file counts the history, not the header. No human action is needed
+here; the item is dropped rather than carried.
+
+**Deliberately not re-run:** the at-risk and content sweeps. Both are closed on content since
+pass 184, their only population change since is this log's own pushed commits, and this pass's
+budget was spent on the fence instrument. Next pass need not re-derive them either.
+
+### Next action
+
+1. Expect the five facts above. If a pass measures anything else, something moved — investigate
+   rather than re-report.
+2. Expect the fence to be run by **capturing** the alphabet and matching it against
+   `gawk -f docs/work/paused-recon/fence.awk` output (see the file's usage block). The region-only
+   pipe now reads a constant 1 in all six files; treat that reading as the instrument being
+   misused, not as a finding.
+3. Run the **string-literal or array-literal** planting control before publishing any 0.
+4. Otherwise **prefer no entry at all**. Every repository fact above reconciles and is safe; this
+   pass changed the reconciliation log's own instrument, not MadGab.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development (reopening means a *different* algorithm for the whole-path enumeration problem, not
+another widening of the existing Cartesian-prefix traversal); decide the residual `514ed91` commit
+object, whose content is already durable on
+`origin/recovery/at-risk-2026-09-29`; and retire or correct the out-of-repo scheduler template,
+whose three clauses have now fired more than sixty times against an itinerary that contradicts
+them — that template, not this log, is what keeps generating passes whose correct outcome is
+"nothing to do".

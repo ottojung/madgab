@@ -35,7 +35,28 @@
 #   gawk -f docs/work/paused-recon/fence-alphabet.awk
 #
 #   # (b) decomposed form: each word alone, so the array spelling is not invisible.
-#   gawk -f docs/work/paused-recon/fence-alphabet.awk --decomposed
+#   #     The variable is `decomposed`, so it must be an ASSIGNMENT BEFORE -f.
+#   #     The `--decomposed` spelling published here until pass 233 does not set it:
+#   #     gawk accepts the token, exits 0 and prints ARM (a)'s alphabet, so arm (b)
+#   #     was unrunnable as documented and failed SILENTLY toward the weaker regex
+#   #     (measured 2026-09-29, pass 233: exit 0, empty stderr, phrase regex out).
+#   gawk -v decomposed=1 -f docs/work/paused-recon/fence-alphabet.awk
+#
+#   # THIS FILE PRINTS THE ALPHABET AND READS NO INPUT. Both sanctioned forms must
+#   #   be CAPTURED, then applied by the caller to the region fence.awk produced:
+#   PHRASE=$(gawk -f docs/work/paused-recon/fence-alphabet.awk)
+#   DECOMP=$(gawk -v decomposed=1 -f docs/work/paused-recon/fence-alphabet.awk)
+#   for f in src/adjacency.rs src/lexical.rs src/approx.rs src/lib.rs src/wasm.rs src/main.rs; do
+#     printf '%s region=%s phrase=%s decomp=%s\n' "$f" \
+#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | wc -l)" \
+#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | grep -ciE "$PHRASE")" \
+#       "$(gawk -f docs/work/paused-recon/fence.awk "$f" | grep -ciE "$DECOMP")"
+#   done
+#   # Piping the region INTO this file (as pass 232's next action instructed) instead
+#   #   of capturing its output and matching yourself yields the one line of regex
+#   #   TEXT, which any counter reads as a constant 1 in all six files. Measured
+#   #   2026-09-29 (pass 233): phrase=1 decomp=1 in all six regions under that
+#   #   pipeline, against 0 / 0-0-0-1-0-0 under the form above.
 #
 # THE INVARIANT is that BOTH return 0 in the production region of all six
 # production files, measured through fence.awk. The one known non-zero reading is
@@ -49,9 +70,20 @@
 # one representative literal. Measured 2026-09-29 (pass 232): all five spellings
 # read 1, i.e. the fence discriminates rather than returning a constant.
 #
-# This file matches; it does not decide. Pipe its output through your own counter
-# and keep the regex public in whatever you publish (rule 25: a count carries its
-# population, so publish the matcher with the number).
+# THE PLANT MUST BE CODE, NOT A COMMENT (measured 2026-09-29, pass 233). fence.awk
+# strips comments by design, so a `// wreck a nice beach` plant reads 0 in BOTH arms
+# and looks like a broken fence, while a string-literal or array-literal plant of the
+# same text at the same line inside the region reads non-zero. Pass 232 published
+# "planted at lib.rs line 300 reads 1" without recording which form it planted. At
+# line 300 of a production-region copy: `const _: &str = "wreck a nice beach";`
+# -> phrase 1, decomp 1; the same literal as `// ...` -> phrase 0, decomp 0. A
+# decomposed array `["hits","justice","dupe","hid","came"]` reads phrase 0, decomp
+# non-zero -- the pair of arms is the point (rules 14t/14u).
+#
+# This file PRINTS the alphabet; it neither reads input nor matches, and it does not
+# decide. Apply its output to fence.awk's region with your own counter and keep the
+# regex public in whatever you publish (rule 25: a count carries its population, so
+# publish the matcher with the number).
 
 BEGIN {
   if (decomposed) {
