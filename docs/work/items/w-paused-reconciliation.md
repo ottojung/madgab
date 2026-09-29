@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9e4a (pass 168; gate NO — the invocation asked for post-milestone-accumulation and the canonical case-2 example, both of which the itinerary forbids while paused; all five facts re-derived unchanged; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:04:00Z
+owner: coord-7b31 (pass 169; gate NO — same three contradictory clauses declined; five facts re-derived, 7/86/0 at-risk unchanged, worktree denominator derived at 124 live paths; new closure: rule 30's combined-spelling failure measured at 1090 vs 7 with all 1083 false positives proven audit-held; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:20:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15158,6 +15158,76 @@ prior entry as a snapshot, not a live value. If you publish a worktree denominat
 paths**; if you publish an at-risk figure, publish the **7 / 86 / 0** split and its baseline and
 ref count, never a single number. Only a human can change the gate: fix or retire the out-of-repo
 scheduler template — it has now fired **75** times carrying clauses that contradict the itinerary
+it points at, and that single out-of-repo edit would retire this log — or confirm the pause (close
+this item `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
+k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 169 (coord-7b31)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` and a fresh `git fetch` of `origin/main` (still `0267ade`, the
+accepted merge). No work created, claimed, launched, resumed, integrated or pushed to `main`.
+
+This pass carried the same three clauses as every prior one: accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires", and prioritize the canonical
+approximate-search examples. Both remain unexecutable — the itinerary states that branch "is no
+longer an automatic accumulation target" (line 17), and the canonical case-2 clue is an **accepted
+known limitation** whose fix direction (a whole-path DAG/k-best search) is exactly what the pause
+defers. See rule 19 and rule 25's corollary for why pursuing it now would put the production-region
+clue fence — re-derived at **0** for all six production files below — at risk.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk form. **0 `open`, 0 `working`.** |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Filtered the full `antonina agent list` on the cwd column: **131** MadGab agents, **every one terminal** (110 `succeeded`, 20 `failed`, 1 `stopped`). The two host-`running` agents (`118a1`, `74b2`) are other repositories and were **left running**, untouched. |
+| `main` | **untouched.** `origin/main` = `0267ade`; still **no local `main` ref**. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach\|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0 (no `#[cfg(test)]` fence, so its whole file is its production region). **Thirty-sixth consecutive pass at 0.** |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,176**, exclusion set re-fetched first (`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' '+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed = **0**, so the split is disjoint and the union is **93**; **0** of the 86 are ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, never batched). All **20** `recovery/*` branches confirmed on `origin` by `ls-remote`. The delta over pass 168's 7/86/0 is **0**; the +2 in the union is this queue's own reconciliation commits, not a MadGab risk. |
+| Worktrees | **127** registered, **124 live paths** (`git worktree list --porcelain` vs a `[ -d ]` probe of each non-first path). **Pass 168's denominator of 125 is now one lower**; this is a live-path count, which shrinks when a worktree directory is removed, and the registered count has not moved. Treat the denominator as a snapshot, not an invariant — rule 25. |
+
+### Closure: rule 30's failure mode measured at its largest recorded magnitude, and bounded
+
+Rules 14, 30, 31, 38 all record one failure — **combining the two exclusion spellings** (`--not`
+followed by per-ref `^`) asks for the complement of the complement and returns every commit in the
+database. Recorded instances so far report **97 vs 13** (rule 14), **1002 vs 81** (rule 30),
+**932 vs 11** and **1057 vs 81** (passes at lines 4774 and 8165). This pass hit the same broken
+spelling first, as the shell-expanded `--not $(… '--format=^%(refname)')`, and got:
+
+| spelling | result |
+|---|---|
+| `--all --not` + bare ref list | **7** (correct) |
+| `--all` + per-ref `^` list, no `--not` | **7** (correct) |
+| `--all --not` + per-ref `^` list | **1090** — **156× the true figure** |
+
+Two things make this worth an entry rather than silence, and both are new:
+
+* **The two correct spellings were cross-checked against each other and agreed to the commit**
+  (`comm -12` = 7 of 7), which is what makes the third number interpretable as a defect rather than a
+  population difference. This is the first recorded instance on the `--all`-only population (not
+  `--all --reflog`) where the *ratio* reaches three digits, so the practical advice is unchanged but
+  the failure is now known to be able to report a whole repository as at risk.
+* **The 1083 extra commits are individually proven safe**, which closes the class rather than merely
+  flagging it: every one of them is an ancestor of at least one `audit/*` ref
+  (`for-each-ref --contains` per commit, **0** uncovered). So the broken spelling's false-positive
+  set is exactly "commits the remote already holds", and the correct recovery response to a
+  1000-plus at-risk report is to check `for-each-ref --contains` first — not to archive.
+
+**Standing instruction, unchanged and now with its largest counterexample:** never combine the two
+exclusion spellings in one command line; cross-check every generated count against a second
+formulation; and before archiving anything, confirm with `for-each-ref --contains` that the commit
+has no holder. The error here was caught by rule 14's cross-check, which is the fourth recorded time
+that cross-check has caught a real defect in the same pass that produced the wrong number.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply
+(about three minutes) and exit without committing if they hold. Navigate by the **last** `## Pass `
+heading, which is also the last section; treat every number inside the gate table and inside any
+prior entry as a snapshot, not a live value. If you publish a worktree denominator, derive it (it
+moves: 125 at pass 168, **124** this pass); if you publish an at-risk figure, publish the
+**7 / 86 / 0** split with its baseline and ref count, never a single number, and never the
+`--not` + `^` combination. Only a human can change the gate: fix or retire the out-of-repo
+scheduler template — it has now fired **76** times carrying clauses that contradict the itinerary
 it points at, and that single out-of-repo edit would retire this log — or confirm the pause (close
 this item `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
 k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
