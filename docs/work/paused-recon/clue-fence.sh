@@ -81,6 +81,12 @@ REPO=${REPO:-$(git rev-parse --show-toplevel)}
 cd "$REPO"
 
 STRIPPER=docs/work/paused-recon/fence.awk
+# PASS 311. The literal-JOIN form, closing the line-scope hole passes 309 and
+# 310 measured. `fence.awk` keeps string content; grep cannot match ACROSS a
+# newline, and Rust concatenates adjacent string literals, so a clue split
+# across literals read 0/0 under BOTH existing forms. This scanner reassembles
+# each statement's literals so the phrase can be matched without newlines.
+LITSCAN=docs/work/paused-recon/literals.awk
 DEFECT=docs/accepted-state-2026-09-27.md
 REGION=docs/work/paused-recon/fence.awk
 
@@ -109,6 +115,7 @@ KNOWN_BENIGN="lib.rs:3597 .expect(\"key came from cells\")"
 fail() { printf 'clue-fence.sh: %s\n' "$*" >&2; exit 1; }
 
 [ -x "$STRIPPER" ] || fail "$STRIPPER is not executable -- the stripper must be run as a program (pass 286: 100644 with no shebang made its empty-region abort unreachable)"
+[ -f "$LITSCAN" ]  || fail "$LITSCAN not found -- the literal-join form is what detects a clue split across adjacent string literals (pass 310); refusing to report a fence that is blind to it"
 [ -f "$DEFECT" ]   || fail "$DEFECT not found -- the alphabet must be DERIVED from the defining document, not recalled"
 
 # ---------------------------------------------------------------------------
@@ -358,6 +365,50 @@ while IFS= read -r ph; do
 done < <(printf '%s\n%s\n' "$PHRASES" "$TARGETS")
 [ "$jp_bad" -eq 0 ] || fail "the joined pattern cannot match the phrase it was derived from -- refusing to report any count (pass 308)"
 
+# PASS 311: THE WHITESPACE-FLEXIBLE JOINED PATTERN (`LF_RE`), used ONLY against
+# the literal-join stream. Built from the SAME derived phrases as JP_RE, with
+# each inter-word space widened to [[:space:]]+ so the phrase can match a
+# reassembly that used a newline (or a single space) where the phrase has one.
+# It is deliberately NOT used against the raw region: widened whitespace against
+# raw source would match a phrase spread across two arbitrary lines of code, and
+# over-detection on a fail-closed fence is as wrong as under-detection. The
+# literal-join stream is the only place where a spread phrase is real.
+#
+# Built with the same rule-292 guards as the other two patterns, and with the
+# same self-check: every derived phrase must match the pattern derived from it.
+LF_RE=$(printf '%s\n%s\n' "$PHRASES" "$TARGETS" | awk '
+  NF {
+    s = $0
+    gsub(/ /, "[[:space:]]+", s)
+    sep = (n++ ? sep "|" : "")
+    sep = sep s
+  }
+  END { print sep }')
+[ -n "$LF_RE" ] || fail "built an EMPTY literal-join pattern -- refusing"
+case "$LF_RE" in
+  '|*|*'|'|'*|*'|') fail "literal-join pattern contains an empty alternative -- that matches every line (rule 292); refusing" ;;
+esac
+case "$LF_RE" in *'||'*) fail "literal-join pattern contains '||' -- an empty alternative (rule 292); refusing" ;; esac
+lf_bad=0
+while IFS= read -r ph; do
+  [ -n "$ph" ] || continue
+  probe=${ph//[?]/}
+  printf '%s\n' "$probe" | grep -qiE "^($LF_RE)$" || { lf_bad=1; printf 'literal-join pattern does not match its own derived phrase: [%s]\n' "$ph" >&2; }
+done < <(printf '%s\n%s\n' "$PHRASES" "$TARGETS")
+[ "$lf_bad" -eq 0 ] || fail "the literal-join pattern cannot match the phrase it was derived from -- refusing (pass 311)"
+
+# PASS 311, THE SCANNER'S OWN LIMITS, ASSERTED RATHER THAN ASSUMED. literals.awk
+# does not understand \" or raw strings. Neither appears in any production region
+# (measured), but a future one would silently change what the form can see, so
+# the absence is a gate, not a comment: if a region ever contains either, this
+# script refuses instead of reporting a fence whose coverage just changed.
+joinable() {
+  awk -v f="$1" '
+    /\\"/    { print f ": an escaped quote inside a string literal"; bad = 1 }
+    /r#"/    { print f ": a raw string literal"; bad = 1 }
+    END { exit bad ? 1 : 0 }'
+}
+
 # RULE 292 SELF-CHECK, and the one that would have caught pass 292's live false
 # measurement: the pattern must not match a word that is not in the alphabet.
 # A pattern that matches everything is self-refuting, so this is asserted.
@@ -387,6 +438,8 @@ printf '  words      %s\n' "$(printf '%s' "$ALPHA" | tr '\n' ' ')"
 printf '  clues      %s\n' "$(printf '%s' "$PHRASES" | tr '\n' '|')"
 
 total_joined=0
+total_lit=0
+total_litstream=0
 benign_hits=0
 for f in "${FILES[@]}"; do
   # fence.awk ABORTS on an empty region (rc=2) -- that refusal is load-bearing,
@@ -424,6 +477,52 @@ for f in "${FILES[@]}"; do
   # one lib.rs hit being the pass-216-adjudicated `.expect("key came from
   # cells")`. So the case-insensitive form is strictly stronger at zero cost.
   w=$(fold_apostrophes < "$region" | grep -oEi "($PW_RE)" | wc -l)
+
+  # PASS 311: the LITERAL-JOIN form. Same regions, but the string literals are
+  # reassembled per statement first, so a clue written as adjacent literals
+  # (`"Hi"` / `"ts J"` / ... / `"ame"`) is matched as the phrase it is instead
+  # of as seven lines that happen to contain no whole word. Counted with
+  # grep -cEi because each emitted line is a whole statement.
+  fold_apostrophes < "$region" | joinable "$f" \
+    || fail "$f contains a string form the literal-join scanner does not understand (escaped quote or raw string) -- its coverage would silently differ from every other pass; refusing"
+  litstream=$(mktemp)
+  fold_apostrophes < "$region" | awk -f "$LITSCAN" > "$litstream"
+  n_litstream=$(wc -l < "$litstream")
+  # A scanner that emits nothing reports a clean 0, which is the pass-286 /
+  # pass-298 failure mode (an instrument that succeeds while measuring nothing).
+  #
+  # MEASURED, NOT ASSUMED: `src/adjacency.rs` has NO string literal at all in
+  # its production region, so an EMPTY stream is the correct reading for that
+  # file and an earlier version of this gate failed on it. A per-file
+  # non-empty assertion is therefore wrong, and it is wrong in the useful
+  # direction: it would have demanded output from a file that has nothing to
+  # output. So the invariant is split in two:
+  #   per file    quotes == 0  =>  stream == 0  (consistency, both directions)
+  #   across files the aggregate must be NON-ZERO (the scanner is measuring)
+  n_quotes=$(grep -c '"' < "$region" || true)
+  if [ "$n_quotes" -eq 0 ] && [ "$n_litstream" -ne 0 ]; then
+    fail "$f has no string literal in its production region but the scanner emitted $n_litstream line(s) -- the scanner is inventing content; refusing"
+  fi
+  total_litstream=$(( total_litstream + n_litstream ))
+  l=$(tr -s ' \t' ' ' < "$litstream" | grep -cEi "($LF_RE)" || true)
+  rm -f "$litstream"
+  # The population signature again, on the new population: a count equal to the
+  # emitted line count means the pattern matched every statement. It is only
+  # that signature on a NON-EMPTY population -- on an empty one, 0 == 0 is the
+  # correct reading and not a fail-open signature. (Measured: the first version
+  # of this gate aborted on src/adjacency.rs for exactly that reason.)
+  if [ "$n_litstream" -gt 0 ]; then
+    [ "$l" -ne "$n_litstream" ] \
+      || fail "$f literal-join count ($l) equals the literal stream line count ($n_litstream) -- the pattern is matching every statement; refusing (rule 292)"
+  fi
+  total_lit=$(( total_lit + l ))
+  # Any literal-join hit is reported with the statement that matched, so a real
+  # hard-code is inspectable rather than a bare number.
+  if [ "$l" -gt 0 ]; then
+    printf '  %-18s region %-5s LITERAL-JOIN %-3s  UNEXPLAINED -- a canonical clue assembled from adjacent string literals:\n' "$f" "$lines" "$l"
+    awk -f "$LITSCAN" < <(fold_apostrophes < "$region") | tr -s ' \t' ' ' | grep -Ei "($LF_RE)" | head -5 | sed 's/^/      /'
+    fail "$f has $l literal-join canonical clue occurrence(s) -- a clue assembled from adjacent string literals is the same hard-code; refusing"
+  fi
   b=0
   if [ "$w" -gt 0 ]; then
     # Every per-word hit must be adjudicated. Named file+line, not a count.
@@ -445,6 +544,19 @@ done
 
 [ "$total_joined" -eq 0 ] \
   || fail "the joined canonical clue appears $total_joined time(s) in the production regions -- a hard-coded clue is a hard-code; refusing"
+# PASS 311: the same must hold for the clue ASSEMBLED from adjacent string
+# literals, which is the spelling a source file writes when it respects a
+# line-length limit. Pass 310 measured that spelling at 0/0 under both
+# pre-existing forms, so this assertion is the one the item's 0 did not make.
+[ "$total_lit" -eq 0 ] \
+  || fail "the canonical clue appears $total_lit time(s) once adjacent string literals are reassembled -- a clue split across literals is the same hard-code; refusing (pass 311)"
+# The scanner must have measured SOMETHING somewhere. Aggregate-level because
+# one of the six production files legitimately has no string literal at all
+# (src/adjacency.rs, measured), so only the total can distinguish "no hard-code"
+# from "the form is not running".
+[ "$total_litstream" -gt 0 ] \
+  || fail "the literal-join scanner emitted 0 lines across all ${#FILES[@]} production regions -- the form would report a clean 0 while measuring nothing; refusing (pass 311)"
+printf '  literal-join stream: %d statement-forms scanned across %d regions (src/adjacency.rs has no string literal; measured, not assumed)\n' "$total_litstream" "${#FILES[@]}"
 
 # ---------------------------------------------------------------------------
 # 4. Controls, in BOTH directions. A fence that cannot fail is decoration.
@@ -554,6 +666,67 @@ done <<< "$TGT_J"
 [ "$c_curly" -eq "$c_curly_n" ] \
   || fail "control: $(( c_curly_n - c_curly )) of $c_curly_n curly-apostrophe hard-code(s) were planted and NOT caught -- the fence matches a spelling, not the hard-code; refusing (pass 308)"
 
+# PASS 311, THE LINE-SCOPE CONTROLS. These are the controls passes 308 and 309
+# did not have, and their absence is why the hole survived them: every earlier
+# plant put the clue on ONE line, so a line-scoped fence passed every one of
+# them. Each plant below splits the phrase across literals the way a
+# line-length-respecting source file does, and the pre-311 forms are MEASURED
+# on the same plant, so the control reports both numbers and cannot be read as
+# certifying a form that was never deficient.
+#
+# midword: the split lands INSIDE a word (`"Hi"` / `"ts J"` / ... / `"ame"`).
+#   This defeats the joined form (not contiguous) AND the per-word form (no
+#   line holds a whole clue word) -- measured 0/0 at pass 310, which is the
+#   case the existing eleven controls could not reach.
+# wordbound: the split lands BETWEEN words, in a clue of a different length
+#   from the first, so it cannot be confused with a restatement of midword.
+# targetside: the split is on the TARGET side of the arrow, i.e. the hard-code
+#   a developer writes as `if t == "recognize " "speech"` (rule 14t).
+CUE_MID=${JP_PROBE// / }
+# Reassemble the probe into six fragments, at least one of which splits a word
+# in half, by construction rather than by hand: the cut points are computed from
+# the probe's own length so this control cannot drift from the property doc.
+LJ_MID=$TMP/midword.rs
+{
+  printf 'const CLUE: &str = '
+  n=${#JP_PROBE}; a=$(( n / 6 )); b=$(( 2 * n / 6 )); c=$(( 3 * n / 6 )); d=$(( 4 * n / 6 )); e=$(( 5 * n / 6 ))
+  printf '"%s"\n  "%s"\n  "%s"\n  "%s"\n  "%s"\n  "%s";\n' \
+    "${JP_PROBE:0:$a}" "${JP_PROBE:$a:$((b-a))}" "${JP_PROBE:$b:$((c-b))}" \
+    "${JP_PROBE:$c:$((d-c))}" "${JP_PROBE:$d:$((e-d))}" "${JP_PROBE:$e}"
+  cat src/adjacency.rs
+} > "$LJ_MID"
+LJ_WORDB=$TMP/wordbound.rs
+{
+  printf 'const CLUE: &str = "%s"\n  "%s";\n' "${JP_PROBE:0:$a}" "${JP_PROBE:$a}"
+  cat src/adjacency.rs
+} > "$LJ_WORDB"
+LJ_TGT=$TMP/targetside.rs
+{
+  printf 'if t == "%s"\n  "%s" { return best(); }\n' "${TGT_J%%$'\n'*}" "${TGT_J#*$'\n'}"
+  cat src/adjacency.rs
+} > "$LJ_TGT"
+
+# The plants must be caught by the NEW form, and the OLD forms' readings are
+# printed beside them so the gap stays visible instead of being closed silently.
+# DOUBLE quotes, deliberately. This was written `'($LF_RE)'` first and read 0
+# on a plant the same pattern caught when pasted literally: single quotes do not
+# expand, so the "pattern" was the seven characters `($LF_RE)` and the control
+# failed while the measurement over the real regions passed -- a control
+# defeated by its own quoting, which is the same class as the pass-308
+# control/measurement identity, reached from the other direction.
+LJ_RE="($LF_RE)"
+lj_mid=$("$STRIPPER" "$LJ_MID" 2>/dev/null | awk -f "$LITSCAN" | tr -s ' \t' ' ' | grep -cEi "$LJ_RE" || true)
+lj_mid_jp=$("$STRIPPER" "$LJ_MID" 2>/dev/null | grep -cEi "$JP_RE" || true)
+lj_mid_pw=$("$STRIPPER" "$LJ_MID" 2>/dev/null | grep -oEi "($PW_RE)" | wc -l)
+lj_wb=$("$STRIPPER"  "$LJ_WORDB" 2>/dev/null | awk -f "$LITSCAN" | tr -s ' \t' ' ' | grep -cEi "$LJ_RE" || true)
+lj_wb_jp=$("$STRIPPER" "$LJ_WORDB" 2>/dev/null | grep -cEi "$JP_RE" || true)
+lj_tgt=$("$STRIPPER" "$LJ_TGT" 2>/dev/null | awk -f "$LITSCAN" | tr -s ' \t' ' ' | grep -cEi "$LJ_RE" || true)
+# A hard-code planted INSIDE the test module must still not be caught: the new
+# form reads the same stripped region, so the boundary has to hold in both
+# directions or the form is simply a bigger hole.
+{ cat src/adjacency.rs; printf '\nconst HARD: &str = "%s"\n  "%s";\n' "${JP_PROBE:0:$a}" "${JP_PROBE:$a}"; } > "$TMP/ljbelow.rs"
+lj_below=$("$STRIPPER" "$TMP/ljbelow.rs" 2>/dev/null | awk -f "$LITSCAN" | tr -s ' \t' ' ' | grep -cEi "$LJ_RE" || true)
+
 c_above=$("$STRIPPER" "$TMP/above.rs"    2>/dev/null | grep -cEi "$JP_RE" || true)
 c_below=$("$STRIPPER" "$TMP/below.rs"    2>/dev/null | grep -cEi "$JP_RE" || true)
 c_mt=$("$STRIPPER"    "$TMP/mtblock.rs"  2>/dev/null | grep -cEi "$JP_RE" || true)
@@ -575,6 +748,10 @@ printf '             planted below mod tests  -> %s (must be 0: the boundary is 
 printf '             mod tests in /* */      -> %s (must be 1)\n' "$c_mt"
 printf '             // inside a string      -> %s (must be 1)\n' "$c_sl"
 printf '             decomposed array        -> %s per-word hits (must be %s; the joined form cannot see this, rule 14x)\n' "$c_decomp" "$c_decomp_n"
+printf '  pass 311    literal-join form, clue split MID-WORD  -> %s (must be >= 1); joined form read %s, per-word read %s (the pass-310 hole)\n' "$lj_mid" "$lj_mid_jp" "$lj_mid_pw"
+printf '             literal-join form, split at a WORD bound  -> %s (must be >= 1); joined form read %s\n' "$lj_wb" "$lj_wb_jp"
+printf '             literal-join form, TARGET side split     -> %s (must be >= 1)\n' "$lj_tgt"
+printf '             literal-join form, planted BELOW mod tests -> %s (must be 0: the boundary holds for the new form too)\n' "$lj_below"
 
 [ "$c_upper" -ge 1 ] || fail "control: the clue planted in UPPER CASE as a decomposed array produced 0 per-word hits -- the per-word form is case-sensitive again, so a hard-code in the defining document's own capitalisation is invisible; refusing (pass 308)"
 [ "$c_above" -eq 1 ] || fail "control: the planted clue ABOVE the boundary was not detected (read $c_above) -- the fence does not fire on a real hard-code; refusing"
@@ -582,6 +759,16 @@ printf '             decomposed array        -> %s per-word hits (must be %s; th
 [ "$c_mt"    -eq 1 ] || fail "control: 'mod tests' inside a block comment moved the boundary (read $c_mt); refusing"
 [ "$c_sl"    -eq 1 ] || fail "control: '//' inside a string literal ate the hard-code (read $c_sl); refusing"
 [ "$c_decomp" -eq "$c_decomp_n" ] || fail "control: the decomposed array produced $c_decomp per-word hits, expected $c_decomp_n -- the per-word form is not seeing every clue word; refusing"
+# PASS 311 assertions. The three plants are the spellings the pre-311 forms
+# could not see; the fourth keeps the new form from becoming a boundary hole.
+[ "$lj_mid" -ge 1 ] \
+  || fail "control: a canonical clue split MID-WORD across adjacent string literals produced $lj_mid literal-join hits (joined read $lj_mid_jp, per-word read $lj_mid_pw) -- the literal-join form is blind to the spelling this fence exists to catch; refusing (pass 311)"
+[ "$lj_wb" -ge 1 ] \
+  || fail "control: a canonical clue split at a WORD boundary across adjacent literals produced $lj_wb literal-join hits; refusing (pass 311)"
+[ "$lj_tgt" -ge 1 ] \
+  || fail "control: a target-side hard-code split across adjacent literals produced $lj_tgt literal-join hits -- the form is blind to a hard-code keyed on the question (rule 14t); refusing (pass 311)"
+[ "$lj_below" -eq 0 ] \
+  || fail "control: a literal-join plant BELOW the test-module boundary WAS detected (read $lj_below) -- the new form does not honour the boundary; refusing (pass 311)"
 
 printf '  verdict     0 canonical clue occurrences in all %d production regions; %d adjudicated benign per-word hit\n' "${#FILES[@]}" "$benign_hits"
 printf '  note        CI does not run this fence. .github/workflows/test.yml runs tests and clippy only.\n'
