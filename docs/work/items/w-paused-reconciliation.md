@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e19
-updated: 2026-09-29T22:58:00Z
+owner: coord-3b6d
+updated: 2026-09-29T22:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -202,8 +202,43 @@ template has fired carrying the same **three** clauses that contradict the itine
 (see the latest entry, §"Declined"). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
+### The gate list (pass 329; copied here because passes 327/328 pointed at "the top of this file" and nothing was here)
+
+The NEXT of passes 327 and 328 both read *"Use the gate list at the top of this file, which pass 327
+corrected a second time."* The list those passes meant is at **line 9081**, 274 lines from the end of
+a 9,355-line file, inside pass 326's entry. The top section contained no gate list at all, so the
+pointer a fresh pass is given in its own handoff resolves to nothing. That is the failure mode this log
+keeps paying for: a procedure that exists but is filed where no reader looks. It is the same shape as
+rule 14j (a rule that records a defect and not the working spelling) and as pass 231's stale
+instrument reference, but the reader here is the *next pass*, not this pass, which is why it survived
+two passes of a log whose whole subject is not re-deriving what is already known.
+
+**Run these, from the repository root, all bare:**
+
+| # | command | expected | gives you |
+|---|---|---|---|
+| 1 | `docs/work/paused-recon/census.sh` | **exit 0** | 96 items, 0 open / 0 working / 1 blocked / 83 done / 12 superseded |
+| 2 | `docs/work/paused-recon/clue-fence.sh` | **exit 0** | 0 hard-coded canonical phrases, all six production regions |
+| 3 | `docs/work/paused-recon/agents.sh` | **exit 0** | 0 non-terminal agents in a MadGab cwd |
+| 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
+| 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | 9 of 9 instruments alive |
+
+Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
+
+- `docs/work/paused-recon/branch-containment.sh` — **argument-taking**. Run it only as `item-state.sh`
+  prints it, with `origin/main` and the branch names. Bare it exits non-zero, and that exit says
+  nothing about the repository.
+- `docs/work/paused-recon/at-risk-delta.sh` — **argument-taking**, and its growth guard
+  (`--prev-arms` / `--prev-pub`) is **armed on purpose**. It exits **0** while the at-risk arms are at
+  or below the previous pass's figures (**90 / 89** as of pass 328), and **3** when they have moved
+  up. Exit 3 means *the at-risk set grew and the member is unnamed* — read the printed `named` line
+  and attribute it before doing anything else. Do **not** disarm it to get a green.
+
+`docs/work/paused-recon/at-risk.sh` and `at-risk-content.sh` are green and slow; the at-risk family is
+**closed on content since pass 184** and needs no re-run unless a new at-risk member appears.
+
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
-pass is short:** verify these five facts, decline the scheduler template's three contradictory clauses
+pass is short:** run the five gates above, decline the scheduler template's three contradicting clauses
 (rule 19), append one concise entry, exit. Do not re-derive anything below; the closed classes are
 listed in each pass's "Next action for the next pass", item 4, and re-walking them is the standing
 reason this log grew to 11,500 lines.
@@ -9353,3 +9388,106 @@ quiet. Do NOT re-run the four failed approaches above. **(2)** Do not re-prepare
 review branches. **(3)** Use the gate list at the top of this file, which pass 327 corrected a
 second time. **(4)** The at-risk family stays closed on content; the count question is now settled
 at 90 until a new member is created, and the growth guard will name it if one appears.
+
+## Pass 329 (coord-3b6d, 2026-09-29T22:37Z-22:52Z) — gate NO; six facts re-derived unchanged; ACTED — the handoff's own pointer resolved to nothing, and the gate list is now where two passes told the next one to look
+
+**Gate: NO.** `## Status: accepted and paused` is unchanged and no human has reopened development,
+so the scheduler template's three clauses (launch/prompt agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are declined for the **81st** time — see pass 326's table for the
+verbatim clause/itinerary pairs. Nothing created, claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched at `0267ade`.
+
+Standing facts re-derived with the gate list (now at the top of this file, see ACTED below), all
+unchanged: census **96** = 0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`;
+**0** non-terminal MadGab agents among 131 MadGab cwd rows of 739 host rows (5 host-`running`
+agents — `94b9`, `125b1`, `92a5`, `94c7`, `109a5` — are other repositories and were left running,
+untouched); clue fence **0** in all six production regions; **125** registered worktrees
+(`.git/worktrees` = 125, `prune -n -v` empty, exit 0); `EXPECT_REFS` **209** and satisfied
+(209 enumerated, 208 remote heads + 1 tag mirror); `recovery/at-risk-2026-09-29` = `eaf7487`
+byte-identical to `ls-remote`; instruments **9 of 9** green. `at-risk-delta.sh` bare **exits 0** —
+the pass-327 growth guard is still quiet at **arms 90 / published 89**, and `PREV_ARMS`/`PREV_PUB`
+have not needed moving since pass 328. The at-risk family was not re-run; it is closed on content
+since pass 184.
+
+### ACTED: two handoffs pointed a successor at a gate list that was not where they said
+
+Pass 327's NEXT and pass 328's NEXT both instruct the next pass: *"Use the gate list at the top of
+this file, which pass 327 corrected a second time."* I followed it, and **there is no gate list at
+the top of this file.** The section headed `## Current gate status (read this first; the detail is
+10k lines below)` runs from line 116 to line 210 and contains the standing-facts **table** and the
+standing rules — and not one runnable gate command. The list those two passes meant is at **line
+9081**, inside pass 326's entry, **274 lines from the end** of a 9,355-line file. A fresh invocation
+is told to trust the top, finds a table of *figures* there, and has to go hunting for the *procedure*
+that produces them.
+
+This is the log's own recurring subject, one level up from where it has been looking. Rule 14j: *a
+rule that records only a defect is not a procedure.* Rule 14k: *a standing figure is not a standing
+procedure.* Pass 231: an instrument reference left stale in the row every pass reads first. All three
+are the same failure — the thing exists, and the reader is sent somewhere it is not. The difference
+here is that **the reader is the next pass, not this one**, so no amount of self-checking inside a
+single pass catches it: pass 327 and pass 328 each *wrote* the pointer, and each was, at that moment,
+looking at a gate list it had just read at line 9081 and mentally filed as "the gate list". Neither
+verified the pointer resolved. The failure is invisible to every control this log has, because every
+control exercises an instrument, and no instrument here emits a cross-reference.
+
+**Fix applied.** The five bare gates are now written into the top section, as a table, each with its
+expected exit and the fact it yields: `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`,
+`selfcheck.sh` — all **exit 0**. The two argument-taking scripts are recorded *as not-in-the-list*
+with the reason each is wrong to run bare: `branch-containment.sh` (rule 326; bare exit means nothing
+about the repository) and `at-risk-delta.sh`, whose growth guard is **armed on purpose** and which
+exits **0** at the current 90/89 and **3** on unattributed growth. That second one is the more valuable
+line in the block: a pass that has been told "all instruments exit 0" and then runs
+`at-risk-delta.sh` bare expecting 0 will get 3 the first time the at-risk set grows, and the obvious
+reading of a non-zero instrument — a broken one — is the wrong one.
+
+The top section's own instruction is corrected in the same edit: it said "verify these **five** facts"
+while listing none. It now points at the table above it.
+
+**Rule 329** — *a handoff pointer is an instrument, and it needs a control like any other.* Every
+control in this log runs something and asserts on its output; none of them asserts that the document's
+own cross-references **resolve**. That is why a pointer can be wrong for two consecutive passes and
+survive both: nothing ever asks the question. Cheap check, and it generalises past this file — for
+every "see X" / "use the list at Y" in a durable handoff, confirm the target is where the sentence
+says it is *from the reader's position*, which is the top of the file, not from the author's, which
+is wherever the author happened to be reading. A pointer written from inside a passage is a pointer
+written from the wrong place.
+
+### The 126-vs-125 that is not a finding, recorded so the next pass does not re-derive it
+
+`git worktree list | wc -l` reads **126**; the standing figure is **125**. This looks like the row's
+own alarm condition — *"if the next pass measures anything other than 125/125 … something has
+genuinely moved"* — and it has not moved. The difference is the **primary worktree**, which `list`
+includes and which has no entry under `.git/worktrees`. Measured this pass: 126 list lines = 1
+primary + 125 registrations = 125 admin directories, and all 125 linked worktrees resolve on disk
+with `rev-parse --git-common-dir` = `/workspace/madgab/.git` (the primary resolving to its own
+`.git`). This is already noted in pass 325's six-facts list; it is re-stated here **only** because it
+reproduces the exact wording of a standing alarm, and the correct response to a standing alarm is to
+run the check that says which — not to open a churn investigation.
+
+### Nothing else moved
+
+No new work item, no claim, no agent launched/stopped/prompted, no integration, no recovery branch.
+`EXPECT_REFS` stays **209**: this pass advanced `post-milestone-acceptance` and created no new ref.
+The human list is untouched and still decidable by the command `item-state.sh` prints — merge
+`review/drop-dead-trace-and-fence` (`8c88a59`, `branch-containment.sh` verified `CONTAINED and
+mergeable`) and delete `review/drop-dead-trace-env` (`a29f3d7`), `review/run-clue-fence-in-ci`
+(`6edff83`), `review/drop-dead-trace-env-on-main` (present only as `audit/…`). **(d)** retiring this
+recurring pass and **(e)** fixing the out-of-repo scheduler template remain human; **(e)** has its
+three clauses quoted verbatim at pass 326.
+
+**Recommendation for the human, unchanged and now with a named cost.** This log is **9,355 lines /
+855 KB** and has absorbed ~320 passes that each re-derived the same six facts and declined the same
+three clauses. Two of the last three passes found real defects *in the log's own instruments and
+pointers* rather than in MadGab — pass 327's fail-open growth guard, pass 328's amend-orphan, and now
+this. That is the log eating its own tail, and the durable fix is a human one that no scheduled pass
+can take: **(d)** stop the recurrence. The pause is real, the accepted state is documented, and the
+work that remains is entirely the human list above.
+
+NEXT: **(1)** The gate list is at the top of this file; run the five bare gates and nothing else. Do
+NOT re-derive the standing facts by hand, do not re-run the at-risk family, and do not re-prepare or
+re-validate the review branches. **(2)** If `at-risk-delta.sh` bare exits **3**, that is the growth
+guard naming an unattributed new at-risk member — attribute it (pass 328's rule: enumerate reflog
+transitions and keep the non-fast-forward ones) before anything else, and remember 125 of 1,122
+reflog files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`. **(3)** Everything else is
+human, and the highest-value human action is retiring this recurring pass.
