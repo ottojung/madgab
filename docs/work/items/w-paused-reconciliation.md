@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b19
-updated: 2026-09-29T09:45:00Z
+owner: coord-6f31
+updated: 2026-09-29T09:42:57Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20776,3 +20776,60 @@ the residual `514ed91` commit object, whose content is already durable on
 template, whose clauses have now fired 234 times against an itinerary that contradicts them — that
 template, not this log, is what keeps generating passes whose correct outcome is "nothing to do".
 Next pass: prefer no entry at all.
+
+---
+
+## Pass 221 — coord-6f31, 2026-09-29T09:42:57Z
+
+**Gate NO.** The three scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) declined for the fifty-second time, on `## Status: accepted and paused`
+plus `docs/accepted-state-2026-09-27.md`. Nothing claimed, launched, stopped, prompted or integrated;
+no new work item; no recovery branch; `main` untouched.
+
+Standing facts, re-derived as measurements:
+
+- **Census 96** `work_item:true` files = 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open`, 0
+  `working`**. `docs/work/items/w-0f3a17-shortlist-rule.md` remains the one work-item-*shaped* file
+  with `work_item: false` and is correctly excluded.
+- **0 non-terminal MadGab Antonina agents.** The 4 host-`running` agents (`12b1`, `92d2`, `78f1`,
+  `94a9`) are other repositories (kawun, volodyslav, qai-proviral, assemblyp1) and were **left
+  running, untouched**. `3a8f01` remains `stopped` on a superseded front and was left stopped.
+- **125** registered worktrees, `worktree prune -n -v` empty, exit 0.
+- `main` untouched: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` `0267ade`,
+  HEAD on `post-milestone-acceptance` in sync with origin.
+- `recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to `git ls-remote origin` on that ref.
+
+### The one real movement: the audit exclusion set grew by 1
+
+`refs/remotes/audit` now enumerates **205** refs, and `recovery/*` on origin is **26** heads, where
+pass 220 recorded 204 and 25. This is **not** a discovery about MadGab; it is the first movement in
+this set in many passes and it is explained: a new remote head appeared (this pass's `git fetch
+origin '+refs/heads/*:refs/remotes/audit/*'`, exit 0, showed `post-milestone-acceptance
+463fc9b..eb6eb3a` plus a new `recovery/*` ref; `ls-remote --heads origin` = 204 total). The +1 is
+consistent in both counts. **Next pass: expect 205/26, not 204/25**, and do not treat the change as
+a signal.
+
+### Two defects in THIS pass's own instruments, recorded rather than hidden
+
+1. **Census double-count.** My first fence-scoped gawk incremented the per-state counter both on the
+   `FNR==1` carry and again at `ENDFILE`, reporting `done 167 / superseded 22 / blocked 2` = 191
+   against only 96 `work_item:true` files. 191 ≈ 2 × 96 − 1, so the double count was structural, not
+   a data change. A rewrite that used `next` inside `ENDFILE` then failed outright (`gawk: cmd.
+   line:5: error: 'next' used in ENDFILE action`, exit 1). The published 1/83/12 came from a plain
+   per-file tally over the 96 files. **Rule 14aa: a per-file tally needs a per-file reset, and the
+   `ENDFILE` action is a boundary, not a second increment — two increments at two boundaries is the
+   defect, and a census that disagrees with its own file count by a near-exact factor of 2 is
+   reporting its own bug, not a population.**
+2. **Rule 14h fired live on my own command.** I built the exclusion list with `^` prefixes and then
+   passed it to `git rev-list ... --not $(...)`. `--not ^x` is a **double negation** (rule 14h), so
+   the arms returned essentially the whole baseline instead of the ~1-commit residual, and the run
+   printed a repository-sized list. **The at-risk cross-check for this pass is therefore INCOMPLETE
+   and no at-risk figure is published here.** The published 204/205 and 25/26 counts above do *not*
+   depend on it. Next pass must redo the cross-check with the 205-ref set using per-element prefixing
+   on `rev-list --all --reflog` (rule 14s) and no `--not`/`^` mixing, and must re-establish the
+   ref-held / reflog-only split before any recovery branch is considered.
+
+No content sweep was re-run (closed on content since pass 184). Still **blocked on the human
+reopen/confirm decision**; the three outstanding human items are unchanged. Next pass: prefer no
+entry at all.
