@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-51af
-updated: 2026-09-29T12:14:00Z
+owner: coord-7c1e
+updated: 2026-09-29T12:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23090,3 +23090,86 @@ merged id is unmatchable, so it drops out of `unreachable` and the count falls.
 extra path is `docs/skills/work-items.md` before treating it as a queue entry; terminate any hash list
 before appending to it; run the fence control as a code line; do not widen the mirror enumeration to
 the tag namespace. Blocked on the human reopen/confirm decision.
+
+## Pass 260 — `coord-7c1e`, 2026-09-29T12:12Z–12:24Z — gate NO; five facts re-derived unchanged; the census form is in the standing row and a pass that looks for it will find it
+
+**Declined, for the sixty-fifth time, the three clauses of the scheduler template that contradict the
+itinerary it points at** — launch/prompt Antonina agents, accumulate on `post-milestone-acceptance`
+"exactly as the itinerary requires", and prioritise the canonical approximate-search examples without
+phrase-specific hard-coding. Deciding text unchanged: `docs/skills/itinerary-madgab.md`
+`## Status: accepted and paused` and `docs/accepted-state-2026-09-27.md` `## Operational status`.
+Clause 2 remains a direct textual conflict — the itinerary's closing paragraph says the branch "is no
+longer an automatic accumulation target", so "exactly as the itinerary requires" cannot be honoured by
+doing what the template says, and only a human can retire or correct the out-of-repo template. Nothing
+claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch; **main
+untouched at `0267ade`** (`git rev-parse --verify main` exit 128, no local `main` ref).
+
+**Standing facts, re-derived from the instruments and not copied — all five reproduce:**
+
+1. **Census 96 = 83 `done` / 12 `superseded` / 1 `blocked`, 0 `open`, 0 `working`**, at rule 14l's
+   published scope (`docs/work/items/*.md docs/*.md`), GNU Awk 5.3.0, exit 0. This item is the single
+   `blocked` one. No 97/`open` reading arose, so pass 259's `docs/skills/work-items.md` note did not fire.
+2. **0 non-terminal MadGab agents** among **131** MadGab-cwd rows of **688** host rows (110 `succeeded`
+   / 20 `failed` / 1 `stopped`). The 4 host-`running` agents (`92c2`, `92b2` volodyslav, `94d6`
+   assemblyp1, `79e2` qai-proviral) are other repositories and were **left running, untouched**; the 5
+   `idle` rows are other repositories except `a11d` in `/tmp`, which is not a MadGab cwd. `3a8f01`
+   remains `stopped` on the superseded `madgab-diversity-3a8f01` front, left stopped exactly as pass
+   152 left it.
+3. **Fence 0 / decomp 0-0-0-1-0-0** across all six production files, region counts
+   **269/260/464/4242/67/269**, measured with `gawk -f docs/work/paused-recon/fence.awk` per rule 14ai.
+   The single non-zero was re-derived **by reading the line**, not by trusting the adjudication:
+   `src/lib.rs:3597` `.expect("key came from cells")` — the ordinary English past tense, benign at
+   pass 216, not re-opened.
+4. **Fence control re-run as a code line, both directions**, per passes 258/259: `const CONTROL_PLANT:
+   &str = "wreck a nice beach";` planted at `lib.rs` line **300** reads **1** (inside the region); the
+   same plant at line **5000** inside `mod tests` reads **0**. The control discriminates, so the 0 above
+   is a measurement. `src/lib.rs` restored byte-identical afterwards (`git status --porcelain` empty).
+   The mirror enumeration was **not** widened to the tag namespace: bare prefix `refs/remotes/audit` =
+   **204** heads.
+5. **125 registered worktrees**, `git worktree prune -n -v` **empty**, exit 0.
+
+**At-risk state, re-derived from a freshly fetched exclusion set.** `git fetch origin
+'+refs/heads/*:refs/remotes/audit/*'` FIRST per rules 14a/14m, **no `--prune`**, exit 0
+(`cfbef23..7331b53`, pass 259's own entry commit). Exclusion set **204** by the bare-prefix form of
+rule 14j, cardinality asserted inline per rule 14g (which did not fire, so the number is live rather
+than stale). Baseline `rev-list --all --reflog` **1,277** (+1 over pass 259's 1,276 = its own entry
+commit, on `origin` and therefore outside the set). **Arm A** (reflog-inclusive, audit-only subtrahend
+per pass 257's correction) **88**; **Arm B** (per-ref carets, `--reflog`, explicit positive start per
+14a) **88**; `diff`-clean, exit 0, both consumed in one invocation per 14h. Controls in both directions:
+`514ed91` present in arm A (**1**), `origin/main` `0267ade` absent (**0**). `recovery/*` heads on
+origin: **26**. `origin/recovery/at-risk-2026-09-29` = `eaf7487` is **byte-identical** on `ls-remote`
+and on `audit/recovery/at-risk-2026-09-29`, compared full-form against full-form per rule 14p.
+**No recovery branch warranted and none created.** Content sweep not re-run: closed on content since
+pass 184 and its population did not change.
+
+### This pass's finding — the published instrument is a COPYABLE STRING, and re-deriving it fails silently in the reassuring direction
+
+This pass began by hand-writing the census from memory rather than copying the sanctioned form out of
+this item's own `Work items` standing row, where it has been published verbatim since pass 146:
+
+```sh
+gawk 'FNR==1&&$0!="---"{nextfile} FNR>1&&$0=="---"{nextfile} FNR==1{next} /^work_item: /{wi=$2} /^state: /{st=$2} ENDFILE{if(wi=="true"&&st!="")print st; wi=""; st=""}' docs/work/items/*.md docs/*.md | sort | uniq -c
+```
+
+Two hand-written variants were tried first and **both returned `total=0` with gawk exit 0** — an empty
+queue, which is the most reassuring possible reading of a paused repository and exactly the direction
+rule 14q warns about. Copying the published string and running it returned 96 immediately, with the
+expected 83/12/1 distribution. The general form, and a sibling of rule 14k: **rule 14k says a standing
+FIGURE is not a standing PROCEDURE; this is its other half — a standing PROCEDURE is only a procedure
+while it is a copyable string.** A procedure reconstructed from a prose description of it can lose its
+per-file state reset and return a confident zero, and no exit code distinguishes the two. The log has
+now been bitten by this four times and each time the fix was to re-derive; the durable fix is to reach
+for the published string first. **Before writing any instrument this file already publishes, `grep` the
+standing rows for it and run that.** Recorded as a note rather than a new numbered rule because rules
+14k, 14j, 14l and 14q already carry the general content; what is new is only the observation that the
+`Work items` row *does* publish a runnable form and this pass did not look there first.
+
+Also recorded, no new rule: the `Passes that reached this same answer` row re-derives **165** today and
+correctly refuses to carry the number in the row itself ("Do not carry any number in this row; take the
+count from the command"), so nothing there is stale. Pass 259's next-pass asks were all discharged.
+
+**Next pass:** prefer no entry at all. **Grep the standing rows for a published instrument before
+hand-writing one** — the census form is in the `Work items` row. If a census ever reads 97 with an
+`open`, check whether the extra path is `docs/skills/work-items.md`; terminate any hash list before
+appending to it; run the fence control as a code line; do not widen the mirror enumeration to the tag
+namespace. Blocked on the human reopen/confirm decision.
