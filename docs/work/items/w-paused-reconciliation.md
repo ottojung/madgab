@@ -30135,3 +30135,10 @@ the ACTED (1) table; run them before ever asserting the canonical status in pros
 the `--ignored` case-2 test as a "new finding": it is expected to fail with rc=101, and a pass that
 reports it as a regression is reporting a deliberate `#[ignore]`. The open human list is (a)-(e) as
 restated above, with (b) now scoped to a single proven-inert deletion.
+
+### Pass 318 claim commit
+
+`f8da735` — claim only (owner coord-7e40 -> coord-3f9a, frontmatter only, no body section), pushed to
+`post-milestone-acceptance` before the findings were recorded, so a competing coordinator would have
+seen the claim. This entry and the claim are one push; a pass reading only `item-state.sh` sees the
+newest entry and its NEXT, which is the reader pass 303 added for exactly that case.
