@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9e4c
-updated: 2026-09-29T09:38:00Z
+owner: coord-2b19
+updated: 2026-09-29T09:45:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20719,3 +20719,60 @@ object, whose content is already durable on
 whose three clauses have now fired more than sixty times against an itinerary that contradicts
 them — that template, not this log, is what keeps generating passes whose correct outcome is
 "nothing to do".
+
+## Pass 234 (coord-2b19)
+
+Gate **NO**, unchanged, and for the same reason as the 233 passes above: the three
+scheduler-template clauses (launch/prompt Antonina agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritise the canonical
+approximate-search examples) are declined on `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. Clause 2 remains a
+direct textual conflict: that itinerary's closing paragraph says `post-milestone-acceptance` "is
+no longer an automatic accumulation target", so the template cannot be honoured by doing what it
+says. Nothing claimed, launched, stopped, prompted or integrated; no new MadGab work item; no
+recovery branch; `main` untouched. Deliberately **short** per pass 187's standing "prefer no entry
+at all" — the five facts are the whole of what a paused pass can establish, and they have not
+moved in a long time, so this entry records them once and adds nothing.
+
+**Five standing facts, all re-derived from the instruments this pass rather than copied forward.**
+
+1. Census **96** = 1 blocked / 83 done / 12 superseded, **0 open / 0 working**, via the
+   published-scope fence-scoped gawk over `docs/work/items/*.md docs/*.md`, gawk exit 0, run
+   first and not hand-rewritten. The single non-terminal item is this log.
+2. **0 non-terminal MadGab agents** among 131 MadGab cwd rows of 661 host rows. The 4
+   host-`running`/non-terminal agents (`12b1` kawun, `92d2` volodyslav, `78f1` qai-proviral, `94a9`
+   assemblyp1) plus the stale `idle` row `a11d` in `/tmp` are all **other repositories** and were
+   left running, untouched, nothing prompted.
+3. Fence **0 in all six production regions** (`adjacency`, `approx`, `lexical`, `lib`, `wasm`,
+   `main`) under rule 14v's complete alphabet — both sides of both examples, every spelling of
+   the clue, case-insensitive. **The control is what makes the 0 credible this pass**, and it is
+   the strengthened form of pass 212/14t: the six canonical strings were planted one-per-LINE
+   rather than several to one line, and the fence read **6**. Pass 234's first control planted all
+   six on a single line and read **1** — a line count, not a hit count — which would have been
+   recorded as a weak-but-passing control had the alphabet not been exercised per string. The
+   region filter was exercised in the other direction too: a `wreck a nice beach` planted inside
+   `#[cfg(test)]` reads **0**, so the region stage fires and the 0 is a measurement.
+4. **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+5. `main` untouched: no local `main` ref (`git rev-parse --verify main` exits **128**),
+   `origin/main` **0267ade**, HEAD on `post-milestone-acceptance` **463fc9b** in sync with origin.
+
+**Preservation re-derived and safe.** `audit/*` re-fetched FIRST by its real source namespace
+with **no `--prune`** per the amended rule 14a (exit 0; `audit/post-milestone-acceptance` advanced
+`ae345c4..463fc9b`, i.e. pass 233's own commit). Enumerated by the **bare-prefix** form of rule 14j,
+cardinality **read inline** per rule 14g rather than asserted against a literal: **205** refs. That
+inline read is the operative point — passes 184-233 have quoted "204" verbatim, and pass 220
+already recorded that the mirror's cardinality advances by one with every pass's own pushed
+commit, so an assertion of a literal 204 would abort on this pass's own output. At-risk set
+**88** with the residual `514ed91` present (1) and `origin/main` `0267ade` absent (0), so the arm
+discriminates rather than returning a constant; `recovery/at-risk-2026-09-29` = `eaf7487` compared
+**full-form against full-form** per rule 14p, byte-identical to `ls-remote`. No recovery branch
+warranted and none created. Content sweep deliberately not re-run — it has been closed on content
+since pass 184 and the only population change is this log's own pushed commit.
+
+**Blocked on the human reopen/confirm decision**, unchanged and not agent-actionable. The three
+outstanding human items are: (1) reopen MadGab development or confirm the pause stands; (2) decide
+the residual `514ed91` commit object, whose content is already durable on
+`origin/recovery/at-risk-2026-09-29`; and (3) retire or correct the out-of-repo scheduler
+template, whose clauses have now fired 234 times against an itinerary that contradicts them — that
+template, not this log, is what keeps generating passes whose correct outcome is "nothing to do".
+Next pass: prefer no entry at all.
