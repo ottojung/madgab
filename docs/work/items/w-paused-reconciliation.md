@@ -18839,3 +18839,118 @@ that contradict the itinerary it points at; and stop committing frontmatter with
    content is durable (blobs held by other commits), so no second archive is warranted — but if a
    future pass wants that class closed for good rather than content-by-content, the cheap move is a
    single `recovery/reflog-held-2026-09-29` branch naming the 63, not a per-file re-audit.
+
+## Pass 214 (coord-4e8a)
+
+**Gate: NO**, unchanged — the three scheduler-template clauses declined for the **forty-fifth** time on
+`## Status: accepted and paused` plus `docs/accepted-state-2026-09-27.md`. Nothing claimed, launched,
+stopped, prompted or integrated; no new work item; `main` untouched at `0267ade`.
+
+Five standing facts re-derived from the **procedure**, all unchanged:
+
+1. **Census 96** — 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open` / 0 `working`**, via the
+   published-scope fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`,
+   gawk exit 0.
+2. **Fence 0** in all six production files — **eighty-second** consecutive, and **now under both
+   spellings** (see Finding 2, which the published instrument could not do).
+3. **Agents** — 0 non-terminal MadGab agents. Nothing launched, stopped or prompted.
+4. **125** worktrees registered, `worktree prune -n -v` empty, exit 0. No local `main` ref
+   (`rev-parse --verify main` exit 128), `origin/main` `0267ade`, HEAD `post-milestone-acceptance`.
+5. **Pass 213's next-action #1 fully discharged.** `audit/*` re-fetched FIRST by its real source
+   namespace with no `--prune` (exit 0) → **205** refs (unchanged), matching `ls-remote` 203 heads +
+   1 tag + 1 untagged. **26** `recovery/*` heads on origin (unchanged).
+   `recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to `ls-remote`. The four archived blobs
+   of `recovery/reflog-log-revisions-2026-09-29` (`d542508`) each read **1 hit** in the re-derived
+   `rev-list --objects --all` id set; control `eaf7487` → 1, fabricated id → 0.
+
+Rule **14w** adopted: baseline `rev-list --all --reflog` = **1,228**; both sanctioned exclusion arms
+**88 / 88** `diff`-clean against that reflog-inclusive baseline, refs-only reading **1**. Nothing
+moved.
+
+### Finding 1 — the committed fence script did not do what pass 213 published it doing
+
+Pass 213 committed `docs/work/paused-recon/fence.awk` and published it as a "checked script that
+aborts rather than failing open", with a "region stage" that requires "every file to produce a
+non-empty production region … before its count is read". Re-read at the source, that script:
+
+* **contains no matcher at all.** It is a region *stripper*: it emits comment-stripped production
+  text to stdout and the caller greps it. Its own header nonetheless claimed the alphabet, that it
+  matches "both spellings of the clue (contiguous and decomposed)". Verified: `grep` for the clue
+  words in the script finds them only inside that header comment. A published instrument
+  description that describes a *matcher* over a *stripper* is the wrong-population error one level
+  up from 14w.
+* **could not abort in the case it was written for.** The boundary used `exit`, which ends the whole
+  awk run and therefore **skips `ENDFILE`** for that file. There was no empty-region check in the
+  committed file at all. A `#[cfg(test)]` on line 1 — the ordinary shape of a file with no
+  production code — produced a clean **exit 0**, i.e. exactly the silent-pass failure the script
+  claims to prevent. Only a zero-byte file aborted, and only because `FNR==1` never fires for it.
+
+Repaired: `nextfile` at the boundary (so `ENDFILE` does run), a real `ENDFILE` empty-region abort
+carried out through `END` because `exit` would discard it, and the header corrected to state that
+the file is the stripper and the alphabet belongs to the caller's matcher. Region-line counts are
+now published in the header with the caveat that caused Finding 3.
+
+Controls, all re-run after the repair: zero-byte → **2**, test-fence-on-line-1 → **2**,
+fence-at-line-2 → **0** with correct output, mixed good+empty run → **2**, real `wasm.rs` → **0**,
+all six → **0**. All six production regions reproduce pass 213's counts exactly (268/259/463/380/67/269).
+
+### Finding 2 — the fence was blind to decomposed hard-coding, the exact form this repo uses
+
+Because the committed script has no matcher, the *caller's* regex is the whole detector — and the
+regex every pass has used is the contiguous phrase `hits justice dupe hid came`. A production-region
+hard-code written as `["hits","justice","dupe","hid","came"]` — **the form `src/approx.rs` lines
+1041 and 1091 actually use** — does not match a contiguous-phrase regex at all. Demonstrated on a
+planted production line: contiguous regex **0** (a false zero), per-word literal regex
+`"hits"|"justice"|"dupe"|"hid"|"came"` **1** (the true positive). Pass 213 published "the decomposed
+`["hits", …]` array" among its per-string planting controls reading **1**; against its own committed
+instrument that control reads **0**, so the control was passing against a *different* matcher than
+the one published.
+
+Re-measured the fence under **both** spellings across all six production regions: contiguous **0**
+each, per-word **0** each. **So the invariant is stronger than it has ever been claimed, and
+previously unmeasured.** New rule 14x: a fence whose alphabet is a *contiguous phrase* has a blind
+spot exactly where the repo's own tests decompose that phrase, so publish both a contiguous and a
+per-word form, and never let a control be evaluated against a different matcher than the one the
+measurement uses.
+
+### Finding 3 — a counting artifact that has been in this pass's own measurements
+
+`lib.rs` measured **347** production lines on this pass's first attempt against pass 213's published
+**380**. The cause was the counting form, not the region: `$(...)` command substitution strips
+trailing newlines, and `printf '%s' "$v" | grep -c ''` therefore loses every trailing blank line the
+stripper emits — 33 of them on `lib.rs`. Piping the script's stdout straight into `wc -l` gives 380
+and reproduces pass 213 exactly. Recorded in the script header. This is the same class as passes
+138/148/154: a plausible number produced by a form that quietly differs from the sanctioned one, in
+the direction that under-reports.
+
+### At-risk class re-derived at the CONTENT level; no archive warranted
+
+Pass 213's item 3 proposed "a single `recovery/reflog-held-2026-09-29` branch naming the 63". Tested
+before acting, and the proposal does not survive contact with the remote:
+
+* The reflog-only set is **88** (per 14w bracketing), of which **64** have a tree no `audit/*` ref
+  reaches (pass 213 published 63 — the +1 is this pass's own fetch advancing `audit/…`).
+* Expanding those 64 with rule 9's path-component filter and checking every non-build blob against the
+  **7,075** durable ids from `audit/*`: **0 unreachable**. So, as pass 213 itself said, the *content*
+  is durable and a second archive is not warranted.
+* **The branch would also be rejected anyway**: those 64 trees total **812 MB**, with 2 commits
+  over 50 MB. That is the same GH001 wall pass 184 hit on a 129 MB `.rlib`. Pass 213's "cheap move"
+  is not cheap. **No recovery branch created** — the correct action here was to *test* the proposal,
+  and the test says the class is already closed on content.
+
+### Next action
+
+**Prefer no entry at all** — repeated. The human decisions are unchanged since pass 184: confirm the
+pause and close this item `done`, or reopen MadGab development; decide the residual `514ed91` commit
+object; retire or correct the out-of-repo scheduler template, now firing forty-five times with
+clauses that contradict the itinerary it points at; and stop committing frontmatter without a body
+section.
+
+**For the next pass, specifically:**
+
+1. Do **not** create `recovery/reflog-held-2026-09-29`. Measured this pass: 812 MB over 64 trees,
+   0 non-build blobs at risk. The class is closed on content and the branch would be rejected.
+2. Publish fence counts as a **pair** (contiguous regex, per-word regex) per file, and keep the
+   caller's matcher beside the count — rule 14x.
+3. If the fence is ever automated end-to-end, note the real gap: the matcher still lives in the
+   caller's shell, unpushed and unreviewed, while `fence.awk` only guarantees the *region*.
