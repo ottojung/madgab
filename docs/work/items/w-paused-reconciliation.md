@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-5d3e
-updated: 2026-09-29T19:40:00Z
+updated: 2026-09-29T19:43:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -29569,5 +29569,120 @@ regardless, and the four open items are all human decisions, unchanged from pass
       automatic accumulation target" while the out-of-repo scheduler template
       instructs every pass to accumulate there "exactly as the itinerary requires".
       The itinerary wins; resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 314 (coord-5d3e, 2026-09-29T19:31Z-19:41Z) — gate NO; six facts re-derived unchanged; ACTED — the fence's population guard covered `src/` only, while its verdict line claimed the whole program
+
+### The six standing facts, re-derived this pass (all unchanged)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** /
+83 done / 12 superseded, 0 open / 0 working for the 104th time and the only non-terminal item
+is this one; `agents.sh` exit 0 — 729 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab
+agents** (110 succeeded / 20 failed / 1 stopped), the 1 host-`running` agent (`109a5` skrynia)
+another repository and **left running untouched**; `clue-fence.sh` exit 0 — **0 canonical
+occurrences in the 6 `src/` regions**, 1 adjudicated benign per-word hit, all 15 controls as
+published; `at-risk.sh --fetch` exit 0 and `at-risk-content.sh` exit 0 — 89 = ref-held 1 +
+reflog-only 88, 205 mirror refs, 230 absent blobs over 320 paths, **non-build absent 0**;
+`selfcheck.sh` **7/7**. **main untouched**: no local `main` ref (`rev-parse --verify main` exit
+128), `origin/main` 0267ade, HEAD on `post-milestone-acceptance`. 125 worktrees,
+`prune -n -v` empty, exit 0. **Zero code drift**: `git diff --name-only origin/main..HEAD -- src/`
+empty. The `web/app.js` plant made and reverted inside this pass; the tree was clean before the
+commit.
+
+### This pass's one measurement: the two fences have disjoint coverage and only the narrower one was named
+
+`clue-fence.sh` asserted that its file list covers `src/` and refused if `src/` grew. It never
+asked whether `src/` is the whole production region, and it published
+
+    0 canonical clue occurrences in all 6 production regions
+
+which a reader takes to mean the program. It does not. `tests/no_phrase_hard_coding.rs` names
+three regions in its own `REGIONS` table — `src/`, `web/`, `examples/` — and gives the reason
+`web/` is in scope: *"`web/app.js` is a real user-facing search entry point, so a hard-code
+committed there is as reachable as one in `src/`."*
+
+Measured rather than argued. One canonical clue appended to `web/app.js`:
+
+- `clue-fence.sh` **exit 0**, still printing **0 canonical clue occurrences in all 6 production
+  regions** — the false zero;
+- `tests/no_phrase_hard_coding.rs` **FAILED**, naming `web/app.js:105`
+  `[whole-sentence-equality]`, "the whole clue phrase `Hits Justice Dupe Hid Came` is produced
+  or bound as the value, with nothing computed from it" (8 passed, 1 failed).
+
+So the repository has two hard-code fences whose coverage is disjoint, and the standing
+invariant every pass re-derives was the *narrower* of the two, described in the wider one's
+language. The invariant itself holds — 0 in `src/`, and the plant was reverted — but it was
+being cited for more than it measured. This is pass 293's shape (a stale population reported as
+a clean figure) reached from a different direction: not a stale mirror, but a permanently
+partial one.
+
+**The fix is scope, not another scanner.** Reimplementing a JS/HTML/CSS and `examples/` scanner
+inside this shell instrument would add a second implementation of a rule that already exists and
+is stronger (the Rust test names file, line and shape, and carries an allowlist with per-region
+caps). Instead the instrument now (a) prints its scope on every run, naming the directories it
+does **not** measure; and (b) **refuses** when a production directory in the tree is covered by
+neither fence. Two derivations, neither recalled: the region list is read out of the Rust test's
+own `REGIONS` table, and the completeness population is every top-level tracked directory
+holding source minus `docs/`, `tests/`, `target/`, `.github/`.
+
+**The completeness check is deliberately NOT a cardinality floor, and this pass's first
+version was one.** It required ≥3 regions; a table with a single entry deleted still read 4, so
+the control plant **did not fire** and the guard was certified by its own test — the pass-281
+shape again, reached by writing the easy assertion. Three controls now fail closed, each with
+its message checked:
+
+| control | what it removes | result |
+|---|---|---|
+| A | one `("src","rs")` entry from the table | exit 1, names `src` as in no fence |
+| B | the whole Rust fence file | exit 1, "it is the only fence covering `web/` and `examples/`" |
+| C | all three `web/` entries (the exact pass-314 hole) | exit 1, "read 2 region(s) ... a short read means the population is broken, not small" |
+
+All three were re-run against the restored script; the standing 0 still holds and `selfcheck.sh`
+is 7/7 with the real path.
+
+### Rule 14ag (new)
+
+**A fence's population guard must be checked against the program's production region, not
+against the directory the fence already reads.** The guard here was real, deliberate and
+correct — it refuses if `src/` grows — and it was still blind, because it asserted completeness
+*within* the population it already covered and the verdict line then used the word
+"production". The general form: "my list covers everything" is only ever established relative to
+a population named independently of the list, and when a second instrument covers the rest, the
+narrower one is the one a reader will trust, because it is the one printing a number. The cheap
+fix is not a better matcher but a scope line and a fail-closed completeness check borrowed from
+an independent derivation.
+
+This is rule 14q/14r again at the population level rather than the pattern level: pass 308-311
+made the *matcher* trustworthy and left the *population* implicit. And it is the same lesson as
+pass 314's predecessor on a different axis — pass 313 found the at-risk verdict was never put
+to the CONTENT; this pass finds the fence's verdict was never put to the SCOPE. Both are
+measurements whose conclusion was reached one step short of the question that decides it.
+
+### What this pass did and did not do
+
+Ran the six instruments, measured the scope gap with a plant, repaired the fence's scope guard
+with three fail-closed controls, and registered nothing new (`selfcheck.sh` stays 7/7; the
+existing `clue-fence.sh` anchor `canonical clue occurrences in all` still matches the
+figure-free verdict line). Claimed the item by pushing the owner change (coord-7a41 ->
+coord-5d3e) at `f7e7d90`; fix committed at `a3b7835`. Declined the three scheduler-template
+clauses for the sixty-fifth time on `## Status: accepted and paused` plus
+`accepted-state-2026-09-27.md`: no agent launched or prompted, no historical item claimed, no
+new work item, no integration, no push to `main`, **no file under `src/` touched**.
+
+NEXT: no pass-actionable item is asserted, and none should be. The pause holds, and the open
+items are unchanged from passes 312-313 except as noted:
+
+  (a) **Compact this log** (first raised pass 312). 2.4 MB, 231 pass sections, frontmatter
+      broken three times (passes 218, 252, 289).
+  (b) The fence is still not run by CI (`.github/workflows/test.yml` runs `cargo test --lib
+      --bins`, one integration target, and clippy). First raised at pass 267. **This pass adds
+      a reason it is now cheaper to fix than it was at pass 267**: `tests/no_phrase_hard_coding.rs`
+      is the fence that covers `web/` and `examples/`, it already exists and is green, and
+      running it in CI is a workflow edit rather than new code. Still a human decision, since
+      it changes what CI gates a push to `main` on.
+  (c) Retiring this recurring pass: the six facts have not moved for 104 passes.
+  (d) `itinerary-madgab.md` line 17 vs the out-of-repo scheduler template. The itinerary wins;
+      resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
