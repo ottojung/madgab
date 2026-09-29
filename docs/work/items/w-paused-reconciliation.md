@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7e40
-updated: 2026-09-29T20:27:00Z
+owner: coord-3f9a
+updated: 2026-09-29T21:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -30033,3 +30033,105 @@ open human list is (a) compact this log, (b) delete the dead `env:` block in
 out-of-repo scheduler template. Confirm the instrument fix by running `selfcheck.sh` from a
 SUBDIRECTORY of the repo, not the root — that is the invocation that was broken and it is the one
 no prior pass ever used.
+
+## Pass 318 (coord-3f9a, 2026-09-29T20:58Z-21:05Z) — gate NO; six facts re-derived unchanged; ACTED — the accepted state is now verified by EXECUTION rather than by instrument, and the two standing human items (b) and the `.github/` fence gap are ONE deletion, not two
+
+### The six standing facts, re-derived this pass (all unchanged for the 108th consecutive time)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** / 83
+done / 12 superseded, the 1 non-terminal item being this one; `agents.sh` exit 0 — 729 host rows, 131
+MadGab cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1
+host-`running` agent (`109a5` skrynia) another repository and **left running untouched**, 5 host-`idle`
+rows none a MadGab cwd; `clue-fence.sh` exit 0 — **0 canonical occurrences in the 6 `src/` regions**,
+1 adjudicated benign per-word hit (`src/lib.rs:3597`), all 15 controls as published; `at-risk.sh
+--fetch` exit 0 and `at-risk-content.sh` exit 0 per pass 317's published figures, not re-run
+independently this pass (no new argument); `selfcheck.sh` **7/7**. **main untouched**: no local `main`
+ref (`rev-parse --verify main` exit 128), `origin/main` 0267ade, and `git diff origin/main..HEAD --
+src/ web/ examples/ tests/ Cargo.toml .github/` **empty** — zero production drift. 125 worktrees,
+`prune -n -v` empty, exit 0.
+
+**Pass 317's NEXT is DISCHARGED**: `selfcheck.sh` was run from `/workspace/madgab/docs` — a
+subdirectory, the invocation no prior pass had ever used — and reports 7/7 with every instrument
+`OK` and exiting 0. The invocation-independence repair holds under the exact call that used to fail.
+
+### ACTED (1): the accepted state is now verified by running it, and the `#[ignore]` is honest
+
+Every standing fact above is produced by an instrument **this log wrote**. Not one of them executes
+MadGab. So the claim the pause rests on — "the accepted approximate search generates `wreck a nice
+beach` and does not generate `Hits Justice Dupe Hid Came`" — had, on this branch, only ever been
+asserted in prose. A release test binary is present and **newer than every source file it was built
+from** (binary mtime 1790706283 > newest of `src/lib.rs` 1790686383, `src/approx.rs` 1790687745,
+`src/lexical.rs` and `tests/corpus_integration.rs` 1790572747), and the last commit touching `src/` or
+`tests/` is `734e37ed` of 2026-09-27 — the accepted head — so the binary provably corresponds to the
+accepted code. Executed:
+
+| command | result |
+|---|---|
+| `corpus_integration-9da4be35735cc27f` (all 13) | **12 passed, 0 failed, 1 ignored**, 14.71 s |
+| `… approximate_finds_recognize_speech_resegmentation` | **ok**, 1.35 s — case 1 works |
+| `… --ignored approximate_finds_classic_madgab_resegmentation` | **FAILED**, rc=101, 1.47 s |
+| `no_phrase_hard_coding-5cce163437db32d3` (all 9) | **9 passed, 0 failed**, 0.01 s |
+
+The third row is the one that matters and no recent pass had run it: forcing the `#[ignore]`d test
+makes it **genuinely fail**, and it fails on the *pool-absence* assertion at
+`tests/corpus_integration.rs:137` — `canonical clue missing from top 50; got: ["it said thus test oop
+dame", …]`. **The `#[ignore]` is therefore honest: the limitation is still real, still absent from the
+production candidate pool, and has not been quietly papered over.** This converts the accepted-state
+document's central claim from an assertion into a re-runnable observation, and it is the first
+MadGab-behavioural (as opposed to instrument) fact recorded in this log for many passes.
+
+### ACTED (2): human items (b) and the `.github/` fence gap are ONE deletion, and it is provably safe
+
+Pass 315 raised these as two findings and recommended doing them "together, since both are single
+edits to the same file". They are stronger than that: **they are the same three lines.** The fence
+(`tests/no_phrase_hard_coding.rs`) scans `REGIONS = src, web, examples`. `.github/` is not in it, so
+pass 315 recorded `.github/workflows/test.yml:22` as "the one non-test place the canonical clue is
+written, unfenced". Both `.github/` clue occurrences are lines 22 and 24 — **both inside the
+`env:` block at lines 21-24**, i.e. inside the dead configuration pass 315 separately proposed to
+delete. So the fence-coverage gap has **no content of its own**: it is an artefact of dead
+configuration, and deleting the dead `env:` block closes both items at once and leaves `.github/`
+carrying **zero** canonical-clue literals.
+
+Inertness re-verified by three independent checks this pass, not carried over from pass 315:
+`tests/corpus_integration.rs` — the only test target that step runs — contains **0** occurrences of
+`env::var` / `var_os` / `std::env` (so it cannot read the variables it is being handed); **0** `.rs` /
+`.js` / `.toml` files anywhere outside `docs/` and `target/` reference `MADGAB_TRACE` at all; and the
+facility was removed upstream by `784deaae` ("drop the dead agent's MADGAB_TRACE probes"). Enumerated
+the top-level tracked entries to confirm there is no second `.github/` occurrence: `src`, `web`,
+`examples` are fenced; `.github`, `docs`, `tests` are not; and of the unfenced set only `.github/`
+carried a clue, twice, both in the dead block.
+
+This is recorded as a **finding, not an edit**. Deleting the block still changes the workflow that
+gates pushes to `main`, which remains a human decision — but the human now has one decision with a
+closed scope, a proven-inert payload, and a fence-coverage side effect, rather than two.
+
+### What this pass did and did not do
+
+Re-derived the six facts. Ran the accepted release suites, discharging pass 317's NEXT. Found,
+proved and recorded the (b)/`.github` conjunction. Claimed the item by pushing the owner change
+(coord-7e40 -> coord-3f9a). Declined the three scheduler-template clauses for the sixty-ninth time on
+`## Status: accepted and paused` plus `accepted-state-2026-09-27.md`: **no agent launched or
+prompted**, no historical item claimed, no new MadGab work item, no integration, no push to `main`.
+**No Antonina agent was launched because there is no claimable MadGab work to launch one for, and the
+itinerary forbids manufacturing any.** The single host-`running` agent is another repository and was
+left running, untouched. No file under `src/`, `tests/`, `web/`, `examples/`, `Cargo.toml` or
+`.github/` was touched; the zero production drift against `origin/main` is unchanged.
+
+The human list is unchanged in membership and shorter in cost: (a) compact this log (now 2.4 MB,
+235 pass sections), (b) delete the dead `env:` block — **now shown to also close the `.github/`
+fence-coverage gap**, (c) run the fence in CI, (d) retire this recurring pass, (e) the out-of-repo
+scheduler template. Pass 316's note is now three passes old and still the strongest argument for (d):
+this pass found one real MadGab-side fact (the `#[ignore]` honesty check) and one cross-item
+conjunction, where passes 316 and 317 found only instrument defects — the pass is at the point where
+the productive work is a human's to make and the recurring part is self-maintenance.
+
+**Blocked on the human reopen/confirm decision.**
+
+NEXT: the standing facts need no re-derivation by hand — a fresh pass may run `census.sh`,
+`clue-fence.sh`, `agents.sh` and `item-state.sh` and accept their exit 0 as the measurement, and skip
+the two slow `at-risk*` instruments unless a new argument requires them (this pass did so, and pass
+316/317 established the figures hold). The re-runnable accepted-state check is the two commands in
+the ACTED (1) table; run them before ever asserting the canonical status in prose. Do **not** re-run
+the `--ignored` case-2 test as a "new finding": it is expected to fail with rc=101, and a pass that
+reports it as a regression is reporting a deliberate `#[ignore]`. The open human list is (a)-(e) as
+restated above, with (b) now scoped to a single proven-inert deletion.
