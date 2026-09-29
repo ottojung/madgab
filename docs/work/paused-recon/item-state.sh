@@ -126,7 +126,34 @@ else
   ' "$ITEM")"
   if [ -n "$next_line" ]; then
     printf '  next action (from the newest entry, line %s):\n' "$next_line"
-    sed -n "${next_line},$((next_line + 4))p" "$ITEM" | sed 's/^/    /'
+    # Print the WHOLE next-action block, not a fixed 5 lines.
+    #
+    # A fixed window of 5 lines was a real defect, found on the second live run
+    # of this script (the first live run found the head -n close_line bug). The
+    # block it opened is a paragraph of wrapped prose, so a line count truncates
+    # mid-sentence -- and here it truncated BEFORE the last line, which is the
+    # one that matters most:
+    #
+    #   **Blocked on the human reopen/confirm decision.**
+    #
+    # A reader that reports "the pause holds, the facts stand, CI does not run
+    # the fence" and stops there reports the three things a pass may act on and
+    # omits the one thing that says a pass must NOT act. A handoff reader that
+    # can clip is a handoff reader that can be quietly wrong in the direction
+    # that manufactures work.
+    #
+    # The block ends at the next `## ` heading or the end of the file, and is
+    # hard-capped so a malformed log with no next heading cannot print the rest
+    # of a 2.3 MB file.
+    end_line="$(awk -v s="$next_line" '
+      NR > s && /^## / { print NR; exit }
+    ' "$ITEM")"
+    [ -n "$end_line" ] || end_line=$(( $(wc -l < "$ITEM") + 1 ))
+    if [ "$((end_line - next_line))" -gt 40 ]; then
+      end_line=$(( next_line + 40 ))
+      printf 'item-state: next-action block is longer than 40 lines; TRUNCATED at 40 (line %s)\n' "$end_line" >&2
+    fi
+    sed -n "${next_line},$((end_line - 1))p" "$ITEM" | sed 's/^/    /'
   else
     fail "newest entry '${htext}' has no NEXT / '### Next pass' guidance; the handoff is unreadable"
   fi

@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7a04
-updated: 2026-09-29T17:50:00Z
+owner: coord-3d8b
+updated: 2026-09-29T18:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28317,4 +28317,116 @@ a pass action: CI still does not run the clue fence
 pass 267. The second human decision is unchanged too and is now the one this
 item's own size makes expensive: whether to retire this recurring pass, since
 none of the five facts has moved in 93 passes and the log is 2.3 MB.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 304 (coord-3d8b, 2026-09-29T18:12Z) — gate NO; six facts re-derived unchanged; ACTED — the reader added last pass clipped the one sentence that says a pass must not act
+
+The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples without phrase-specific
+hard-coding) were declined for the **sixty-seventh** time on `## Status:
+accepted and paused` plus `docs/accepted-state-2026-09-27.md`. Clause 2 remains
+a direct textual conflict: the itinerary says that branch "is no longer an
+automatic accumulation target", so "exactly as the itinerary requires" cannot be
+honoured by doing what the template says. Nothing claimed, launched, stopped,
+prompted or integrated; no new MadGab work item; no recovery branch; `main`
+untouched at 0267ade.
+
+All six standing facts re-derived from their own instruments this pass, none
+copied from the previous pass's log, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working
+   (`census.sh` rc=0; skills-doc control selector 0 / fence-blind 1; 49
+   non-schema headers listed once each and correctly not counted).
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0` (`.expect("key came from cells")` at lib.rs:3597, adjudicated
+   at pass 216). Regions 269/260/464/4242/67/269. The ninety-fourth
+   consecutive pass; `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents (`agents.sh` rc=0: 131 MadGab cwd rows of
+   719 host rows, {succeeded 110, failed 20, stopped 1}). The 3 host-`running`
+   agents (120c3 kawun, 92a3 volodyslav, 109a4 skrynia) are other
+   repositories: left running and untouched. 5 host `idle` rows, none a MadGab
+   cwd.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance. Zero release drift: `git diff --quiet origin/main
+   HEAD -- src tests examples web Cargo.toml Cargo.lock README.md .github`
+   rc=0 — the accepted release is still byte-identical to the accumulation tip.
+5. at-risk: both arms agree, both stderr empty, both controls behaved
+   (514ed91 present, 0267ade absent). `at-risk.sh --fetch` rc=0 per rule 14a,
+   no `--prune`; no recovery branch warranted and none created.
+6. `selfcheck.sh` rc=0 at **6 of 6** instruments, fourth consecutive green;
+   broken-population guard re-verified still rc=2 on an empty directory.
+   `frontmatter.sh` rc=0: 97 leading blocks, 0 failed to parse, all four
+   controls healthy.
+
+### ACTED — the handoff reader dropped the sentence that says a pass must not act
+
+Pass 303 added `item-state.sh` and recorded that its first live run failed
+closed on a healthy file (`head -n close_line` handing `yq` a second null
+document). It fixed that and shipped. Its NEXT then said the handoff was
+"readable in one command" — so this pass ran that one command, which is the
+check a claim like that exists for.
+
+It printed the newest entry's next-action block as a **fixed 5 lines**. The
+block is a paragraph of wrapped prose, so a line count truncates mid-sentence,
+and here it truncated *before the last line*:
+
+    NEXT: the pause holds, the six facts stand, and the handoff is now readable in
+    one command. The remaining known gap is unchanged and is a human decision, not
+    a pass action: CI still does not run the clue fence
+    (`.github/workflows/test.yml` runs tests and clippy only), first raised at
+    pass 267. The second human decision is unchanged too and is now the one this
+    item's own size makes expensive: whether to retire this recurring pass, since
+    none of the five facts has moved in 93 passes and the log is 2.3 MB.
+    **Blocked on the human reopen/confirm decision.**   <-- cut off
+
+The dropped line is the load-bearing one. Everything the reader still showed is
+something a pass may consider acting on; the sentence it removed is the one that
+says it must not. A handoff reader is the one instrument whose failure mode is
+not a wrong number but a *plausible-looking* summary, and this one clipped in
+exactly the direction that manufactures work: a pass reading it would learn that
+CI does not run the fence and that a human decision is pending, and never learn
+that the item is blocked on that decision.
+
+This is the log's own recurring class one level down: pass 300 shipped an
+instrument whose first live run was its only live run (the `at-risk.sh` argument
+bug), and pass 303 shipped one that did not fail but answered less than it
+claimed. A fix verified only by a plant proves the plant fails; only the real
+file proves the claim. Both defects were found by running the instrument on the
+item it exists to read, which is the cheapest available check and the one the
+previous pass's own NEXT implied had been done.
+
+**Repaired**: the block is now printed whole, from the `NEXT` label to the next
+`## ` heading or end of file. Re-run on the real item now ends on
+`**Blocked on the human reopen/confirm decision.**` — the reader and the file
+agree.
+
+**Plants for the repair** (fail-closed; the first attempt at the truncation
+plant did not bite, recorded below because it nearly passed as a pass):
+- NEXT block at end of file with no following heading: printed whole, both
+  lines, rc=0. This is the real item's own shape and the case a
+  `grep | tail` reader gets wrong.
+- next-action block longer than 40 lines: **TRUNCATED with an explicit warning
+  on stderr**, rc=0, and a 2.3 MB file with no following heading cannot make
+  this print the rest of the file. The warning is deliberate: a silent cap
+  would reproduce the defect it replaced in a rarer form.
+- no NEXT guidance at all: still rc=1, unchanged (`the handoff is unreadable`),
+  so the repair did not weaken the pre-existing fail-closed behaviour.
+- **a plant that did not bite, recorded because it nearly passed as a pass**:
+  the first truncation plant put 60 filler lines in a *non-newest* entry, where
+  the block boundary closes on the next `## ` heading and the 40-line cap is
+  never reached. It exited 0 looking correct. The cap only exercises when the
+  oversized block is in the NEWEST entry, which is the only entry the reader
+  ever prints. A plant that passes for the wrong reason is worse than a missing
+  plant — it would have been reported here as coverage.
+
+NEXT: the pause holds and the six facts stand. The handoff reader now reports
+the whole next-action block, so the mandatory first read of `scheduled.md` ends
+on the blocked-on sentence rather than four lines above it. Two gaps remain, and
+both are human decisions rather than pass actions, unchanged: CI still does not
+run the clue fence (`.github/workflows/test.yml` runs tests and clippy only,
+first raised at pass 267), and whether to retire this recurring pass, which this
+item's own size (28,320 lines / 2.3 MB) now makes expensive — none of the five
+facts has moved in 94 passes.
 **Blocked on the human reopen/confirm decision.**
