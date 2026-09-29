@@ -264,6 +264,239 @@ for mb in $(printf '%s\n' "$sha_claims" | grep '^review/' | cut -f1 | sort -u); 
   fi
 done
 
+# ---------------------------------------------------------------------------
+# PAYLOAD (rule 333, pass 334). The fourth checkable claim.
+#
+# Gate 7 adjudicates a branch's NAME, TIP and BASE. The standing merge sentence
+# makes a fourth claim — the payload: "one commit on main, one file, +2/-4: it
+# deletes the dead MADGAB_TRACE_* env block and adds the no_phrase_hard_coding
+# fence as a CI step". That is the part a human actually merges, and until this
+# block it was prose sitting between two machine checks, so a reader could not
+# tell which parts of that sentence were gated.
+#
+# POPULATION, stated before the code (rule 332): the `N file(s) changed, +A/-B`
+# claims inside the `## Current gate status` block, compared against
+# `git diff --shortstat origin/main <branch>` for each `review/` branch gate 7
+# has already established is parented on `origin/main`. The numbers are READ
+# FROM THE SECTION, never hard-coded (rule 14k): correct +2/-4 in the prose to
+# +2/-5 and this goes red, which is the entire point.
+#
+# FAIL-CLOSED ON AMBIGUITY: the block publishes exactly one payload claim today.
+# A second claim makes the population ambiguous, and this reports the ambiguity
+# and goes red rather than picking one. A check that guesses is the pass-326
+# class — `branch-containment.sh` exists to answer a question with arguments and
+# an argument-less reader who cannot see which argument was supplied.
+#
+# The sign is matched as a CHARACTER CLASS covering both the ASCII hyphen-minus
+# and U+2212 MINUS SIGN. The section publishes the Unicode one (`+2/−4`, verified
+# present at the byte level), so an ASCII-only pattern reads 0 claims and would
+# report "no payload claim published" — a vacuous pass, the refs.sh v1 defect.
+# ---------------------------------------------------------------------------
+payload_bad=0
+nclaim=0
+
+# Both branches this publishes for are single-commit review branches on
+# origin/main; the loop reuses the base check's scoping so the pass-323
+# mis-based branch (397 commits) is never payload-adjudicated, for the reason
+# given above it.
+for mb in $(printf '%s\n' "$sha_claims" | grep '^review/' | cut -f1 | sort -u); do
+  mbparent="$(git rev-parse --verify --quiet "$mb^1^{commit}" 2>/dev/null || true)"
+  mbmain="$(git rev-parse --verify --quiet 'origin/main^{commit}' 2>/dev/null || true)"
+  [ -n "$mbparent" ] && [ -n "$mbmain" ] || continue
+  [ "$mbparent" = "$mbmain" ] || continue
+
+  # The claim is located by the branch it is ABOUT, and scoped to the few lines
+  # after the branch token — not to the rest of the section, and not to the
+  # blank-line-delimited paragraph either.
+  #
+  # This block has now had two scoping defects, both in the same direction
+  # (too much text considered), and both found before the check was trusted:
+  #
+  #  - v1 stopped at the next `## ` heading, but the whole human list lives
+  #    under ONE heading, so "after the branch token" meant "the next 172
+  #    lines". A branch named inside the `branch-containment.sh` command block
+  #    swept up a `1 file, +2/-2` from an unrelated at-risk table row.
+  #  - v2 switched to blank-line-delimited paragraphs, which is the right idea
+  #    and still too coarse in this document: the standing facts are a Markdown
+  #    TABLE, and table rows are not separated by blank lines, so a dozen rows
+  #    are one paragraph and a branch named in any of them captures a claim from
+  #    any of the others.
+  #
+  # The scope that is actually correct is the one the prose uses: the claim sits
+  # on the SAME LINE as the branch token or within the next few lines of the same
+  # sentence, and a blank line ends it. That is a line window, which is what this
+  # implements — WINDOW lines, and never across a blank line.
+  #
+  # SPELLING: the section publishes "one file, +2/-4" — a WORD for the file count
+  # and a bare signed pair, NOT the `git diff --shortstat` wording this check was
+  # first written against. A pattern built from the tool's phrasing reads 0
+  # claims on a section that plainly publishes one, and the first run of this
+  # block did exactly that: 0 claims, 0 defects, exit 0 — a vacuous pass, which
+  # is the refs.sh v1 defect and the reason the zero-claim guard below exists.
+  # Accept the published spelling, in either sign's Unicode, and nothing else.
+  claim="$(awk -v br="$mb" '
+    BEGIN { WINDOW = 4; left = 0 }
+    /^## / { inh = ($0 ~ /^## Current gate status/); left = 0; next }
+    !inh   { next }
+    {
+      line = $0
+      gsub(/\xe2\x88\x92/, "-", line)        # U+2212 -> ASCII for the number
+      hits = (left > 0)
+      if (!hits && index(line, "`" br "`")) { left = WINDOW; hits = 1 }
+      if (hits && out == "") {
+        if (match(line, /([0-9]+|one|two|three|four|five|six|seven|eight|nine|ten) files?( changed)?, \+[0-9]+\/-[0-9]+/)) {
+          out = substr(line, RSTART, RLENGTH); left = 0
+        } else if (line ~ /^[[:space:]]*$/) { left = 0 }
+        else if (left > 0) { left-- }
+      }
+    }
+    END { if (out != "") print out }
+  ' "$HUMANLIST")"
+
+  [ -n "$claim" ] || continue
+  nclaim=$((nclaim + 1))
+
+  # The file count may be spelled as a word; map the published ones. An
+  # unrecognised token is NOT defaulted to 1 — it aborts the claim, which the
+  # zero-claim guard then reports, rather than inventing agreement.
+  case "$claim" in
+    one*)   cfiles=1 ;;
+    two*)   cfiles=2 ;;
+    three*) cfiles=3 ;;
+    four*)  cfiles=4 ;;
+    five*)  cfiles=5 ;;
+    six*)   cfiles=6 ;;
+    seven*) cfiles=7 ;;
+    eight*) cfiles=8 ;;
+    nine*)  cfiles=9 ;;
+    ten*)   cfiles=10 ;;
+    *)      cfiles="$(printf '%s' "$claim" | sed 's/ files\?.*//')" ;;
+  esac
+  cins="$(printf '%s' "$claim" | sed 's/.*, +//; s/\/-.*//')"
+  cdel="$(printf '%s' "$claim" | sed 's/.*\/-//')"
+
+  # Sanity: the parsed numbers must be non-empty integers. If a future edit to
+  # the prose changes the shape, the comparison below would read "" != "1" and
+  # report a mismatch — technically red but for the wrong reason, and a reader
+  # would go looking for a repository change that did not happen. Say which.
+  for tok in "$cfiles" "$cins" "$cdel"; do
+    case "$tok" in
+      ''|*[!0-9]*)
+        printf 'branches: UNPARSED CLAIM %s  could not read the payload numbers out of "%s" (rule 333: a claim this check cannot parse is not a claim it checked)\n' \
+          "$mb" "$claim" >&2
+        payload_bad=$((payload_bad + 1))
+        claim=""
+        ;;
+    esac
+  done
+  [ -n "$claim" ] || continue
+
+  # `git diff --shortstat` LEADS WITH A SPACE (" 1 file changed, ..."). Trim it
+  # ONCE, up front, rather than inside each field's own sed: trimming per-field
+  # is what let the `^` anchor below silently miss, because the raw string is
+  # " 1 file changed, ..." and so `s/^[0-9]* files\? changed, //` did not match,
+  # returning the whole string as the "insertion count".
+  shortstat="$(git diff --shortstat "$mbmain" "$mb" 2>/dev/null)"
+  shortstat="${shortstat#"${shortstat%%[![:space:]]*}"}"
+  # A check that reports a difference a reader cannot SEE is worse than one that
+  # reports none, because it sends them hunting a repository change that does
+  # not exist — the first version printed "section says 1 file(s)/+2/-4, live
+  # shortstat says  1 file(s)/+2/-4", identical to the eye, differing only in an
+  # invisible space (rule 332).
+  lfiles="$(printf '%s' "$shortstat" | sed 's/ files\? changed.*//')"
+  # `s/.*, //` is GREEDY and takes the LAST comma, so anchoring to the start of
+  # the string is what makes these two fields distinct: insertion is the field
+  # after the FILE COUNT, deletion is the field after the LAST comma.
+  lins="$(printf '%s' "$shortstat" | sed 's/^[0-9]* files\? changed, //; s/ insertions\?.*//')"
+  ldel="$(printf '%s' "$shortstat" | sed 's/.*, //; s/ deletions\?.*//')"
+
+  if [ "$cfiles" != "$lfiles" ] || [ "$cins" != "$lins" ] || [ "$cdel" != "$ldel" ]; then
+    printf 'branches: PAYLOAD MISMATCH %s  section says %s file(s)/+%s/-%s, live shortstat says %s file(s)/+%s/-%s (rule 333: the payload is what a human merges)\n' \
+      "$mb" "$cfiles" "$cins" "$cdel" "$lfiles" "$lins" "$ldel" >&2
+    payload_bad=$((payload_bad + 1))
+  else
+    printf 'branches: payload OK       %s  %s matches the live shortstat\n' "$mb" "$claim"
+  fi
+done
+
+# Ambiguity guard. This is the fail-closed half of the population, and it is
+# checked even when every individual claim matched: a check that silently
+# adjudicates the first of two contradicting claims is a check that published a
+# verdict on a population it had not identified.
+if [ "$nclaim" -gt 1 ]; then
+  printf 'branches: AMBIGUOUS PAYLOAD  %s payload claim(s) in the human list; this check adjudicates the single composed merge branch and REFUSES to pick one (rule 326 class)\n' \
+    "$nclaim" >&2
+  payload_bad=$((payload_bad + 1))
+fi
+
+# ZERO-CLAIM GUARD, and this is the check that matters most, because 0 is also
+# what a broken matcher returns. The first run of this block matched the
+# `git diff --shortstat` wording rather than the section's own and read 0
+# claims — then printed "0 payload defects" and exited 0, which is the
+# refs.sh v1 shape: an instrument that cannot fail is not evidence. So the
+# guard is stated as a positive requirement, not as an inference: a branch the
+# human list tells a human to MERGE must produce a payload claim. The merge
+# branch is identified as the single-commit review branch on origin/main, which
+# is the same set the base check established, so this cannot fire on a branch
+# the human is told to delete.
+merge_expected=0
+for mb in $(printf '%s\n' "$sha_claims" | grep '^review/' | cut -f1 | sort -u); do
+  mbparent="$(git rev-parse --verify --quiet "$mb^1^{commit}" 2>/dev/null || true)"
+  mbmain="$(git rev-parse --verify --quiet 'origin/main^{commit}' 2>/dev/null || true)"
+  [ -n "$mbparent" ] && [ -n "$mbmain" ] || continue
+  [ "$mbparent" = "$mbmain" ] || continue
+  if [ "$(git rev-list --count "$mbmain..$mb" 2>/dev/null)" = "1" ]; then
+    merge_expected=$((merge_expected + 1))
+  fi
+done
+if [ "$merge_expected" -gt 0 ] && [ "$nclaim" -eq 0 ]; then
+  printf 'branches: NO PAYLOAD CLAIM  the human list names %s single-commit review branch(es) on origin/main to merge, and no payload claim was read for any of them; a matcher that finds nothing is indistinguishable from a matcher that is broken, so this is a defect, not a pass (rule 332/333)\n' \
+    "$merge_expected" >&2
+  payload_bad=$((payload_bad + 1))
+fi
+
+# The named test target must exist under tests/. The section says the branch
+# "adds the no_phrase_hard_coding fence as a CI step"; a CI step naming a target
+# that does not exist is a claim about a payload that cannot be true, and it is
+# decidable by the same class of check. Read from the section, not hard-coded.
+#
+# The population is read as "a backticked name immediately followed by `passed`",
+# which is the shape the section's run-evidence sentence actually uses
+# ("`corpus_integration` 12 passed / 0 failed", "`no_phrase_hard_coding` 9 passed").
+# The first version grepped the two literal strings instead, which is a HARD-CODED
+# population wearing a read-from-the-section hat: a plant that renamed the CI step
+# left the same name in the evidence sentence, the check still found it, and it
+# reported OK. Deriving the population from the sentence's own grammar is what
+# makes a future rename a red run rather than a silent pass.
+#
+# The character class is [A-Za-z0-9_], NOT [a-z0-9_]. A lowercase-only class does
+# not report a renamed target — it EXCLUDES it, so a plant that renamed
+# `corpus_integration` to `corpus_integ_TYPO` shrank the population to one entry
+# and the check stayed green. A population filter must be wider than the names it
+# is meant to catch, or a violation is indistinguishable from an absence.
+ntarget=0
+while IFS= read -r tgt; do
+  [ -n "$tgt" ] || continue
+  ntarget=$((ntarget + 1))
+  if [ ! -f "tests/$tgt.rs" ]; then
+    printf 'branches: MISSING TARGET   %s  the human list names tests/%s.rs and that file does not exist\n' \
+      "$tgt" "$tgt" >&2
+    payload_bad=$((payload_bad + 1))
+  else
+    ntests="$(grep -c '^[[:space:]]*#\[test\]' "tests/$tgt.rs" 2>/dev/null || echo 0)"
+    printf 'branches: target OK        tests/%s.rs exists, %s #[test]\n' "$tgt" "$ntests"
+  fi
+done <<EOF
+$(cat "$HUMANLIST" | grep -oE '`[A-Za-z0-9_]+` [0-9]+ passed' | sed 's/`//g; s/ [0-9]* passed//' | sort -u)
+EOF
+
+# Same zero-population guard as the payload claim, for the same reason: 0 targets
+# read is what a broken matcher returns, and it must not read as a clean pass.
+if [ "$ntarget" -eq 0 ]; then
+  printf 'branches: NO TARGET CLAIM  no test target was read out of the human list run-evidence sentence, so the "adds the fence as a CI step" claim is unadjudicated; 0 is what a broken matcher returns, so this is a defect, not a pass\n' >&2
+  payload_bad=$((payload_bad + 1))
+fi
+
 remote_heads=""
 if git remote get-url origin >/dev/null 2>&1; then
   # Full-form ls-remote per rule 14p, one invocation. A bare-prefix form against
@@ -322,6 +555,7 @@ status=0
 [ "$missing" -gt 0 ] && status=1
 [ "$shabad" -gt 0 ] && status=1
 [ "$base_bad" -gt 0 ] && status=1
+[ "$payload_bad" -gt 0 ] && status=1
 
 echo "branches: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
 if [ "$remoteonly" -gt 0 ]; then
@@ -329,10 +563,11 @@ if [ "$remoteonly" -gt 0 ]; then
   echo "branches:   -> $(tr '\n' ' ' <"/tmp/.branches.$$.remoteonly")"
 fi
 echo "branches: ${nshaclaim} branch+sha claim(s) checked against the live commit; ${shabad} tip mismatch(es), ${base_bad} base mismatch(es)"
+echo "branches: ${nclaim} payload claim(s) checked against the live shortstat; ${payload_bad} payload defect(s)"
 
 if [ "$status" -eq 0 ]; then
   echo "branches: ${nbranch} branch name(s) resolve; 0 unresolved"
-  echo "branches: every branch the section names exists, at the commit it names, on the base it names"
+  echo "branches: every branch the section names exists, at the commit it names, on the base it names, with the payload it claims"
   exit 0
 fi
 

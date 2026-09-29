@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-7b4e
-updated: 2026-09-29T23:29:00Z
+updated: 2026-09-29T23:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -263,6 +263,26 @@ mismatches**, so the merge target is `8c88a59` on base `0267ade` as documented. 
 at a **different commit** now turns gate 7 red, which nothing did before: rule 323 said *"a review
 branch is its tip AND its base"* and three passes (319, 321, 323) described a mis-based branch as
 "prepared and validated" because **prose describing a branch is not a check on it**.
+
+**Gate 7 now also adjudicates the PAYLOAD (pass 334).** Rule 323's "a review branch is its tip AND
+its base" was two thirds of the standing merge sentence; the third third — what the branch
+**CONTAINS** — was prose sitting between two machine checks, so a reader could not tell which parts
+of "one commit on `0267ade`, one file, +2/−4" were gated. It now reads each `N file(s), +A/-B` claim
+out of the section and compares it against `git diff --shortstat origin/main <branch>`, and checks
+that each test target the section's run-evidence sentence names exists as `tests/<name>.rs`. On the
+section as it stands: **1 payload claim, 0 defects; 2 test targets, both resolving** (9 and 13
+`#[test]` respectively). The numbers are read from the prose, never hard-coded — correct `+2/−4` to
+`+3/−4` and gate 7 goes red. It is **fail-closed on ambiguity**: a second payload claim in the block
+is reported and condemned rather than one being picked.
+
+Two guards exist because this check, written from the tool's phrasing rather than the section's,
+first read **0 claims and exited 0** — a vacuous pass, the refs.sh v1 shape. So 0 claims is now a
+**defect** whenever the human list names a merge branch, and 0 test targets is a defect for the same
+reason. Nine plants back the green run: wrong insertion count, wrong file count, both target claims
+removed, an ASCII-minus spelling, an unparseable shape, a second competing claim, a renamed test
+target, a removed payload claim, and the ASCII variant of the Unicode sign. **Rule 334: a check
+added to close a prose gap must be shown to go RED before its green is published, and its failure
+modes are 0-read and 1-read, not only 1-versus-2.**
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -9995,3 +10015,109 @@ ambiguity case are specified in this entry. **(3)** If `at-risk-delta.sh` bare e
 the new member first (pass 328: enumerate reflog transitions, keep the non-fast-forward ones; 125 of
 1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else
 is human, and retiring this recurring pass is still the highest-value action available.
+
+## Pass 334 (coord-4b18, 2026-09-29T23:31Z-23:58Z) - gate NO; seven gates 7/7 exit 0; ACTED - pass 333's payload extension is BUILT and planted, and building it found four defects in the extension itself
+
+Gate answer **NO**, declined on `## Status: accepted and paused` plus
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). The scheduler template's three
+clauses declined for the seventieth time, for the reasons recorded in every entry since pass 220:
+(1) launching/prompting MadGab agents, and claiming or creating work, are forbidden while paused;
+(2) accumulating on `post-milestone-acceptance` "exactly as the itinerary requires" is a direct
+textual conflict with the itinerary's own closing paragraph ("no longer an automatic accumulation
+target"), and only a human can fix the out-of-repo template; (3) "prioritize the canonical
+approximate-search examples" is closed - the no-hard-coding half is a **standing invariant measured
+at 0 this pass**, the other half is the accepted known limitation. Nothing claimed, launched, stopped,
+prompted or integrated; no new work item; no recovery branch; main untouched.
+
+**All seven bare gates re-run, 7/7 exit 0, all six standing facts unchanged.** Census **96** = 0
+`open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`. Clue fence **0** in all six
+production regions with every control firing, the one per-word hit in `src/lib.rs` being the
+pass-216 adjudicated benign `.expect("key came from cells")`. Agents **0** non-terminal in a MadGab
+cwd over 131 MadGab rows of **751** host rows = 110 `succeeded` / 20 `failed` / 1 `stopped`; the 4
+host-`running` rows (126a3, 125a6, 125a1, 94c7) are other repositories and were **left running
+untouched**; `a11d` remains a stale `idle` row in `/tmp`. `branches.sh`: 9 branch names resolve, 2
+remote-only, 5 branch+sha claims, 0 tip and 0 base mismatches. `refs.sh`: 3 links, 12 instrument
+paths, 0 self-pointers. `selfcheck.sh`: 11/11 alive. At-risk and worktree classes untouched (closed
+since passes 184 and 170; not re-run).
+
+**This pass's action: pass 333's one specified next step is DONE.** Pass 333 specified, and declined
+to build, the extension of gate 7 from tip-and-base to the **payload** - "a gate that checks a
+reference is not a gate that checks what the reference delivers". It is built, and it is planted.
+
+The payload check reads each `N file(s), +A/-B` claim out of the human list and compares it against
+`git diff --shortstat origin/main <branch>`, and checks that each test target named in the
+run-evidence sentence exists as `tests/<name>.rs`. Verdict on the section as it stands: **1 payload
+claim, 0 defects; 2 test targets, both resolving** (`no_phrase_hard_coding` 9 `#[test]`,
+`corpus_integration` 13). Fail-closed on ambiguity: a second payload claim is condemned, not picked.
+
+**Building it found four defects in the extension, all found BEFORE the green run was published,
+which is the whole reason pass 333 wrote "plant before you trust" instead of "add three greps".**
+
+1. **It read 0 claims and exited 0** - the refs.sh v1 shape, reached from a new direction. The
+   pattern was written from `git diff --shortstat`'s wording (`N file(s) changed, +A/-B`) rather than
+   from the section's, which spells it `one file, +2/−4`: a **word** for the file count, a bare signed
+   pair, and the **U+2212 MINUS SIGN** rather than an ASCII hyphen. So the section published a claim
+   and the check reported none, with 0 defects and exit 0. Fixed by matching the published spelling in
+   either sign's Unicode, and by **guarding the zero**: 0 claims is now a defect whenever the human
+   list names a merge branch. A matcher that finds nothing is indistinguishable from a matcher that is
+   broken, and only one of those is a pass.
+2. **The scope was the rest of the section, then the whole paragraph, then 4 lines** - three attempts,
+   each too wide. `inbr` ran to the next `## ` heading, but the human list is ONE heading, so "after
+   the branch token" meant "the next 172 lines", and a branch named inside the
+   `branch-containment.sh` command block swept up a `1 file, +2/-2` from an unrelated at-risk table
+   row. Blank-line paragraphs were no better: the standing facts are a Markdown **table**, and table
+   rows are not separated by blank lines, so a dozen rows are one paragraph. The scope the prose
+   actually uses is a **line window** - the claim is on the branch's line or within the next few, and
+   never across a blank line. The first fix also had a claim **on the branch token's own line** fall
+   through the window test, which plant 4 caught.
+3. **A mismatch whose two sides read identically.** `git diff --shortstat` **leads with a space**,
+   and the fields were not trimmed, so the check printed `section says 1 file(s)/+2/-4, live
+   shortstat says  1 file(s)/+2/-4` - identical to the eye, differing in an invisible space. A check
+   that reports a difference a reader cannot SEE is worse than one that reports none, because it
+   sends them hunting a repository change that does not exist. Trimming per-field then defeated the
+   `^` anchor in the next `sed` (the string was still `" 1 file changed, ..."`), so the trim is now
+   done **once, up front**, and the insertion count is anchored to the start of the string because
+   `s/.*, //` is greedy and takes the LAST comma.
+4. **The target population was hard-coded, and its filter was too narrow.** It grepped the two
+   literal names, which is a fixed population wearing a read-from-the-section hat; it is now derived
+   from the sentence's own grammar (`` `name` N passed ``). That newly exposed a subtler half: the
+   character class was `[a-z0-9_]`, so a plant renaming `corpus_integration` to `corpus_integ_TYPO`
+   did not report the rename - it **excluded** the name, the population shrank, and the check stayed
+   **green**. A population filter must be wider than the names it is meant to catch, or a violation
+   is indistinguishable from an absence. One character, `[A-Za-z0-9_]`, and plant 5 goes red.
+
+**Nine plants, all behaving: (1)** wrong insertion count `+3/-4` -> MISMATCH; **(2)** wrong file
+count `three files` -> MISMATCH; **(3)** payload claim removed -> `NO PAYLOAD CLAIM`; **(4)** a
+second competing claim for another merge branch -> both MISMATCH **and** `AMBIGUOUS PAYLOAD` (the
+fail-closed half, refusing to pick one); **(5)** `corpus_integration` renamed to
+`corpus_integ_TYPO` -> `MISSING TARGET`; **(6)** unparseable shape -> `NO PAYLOAD CLAIM`; **(7)**
+ASCII hyphen instead of U+2212 -> still adjudicates (the sign is matched as a character class, so
+both spellings work and neither is a false zero); **(8)** one target claim removed -> still green,
+correctly, because the other claim is real; **(9)** **both** target claims removed ->
+`NO TARGET CLAIM`. The section was restored byte-for-byte after each plant and the clean run
+reproduces.
+
+**Rule 334: a check added to close a prose gap must be shown to go RED before its green is
+published, and its failure modes are `0-read` and `1-read`, not only `1-vs-2`.** Every pass that
+found a real defect in an instrument found it by making the instrument fail, and pass 332 already
+named the hazard for this exact block ("rule 332's 'plant before you trust' is why this pass did not
+add three greps and publish 7/7 again"). Pass 333 honoured that by not building; this pass built it
+and immediately found **four** defects in its own new code, two of which (defect 1's vacuous zero,
+defect 4's too-narrow class) would have shipped a check that reported success while adjudicating
+nothing. A green run is evidence only about the input that produced it; the inputs that matter are
+the ones designed to make it fail.
+
+**Nothing else moved.** The at-risk family is closed on content since pass 184 and was not re-run.
+The three human items are unchanged: **merge `review/drop-dead-trace-and-fence` = `8c88a59`** (1
+commit on `0267ade`, 1 file, +2/-4 - now checked by gate 7 against the live shortstat rather than
+asserted in prose, and the 9-test `no_phrase_hard_coding` target it adds to CI is now checked to
+exist); delete the three superseded branches, with `git push origin --delete
+review/drop-dead-trace-env-on-main` for the remote-only one; **retire this recurring pass**; **fix
+the out-of-repo scheduler template**.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-verify the payload by
+hand - gate 7 does it, and it is planted; if you extend it further, plant before you trust
+(rule 334). **(3)** If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328:
+enumerate reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
+`.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
+recurring pass is still the highest-value action available.
