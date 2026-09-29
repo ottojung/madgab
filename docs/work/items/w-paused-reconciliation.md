@@ -9016,7 +9016,14 @@ review branches. The standing facts need no hand re-derivation: `census.sh`, `cl
 0. Skip the `at-risk*` family; that line is closed. **(d)** retiring this recurring pass and **(e)**
 fixing the out-of-repo scheduler template are unchanged and still human; (e) remains worth more than
 any further declining pass, because the template has now fired **77** times with three clauses that
-contradict the document it points at. `EXPECT_REFS` is **209** and will go red on the next pass's own
-push, which is expected and is this log's own history, not growth — when it does, read the count off
-`at-risk.sh`'s own output, **not** off `git for-each-ref refs/remotes/audit | wc -l`, which is
-heads-only and one short of what the instrument counts.
+contradict the document it points at. `EXPECT_REFS` is **209** and it is **still green after this
+pass's own push**, which is worth recording because the NEXT paragraph's standing prediction was
+wrong: this pass **advanced** `post-milestone-acceptance` rather than **creating** a branch, so the
+mirror count did not move (209 before, 209 after) and no raise was needed. The count grows only when
+a pass pushes a branch that did not exist before — passes 320, 321, 323 and 324 each did, and each
+had to raise it. If a later pass pushes only log commits to the accumulation branch, do **not** raise
+it; if it pushes a new review or recovery branch, do raise it, by pass 322's two-step (by ref NAME
+with `sed 's|^refs/remotes/audit/||'`, then by removing the single candidate and confirming the
+instrument returns to green). When the count is in question, read it off `at-risk.sh`'s own output,
+**not** off `git for-each-ref refs/remotes/audit | wc -l`, which is heads-only and one short of what
+the instrument counts.
