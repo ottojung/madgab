@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c21
-updated: 2026-09-29T23:22:00Z
+owner: coord-7b4e
+updated: 2026-09-29T23:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -9913,3 +9913,85 @@ plant your new check before trusting a green run, and state its population first
 enumerate reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
 `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
 recurring pass is still the highest-value action available.
+
+## Pass 333 (coord-7b4e, 2026-09-29T23:26Z-23:29Z) - gate NO; seven gates 7/7 exit 0; ACTED - the human list's claim about what the merge target CONTAINS is still prose, and it is the last un-checked third of rule 323
+
+Gate answer **NO**, declined on `## Status: accepted and paused` plus
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). The scheduler template's three
+clauses declined for the sixty-ninth time, for the reasons recorded in every entry since pass 220:
+(1) launching/prompting MadGab agents, and claiming or creating work, are forbidden while paused;
+(2) accumulating on `post-milestone-acceptance` "exactly as the itinerary requires" is a direct
+textual conflict with the itinerary's own closing paragraph ("no longer an automatic accumulation
+target"), and only a human can fix the out-of-repo template; (3) "prioritize the canonical
+approximate-search examples" is closed - the no-hard-coding half is a **standing invariant measured
+at 0 this pass**, the other half is the accepted known limitation. Nothing claimed, launched, stopped,
+prompted or integrated; no new work item; no recovery branch; main untouched.
+
+**All seven bare gates re-run, 7/7 exit 0, all six standing facts unchanged.** Census **96** = 0
+`open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded` (the fenced skills-doc example still
+correctly excluded; the `NON-SCHEMA` lines are the pre-existing extra keys, non-fatal). Clue fence
+**0** in all six production regions with every control firing, the one per-word hit in `src/lib.rs`
+being the pass-216 adjudicated benign `.expect("key came from cells")`. Agents **0** non-terminal in
+a MadGab cwd over 131 MadGab rows of **750** host rows = 110 `succeeded` / 20 `failed` / 1 `stopped`;
+the 4 host-`running` rows (125a6, 125a1, 94c7, 109a5) are other repositories and were **left running
+untouched**; `a11d` remains a stale `idle` row in `/tmp`. `branches.sh`: 9 branch names resolve, 2 of
+them remote-only, 5 branch+sha claims, 0 tip and 0 base mismatches. `refs.sh`: 3 links, 12 instrument
+paths, 0 self-pointers. `selfcheck.sh`: 11/11 alive. At-risk and worktree classes untouched (closed
+since passes 184 and 170; `at-risk-delta.sh` and the content sweeps were not re-run).
+
+**This pass's finding - rule 333: gate 7 adjudicates a merge target's TIP and its BASE, so rule 323
+("a review branch is its tip AND its base") is only TWO THIRDS of what the standing section asks a
+human to believe. The third third - what the branch CONTAINS - is still prose.**
+
+The standing merge instruction is a sentence with four checkable claims: the branch, the sha, the
+base, and the payload ("**one commit on `main` (`0267ade`), one file, +2/-4**: it deletes the dead
+`MADGAB_TRACE_*` env block and adds the `no_phrase_hard_coding` fence as a CI step"). Gate 7 reads the
+first three. The fourth is the one a human actually merges, and no instrument adjudicates it - pass
+332 measured it by hand and recorded the result, which is exactly the shape rule 332 was written about
+(verified by one pass's shell, it is a figure, not a gate).
+
+Measured this pass, all four true:
+
+```sh
+git rev-list --count origin/main..review/drop-dead-trace-and-fence   # 1
+git diff --shortstat origin/main review/drop-dead-trace-and-fence    # 1 file changed, 2 insertions(+), 4 deletions(-)
+git diff --name-only  origin/main review/drop-dead-trace-and-fence   # .github/workflows/test.yml
+git show 8c88a59:.github/workflows/test.yml | grep -n no_phrase       # 23: --release --test no_phrase_hard_coding
+grep -c '^#\[test\]' tests/no_phrase_hard_coding.rs                  # 9
+```
+
+The last two are what make the payload claim *falsifiable* rather than merely true: the CI step the
+section says the branch "adds" names a test target that exists, and that target is the 9-test one the
+branch's own commit message says no CI target ever ran. So the section's content is sound. The gap is
+that **nothing would have said so if it were not.**
+
+**The extension is specified and deliberately NOT built this pass.** Population, stated first per
+rule 332: the `N file(s) changed, +A/-B` claims inside the `## Current gate status` block, compared
+against `git diff --shortstat origin/main <branch>` for each `review/` branch gate 7 has already found
+parented on `origin/main`; **fail-closed on ambiguity** - the block publishes exactly one such claim
+today, so if a future pass publishes a second the script must report the ambiguity and go red rather
+than pick one (a check that guesses is the pass-326 class). Read the numbers from the section, never
+from a hard-coded `1`/`2`/`4`. Two further claims in the same sentence are decidable the same way and
+are named here so the next pass need not re-derive them: the named test target must exist under
+`tests/`, and its `#[test]` count is whatever that file contains. Build it, plant it (wrong count,
+wrong file count, and the ambiguity case), and only then trust a green run - rule 332's "plant before
+you trust" is why this pass did not add three greps and publish 7/7 again.
+
+**Rule 333: a gate that checks a reference is not a gate that checks what the reference delivers.**
+Tip and base are properties of a branch; the payload is the property a human is about to merge. A
+standing list hardened from three checkable claims to four must not leave the fourth as prose sitting
+between two machine checks - the reader cannot tell which parts of that sentence are gated.
+
+**Nothing else moved.** The at-risk family is closed on content since pass 184 and was not re-run. The
+three human items are unchanged: **merge `review/drop-dead-trace-and-fence` = `8c88a59`** (1 commit
+on `0267ade`, 1 file, +2/-4, and its payload now verified against the file as well as the ref); delete
+the three superseded branches, with `git push origin --delete review/drop-dead-trace-env-on-main` for
+the remote-only one; **retire this recurring pass**; **fix the out-of-repo scheduler template**.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-verify tip, base or the
+payload by hand - if gate 7 is extended to the payload this pass (rule 333), do that instead of
+re-measuring, and plant the new check before trusting a green run; its population and its fail-closed
+ambiguity case are specified in this entry. **(3)** If `at-risk-delta.sh` bare exits **3**, attribute
+the new member first (pass 328: enumerate reflog transitions, keep the non-fast-forward ones; 125 of
+1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else
+is human, and retiring this recurring pass is still the highest-value action available.
