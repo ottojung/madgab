@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-7e04 (pass 282; gate NO; ACTED - the pass-202 census delta closed as an instrument artefact (97 not 96 was a key-match without a value comparison), so the repository never moved. See the pass-282 entry at the end of this file)
-owner: coord-4b1f
-updated: 2026-09-29T15:19:00Z
+prior_owner: coord-4b1f (pass 283; gate NO; five facts re-derived unchanged; ACTED - pass 282's open fence item was a live fail-open, fixed at b14f7a0, and its census sentinel now runs in both directions. See the pass-283 entry at the end of this file)
+owner: coord-7c58
+updated: 2026-09-29T15:30:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -26081,3 +26081,107 @@ Prefer no entry at all. Nothing is open. Both items pass 282 left are closed —
 now runs, one by a commit. Do not re-open pass 216's `key came from cells` adjudication, do not re-open
 pass 202's census delta, and do not re-run the at-risk census or the content sweep (closed on content
 since pass 184; their populations have not changed).
+
+## Pass 284 (coord-7c58)
+
+Gate: **NO.** The three scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples without phrase-specific hard-coding) are declined for the **thirty-seventh**
+time, on the itinerary's own `## Status: accepted and paused` plus the accepted-state document,
+unchanged from pass 283. Clause 2's conflict is textual and unchanged. Clause 3's no-hard-coding half
+holds as a standing invariant, re-measured below, not as work.
+
+Five facts, all executed this pass, all consistent with the last twenty:
+
+1. **Census — 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.** Published
+   fence-scoped `gawk` `FNR`/`ENDFILE` form copied **verbatim** (rule 14aa's procedure) over the
+   published scope `docs/work/items/*.md docs/*.md`, gawk exit 0. Pass 283's `work_item: false`
+   sentinel control was **not** re-run: it is a plant-scope check over `/tmp`, it changed no
+   repository file, and re-running it would add a reading without changing a number.
+
+2. **Agents — 0 non-terminal MadGab agents.** Joined on field `$5` (rule 272) against all **125**
+   registered worktree paths: **124 rows = 107 succeeded / 16 failed / 1 stopped**, 0 non-terminal.
+   The three host-`running` rows (`92e4` volodyslav, `109f1` skrynia, `94e7` assemblyp1) and the four
+   host-`idle` rows all have non-MadGab cwds and were **left running / untouched**. Nothing launched,
+   stopped or prompted.
+
+3. **Production fence — 0 in all six files except the one adjudicated-benign line, with all seven
+   property strings as live controls.** Alphabet **quoted from the committed file**
+   `docs/work/paused-recon/fence-alphabet.awk` (rule 14ak) rather than re-typed from memory, in both
+   sanctioned arms. Region counts **269/260/464/4242/67/269**, byte-identical to the instrument's
+   documented figures, so pass 283's `b14f7a0` repair changed no region. Readings
+   `phrase=0 decomp=0/0/0/1/0/0` across adjacency / lexical / approx / **lib** / wasm / main; the `1`
+   is `src/lib.rs:3597` `.expect("key came from cells")`, adjudicated benign at pass 216, **not
+   re-opened**. All **seven** control plants read `phrase=1 decomp=1` (the decomposed array plant
+   correctly reads `phrase=0 decomp=1` — the pair of arms is the point, rules 14t/14u), and the
+   no-plant control reads 0/0.
+
+4. **main untouched** — `git rev-parse --verify main` exits **128** (no local `main` ref; the exit
+   code is the point), `refs/remotes/origin/main` still `0267ade`. Nothing merged or pushed to main.
+
+5. **125 worktrees registered, `git worktree prune -n -v` empty, exit 0.** HEAD on
+   `post-milestone-acceptance` at `be774e3`, equal to `origin/post-milestone-acceptance` after a clean
+   `git fetch origin` (exit 0) — no divergence, no race, nothing to reconcile with another
+   coordinator.
+
+### ACTED — pass 283's published guard control is a STALE SPELLING, and following it re-opens the pass-214 blind spot
+
+Pass 283 fixed a real fail-open in the fence's empty-region guard at `b14f7a0` and verified it with
+three inputs, of which it published: *"comment-only now `rc=2` with the abort message (was `rc=0`/
+silent), test-fence-at-line-1 still `rc=2`, and a normal one-line source still `rc=0`."*
+
+**Two of those three reproduce exactly. The third does not reproduce, and it is the wrong input.**
+
+`testfence1.rs` — a file whose line 1 is `#[cfg(test)]` — reads **`rc=0`, region=2, empty stderr**.
+Pass 283 published `rc=2`. Cause: since pass 215 the boundary is **`mod tests`**, not the first
+`#[cfg(test)]` (rule 14y; the whole point of that repair was that a per-item attribute sits at
+`lib.rs:381`, 3,862 lines above the real test module at 4243). A file with `#[cfg(test)]` on line 1
+and no `mod tests` therefore has **no boundary at all**, its production region is its whole file, and
+`rc=0` with a 2-line region is the **correct** answer. So the published control does not fail — but it
+certifies a behaviour the instrument does not have, and it is labelled as the thing that must still
+fire.
+
+**Why this matters and is not cosmetic.** The control's *name* ("test-fence-at-line-1") is the exact
+name a future pass reaches for when verifying the empty-region guard, and the input that actually
+triggers the guard is a `mod tests` at line 1. Re-derived properly, the guard is **sound**: `modtest1`
+(`mod tests` on line 1) reads `rc=2` with the abort message; `modtest2` (`#[cfg(test)]` above
+`mod tests`) reads `rc=0` region=1; comment-only reads `rc=2`; a block comment followed by code
+reads `rc=0` region=2. The stale label is a live hazard in the dangerous direction: a pass that
+"reproduces" pass 283's third control, sees `rc=0` where the log says `rc=2`, and concludes the
+`b14f7a0` repair regressed would be **wrong**, and the obvious repair — restoring a cut on the first
+`#[cfg(test)]` — is *precisely* the pass-214 defect that excluded 3,861 lines of production code
+including the whole `impl Generator`. One stale control label, followed literally, walks the fence
+back to its worst historical blind spot.
+
+**Rule 14ac (new).** A control is a claim about the instrument's behaviour on a NAMED input, and a
+name that no longer denotes that input is a fail-open in the same direction as a missing control —
+it is worse, because it looks verified. Rule 14q established that a control whose result cannot be
+re-derived manufactures confidence; this is the same defect one level up, in the **input's name**
+rather than its result: the label outlived the boundary it was written against, and it survived
+because the control "reproduced" for thirty-eight passes under a boundary that changed at pass 215
+and nobody re-derived the input. **The general form: when a repair changes what a stage keys on, every
+control NAMED after the old key must be re-derived from the new key, not re-run under the old
+spelling** — a control whose name references a token the instrument no longer reads is testing
+nothing while reporting a number.
+
+**The fence is not wired into CI, and still is not.** `grep -rn 'fence\|paused-recon' .github/`
+returns nothing; `.github/workflows/test.yml` runs tests, an integration test, clippy and a smoke
+test, and never the fence. Pass 267/268 established this and pass 275/276 confirmed the underlying
+`fence.awk` defect was live; the wiring gap is therefore still open and is **not** closed by this
+pass. It is left open deliberately: wiring a `docs/work/paused-recon/` script into CI is a change to
+the release pipeline of an **accepted** release, which is exactly the class of change the paused
+itinerary forbids a scheduled pass from making unprompted. A human reopening MadGab, or a human who
+simply wants the invariant enforced on `main`, should decide it.
+
+No work claimed, no work assigned, no agent launched, no agent stopped, no agent prompted. No
+recovery branch warranted and none created. Blocked on the human reopen/confirm decision.
+
+### Next pass
+
+Prefer no entry at all. Nothing is open. Pass 283's two open items remain closed. Do not re-open
+pass 216's `key came from cells` adjudication, do not re-open pass 202's census delta, do not re-run
+the at-risk census or the content sweep (closed on content since pass 184; their populations have not
+changed), and do not re-run pass 283's `work_item: false` sentinel control — it lives in `/tmp`, it
+changed no repository file, and pass 284 confirmed the guard it was built to test is sound under the
+correct (`mod tests`) input spelling. The one genuinely open item is the CI wiring above, which needs
+a human decision, not another pass.
