@@ -25508,3 +25508,48 @@ rather than reporting if `EXPECT_REFS` (currently 205) has moved — and when it
 is this log's own pushed history before raising it, since each pass adds exactly one commit to
 `post-milestone-acceptance` and that commit is inside the exclusion set, not at risk. Per pass 274's
 standing instruction, prefer no entry at all if all of the above is unchanged.
+
+### Addendum to pass 278 — two further defects found in the new instrument, after its first push
+
+Recorded here rather than as a separate entry, because they were found in the minutes after
+`bc8e74e` was pushed and they change what a next pass must do. Both are the same shape as the three
+above, and both were caught only because the run was **repeated after a push** instead of trusted.
+
+**286 — a fetch can exit 0 and fetch nothing, and a stale mirror then reads as a finding.** After
+pushing, a re-run without `--fetch` reported **at-risk 91** (ref-held **3**) where the truth is **89**
+(ref-held 1): the two commits this pass had just pushed were not yet in the local `audit/*` mirror,
+so the previous pass's own log history appeared to be at risk. That is rule 14a / pass 187's stale-set
+effect firing on this pass's own commit — and the number was *plausible*, differing by exactly the
+number of commits just pushed, which is the least alarming possible wrong answer. The script's
+`--fetch` path then **failed for an unrelated reason and reported it wrongly** (see 287), and once
+fixed, re-fetching returned the count to **89**, confirming the 91 was entirely the mirror.
+
+The deeper defect: a refspec whose source pattern matches **no remote ref at all** is not an error to
+git. It is an empty result. The mirror silently stays stale while the script prints "re-fetched". That
+is the pass-202 `--prune` disaster's exact shape — a safety action that appears to succeed and does
+nothing — and the consequence is the one this file exists to prevent. **`--fetch` is now verified
+rather than trusted**: after fetching, the script reads `origin`'s actual
+`refs/heads/post-milestone-acceptance` tip with `ls-remote` and refuses unless the mirror holds
+**exactly** that commit. Verified by planting three partial-refresh states (tip not mirrored, probe
+unreadable, mirror behind), all three refused.
+
+**287 — a guard that fires for the wrong reason is worse than no guard, because it is believed.** The
+`--fetch` refspec was written `"+${SRC_NS}:${DST}"` where `DST` is the **bare prefix** `refs/remotes/audit`.
+That is not a cosmetic difference: git rejects it with `fatal: invalid refspec`, exit 128, and fetches
+**nothing**. The guard correctly refused — and named a completely unrelated cause, because `$?` inside
+the `||` branch was the exit of the *`printf`*, not of the fetch. Two spellings of the same prefix are
+now kept deliberately distinct and commented as such: `DST_FETCH` (the refspec destination **pattern**,
+which needs the trailing `/*`) and `DST` (the **bare prefix** for `for-each-ref`, which must *not* have
+one — rule 14j's WM_PATHNAME defect). The guard now captures git's own stderr and prints it, so a
+future failure is diagnosable from the message.
+
+**General form, and it is the same sentence three times now:** a safety mechanism is only a safety
+mechanism if its *success* is verified against an independent source and its *failure* is verified to
+be the failure it claims. Pass 202's prune deleted 203 refs and reported success; rule 14a's fetch
+succeeded and left the set stale; this pass's refspec failed and reported a different cause. All three
+are the same defect wearing different clothes, which is why they are rules and not anecdotes.
+
+**Consequence for the standing instruction.** Pass 278's "run `at-risk.sh --fetch` instead of
+re-deriving the census" now carries a hard requirement: **run it with `--fetch`, and treat a bare
+`at-risk.sh` run as measuring the previous pass's mirror, not the present one.** On this pass the two
+differed (91 vs 89) and the un-fetched one was wrong.

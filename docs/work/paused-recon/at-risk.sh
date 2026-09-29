@@ -52,6 +52,19 @@ cd "$REPO"
 # lives under refs/remotes/audit* purely so it cannot collide with the ordinary
 # origin tracking refs.
 SRC_NS='refs/heads/*'
+# The DESTINATION pattern needs its own trailing `/*`. `$SRC_NS:$DST` without it
+# is not a no-op or a cosmetic difference -- git rejects it (exit 128, "invalid
+# refspec") and fetches NOTHING, so the mirror stays stale while the operator
+# believes it was refreshed. That is the worst possible pairing: the safety
+# action silently does nothing, and the census then reports the previous pass's
+# own freshly pushed commit as at-risk. This exact bug shipped in this script's
+# first draft and was caught only because the run was repeated after a push.
+# Two spellings, deliberately kept distinct:
+#   DST_FETCH  the refspec destination PATTERN  (needs the trailing /*)
+#   DST        the bare PREFIX for for-each-ref (must NOT have one -- rule 14j:
+#              for-each-ref matches with WM_PATHNAME, and a glob there silently
+#              enumerates only the depth-4 refs and drops every nested namespace)
+DST_FETCH='refs/remotes/audit/*'
 DST='refs/remotes/audit'
 
 # Expected ref count. NOT a constant to be trusted blindly: it is asserted, and
@@ -76,9 +89,30 @@ fail() { printf 'at-risk.sh: %s\n' "$*" >&2; exit 1; }
 if [ "${1:-}" = "--fetch" ]; then
   # Rule 14a, amended at pass 202: fetch the mirror by its REAL source namespace
   # and never pass --prune to a mirror.
-  git fetch origin "+${SRC_NS}:${DST}" >/dev/null 2>&1 \
-    || fail "audit fetch failed (exit $?); refusing to report against a stale mirror"
-  printf 'audit mirror re-fetched from %s (no --prune)\n' "$SRC_NS"
+  # Capture git's own stderr: a bare "fetch failed" is not a diagnosis, and the
+  # whole reason this branch exists is that a failure must never be silent.
+  if ! git fetch origin "+${SRC_NS}:${DST_FETCH}" >/tmp/at-risk.fetch 2>&1; then
+    cat /tmp/at-risk.fetch >&2
+    fail "audit fetch failed -- refusing to report against a stale mirror"
+  fi
+  # A fetch can exit 0 and fetch NOTHING. The measured instance: a refspec whose
+  # source pattern matches no remote ref at all is not an error to git -- it is an
+  # empty result -- so the mirror silently stays stale while the operator is told
+  # it was refreshed. That is the pass-202 --prune disaster's exact shape (a
+  # safety action that appears to work and does nothing), and the consequence is
+  # the one this file exists to prevent: the previous pass's own pushed commit is
+  # reported as at-risk. So the fetch is VERIFIED, not trusted: the remote's
+  # actual tip of the accumulation branch must now be present in the mirror.
+  probe=$(git ls-remote origin refs/heads/post-milestone-acceptance | awk '{print $1}')
+  [ -n "$probe" ] || fail "could not read origin's post-milestone-acceptance tip; refusing to report"
+  if ! git rev-parse --verify --quiet "refs/remotes/audit/post-milestone-acceptance" >/dev/null; then
+    fail "fetch reported success but the mirror has no post-milestone-acceptance ref -- the refspec matched nothing; refusing to report against a stale mirror"
+  fi
+  mirrored=$(git rev-parse refs/remotes/audit/post-milestone-acceptance)
+  [ "$mirrored" = "$probe" ] \
+    || fail "fetch left the mirror at $mirrored while origin is at $probe -- the refresh was partial; refusing to report"
+  printf 'audit mirror re-fetched from %s to %s (no --prune), verified at %s\n' \
+    "$SRC_NS" "$DST_FETCH" "$mirrored"
 fi
 
 # ---------------------------------------------------------------------------
