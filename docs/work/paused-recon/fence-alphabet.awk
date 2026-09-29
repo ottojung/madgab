@@ -105,8 +105,15 @@ BEGIN {
     print "(hits|justice|dupe|hid|came|wreck|beach|recognize|speech|stupid|game)"
   } else {
     # Phrase level, either side of either example, case-insensitive.
-    # The apostrophe in "It's" is matched as `.` so a typographic variant
-    # (U+2019) cannot open a spelling gap.
-    print "(wreck a nice beach|hits justice dupe hid came|recognize speech|it.s just a stupid game)"
+    # The apostrophe in "It's" is matched as `.` -- but that covers a ONE-BYTE
+    # apostrophe only, and pass 253 measured that a U+2019 typographic apostrophe
+    # (three bytes: 342 200 231) is NOT covered. Cause: this host runs with LANG
+    # and LC_ALL both EMPTY, so grep and gawk operate in the C locale, where `.`
+    # matches a single BYTE; a three-byte character is three unmatched positions.
+    # So the comment here used to assert a guarantee the regex did not make, and
+    # the same commit's control (which planted only the ASCII apostrophe) read 1
+    # and appeared to confirm it. The typographic alternative is therefore spelled
+    # out as its own literal branch rather than folded into `.`.
+    print "(wreck a nice beach|hits justice dupe hid came|recognize speech|it.s just a stupid game|it’s just a stupid game)"
   }
 }

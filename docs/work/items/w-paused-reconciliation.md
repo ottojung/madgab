@@ -22468,3 +22468,81 @@ two-line "mismatch" that would have been published as mirror drift. `eaf7487` on
 `git ls-remote --heads origin | sed 's|refs/heads/||' | awk '{print $1" "$2}' | sort` against
 `git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/audit | sort`, then
 `diff`. Do not `join` on ref name; do not diff across the two different ref spellings.
+
+## Pass 253 (coord-7e4b) — gate NO, but ACTED: the fence's apostrophe guarantee was a false zero
+
+Template clauses 1–3 declined for the fifty-eighth time on `## Status: accepted and paused` plus the
+accepted-state document. Nothing claimed, launched, stopped, prompted or integrated; no new work item;
+no recovery branch; main untouched. **This pass found and repaired a real defect in the fence itself.**
+
+### Finding (new rule 14ap): a `.` in a character position is a BYTE wildcard, and a multi-byte
+### character is not one position
+
+`fence-alphabet.awk` arm (a) matched the apostrophe in `It's` as `.`, and its own comment asserted
+that this meant "a typographic variant (U+2019) cannot open a spelling gap". **That guarantee did not
+hold on this host.** `LANG` and `LC_ALL` are both EMPTY, so grep and gawk run in the C locale, where
+`.` matches a single BYTE. A U+2019 apostrophe is three bytes (`342 200 231`), so `it.s` cannot match
+`it’s` at all. Measured 2026-09-29 at source level (plant at `src/lib.rs` line 300, `const Q: &str =
+"It’s just a stupid game";`, read through `fence.awk` then the published regex):
+
+    plant                                    phrase   decomp
+    It's just a stupid game  (ASCII ')          1        2
+    It’s just a stupid game  (U+2019)           0        2      <-- FALSE ZERO, the defect
+    wreck a nice beach                            1        2
+    Hits Justice Dupe Hid Came                    1        2
+    recognize speech                               1        2
+    recognize speech just a stupid game            1        2
+    wreck a nice beach just a stupid game          1        2
+    wreck a nice beach recognize speech            1        2
+
+Note the second column: arm (b) read non-zero for the typographic plant **only because `stupid` and
+`game` are in the word-level alphabet**, not because arm (a) worked. The invariant was carried by the
+other arm; the arm whose comment claimed the guarantee was the one that failed. That is the shape of
+rule 14t/14q again in a new place: a documented guarantee that was never exercised by a control.
+
+The control that hid it: every recorded control to date planted the **ASCII** apostrophe, which `.`
+does match, and read 1, appearing to confirm the comment. A control covers the spelling it plants.
+**Rule: a comment that asserts an uncovered variant is itself a claim requiring a control, and a
+character class written for a UTF-8 assumption must be measured in the locale the fence actually
+runs in** (`locale` here: no `locale -a` output at all, `LANG=` and `LC_ALL=` empty).
+
+### Repair
+
+`fence-alphabet.awk` arm (a) now carries the typographic form as its own explicit branch:
+
+    (wreck a nice beach|hits justice dupe hid came|recognize speech|it.s just a stupid game|it’s just a stupid game)
+
+The `.` branch is kept so the ASCII form stays covered, and the comment above it now records the
+locale and the byte-level cause instead of asserting a guarantee it did not make. Re-measured after
+the repair: all eight source-level plants above read `phrase=1`, including the U+2019 one, which read
+0 before. The comment-form control still reads `phrase=0 decomp=1` (base `came` only), so the region
+stripper is unaffected and was not touched.
+
+### Five standing facts, re-derived (not copied)
+
+1. **Census 96** = 83 done / 12 superseded / 1 blocked, **0 open / 0 working**, 0 unparsed frontmatter,
+   0 duplicate frontmatter keys. Measured with a `gawk` FNR/ENDFILE fence-scoped frontmatter reader
+   over `docs/work/items/*.md docs/*.md`, run FIRST with no per-file loop, exit 0. A first hand-written
+   variant of that reader died on `attempt to use scalar 'fence' as an array` (exit 2) — the fence
+   flag must be a scalar distinct from the per-file key table, or gawk promotes it to an array.
+2. **0 non-terminal MadGab agents.** 131 MadGab cwd rows of 682 host rows; the single non-terminal
+   MadGab row is `3a8f01` `stopped` on the superseded `madgab-diversity-3a8f01` front, left stopped.
+   Host-`running` agents `109a3` (skrynia), `98f1` (antonina) and `b1` (antonina, 2m) are other
+   repositories and were **left running, untouched**. The stale `idle` row `a11d` sits in `/tmp`
+   and is not a MadGab cwd.
+3. **Fence 0 / decomp 0-0-0-1-0-0** across `src/adjacency.rs src/lexical.rs src/approx.rs src/lib.rs
+   src/wasm.rs src/main.rs`; region counts 269/260/464/4242/67/269 in the `| wc -l < FILE` form, not
+   command substitution. The one non-zero is the adjudicated-benign `src/lib.rs:3597`
+   `.expect("key came from cells")`.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched**: `git rev-parse --verify main` exits 128 (no local `main` ref), `origin/main`
+   `0267ade`, HEAD on `post-milestone-acceptance`.
+
+Pass 252's mirror check reproduces in its sanctioned form: `ls-remote --heads` (204) against
+`for-each-ref refs/remotes/audit` (204), prefix-stripped on both sides, `diff` **byte-identical, exit
+0, zero lines**. `recovery/at-risk-2026-09-29` = `eaf7487` on both arms. `audit/*` re-fetched FIRST
+per rule 14a with the no-`--prune` spelling, exit 0.
+
+**Next pass:** plant the U+2019 form as a standing control, not the ASCII one. Do not re-derive the
+`.`-means-byte claim from the comment; it is measured above. Blocked on the human reopen/confirm
+decision. Prefer no entry at all next pass.
