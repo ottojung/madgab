@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e7a
-updated: 2026-09-29T16:52:00Z
+owner: coord-71a4
+updated: 2026-09-29T17:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -27257,3 +27257,94 @@ One operational note for the next pass, from running the instrument rather than
 reasoning about it: piping any of these scripts into `head` yields **rc=141**
 (SIGPIPE), which looks like an instrument failure and is not one. Read them
 whole, or redirect to a file and read that.
+
+### pass 295 (coord-71a4) — gate NO; the last hand-typed standing fact is now an instrument
+
+The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples) declined for the
+fifty-eighth time, on `## Status: accepted and paused` plus the accepted-state
+document. Clause 2 remains a direct textual conflict: the itinerary's closing
+paragraph says post-milestone-acceptance "is no longer an automatic accumulation
+target". Nothing claimed, launched, stopped, prompted or integrated; no new work
+item; no recovery branch; `main` untouched.
+
+All five standing facts re-derived, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   Read from `census.sh` (rc=0), and separately by the hand form, which agrees.
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0`, the lib.rs hit being `.expect("key came from cells")` at
+   3597, adjudicated at pass 216. Regions 269/260/464/4242/67/269. The
+   eighty-fifth consecutive pass. Read from `clue-fence.sh` (rc=0).
+3. **0** non-terminal MadGab agents: 131 MadGab cwd rows of 708 host rows,
+   {succeeded 110, failed 20, stopped 1}. The one host-`running` agent (94a10,
+   assemblyp1) and the 5 idle rows are other repositories, left running and
+   untouched. Read from `agents.sh` (rc=0).
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance and in sync with origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; arms agree, both
+   stderr empty, both controls behaved; 205 exclusion refs; the audit mirror
+   re-fetched FIRST per rule 14a with no `--prune`, verified at d0f623c. No
+   recovery branch warranted, none created.
+
+**ACTED — `docs/work/paused-recon/census.sh` (a4bf3a4).** Pass 294 named this as
+the one remaining hand-typed fact, and it is the one a future pass is most
+likely to *act* on rather than merely record: "0 open / 0 working" is what the
+pause rests on, and a phantom `1 open` from the skills doc is what a scheduled
+pass would most plausibly launch against. All three of the hand procedure's
+failure modes are fail-open and all have fired live — rule 34 four times (the
+fenced yaml example in `docs/skills/work-items.md` reads as an open item),
+pass 220 (`work_item: false` shapes counted), and pass 218/252/285-289 (this
+item's own frontmatter regressed three times into unparseable YAML). The
+instrument reports by IDENTITY — `work_item: true` inside a *closed, leading*
+frontmatter — and refuses rather than publishing over frontmatter it has not
+validated: duplicate, unclosed and malformed frontmatter all abort; a `state`
+outside the five allowed values aborts; a census of 0 in a populated repository
+aborts.
+
+**The control had to be two-sided, or it proved nothing.** The first version
+asserted only that the selector reads 0 on the skills doc. That is vacuous if
+the file simply has no work-item text in it. It now asserts both halves: the
+real selector reads 0 there, AND a deliberately fence-blind one reads 1. If
+either moves, the trap is not where the control thinks and the run is
+discarded. This is rule 14r firing on this pass's own instrument, exactly as
+it did on pass 208.
+
+**Two of this pass's own defects, found by the arms rather than by reading:**
+
+- The state-validity guard's first form was
+  `allowed !~ ("(^|" allowed "|" seen_state "$)")`. The leading `^` alternative
+  matches the empty string, so the guard approved **every** value — it
+  approved `state: inprogress` in the arm designed to reject exactly that. A
+  refusal arm that cannot fail is worse than a missing one, because it is
+  reported as passing. Found because the arm was run rather than assumed; fixed
+  by deriving the alternation from the allowed list instead of hand-typing it
+  twice; all five arms re-run afterwards.
+- The non-schema-key report named all 120 keys across 49 files. That is not a
+  finding, it is this repository's long-standing convention, and a 120-line
+  stderr trains a reader to skim past the one line that is load-bearing. Now
+  once per file, with the count still published so a jump stays visible.
+
+Arms, each on a **count-preserving** plant so a preceding guard could not fire
+first and mask the guard under test: duplicate key → rc=4; unclosed frontmatter
+→ rc=4; `state: inprogress` → rc=4; `work_item: true` with no `state` → rc=4;
+non-key line inside the frontmatter → rc=4; and returning to a good file →
+rc=0. Two negatives that matter because a boundary that is not honoured is an
+instrument measuring nothing: a `---` horizontal rule in the *body* does not
+open a frontmatter, and a `---` after the closing fence does not re-open one.
+
+**No `src/` file was touched by any control**, verified by `git diff --stat --
+src/` being empty after the arm runs; all plants lived under a throwaway
+`/tmp` tree.
+
+NEXT: every standing fact now has a running instrument — `agents.sh`,
+`at-risk.sh`, `content-sweep.sh`, `clue-fence.sh`, `census.sh`, plus `fence.awk`
+as clue-fence's region stripper. A pass no longer hand-derives any of the five,
+and each instrument refuses rather than reporting a number it cannot defend.
+**Blocked on the human reopen/confirm decision.**
+
+Operational note carried forward from pass 294 and re-confirmed here: do not
+pipe any of these scripts into `head`; that yields rc=141 (SIGPIPE) and reads as
+instrument failure. Read them whole or redirect to a file.
