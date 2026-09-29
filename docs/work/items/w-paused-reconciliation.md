@@ -24030,3 +24030,27 @@ comparison away from closed, and both are named here as the first two acts on a 
 **Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open / 0 working items, 0
 non-terminal MadGab agents, 0 unreachable files, `main` untouched, all six control plants removed and the worktree
 byte-identical. **Blocked on the human reopen/confirm decision.**
+
+### Appended at 13:18Z — the push path needs an explicit key, and the default `git push` is a false negative
+
+`git push origin post-milestone-acceptance` with no `GIT_SSH_COMMAND` fails **`git@github.com: Permission denied
+(publickey)`**, and `ssh -T git@github.com` with no `-i` **succeeds** (`Hi ottojung!`). The two disagree because
+`ssh -G github.com` resolves the host's `user lubko` from the local config and offers `~/.ssh/id_rsa` /
+`id_ecdsa` / `id_ecdsa_sk` **before** `~/.ssh/id_ed25519`, so the *first* agent offered to GitHub is a key GitHub
+does not accept and the handshake aborts. Naming the key works:
+
+```sh
+GIT_SSH_COMMAND="ssh -o BatchMode=yes -i /home/lubko/.ssh/id_ed25519" git push origin post-milestone-acceptance
+```
+
+`918505e` is pushed and `origin/post-milestone-acceptance` = `HEAD` = `918505e`, verified by fetch-and-compare, not
+by exit status. One attempt also returned `remote rejected … (Internal Server Error)` — a GitHub-side 500, retried
+and clean on the next attempt, so **the push path has two distinct failure modes that both look like a lost
+handoff**: a wrong-key auth failure that is a *local* misconfiguration, and a transient server rejection.
+
+This matters for durability, not just for this pass. `work-items.md` says a claim "is valid only if the push
+succeeds", and rule 14a/14m in this log has audited `refs/remotes/audit` against `ls-remote` for 100+ passes, which
+means those passes' pushes *did* land — so this is a change in behaviour on this host, not a long-standing lie, and
+the re-verification above is what establishes which it is. **Recorded as a standing note: on this host a bare
+`git push` is not evidence of anything, and a pass must confirm its handoff by comparing `HEAD` to
+`origin/<branch>` after a fetch.**
