@@ -20498,3 +20498,137 @@ is right about heads and wrong about the set.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired sixty-two times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
+
+---
+
+## Pass 232 (coord-8e6b)
+
+**Gate answer: NO** — unchanged. The three scheduler-template clauses (launch or prompt Antonina
+agents / accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples without phrase-specific hard-coding) are
+**declined for the sixty-third time**, on the same two pieces of durable authority as every pass
+since 92: `docs/skills/itinerary-madgab.md` `## Status: accepted and paused` and
+`docs/accepted-state-2026-09-27.md` `## Operational status`. Nothing was claimed, launched,
+stopped, prompted, or integrated; no new work item was created; no recovery branch was warranted
+and none was created; `main` was not touched and is not touched. Clause 2 also still conflicts
+with the itinerary's own sentence that `post-milestone-acceptance` "is no longer an automatic
+accumulation target" — the itinerary wins, and correcting the out-of-repo template is a human
+task. Clause 3's no-hard-coding half is a **standing invariant verified this pass**, not work.
+
+**All five standing facts re-derived from the procedure, not copied from pass 231, and all hold:**
+
+1. **Rule 14a/14m repair HELD** — `audit/*` re-fetched FIRST by its real source namespace with
+   **no** `--prune` (exit 0), **205** refs = **204** heads + **1** tag, matching `ls-remote`
+   in both directions (`ls-remote --heads` = 204, `--tags` = 1). The bare-prefix form (14j) was
+   used and its cardinality asserted inline (14g) — and the assertion **fired on a real change
+   rather than a stale number**, because the set read 205 against the 204 several passes published
+   bare. That is pass 231's own note ("204 heads + 1 tag", "the ref and head counts are not
+   constants") arriving as a live cardinality trip rather than as a caution, so it is recorded
+   as a confirmation of the discipline and not as a new finding. `recovery/at-risk-2026-09-29` =
+   `eaf7487` byte-identical to `ls-remote` **full-form against full-form** (rule 14p), with the
+   `eaf7487` abbreviation asserted separately as a **prefix** test. **26** `recovery/*` heads on
+   origin, matching pass 231's 26.
+2. **Census 96** — 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open` / 0 `working`**, via the
+   published-scope fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`,
+   gawk exit 0 on GNU Awk 5.3.0, run **first** with no per-file loop. Both the `docs/*.md`
+   argument and the fence scoping are load-bearing (rules 14l, 34) and were kept.
+3. **Fence 0**, and this pass **pins the alphabet** — see the finding below. Measured **only**
+   through `gawk -f docs/work/paused-recon/fence.awk` per rule 14ai, region line counts
+   **269 / 260 / 464 / 4242 / 67 / 269**, exactly pass 231's expected figures, `fence.awk` exit 0
+   with empty stderr. Phrase form **0** in all six production regions; decomposed form
+   **0 / 0 / 0 / 1 / 0 / 0**, the `1` being `src/lib.rs:3597` `.expect("key came from cells")`,
+   adjudicated benign at pass 216, **not re-opened**.
+4. **Agents** — **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 660 host rows
+   (110 `succeeded` / 20 `failed` / 1 `stopped`). The 4 host-`running` agents (`92d2`
+   `volodyslav-92-review-a`, `98f2` `antonina-98-fixturereview`, `78f1` `qai-proviral-78-reapply`,
+   `94a9` `assemblyp1-94-cruxmap`) are **all other repositories** and were **left running**;
+   nothing launched, stopped, or prompted. Per the gate table, this row is re-derived from
+   `antonina agent list` and never carried forward.
+5. **125** worktrees registered, `git worktree prune -n -v` **empty**, exit 0. `main` untouched:
+   no local `main` ref (`git rev-parse --verify main` exit 128), `origin/main` `0267ade`, HEAD on
+   `post-milestone-acceptance`.
+
+**At-risk state UNCHANGED and safe.** Baseline `rev-list --all --reflog` **1,248** (pass 231
+published 1,247; the `+1` is pass 231's own pushed commit, which is on `origin` and therefore
+outside the at-risk set — the standing reason a baseline moves by one per pass). Both
+reflog-inclusive arms **88 / 88** `diff`-clean (`--not "${REFS[@]}"` against per-element-prefixed
+`^` forms, rule 14s), both refs-only arms **1 / 1** `diff`-clean; ref-held **1** (`514ed91`,
+`for-each-ref --contains` names exactly `refs/heads/scratch-3f8c62-landed`); reflog-only **87**;
+intersection **0**; union **88**; controls in both directions (`514ed91` present 1,
+`origin/main` `0267ade` absent 0). **No recovery branch warranted and none created.** The
+non-build content sweep was re-run from scratch with rule 14k's corrected per-record procedure
+(one `git status --porcelain` per worktree, one `awk` per line stripping the status prefix and
+filtering the path field, one `worktree<TAB>path` record): **34** non-build rows over **17**
+worktrees = **33** hashable + **1** directory row (`/workspace/madgab-scratch::examples/`),
+**32** distinct hashes among the 33, over **7,863** distinct known ids, **0 unreachable**. So 0
+need archiving, which is the outcome that keeps this class closed.
+
+### This pass's finding and its repair — rule 14ak
+
+**NEW RULE 14ak: an instrument's ALPHABET is part of the instrument, and an alphabet kept in prose
+is re-derived rather than quoted.** This is the direct consequence of rules 14t, 14u and 14v, and
+it is the same defect one level up from rule 14ai ("do not record a repair as a rule; repair the
+published spelling"). Those three rules correctly diagnosed that the no-hard-coding fence was
+blind — to a hard-coded **target** (14t), to the **decomposed** `["hits","justice","dupe","hid",
+"came"]` storage spelling (14u), and to `wreck a nice beach` specifically because the list had
+been written from **recall** (14v). Each fix was published as prose inside a pass entry, and
+`fence.awk` itself is by design only a *region stripper* that holds no matcher. So the alphabet
+had no quotable home, and **this pass re-derived it from its own memory before noticing** — the
+exact failure mode 14v names, entered through the door 14v's own remedy left open. A rule that
+records a corrected list is not the same as a file that serves it, and only the second survives
+being read by a pass that is not the one that wrote the rule.
+
+**Repaired here, in the same pass, per rule 14aj (repair the surface, do not record a rule about
+it): `docs/work/paused-recon/fence-alphabet.awk` now exists** beside `fence.awk`. It emits the
+matcher under two sanctioned forms — the phrase form (every canonical string, either side of
+either example, case-insensitively, apostrophe matched as `.` so a typographic U+2019 cannot open
+a spelling gap) and, with `-v decomposed=1`, the word-level form so the array spelling is not
+invisible. The alphabet is **derived by reading** `docs/accepted-state-2026-09-27.md` lines 25 and
+31 and cross-checked against `docs/continuation-approximate-search.md` lines 39-40, which name the
+same two pairs — never from the log's memory of them. The file is a *matcher*, not a decision:
+the caller counts, and publishes the matcher beside the number (rule 25).
+
+Verified before publishing, in both directions and for **every** string the property names rather
+than one representative literal (rule 14v's control form): all five spellings — `wreck a nice
+beach`, `hits justice dupe hid came`, `Hits Justice Dupe Hid Came`, `recognize speech`,
+`It's just a stupid game` — planted in a production-region copy read **1** under **both** arms,
+and the same literal planted above a `mod tests` boundary reads 0. The invariant is therefore
+true by measurement and not by luck, and the arm that returns 1 on a planted instance is an arm
+that can return 0 meaningfully.
+
+No other surface quotes a superseded instrument spelling. Pass 231 discharged rule 14aj's audit of
+the gate table's `| Production fence |` row — the surface with the most readers — and the
+standing-rules section (lines 141-907) contains **no** `#[cfg(test)]` region-boundary spelling at
+all, so there is no second stale instance to repair. Pass 231's "do not re-audit the gate table"
+is honoured.
+
+### Next action
+
+1. Expect the fence region to be measured **only** through `gawk -f docs/work/paused-recon/fence.awk`,
+   with region lines **269 / 260 / 464 / 4242 / 67 / 269**. Any table showing `lib.rs` at 380 has
+   been reverted (rule 14ai) and every figure in it is void in both directions.
+2. Expect the fence **alphabet** to be read from
+   `gawk -f docs/work/paused-recon/fence-alphabet.awk` (phrase) and
+   `gawk -v decomposed=1 -f docs/work/paused-recon/fence-alphabet.awk` (word level) — **never**
+   re-typed from memory or copied out of a pass entry (rule 14ak). Expect phrase **0** in all six
+   production regions and decomposed **0 / 0 / 0 / 1 / 0 / 0**, the `1` being `src/lib.rs:3597`,
+   adjudicated at pass 216, do not re-open. Run the five-string planting control before publishing
+   any 0.
+3. Expect census 96 (1 blocked / 83 done / 12 superseded, 0 open / 0 working) via the
+   published-scope fence-scoped gawk; baseline **1,249**; at-risk **1 / 87 / 0 / 88**; exclusion
+   set **205** (204 heads + 1 tag); **26** `recovery/*` heads; **125** worktrees; `main` absent.
+   Read the ref and head counts inline; they are not constants.
+4. Expect non-build **34 = 33 hashable + 1 directory row**, **32** distinct hashes, **0**
+   unreachable, using rule 14k's per-record procedure and rule 14ah's `LC_ALL=C sort -u`.
+5. **Rule 14ak's discharge is done.** If a future pass finds another surface re-deriving an
+   instrument instead of reading it, repair that surface in the same pass rather than recording a
+   rule about it.
+6. Otherwise **prefer no entry at all**. Every repository fact above reconciles and is safe; this
+   pass's only change was to the reconciliation log's own instrument, not to MadGab.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
+scheduler template, whose three clauses have now fired sixty-three times against an itinerary that
+contradicts them; and stop committing pass-log frontmatter instead of body sections — this log's
+frontmatter now carries **36** `prior_owner:` lines and **10** `updated:` lines, which is
+duplicate-key YAML that most parsers silently accept and no reader can use.
