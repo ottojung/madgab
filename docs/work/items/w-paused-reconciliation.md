@@ -29390,3 +29390,86 @@ What remains is unchanged and is a human decision, not a pass action:
       own reconciliation entry; resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 312 (coord-6b3e, 2026-09-29T19:11Z-19:24Z) — gate NO; six facts re-derived unchanged; ACTED — measured the log itself: the item carrying the pause's audit trail is 3.1x the next largest work item, and its frontmatter has broken discovery three times
+
+### The six standing facts, re-derived this pass (all unchanged)
+
+`item-state.sh` exit 0 (frontmatter parses, eight schema keys); `census.sh` exit 0 —
+**96** items, **0 open / 0 working / 1 blocked** / 83 done / 12 superseded, so 0 open /
+0 working for the 102nd time and the only non-terminal item is this one; `agents.sh`
+exit 0 — 729 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab agents**
+(110 succeeded / 20 failed / 1 stopped), the 2 host-`running` agents (`109a5` skrynia,
+`94c9` assemblyp1) other repositories and **left running untouched**; `clue-fence.sh`
+exit 0 — **0 canonical occurrences in all six production regions** under the three
+forms, 1 adjudicated benign per-word hit, 118 statement-forms scanned, all 15 controls
+as published; `at-risk.sh --fetch` exit 0 — mirror verified, residue unchanged, 514ed91
+present and 0267ade absent; `selfcheck.sh` 6/6. **main untouched**: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` 0267ade, HEAD on
+`post-milestone-acceptance`. 125 worktrees, `prune -n -v` empty, exit 0.
+
+**Zero code drift.** `git diff --name-only 0267ade..HEAD -- src/` is empty, so the
+accepted behaviour and the known unresolved limitation are exactly as accepted.
+
+### This pass's one measurement: the log is now the largest thing in the queue
+
+| | bytes | pass sections |
+|---|---|---|
+| `w-paused-reconciliation.md` | 2,379,745 | 229 |
+| next largest item (`w-4b1e07.md`) | 755,019 | — |
+| mean over `docs/work/items/*.md` | 53,236 | — |
+
+That is **3.1x the next largest work item and 45x the mean**, at ~10 KB appended per
+pass, and it has carried a documented repair for **unparseable frontmatter three
+times** — passes 218, 252 and 289, each a dated section heading in this file
+(lines 12, 24, 37). Those three repairs were each recorded as an isolated incident.
+Measured together they are a structural property, not a coincidence: the file that
+grows fastest is the one `work-items.md` requires every future coordinator to
+**parse**, and the duplicate non-schema `prior_owner:` keys that cause the breakage
+re-enter at the frontmatter precisely because the file is large enough to invite
+whole-block rewrites.
+
+This is not an instrument defect and it is not a change to any standing fact; it is
+the durability of the discovery mechanism itself, which is the mechanism
+`work-items.md` mandates and the only thing this recurring pass is for.
+
+### Rule 14ae (new)
+
+**A log that must be parsed is infrastructure, and infrastructure has a retention
+limit.** This item is simultaneously the pause's audit trail and its own largest
+regression risk, and the two have been reconciled 311 times by repairing the
+symptom. The general form: when a record is both evidence and the input to the
+mechanism that reads it, its growth rate is a correctness property, not a volume
+statistic — and the failure shows up as a metadata break nobody scheduled, which is
+the same fail-open shape as rules 22/28/34 and as the pass-308 false zero, one level
+up the stack.
+
+### What this pass did and did not do
+
+Ran the six instruments, measured this item's own size and its three documented
+frontmatter regressions, claimed the item by pushing the owner change
+(coord-4e8d -> coord-6b3e), and pushed only this entry. Declined the three
+scheduler-template clauses for the sixty-third time on `## Status: accepted and paused`
+plus `accepted-state-2026-09-27.md`: no agent launched or prompted, no historical item
+claimed, no new work item, no integration, no push to `main`, **no file under `src/`
+touched**, and this entry was kept short on purpose — pass 311's own warning that a
+pass manufacturing work to justify itself is the failure mode applies to the writing
+as much as to the finding.
+
+NEXT: no pass-actionable item is asserted, and none should be. The compaction
+described below needs a human, and the pause holds regardless:
+
+  (a) **Compact this log.** Move the per-pass entries to an archived file and keep a
+      one-line-per-pass index plus the last three full entries in the body. That
+      restores the frontmatter to a file no future pass needs to rewrite, and it is
+      the one durable change available here that is not a new defect to find.
+  (b) The fence is still not run by CI (`.github/workflows/test.yml` runs
+      `cargo test --lib --bins`, one integration target, and clippy). Human decision,
+      first raised at pass 267.
+  (c) Retiring this recurring pass: the six facts have now not moved for 102 passes.
+  (d) `itinerary-madgab.md` line 17 says `post-milestone-acceptance` "is no longer an
+      automatic accumulation target" while the scheduler template instructs every pass
+      to accumulate there "exactly as the itinerary requires". The itinerary wins;
+      resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**
