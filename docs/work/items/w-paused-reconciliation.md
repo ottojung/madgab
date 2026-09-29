@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b8c
-updated: 2026-09-29T10:12:00Z
+owner: coord-5d90
+updated: 2026-09-29T10:15:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -21329,3 +21329,108 @@ this log, is what keeps generating passes whose correct outcome is "nothing to d
 pass is the first in 239 whose outcome was not "nothing to do": the fenced-header repair was a
 genuine, self-contained fix to durable state, and it was available only because the census was
 re-derived rather than copied.
+
+## Pass 240 — coord-5d90 (2026-09-29T10:15:00Z)
+
+**Gate: NO.** The three scheduler-template clauses were declined for the fifty-second time, on
+`## Status: accepted and paused` in the itinerary plus the accepted-state document's operational
+status. Nothing was claimed, launched, prompted, stopped or integrated; no new work item; no
+recovery branch; `main` untouched at `0267ade`.
+
+### Standing facts, all re-derived from the procedure
+
+| Fact | Value |
+| --- | --- |
+| Work-item census | **96** = 1 blocked / 83 done / 12 superseded; **0 open / 0 working** |
+| Non-terminal MadGab agents | **0** of 131 MadGab cwd rows (670 host rows) |
+| Clue fence, production regions | **0** in all six `src/*.rs` files |
+| Registered worktrees | 125, `prune -n -v` empty, exit 0 |
+| `main` | no local ref (exit 128); `origin/main` `0267ade`; HEAD `4527067` in sync |
+
+The 7 host non-terminal agents (78c3, 78b2, 92f3, 92e3, 92d3, 98f3, 94a9) are other repositories
+and were left running untouched. The stale `idle` row `a11d` sits in `/tmp` and is not a MadGab cwd.
+At-risk state safe: both exclusion arms 88/88 `diff`-clean, ref-held 1, reflog-only 87,
+intersection 1, union 88, baseline 1,256, controls in both directions (514ed91 present,
+`0267ade` absent). `recovery/at-risk-2026-09-29` = `eaf7487` byte-identical to `ls-remote`.
+
+### This pass's finding — NEW RULE 14al: TWO DEFECTS THAT CANCEL ARE NOT A CORRECT INSTRUMENT
+
+The published census command is
+`gawk '…' docs/work/items/*.md docs/*.md docs/**/*.md`. Run verbatim it reports
+**1 blocked / 83 done / 1 open / 11 superseded = 96** — the right total, the wrong composition, and
+it names a live `open` work item that does not exist. A 2×2 over the two independent variables
+isolates both defects:
+
+| | shared fence toggle | per-file reset (`FNR==1`) |
+| --- | --- | --- |
+| **duplicated paths** | 1 blocked / 83 done / **1 open / 11 superseded** | 2 blocked / 166 done / 24 superseded |
+| **`sort -u`'d paths** | 1 blocked / 83 done / 12 superseded | 1 blocked / 83 done / 12 superseded |
+
+1. **Path duplication.** The three globs overlap: all 96 `docs/work/items/*.md` appear in both the
+   first and third shape, so the file list is 242 lines over 141 distinct paths and
+   `grep -c '^work_item: true'` counts **193** occurrences against **97** distinct files. GNU Awk
+   5.3.0 does **not** de-duplicate repeated file arguments (verified on a 3-file case: `records=3`),
+   so the shared-toggle/dup cell should read 192 — and it reads 96 only because defect 2 suppresses
+   the duplicates. The `^---$` clause resets `w` per item, not per file, so it does not dedupe.
+2. **Fence-toggle leak across files.** The toggle is never reset at a file boundary, and
+   `docs/work/items/w-paused-reconciliation.md` — *this file* — is the one file in the published
+   scope with an **odd** fence count (31). It appears at positions 97 and 241 of the list, so after
+   it the toggle is stuck ON and every subsequent file is treated as fenced. Consequences, both
+   real: `docs/continuation-approximate-search.md` (a genuine `superseded` item living outside
+   `docs/work/items/`) is **suppressed entirely**, and `docs/skills/work-items.md` is read with the
+   toggle OFF, so its ` ```yaml ` **example header** at line 13 is parsed as a real work item and
+   fabricates `1 open`. File-level `diff` of the two arms shows exactly this one-line substitution
+   and nothing else.
+
+So the total is right for the wrong reason: the 96 count is a **cancellation** between an
+over-count (duplication) and an under-count (leak), and it is stable only while the two errors
+coincide. Any change to the odd-fence file's fence count, to the glob list, or to the file order
+breaks the cancellation in either direction — pass 205's own documented "census leak" and this
+pass's phantom `open` are the same instrument, not two events. The count was never verified by the
+instrument; it was verified only because this pass re-derived it.
+
+This generalises rules 34 and 14o. Rule 34 caught the census trap on a per-file loop; rule 14o
+caught a delta no population reproduced. Neither asked whether a *correct total* was being produced
+by *competing* errors. The dangerous case is precisely the one that looks healthy: a check whose
+headline number is right while its named subjects are wrong, because the cancellation is invisible
+unless both variables are varied independently.
+
+**Standing procedure for any future pass** — use the per-file-reset, de-duplicated form, and assert
+all three of: path count (141 distinct), `work_item: true` file count (96), and state total
+(1 + 83 + 12 = 96):
+
+```sh
+shopt -s globstar
+LIST=$(printf '%s\n' docs/work/items/*.md docs/*.md docs/**/*.md | sort -u)
+for f in $LIST; do
+  gawk 'FNR==1{inb=0} /^```/{inb=!inb;next} inb{next}
+       /^work_item:[[:space:]]*true[[:space:]]*$/{w=1;next}
+       /^state:/{if(w){print $2;w=0;next}} /^---$/{if(w){w=0}}' "$f" 2>/dev/null | head -1
+done | sort | uniq -c
+```
+
+### Two further instrument repairs this pass
+
+- **Rule 14g's cardinality assertion is mis-scoped, and it fired on a false positive.** The
+  sanctioned enumeration `for-each-ref refs/remotes/audit refs/remotes/audit-tag` returned
+  **205**, not the standing 204, and the inline assertion aborted. This is **not** drift: the
+  namespaces are `refs/remotes/audit/` = **204 heads** and `refs/remotes/audit-tag/` = **1 tag**
+  (`approximate-search-milestone-2026-09-25` = `c0ecd7c`, present on origin). The standing 204 is a
+  heads-only figure being compared against a heads+tags enumeration. The assertion's expected value
+  must be namespaced, not global. Flagged because this is the first live firing of rule 14g on a
+  real value change, and a pass that trusted the abort without splitting the namespaces could have
+  recorded a spurious "audit mirror lost a ref" incident.
+- **The clue-fence control was planted at the boundary line.** Pass 216's two-direction control is
+  sound in substance, but a literal re-implementation plants the string *at* the `mod tests` line
+  (4243), which is itself production material, and the "inside the test module → expect 0" control
+  reads **1**. Planting at **4244** gives 0. A boundary control must land strictly after the
+  boundary, and the fence's own `exit` fires on the boundary line, not before it.
+
+### Next pass
+
+Prefer **no entry at all**; the standing facts have not moved and the item remains blocked on the
+human reopen/confirm decision. If an entry is written, re-derive the census with the 14al procedure
+above and record the *composition*, never the total alone. Repairing the fence parity of this file
+(31 fences, odd) is a real, small, self-contained durability fix that would remove the leak's
+trigger — but it is a change to durable state on a paused item, so it is left for a human or an
+explicit reopen rather than done unilaterally.
