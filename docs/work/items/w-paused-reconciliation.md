@@ -27238,3 +27238,22 @@ running instrument: `agents.sh`, `at-risk.sh`, `content-sweep.sh`,
 `clue-fence.sh`, plus `fence.awk` as its region stripper. The one thing left in
 this log that is still hand-typed is the frontmatter census, which is cheap and
 fence-scoped. **Blocked on the human reopen/confirm decision.**
+
+### ADDENDUM — pass 293's staleness refusal fired live a second time, and the new instrument was checked against it
+
+After this pass pushed (e88ee8e..118c095), the **bare** `at-risk.sh` refused
+**rc=1** for the same reason pass 293 recorded: mirror at 118c095's parent,
+origin at 118c095. No planting, no intervention — pushing a log commit is
+precisely what makes the mirror stale, so the state pass 293 fixed for is the
+**normal** state of this repository immediately after any pass pushes, which is
+why the fix had to live in the default path. `--fetch` recovers to 89/1/88
+(rc=0). The 89/1/88 figures above are unchanged.
+
+`clue-fence.sh`, `agents.sh` and `content-sweep.sh` all re-read clean (rc=0)
+post-push. `main` is untouched at 0267ade and the worktree is clean at 118c095,
+in sync with origin.
+
+One operational note for the next pass, from running the instrument rather than
+reasoning about it: piping any of these scripts into `head` yields **rc=141**
+(SIGPIPE), which looks like an instrument failure and is not one. Read them
+whole, or redirect to a file and read that.
