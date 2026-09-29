@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-1b6d (pass 173; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents among 131 MadGab/613 total, 0 fence hits in all six files, 7/86/0 at-risk commits over 199 audit refs and a 1,180 baseline, 125/125 worktrees with `prune -n` clean for the fourth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:40:00Z
+owner: coord-3f7a (pass 174; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents among 131 MadGab/613 total, 0 fence hits in all six files, 7/86/0 at-risk commits over 199 audit refs and a 1,181 baseline, 125/125 worktrees with `prune -n` clean for the fifth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:38:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15496,6 +15496,72 @@ registered worktree path. Re-derived from the authoritative source
 (`git worktree list --porcelain` → each `worktree` path → `[ -d ]`) it is **125 OK, 0 DEAD**, which
 agrees with `prune -n` being empty. The general form is rules 9/10/14 one level up again: **count
 the population the tool enumerated, never a pattern-matched superset of it.**
+
+**Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
+while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
+Navigate by the **last** `## Pass ` heading. Only a human can change the gate: fix or retire the
+out-of-repo scheduler template (which keeps arriving carrying clauses that contradict the
+itinerary — treat its pass count as unbound, not as a number to increment here), or confirm the
+pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
+
+## Pass 174 (coord-3f7a)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` plus a fresh wildcard fetch of `origin` (`origin/main` still
+`0267ade`, the accepted merge). No work created, claimed, launched, resumed or integrated; nothing
+pushed to `main`; no new recovery branch, because both the commit-level and the file-level checks
+came back at zero. The invocation's three unexecutable clauses are declined for the reasons
+already on record: accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"
+(the itinerary's last line says that branch "is no longer an automatic accumulation target",
+rule 19); launch or prompt Antonina agents and split independent fronts (rules 1 and 2 — the gate
+forbids both while paused); and "prioritize the canonical approximate-search examples" (case 2 is
+an **accepted known limitation** whose fix direction is precisely what the pause defers, rule 25).
+The "without phrase-specific hard-coding" qualifier is already the invariant this programme holds
+and the production fence verifies: the accepted implementation hard-codes none of the canonical
+phrases, and rule 1 forbids doing so to manufacture case 2. This log is the only thing that
+commits to `post-milestone-acceptance`, the carve-out rule 19 established.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Full `antonina agent list` = **613**; filtering on the cwd column for `madgab` returns **131**, and the non-terminal filter over those returns **nothing** — every one terminal. The 2 host-`running` agents (`118b1` `antonina-118-fix`, `43a1` `antonina-43-reconcile`) are other repositories and were **left running**, untouched. No superseded item's agent has restarted. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails** ("Needed a single revision"), so no local `main` ref exists and a push to it would still require creating one. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Forty-first consecutive pass at 0.** |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,181** (1,180 at pass 173; the delta is pass 173's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs, published beside the count it scopes per rule 38. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and the union is **93**; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the 86 are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. Delta over pass 173's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live** (`[ -d ]` per `git worktree list --porcelain` path), `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **fifth** consecutive pass. |
+
+**At-risk non-build content: 0, re-derived file-level as well.** Over the 125 live worktrees,
+`git status --porcelain` (no `--ignored`) filtered by rule 9's amended component filter
+`*/target/*|*/target-*/*|*/prof/*` gives **34 non-build rows** from **17** distinct worktrees =
+**33 hashable files** + **1 directory row** (`madgab-scratch/examples/`, correctly classified as a
+directory because `[ -d ]` matched before the `hash-object`). All 33 hash via `git hash-object` to
+blobs present in `rev-list --objects --all --reflog` (**7,432** field-1 ids, extracted with
+`awk '{print $1}' | LC_ALL=C sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and
+no recovery branch was created. The 33 files hash to **32** distinct blobs, matching pass 173.
+
+**Rule 22 restated because the control is the only thing that makes the 0 mean anything.** Both
+`comm` inputs were sorted *inside the pipeline that produced them* and verified with
+`LC_ALL=C sort -c` before use. The negative control appended a fresh `git hash-object -w` sentinel
+into the sorted blob list and read **1**; the unadultered baseline read **0**. A check whose
+sensitivity has been demonstrated can return a negative result; one that has not can only return a
+number of unknown meaning.
+
+**`main.rs`'s 0 is now reached by the filter rather than by the narrative that explained it in
+earlier passes.** Re-deriving the two `main.rs` hits directly (`grep -inE` over the whole file,
+no `#[cfg(test)]` boundary to stop at) returns **no matches at all**. The prior passes' account —
+two hits at lines 9 and 11 of the `//!` CLI usage doc comment, being *targets* quoted on a command
+line — describes literals that are no longer in the file: the current usage block quotes
+`It's just a stupid game`, `Coors light` and `It's just a stupid game` again as the `--transcribe`
+example, and **neither of the two *clue* phrases appears anywhere in `src/main.rs`**. The 0 is
+unchanged and still correct, but the explanation attached to it had become stale in the way
+rule 25 warns about: a claim that is not wrong about a number can still be wrong in the reader's
+hands. The corrected statement, to be carried forward: **`main.rs` contains 0 clue literals and 0
+target literals from the canonical pair in either case, and its `//!` block quotes target phrases
+only.** The invariant is the per-file 0, never the route by which it was reached.
 
 **Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
 while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
