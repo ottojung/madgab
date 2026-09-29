@@ -39,14 +39,46 @@
 #
 # Region-line counts to expect on the six production files, measured
 # 2026-09-29 (each with `wc -l` on this script's stdout -- NOT via command
-# substitution, which strips trailing blank lines and under-reads by 33 on
-# lib.rs): adjacency.rs 269, lexical.rs 260, approx.rs 464, lib.rs 4,242,
+# substitution): adjacency.rs 269, lexical.rs 260, approx.rs 464, lib.rs 4,242,
 # wasm.rs 67, main.rs 269. lib.rs was 380 under the superseded boundary; the
 # change is the blind spot closing. The other five moved by +1 each, because
 # the old boundary sat on the `#[cfg(test)]` line above `mod tests` and the
 # corrected one sits on the `mod tests` line itself, so the attribute line is
 # now inside the region. Pass 213/214 published 268/259/463/380/67/269; those
 # five figures are superseded, not contradicted.
+#
+# THE "NOT via command substitution" WARNING IS A REAL OFF-BY-ONE, and the
+# magnitude published beside it (pass 214: "under-reads by 33 on lib.rs") was
+# WRONG -- it was itself a command-substitution reading, and it propagated for
+# 34 passes. Re-measured 2026-09-29 (pass 249) on this script's stdout:
+#
+#     file          pipe | wc -l    $( ) cmdsub    difference
+#     adjacency.rs      269            268          1
+#     lexical.rs        260            259          1
+#     approx.rs         464            463          1
+#     lib.rs           4242           4241          1
+#     wasm.rs            67             66          1
+#     main.rs           269            268          1
+#
+# The difference is exactly 1 in every file, not 33. Cause: `$( ... )` strips the
+# single trailing newline, and the LAST line of every production region is the
+# non-blank `#[cfg(test)]` (four files) or `}` (wasm.rs, main.rs), so `wc -l`
+# counts one fewer newline-terminated line. The old figure of 33 was read off a
+# region that ended in blank lines, which is not what this fence emits.
+#
+# CONSEQUENCE FOR THE LOG, and why this matters beyond cosmetics: passes 247 and
+# 248 published "Region counts 268/259/463/4241/66/268" -- the command-substitution
+# form -- while THIS FILE, correctly, documents 269/260/464/4242/67/269. So for
+# two passes the log's own region counts disagreed with its own instrument by
+# exactly one in all six files, in the direction that understates the region, and
+# neither pass noticed because the six numbers were internally consistent and the
+# invariant they gate (phrase 0 / decomp 0-0-0-1-0-0) is unaffected by one line.
+# A figure that is off by one in EVERY file is not six coincidences; it is a
+# defect in the measurement, and the tell is uniformity (rule 14ao).
+#
+# PUBLISH region counts ONLY in the `| wc -l` form, and re-derive them from this
+# file's numbers above. A pass that gets 268/259/463/4241/66/268 is reading
+# through command substitution, not observing a change in the region.
 
 BEGIN {
   inblock = 0
