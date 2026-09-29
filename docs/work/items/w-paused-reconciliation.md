@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2f9d
-updated: 2026-09-29T16:38:00Z
+owner: coord-7a1e
+updated: 2026-09-29T16:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -26827,3 +26827,94 @@ able to fail the unrepaired state; if the instrument cannot distinguish good fro
 "repaired" against it is rule 14r at the level of the repair, and the weaker check that replaces it
 quietly narrows the claim without anyone noticing.** The pass-218 text should be read as "the
 *frontmatter block* was unparseable", which is true and is now verifiable with the instrument above.
+
+## Pass 291 (coord-7a1e) — gate NO; five facts re-derived unchanged; ACTED — two independent
+### fail-open defects in the fence's own matcher, one of them the most dangerous kind found yet
+
+**Gate answer: NO.** The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritise the
+canonical approximate-search examples without phrase-specific hard-coding) are declined for the
+fifty-ninth time, on `## Status: accepted and paused` in [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+plus `## Operational status` in [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
+Clause 2 is still the same direct textual conflict: the itinerary's closing paragraph says
+post-milestone-acceptance "is no longer an automatic accumulation target". Nothing claimed,
+launched, stopped, prompted or integrated; no new work item; no recovery branch; **main untouched** —
+this entry is committed on `post-milestone-acceptance`, where the item already lives.
+
+**Five standing facts, re-derived from the procedure (rules 14i/14k).**
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working**, with 0 unparseable
+   frontmatter blocks. The 97th candidate re-appeared and was resolved by the same mechanism pass
+   202 named: `docs/work/items/w-0f3a17-shortlist-rule.md` carries a work-item-shaped header with
+   `work_item: false`, so it is correctly excluded. Verified by enumerating the (work_item, state)
+   pairs explicitly: `T|blocked` 1, `T|done` 83, `T|superseded` 12, no-key 4, and exactly one
+   `|done` whose `work_item` value is `false`. A count that silently includes or excludes one item
+   is not a 1% error, it is the same number as 95 and 97.
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 708 host rows. The 1 host-`running`
+   agent (`94a10`, /workspace/assemblyp1-94-tw2) and the 5 host-`idle` rows (`78b2`, `92f3`, `92e3`,
+   `98f3`, `a11d`) are all **other repositories** and were left untouched. Nothing launched,
+   stopped or prompted.
+3. **Clue fence 0 in all six production files**, and the region line counts reproduce the pinned
+   values byte-for-byte: **269 / 260 / 464 / 4,242 / 67 / 269** (adjacency, lexical, approx, lib,
+   wasm, main), `fence_rc=0` and 0 bytes of stderr on every one. The single per-word hit is
+   `src/lib.rs:3597`, `.expect("key came from cells")` — ordinary English past tense in a panic
+   message, **not** a hard-code — reproducing pass 216's finding exactly, cause included, for the
+   eighty-second consecutive pass.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched**: no local `main` ref (`git rev-parse --verify main` exit 128), `origin/main`
+   `0267ade`, HEAD `f717855` in sync with `origin/post-milestone-acceptance`.
+
+Rule 14a/14m obeyed: `audit/*` re-fetched FIRST by its real source namespace with **no** `--prune`
+(`git fetch origin '+refs/heads/*:refs/remotes/audit/*'`, exit 0, `aa8bedb..f717855`). At-risk
+content state deliberately not re-measured (unchanged for 107 passes; the content sweep has been
+closed on content since pass 184 and none of its inputs has moved).
+
+**This pass's finding — the fence's matcher is fail-open in the direction that hides a hard-code,
+and its alphabet derivation is fail-open in a second, independent way. Both fired live, on me.**
+
+*(i) NEW RULE 291: a case-insensitive alternation of the clue alphabet over production code is
+fail-OPEN, not merely noisy.* The standing fence is published in a case-SENSITIVE spelling
+(`hits|justice|dupe|hid|came|wreck|beach`) and reads 0. Rule 14v requires the alphabet to be derived
+from the property document, and doing that correctly — `sed -n '25p;31p'` of the accepted-state doc,
+strip backticks, split the two clue phrases into words — yields a MIXED-CASE alphabet
+`Came|Dupe|Hid|Hits|Justice|a|beach|nice|wreck` because the doc capitalises the classical clue. The
+obvious next step, `-i` to make the match case-insensitive as the document's own capitalisation
+demands, turns a per-word count of 1 into **1,186 in `src/lib.rs` alone** and 39/61/163/30/119 in
+the other five files. All of that is ordinary English: 102 of the lib.rs hits are the word `a` on
+its own. So the two spellings are not "the same check at different sensitivities" — the
+case-insensitive one has **no usable specificity at all**, because a clue word set drawn from real
+English collides with English. Worse, the failure is *asymmetric in the dangerous direction*: a
+hard-code planted in the wrong case reads 0 under the standing spelling, and a plant of an ordinary
+common noun reads as a hit under the derived one. **A hard-coding fence must be pinned to the
+*literal* the property forbids; case-insensitivity is not a tightening, it is a different and
+unusable check. The invariant that is actually worth keeping is the joined-phrase regex (0 in all
+six) plus the case-SENSITIVE per-word regex (0 in five, 1 known-benign in lib.rs), and the mixed-case
+alphabet must never be assembled from a document without pinning the case of each word explicitly.**
+
+*(ii) NEW RULE 292: an unanchored alternation built by `paste -sd'|'` is a fail-open in the loudest
+possible way — the empty alternative matches everything.* Building the matcher as
+`tr`/`paste -sd'|'` produced a **trailing `|`** in the pattern, so the final alternative is the empty
+string. In POSIX ERE an empty alternative matches every line: my per-word count came back as
+**269 / 260 / 464 / 4,242 / 67 / 269** — that is, *exactly the region line count of every file*.
+The signal I was measuring had become the denominator. This is materially worse than the census
+trap of pass 290, which produced a false zero, because this one produces a number that looks like a
+well-formed measurement and is in fact `wc -l` wearing a regex's clothes. A pattern that yields its
+own input's line count is self-refuting, and the check is one line: a pattern intended to match seven
+words must not match `zzz`. Caught before publication. **General form: any count computed by
+`grep -cE "$(derived list)"` is only meaningful if the derivation cannot emit an empty element; a
+count equal to the population size is a fail-open signature, and it should be asserted, not noticed.**
+A neighbouring trap in the same sweep: building the pattern with `grep -oE` over a `tr`-split also
+silently dropped words, so the two independent defects masked each other — the too-broad pattern was
+what made the missing-word defect visible, and had the pattern been correct the dropped words would
+have narrowed the alphabet and hidden a genuine hard-code.
+
+**Not re-run, deliberately:** the non-build content sweep (closed on content since pass 184). The one
+genuinely open item remains **pass 267's CI wiring** — the repository ships an executable
+hard-coding fence that no CI job runs (`.github/workflows/test.yml` runs tests and clippy only).
+That is a human decision, not a pass action.
+
+**Next pass:** re-derive the five facts; there is no useful coordination action available while the
+gate is NO — no item to claim (0 open / 0 working), no MadGab agent to prompt (0 non-terminal), no
+front to integrate, no recovery branch warranted. This pass's two findings are instrument-level, so
+the correct durable state is the state before it plus rules 291 and 292. **Blocked on the human
+reopen/confirm decision.**
