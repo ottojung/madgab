@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-c4d7
-updated: 2026-09-29T17:04:00Z
+owner: coord-4e7a
+updated: 2026-09-29T16:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -27085,3 +27085,156 @@ state of this repository immediately after any pass pushes, which is why the fix
 in the default path and not only behind a flag. The 89/1/88 figures above remain the
 verified truth, measured after a rule-14a re-fetch; this addendum is a live confirmation
 of the guard, not a change to any number.
+
+## Pass 294 (coord-4e7a) — the clue fence's MATCHER half is now an instrument, and the alphabet it derives contains `a`
+
+Gate **NO** again, the sixty-first time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict — the itinerary's closing paragraph says
+post-milestone-acceptance "is no longer an automatic accumulation target".
+Nothing claimed, launched, stopped, prompted or integrated; no new MadGab work
+item; no recovery branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived, all unchanged:
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working
+   (fence-scoped single-pass gawk with `ENDFILE`, gawk exit 0). 95 of the 96 are
+   in `docs/work/items/`; the two items-dir files without `work_item: true` are
+   the README and the `w-0f3a17-shortlist-rule` front record, exactly as pass 220
+   established.
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0`, the single lib.rs hit being `.expect("key came from cells")` at
+   3597, adjudicated at pass 216. Regions 269/260/464/4242/67/269, measured in
+   the `| wc -l` form. The eighty-fourth consecutive pass.
+3. **0** non-terminal MadGab agents, read from `agents.sh` (rc=0): 131 MadGab cwd
+   rows of 708 host rows, state histogram {succeeded 110, failed 20, stopped 1}.
+   The one host-running agent (94a10, assemblyp1) and the 5 idle rows are other
+   repositories; a11d sits in /tmp. All left running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved; 205 exclusion refs; the audit mirror
+   re-fetched FIRST per rule 14a with no `--prune` and verified at e88ee8e. No
+   recovery branch warranted, none created.
+6. content sweep re-run for completeness: 0 unreachable, all three controls
+   behaved, 125 worktrees, 35 non-build dirty rows all hashable.
+
+### THE FINDING — the fence was half an instrument, and the half that detects is the half that was hand-typed
+
+`fence.awk` is the **region stripper only** (rule 14x, pass 213): it emits each
+file's production region and matches nothing. The detection half — deriving the
+clue alphabet, building the pattern, counting hits — lived entirely in the
+CALLER, which meant it was re-derived by hand in every one of ~294 passes. That
+hand half has failed open **twice, in two different directions**, both times
+producing a clean exit 0 and a plausible number:
+
+- **pass 290**: `grep -c` run over a region the fence had just collapsed to one
+  line, and the region count itself was nearly published as the result;
+- **pass 292**: the pattern was built with `tr`/`paste -sd'|'`, leaving a trailing
+  `|` — an empty final alternative, which in POSIX ERE matches every line. The
+  per-word count came back as 269/260/464/4242/67/269, i.e. *exactly the region
+  line count of every file*. The signal had become its own denominator.
+
+Pass 293 audited the DEFAULT path of every instrument and found `at-risk.sh` was
+guarded only behind its optional flag. The same question asked of the fence has a
+worse answer: `fence.awk`'s only path is fine, and the half that actually decides
+"is there a hard-coded canonical phrase" was never a file at all. Fixed in
+**96e43b1**, `docs/work/paused-recon/clue-fence.sh` (mode 100755), in the same
+refusing style as `agents.sh` and `at-risk.sh`.
+
+### The two defects the instrument surfaced, both about the alphabet
+
+**1. The derived clue alphabet contains the single letter `a`** — the article in
+`wreck a nice beach`. A one-letter word is not evidence of anything: it matches
+every English sentence. My first run of the new instrument reported **74**
+per-word occurrences in `src/adjacency.rs` alone, and would have reported a
+similar figure in every file. That is the fail-open direction in its purest
+form — a hard-code-free file scores 74, so a real hard-code inside that number is
+invisible, and the check is not merely noisy but actively useless. The per-word
+form therefore drops single-letter words **by a derived, inspectable rule**
+(`length($0) > 1` applied to the derived list) rather than by a hand-typed
+exception list, which could quietly drop a real word. The joined form keeps all
+nine, so a contiguous `wreck a nice beach` is still caught outright, and the
+decomposed-array control proves the per-word form still trips on the other eight.
+
+**2. The per-word count this log has published for ~40 passes was only ever
+meaningful because the hand derivation silently dropped that same word.** Every
+pass that reported "0-0-0-1-0-0" was running a matcher that excluded `a`; not one
+of them recorded the omission, and not one of them wrote down *why*. The rule was
+in practice carried in someone's head, which is the definition of a procedure
+rather than a measurement (rule 14k). It is now explicit in the instrument and
+named in its header.
+
+The general form is worth stating because it is not specific to this repository:
+**an alphabet derived from a document will contain the document's function words,
+and a matcher built over it will therefore score ordinary prose as evidence of
+the thing it is looking for.** The failure is silent and directional — the
+instrument does not read as broken, it reads as alarming, so the tempting
+response is to loosen it until the number looks calm. The right response is to
+drop the uninformative element *and say so*.
+
+**A third, smaller trap, caught by the guard while writing it:** my first pattern
+build assigned the separator before the element rather than after, producing
+`|wreck`. The rule-292 assertion fired on construction and refused to report
+anything — the guard doing its job on its own author, unprompted, which is the
+clearest possible demonstration that a refusal is load-bearing rather than
+decorative. Had the assertion come after the count, this pass would have published
+a live `wc -l` reading as a fence result.
+
+### Verification, in both directions
+
+Positive and negative controls, all read off the run: planted above the
+`mod tests` boundary **1**; planted below it **0** (the negative control that
+matters most — a boundary that is not honoured is a fence measuring nothing);
+`mod tests {` inside a `/* */` block comment **1**; `//` inside a string literal
+**1**; decomposed array **8** per-word hits, the joined form correctly blind to it
+(rule 14x); the rule-292 self-check, the pattern against `zzz`, **0**.
+
+Refusal arms, each on a **count-preserving** plant so that the region guard could
+not fire first and mask the guard under test: a contiguous clue planted by
+overwriting an existing production line → **rc=1**; an unexplained per-word hit →
+**rc=1**; a new `src/*.rs` not in the file list → **rc=1** ("a production file
+outside the fence is an unfenced production file"); a region-count drift → **rc=1**.
+The first attempt at each plant failed for the *wrong* reason — a prepended line
+shifted the region count, and an appended line landed *below* the boundary — and
+both were re-run properly. **A control that passes for the wrong reason is not a
+control**, and it is the same class as every fail-open in this log: right answer,
+wrong path, nothing to notice.
+
+**The production tree is byte-identical to HEAD.** No control modified any
+repository `src/` file; the plants were made and reverted within the pass and
+verified with `diff` against `git show HEAD:src/adjacency.rs`.
+
+**The instrument is verified against the six-file list, and the list itself is
+asserted against `src/`.** A seventh production file would be silently unfenced
+under a hand-typed list, which is the same "a procedure every pass re-derives"
+defect one level down.
+
+### The standing obligation, unchanged and still a human decision
+
+**CI runs no fence.** `.github/workflows/test.yml` runs tests and clippy only;
+the fence exists, is now a real instrument, and nothing in CI invokes it. First
+raised at pass 267 and unchanged since. Wiring it is a repository-policy change
+to a workflow on the accepted release line, not a coordinator action, and it is
+not taken here.
+
+### One gate clause is settled, not merely declined
+
+Clause 3 asks to "prioritize the canonical approximate-search examples without
+phrase-specific hard-coding". The no-hard-coding half of that is a **standing
+invariant, now measured by a refusing instrument rather than by hand** — 0 in all
+six production regions, with controls that fire in both directions. There is
+nothing to prioritize: the property already holds and the remaining limitation
+(the classical `Hits Justice Dupe Hid Came` clue not being in the production
+candidate pool) is a whole-path enumeration problem, documented in the
+accepted-state document, and reopening it is a human decision.
+
+NEXT: the five facts stand, and the fence row in every future pass is read from
+`clue-fence.sh` rather than re-derived. All five standing facts now have a
+running instrument: `agents.sh`, `at-risk.sh`, `content-sweep.sh`,
+`clue-fence.sh`, plus `fence.awk` as its region stripper. The one thing left in
+this log that is still hand-typed is the frontmatter census, which is cheap and
+fence-scoped. **Blocked on the human reopen/confirm decision.**
