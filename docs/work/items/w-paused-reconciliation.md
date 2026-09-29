@@ -29214,3 +29214,179 @@ target, and clippy), so a hole nobody plants stays invisible — and passes 308,
 and 310 are a three-pass demonstration that an unrun fence's silent zero persists.
 (a) and (c) are one decision. (b), retiring this recurring pass, is unchanged.
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 311 (coord-4e8d, 2026-09-29T19:02Z-19:22Z) — gate NO; six facts re-derived unchanged; ACTED — pass 310's named next action is DONE: the fence now detects a canonical clue assembled from adjacent string literals, and the standing 0 is a 0 that means something
+
+### What changed, and what did not
+
+`clue-fence.sh` gained a THIRD measurement form — the **literal-join** form —
+backed by a new instrument, `docs/work/paused-recon/literals.awk`. Before
+matching, each statement's string literals are reassembled the way Rust
+reassembles adjacent literals, so a clue written across lines is matched as the
+phrase it is instead of as N lines that happen to contain no whole clue word.
+The form reads the SAME stripped regions the other two forms read, so the
+test-module boundary still applies to it, and that is asserted in both
+directions.
+
+**No file under `src/` was touched.** `git diff --name-only -- src/` is empty
+for this pass. So pass 307's 46-green / 1-`#[ignore]`d integration figure, the
+accepted state's behaviour, and the known unresolved limitation are all exactly
+as they were. This is a change to the *measurement of an instrument*, which is
+what pass 310 named as pass-actionable, and it touches no production behaviour.
+
+### The hole, restated as it was actually closed
+
+Pass 310 measured, on a plant with the clue split mid-word across adjacent
+literals:
+
+    joined hits: 0     per-word hits: 0        <- undetected, both forms
+
+After this pass, the same plant reads **1** on the new form, and the two old
+forms' readings are printed beside it so the gap stays visible in the output
+rather than being closed silently:
+
+    literal-join form, clue split MID-WORD  -> 1 (must be >= 1); joined form read 0, per-word read 0 (the pass-310 hole)
+
+Two further plants, each covering a split the first does not: the split at a
+**word boundary** (1, joined form 0) and a **target-side** split
+(`if t == "recognize " "speech"`, rule 14t) (2). And one negative: the same
+mid-word plant **below** `mod tests` reads 0, so the new form did not become a
+bigger hole than the hole it closed.
+
+The standing measurement is unchanged at **0 in all six production regions**,
+and it now rests on 118 scanned statement-forms rather than on 2 line-scoped
+forms over 5571 lines. That is the point: the 0 was already true and is still
+true, but the reading of it is different, and a pass that cannot distinguish
+"no hard-code" from "the form cannot see this spelling" cannot discharge the
+no-hard-coding property.
+
+### Fail-closed, verified by planting the whole instrument
+
+A clone of `docs/` + `src/` with the mid-word plant inserted into
+`src/main.rs` aborts with exit 1 and names the statement:
+
+    src/main.rs  region 275  LITERAL-JOIN 1  UNEXPLAINED -- a canonical clue
+      assembled from adjacent string literals:
+          wreck a nice beach
+    clue-fence.sh: src/main.rs has 1 literal-join canonical clue occurrence(s)
+      -- a clue split across literals is the same hard-code; refusing
+
+That is the assertion a fence has to make, and it is the one the pre-311 forms
+could not make at all.
+
+### The six standing facts, re-derived this pass
+
+1. **Census by IDENTITY** (`work_item: true` inside a closed leading block):
+   96 items — 0 open / 0 working / 1 blocked / 83 done / 12 superseded, 0
+   unparsed frontmatter. `census.sh` exit 0. The single blocked item is this
+   one. 0 open / 0 working is unchanged for the 101st time.
+2. **Agents**: 729 host rows, 131 with a MadGab cwd, all terminal
+   (110 succeeded / 20 failed / 1 stopped) — **0 non-terminal MadGab
+   agents**. 2 host-`running` agents (`109a5` skrynia, `94c9` assemblyp1) belong
+   to other repositories and were left running untouched; 5 host-idle rows are
+   likewise other repositories or `/tmp`. Nothing to prompt, recover, or
+   integrate; nothing was launched. There is no worktree or branch to review.
+3. **Clue fence**: 0 canonical occurrences in all six production regions under
+   THREE forms now, 1 adjudicated benign per-word hit in `src/lib.rs`
+   (`.expect("key came from cells")`, pass 216). 15 controls behave as
+   published — the 11 from passes 308–310 plus the 4 added here.
+   `selfcheck.sh` green at 6/6.
+4. **Worktrees**: 125 registered, `git worktree prune -n -v` empty, exit 0.
+5. **main is untouched**: no local `main` ref (`rev-parse --verify main` exit
+   128), `origin/main` 0267ade, HEAD on `post-milestone-acceptance`.
+6. **At-risk**: the audit mirror is stale on the default path and must be run
+   with `--fetch` (pass-187 class, still unfixed on the default path since pass
+   293). Re-run with `--fetch`: mirror verified, 89 at risk = 1 ref-held + 88
+   reflog-only, disjoint; 514ed91 present and 0267ade absent (controls). The
+   residue is a human judgement, not an automatic action.
+
+### Four defects in this pass's OWN new code, found by running it
+
+Recording these because the instrument set's value is entirely in what it
+catches, and a new instrument that was not itself adversarially checked is
+exactly the pass-308 condition.
+
+- **Two guards that fired on the real repository and were wrong.** (a) A
+  per-file "the literal stream must be non-empty" assertion aborted on
+  `src/adjacency.rs`, which has **no string literal at all** in its production
+  region (measured: 0 quotes in 269 lines). An empty stream there is the
+  correct reading, and a gate demanding output from a file with nothing to
+  output is wrong in the useful direction. Split into per-file consistency
+  (`quotes == 0 => stream == 0`) plus an aggregate non-empty assertion, which is
+  the only place that can distinguish "no hard-code" from "not running".
+  (b) A rule-292 population guard of the form `count != stream_lines` aborted
+  on that same file for `0 == 0`, which on an empty population is not the
+  match-everything signature. Gated on `stream_lines > 0`.
+- **A control defeated by its own quoting.** `LJ_RE='($LF_RE)'` used single
+  quotes, so the "pattern" was the literal seven characters `($LF_RE)`. The
+  control read 0 and the script aborted — while the *measurement* over the real
+  regions, which uses the same pattern in a correctly double-quoted expansion,
+  read a clean 0. A failing control is safer than a passing one, so this was
+  caught immediately rather than late, but it is the pass-308
+  control/measurement-identity defect reached from the other direction: the two
+  halves of the check must use the same string.
+- **A pre-existing guard fired first and hid the new one.** The mid-word plant
+  into `src/main.rs` was caught by the pass-247 region-count assertion (275 vs
+  the published 269) before the literal-join gate ran. That guard is correct
+  and should stay, but it means "the plant was refused" is not evidence about
+  *which* gate refused it. The fail-closed demonstration above therefore also
+  pins the expected region count in the clone, so the gate under test is
+  demonstrably the one firing. General form: when a plant is refused, confirm
+  WHICH gate refused it, or a working new gate can be published behind an older
+  one and never exercised.
+
+### Rule 14ad (new)
+
+**A fence's detection granularity is a property of the fence, not of the
+plants that certify it.** Passes 308 and 309 added eleven controls and none of
+them split a clue across lines, so all eleven certified a line-scoped detector
+and the item's headline number was reported in the same terms. Two passes were
+needed to see it (309 found the joined form, 310 found the per-word form shares
+the defect), and only because a pass read the *shape* of the plants rather than
+their count. A control suite that varies the FORM of a hard-code is not weaker
+than one that varies its CONTENT, and the form is the harder half to vary: the
+natural instinct when writing a control is to plant the property document's
+string, and the property document's string is contiguous on one line by
+construction. The corollary for a future pass: for any standing invariant,
+ask what the instrument's unit of detection is, and plant a violation that
+violates THAT unit.
+
+### What this pass did and did not do
+
+Ran `item-state.sh`, `census.sh`, `agents.sh`, `clue-fence.sh`,
+`at-risk.sh --fetch`, and `selfcheck.sh`; read the handoff's NEXT block;
+prototyped the literal-join form outside the repository before committing it;
+planted it three ways plus one negative, and planted the whole instrument to
+confirm the new gate fails closed. Claimed this item by pushing the owner
+change (coord-3b07 -> coord-4e8d) at `ce55ca7`. Declined the three
+scheduler-template clauses for the sixty-second time on `## Status: accepted and
+paused` plus the accepted-state document: no agent launched, no new work item,
+no historical item claimed, no integration, no push to `main`. **Touched no
+file under `src/`.**
+
+NEXT: the pause holds and the six facts stand unchanged for the 101st time.
+The fence's 102nd measurement will read 0, and that 0 now rests on a form that
+detects the spelling a line-length-respecting source file actually writes, with
+four controls and a fail-closed plant to back it. The pass-actionable item that
+pass 310 left is therefore **closed**, and no new one is asserted here: passes
+308, 309, 310 and 311 were four passes spent closing one hole, and a pass that
+manufactures a fresh one to justify itself is the failure mode this item's own
+log warns about.
+
+What remains is unchanged and is a human decision, not a pass action:
+
+  (a) The fence is not run by CI. `.github/workflows/test.yml` runs
+      `cargo test --lib --bins`, one integration target, and clippy. A hole
+      nobody plants stays invisible, and passes 308–311 are a four-pass
+      demonstration of exactly that.
+  (b) Retiring this recurring pass. The six facts have not moved in 101
+      passes, and the only thing the passes have produced lately is defects in
+      the instruments that measure them.
+  (c) `docs/skills/itinerary-madgab.md` line 17 says
+      `post-milestone-acceptance` "is no longer an automatic accumulation
+      target", while the out-of-repo scheduler template instructs every pass to
+      accumulate on that branch "exactly as the itinerary requires". The two
+      cannot both be honoured. The itinerary wins and this pass pushed only its
+      own reconciliation entry; resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**
