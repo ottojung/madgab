@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e1f
-updated: 2026-09-29T18:29:00Z
+owner: coord-7a11
+updated: 2026-09-29T19:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28798,3 +28798,182 @@ larger of the two: the standing recommendation is that a human should retire
 this recurring pass rather than let it re-measure an unchanged pause
 indefinitely.**
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 308 (coord-7a11, 2026-09-29T18:32Z-19:24Z) — gate NO; six facts re-derived unchanged; ACTED — the no-hard-coding fence itself had a LIVE FALSE ZERO: its primary "joined" pattern could not match either canonical clue, and its per-word form was blind to the document's own capitalisation
+
+Gate NO: the three scheduler-template clauses are declined for the fifty-ninth
+time on `## Status: accepted and paused` plus the accepted-state document's
+operational status. Nothing claimed, launched, prompted, stopped or integrated;
+no new work item; no Antonina agent started; `main` untouched at 0267ade.
+Clause 2 remains a direct textual conflict — the itinerary says
+post-milestone-acceptance "is no longer an automatic accumulation target" — and
+clause 3's no-hard-coding half is the subject of this pass, below.
+
+All six standing facts re-derived from the instruments, not from the log:
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working**, by
+   IDENTITY (`work_item: true`), fence-scoped, gawk exit 0. The census control
+   fires as documented: the skills-doc fenced example reads selector 0 /
+   fence-blind 1, i.e. the rule-34 trap is live and correctly excluded.
+2. **Agents: 0 non-terminal MadGab agents** among 131 MadGab cwd rows of 727
+   host rows (110 succeeded / 20 failed / 1 stopped). The 4 host-`running`
+   agents (`124d1`, `120f1`, `94c9`, `109a4`) are other repositories and were
+   **left running untouched**; the 5 `idle` rows are not MadGab cwds. Nothing
+   launched, stopped or prompted.
+3. **Clue fence 0 in all six production regions** (98th consecutive) — but the
+   measurement behind that 0 was defective until this pass repaired it. See the
+   finding.
+4. **125 worktrees registered, `prune -n -v` empty, exit 0.**
+5. **main untouched**: no local `main` ref (`rev-parse --verify main` exit 128),
+   `origin/main` 0267ade, HEAD on post-milestone-acceptance, 0/0 vs origin.
+6. **At-risk 89 = ref-held 1 + reflog-only 88, disjoint.** Re-derived this pass
+   rather than inherited: `audit/*` re-fetched first by its real source
+   namespace with **no `--prune`** (rule 14m, exit 0), 204 exclusion refs by the
+   bare-prefix form (14j) with cardinality asserted inline (14g), both sanctioned
+   arms agree at 89 (`--not` and per-element `^`, 0-line diff), ref-held 1
+   (`514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`), reflog-only
+   88, controls in both directions (`514ed91` present, `0267ade` absent), 26
+   `recovery/*` heads on origin, and `recovery/at-risk-2026-09-29` =
+   `eaf748762e17da17dcfda8472714485fa076b143` byte-identical to `ls-remote`
+   (rule 14p, full-form against full-form). **All 89 are covered by the 26
+   `recovery/*` branches — uncovered count 0 in both classes** — so no recovery
+   branch is warranted and none was created.
+
+`selfcheck.sh` reports all 6 instruments executable, parsing, exiting 0.
+
+### This pass's finding: THE FENCE HAD A LIVE FALSE ZERO, AND ITS OWN CONTROL CERTIFIED IT
+
+The standing no-hard-coding fence has reported "0 canonical clue occurrences"
+for 98 passes. That 0 was still true after this pass's repair, but the
+instrument was **incapable of producing a non-zero**, in three separate ways,
+each of which would have published a clean result on a hard-coded clue.
+
+**Defect 1 — the "JOINED" pattern could not match either clue.** The clue
+alphabet was derived correctly (rule 14v, 9 words, read out of
+`docs/accepted-state-2026-09-27.md`), and then the joined pattern was built with
+`paste -sd' '` over that alphabet. That yields the **sorted union of both clues'
+words** — `a beach came dupe hid hits justice nice wreck` — which is not a clue,
+is not a substring of either clue, and can only occur in a file that already
+contains all nine words in alphabetical order. Measured: a file containing
+`const H: &str = "wreck a nice beach";` in its production region reads **0**
+under the instrument's own primary check, and `const H: &str = "Hits Justice
+Dupe Hid Came";` reads 0 as well. Repaired: the derivation now keeps each clue
+WHOLE as a phrase, and the joined pattern is the disjunction of the actual
+phrases. New build-time assertion: every derived phrase must be MATCHABLE by the
+pattern built from the same phrases, so an unmatchable construction now aborts
+the run instead of reporting 0.
+
+**Defect 2 — the per-word form was case-SENSITIVE, so the document's own
+capitalisation was invisible.** The header comment claimed the joined form was
+the case-insensitive one and the per-word form the weaker case-sensitive one;
+in fact the joined form could not match anything at all (defect 1), so the
+per-word form was the ONLY form doing any work, and it read 0 on
+`"Hits Justice Dupe Hid Came"` — the exact spelling the defining document uses,
+and the spelling a developer copying from that document would write — while the
+same clue in lower case read 5. Repaired: the per-word form is now
+case-INSENSITIVE (`grep -oEi`). This is a strict tightening at **zero** cost,
+measured rather than assumed: over all six production regions the
+case-insensitive per-word count is the same 0/0/0/1/0/0, the `1` being the
+pass-216-adjudicated `.expect("key came from cells")` at `lib.rs:3597`, which is
+**not** re-opened. The old comment's reasoning — that case-insensitivity is "a
+different and unusable check" because an English word in prose is not a
+hard-code — was applied to the wrong side of the property: this alphabet is
+DERIVED from the property, not a general English vocabulary.
+
+**Defect 3 — the alphabet read only the CLUE side, leaving rule 14t open.** A
+hard-code keyed on the QUESTION — `if t == "recognize speech" { ... }` — names
+no clue word at all and read 0. Repaired: the derivation now takes BOTH sides of
+each `TARGET -> CLUE` line, per rule 14v. The two sides are then matched at
+DIFFERENT GRANULARITIES, and the asymmetry is forced by measurement rather than
+chosen: target-side words **cannot** go in the per-word alphabet, because the
+second target contains `it` and `just` and adding them produced **10** per-word
+hits in `src/adjacency.rs` alone (all `it`) — precisely the fail-open direction
+rule 14v warns about, a real hard-code hidden inside an unreadable number. So the
+target side is matched as a WHOLE PHRASE, which is the only form in which it is
+evidence. The instrument's fail-closed design caught this itself: the first
+attempt tripped the adjudication branch and refused to report, which is the
+behaviour it is supposed to have.
+
+**The control that hid all three: it planted the pattern's own output.**
+`JP_PROBE="$JP_RE"` meant every plant control planted whatever the pattern
+happened to be — including the unmatchable string — so each read 1 and certified
+a fence that could not fire. This is rule 262 (a control must exercise a
+different thing from the measurement) and rule 14q (a control that cannot be
+re-derived manufactures confidence in the direction the conclusion already
+points) at the level of the plant literal. Repaired: the controls now plant the
+strings **the property names** — every derived clue, every derived target, each
+target with a straight and with a curly apostrophe, and the clue in UPPER CASE
+and decomposed — and each must be CAUGHT. Rule 14v's "for EVERY string the
+property names, plant it and require non-zero; not one representative literal"
+was the standing instruction and the instrument had one representative literal,
+constructed from itself.
+
+**One environment trap worth recording, because the repair walked into it twice.**
+The second target contains a contraction, and the apostrophe is part of the
+token, so the derivation keeps it. Three things then had to be true at once, and
+the first two attempts got each wrong: (i) the apostrophe is a **character** in
+the JS but must never be typed literally, because the whole derivation sits
+inside a shell **single-quoted** argument and one apostrophe in a *comment*
+terminates the string and splices JS into the middle of the shell script — the
+resulting syntax error is reported at an unrelated line, which cost two
+confusing cycles; (ii) the curly apostrophe cannot be matched by a bracket
+class or by an optional-`?` quantifier on this host, because `LC_ALL` and `LANG`
+are unset and grep 3.11 then matches in the C locale where a character is a
+**byte** — measured, `grep -cE '['<U+00E9>']'` reads 0 where a bare literal probe
+reads 1; the portable fix is to fold the **search text** (curly → straight) with
+GNU sed `\xNN` and never with `tr`, which works on characters and would pad a
+three-character set to a one-character set and emit three apostrophes
+(verified with `od -c`); (iii) the fold is asserted to be the identity on plain
+ASCII before it is trusted, so it cannot silently change the standing
+measurement. The instrument now carries a dedicated encoding control, because
+the straight-apostrophe plant passes even when the curly spelling is invisible —
+without it the suite would certify a fence with a known hole in it.
+
+**NEW RULE 308: A FENCE IS PROVABLE FROM ITS OWN PLANTS, AND A PLANT BUILT FROM
+THE PATTERN PROVES NOTHING.** The general form of all three defects: each was a
+*composition* error — correct alphabet, wrong assembly; correct words, wrong
+capitalisation; correct clue side, missing the other side — and no amount of
+re-deriving the fence from the property document would have found them, because
+the property document was read correctly every time. What found them was
+planting the strings the property names and requiring each to be caught, which
+is what rule 14v already said and what the instrument had stopped doing. Two
+corollaries worth carrying: a control whose input is the measurement's own
+intermediate is not a control, it is an echo; and a fence that cannot be made to
+fail is not evidence of cleanliness, it is evidence that the fence is inert —
+so a fence's first obligation is to be shown capable of failing on each shape
+the forbidden thing can take.
+
+**Verification of the repair, all nine shapes, planted in a production-region
+copy of `src/adjacency.rs`:** contiguous clue 1; contiguous clue 2 in title
+case; contiguous clue 2 in UPPER CASE; clue 2 decomposed in title case; clue 2
+decomposed in lower case; hard-coded target 1; hard-coded target 2 with a
+straight apostrophe; with a curly apostrophe; and target 2 in UPPER CASE with a
+curly apostrophe. **All nine CAUGHT.** Negative control: honest code with a
+plant below the test boundary reads joined 0 / per-word 0. The instrument's own
+8 controls all pass, `selfcheck.sh` reports 6 of 6 instruments live, and the
+production regions are byte-identical before and after (269/260/464/4242/67/269).
+
+**What this pass did NOT do**, so a later pass does not repeat it: it did not
+edit `.github/workflows/test.yml` (still a human decision, first raised pass
+267, measured pass 306, closed on "whether" at pass 307); did not touch any file
+under `src/` — `git diff --name-only` is exactly one file,
+`docs/work/paused-recon/clue-fence.sh`; did not re-run the nine integration
+targets (nothing in `src/` changed, so pass 307's 46-green/1-ignored figure
+stands); did not re-run the at-risk cross-check by any spelling other than the
+two sanctioned ones; and did not create a work item, launch an agent, or claim
+anything.
+
+NEXT: the pause holds and the six facts stand; the ninety-eighth consecutive
+fence measurement is unchanged at 0, but it is now 0 **by measurement rather than
+by luck**, which is the difference this pass exists to record. Three gaps remain,
+all human decisions rather than pass actions: (a) whether to add the test
+targets to `.github/workflows/test.yml` (pass 267 / 306 / 307); (b) whether to
+retire this recurring pass, whose cost is now dominated by this item's size
+(28,8xx lines / 2.3 MB) — none of the six facts has moved in 98 passes; and
+(c) NEW, and the only one that this pass can point at directly: **the fence is
+still not run by CI**, so even repaired it is only checked when a scheduled pass
+happens to run it, and pass 308 is a demonstration that a fence nobody runs can
+sit in a false zero for a very long time — 98 passes reported the 0 this pass
+found to be unearned. (a) and (c) are the same decision, and (c) raises its
+stakes: repairing the instrument without scheduling it leaves the repair
+advisory. **Blocked on the human reopen/confirm decision.**
