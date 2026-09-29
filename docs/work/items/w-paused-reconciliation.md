@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4b93
-updated: 2026-09-29T20:08:00Z
+owner: coord-7e40
+updated: 2026-09-29T20:27:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -29931,3 +29931,105 @@ NEXT: the pass-315 list, unchanged in substance:
       resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 317 (coord-7e40, 2026-09-29T20:12Z-20:27Z) — gate NO; six facts re-derived unchanged; ACTED — the instrument set was not invocation-independent, and `selfcheck.sh` would have condemned a healthy `item-state.sh`
+
+### The six standing facts, re-derived this pass (all unchanged for the 107th consecutive time)
+
+`item-state.sh` exit 0 (frontmatter parses, eight schema keys, state allowed); `census.sh` exit 0 —
+**96** items, **0 open / 0 working / 1 blocked** / 83 done / 12 superseded, the 1 non-terminal item
+being this one; `agents.sh` exit 0 — 729 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab
+agents** (110 succeeded / 20 failed / 1 stopped), the 1 host-`running` agent (`109a5` skrynia) another
+repository and **left running untouched**, 5 host-`idle` rows none of which is a MadGab cwd;
+`clue-fence.sh` exit 0 — **0 canonical occurrences in the 6 `src/` regions**, 1 adjudicated benign
+per-word hit (`src/lib.rs:3597`), all 15 controls as published; `at-risk.sh --fetch` exit 0 — 89
+at-risk commits (ref-held 1 + reflog-only 88), 205 exclusion refs, both arms agreeing, controls both
+directions; `at-risk-content.sh` exit 0 — 230 absent blobs over 320 paths, **non-build absent 0**,
+both controls fire; `selfcheck.sh` **7/7**. **main untouched**: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` 0267ade, and
+`git diff origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml .github/` **empty** — zero
+production drift. 125 worktrees, `prune -n -v` empty, exit 0.
+
+### The finding: the instrument set is not invocation-independent, and the defect is self-concealing
+
+Every pass since 287 has re-derived the six facts by running these instruments **from the repository
+root**, and every pass recorded the resulting verdict. Nothing recorded that the verdict was a
+function of *where the pass was standing*. It was:
+
+    $ cd /workspace/madgab/docs && work/paused-recon/selfcheck.sh
+      item-state.sh    DEAD      exit=1 stderr_lines=1
+    selfcheck: REFUSING — the instrument set is not trustworthy as it stands
+    selfcheck: a standing fact measured by a dead or silent instrument is NOT a measurement
+
+`item-state.sh` is the only instrument of the seven that did not resolve its own repo root;
+`census.sh` and `frontmatter.sh` `cd "$(git rev-parse --show-toplevel)"` and the other four derive
+`REPO` the same way. Its `ITEM` default was a bare repo-root-relative path, so from any other
+directory the file was genuinely absent and it printed `item file not found` and exited 1. From
+inside `docs/work/paused-recon/` — the instrument directory, the most natural place to invoke it —
+the same thing happened.
+
+**Why this is the dangerous direction and not a cosmetic one.** It was fail-closed, so it was never
+a false PASS and no fact was ever over-reported. But it manufactured a false ALARM, and worse, the
+alarm was *attributed to the wrong cause*: the instrument set is not untrustworthy, and
+`item-state.sh` is not dead. `selfcheck.sh` runs the instruments as children with the **caller's
+inherited cwd**, so it inherited the dependence and reported it as instrument death. A pass that
+found this would have "repaired" a healthy instrument, or — worse — recorded a spurious
+instrument-failure rule in a log that already carries ~180 KB of rules about instruments. The
+measurement apparatus was itself the thing that broke, and it broke in the direction that produces
+confident, well-formatted, wrong maintenance instructions.
+
+The general form, and it is the reason this is recorded as a finding rather than a one-line patch:
+**a standing fact must not be a function of where the coordinator happened to be standing.** An
+instrument that names a path and does not resolve the root has not measured the thing; it has
+measured the relationship between its caller and its own filesystem. Everything this log calls a
+measurement — census size, fence verdict, at-risk count — inherits that defect for free, and the
+only reason 106 passes never saw it is that they all ran from the same directory by habit.
+
+### What was changed, and what was proven unchanged about the change
+
+`item-state.sh` captures `CALLER_PWD` first, then resolves `ROOT` via `git rev-parse
+--show-toplevel`, and joins the default `ITEM` to the root; an explicit relative argument is tried
+against the caller's cwd first and the root second, so neither the documented default nor a
+hand-passed path depends on invocation directory. Outside a work tree it exits 3 (`not in a work
+tree`), matching `census.sh`'s existing convention. `selfcheck.sh` resolves its `DIR` argument
+against the caller's cwd first — preserving the plant mechanism — then `cd`s to the resolved root
+before running the children, so the liveness verdict cannot itself be a function of the caller's cwd.
+
+**All seven instruments now exit 0 from the repo root, from `docs/`, from `docs/work/`, from
+`docs/work/paused-recon/` and from `src/`; all seven still fail closed from `/tmp` with exit 3.**
+`item-state.sh`'s own fail-closed behaviours were re-planted and all still fire: missing file (1),
+unclosed frontmatter (1), `state` outside the allowed set (1), no `## Pass ` heading (1), newest
+entry with no NEXT guidance (1). `selfcheck.sh`'s plants all still fire: SILENT exit-0-without-
+invariant, STATIC-FAIL NOT-EXECUTABLE(644), STATIC-FAIL NO-SHEBANG, STATIC-FAIL DOES-NOT-PARSE, and
+a missing instrument still exits 2 as a broken POPULATION. The relative-`DIR` plant form works from
+a subdirectory. Six files changed, all under `docs/work/paused-recon/`; **no file under `src/`,
+`tests/`, `web/`, `examples/`, `Cargo.toml` or `.github/` was touched, and the zero production drift
+against `origin/main` is unchanged.**
+
+### What this pass did and did not do
+
+Re-derived the six facts from the instruments. Found, reproduced, root-caused, fixed and
+re-planted the invocation-dependence defect. Claimed the item by pushing the owner change
+(coord-4b93 -> coord-7e40). Declined the three scheduler-template clauses for the sixty-eighth time
+on `## Status: accepted and paused` plus `accepted-state-2026-09-27.md`: no agent launched or
+prompted, no historical item claimed, no new work item, no integration, no push to `main`. **No
+Antonina agent was launched because there is no claimable MadGab work to launch one for, and the
+itinerary forbids manufacturing any.** The single host-`running` agent is another repository and was
+left running, untouched.
+
+The three human items from pass 315 are unchanged and remain the only actionable queue: (a) compact
+this log (2.4 MB, 234 pass sections), (b) delete the dead `env:` block in `.github/workflows/test.yml`
+— pass 315's finding, **not re-checked this pass and it is not in doubt**, and (c) run the fence in
+CI. (d) retiring this recurring pass remains overdue, and this pass is the second in a row that
+found an instrument defect rather than a MadGab defect — which is itself the strongest available
+evidence for (d): the recurring pass is now maintaining its own measuring apparatus and nothing
+else.
+
+**Blocked on the human reopen/confirm decision.**
+
+NEXT: re-derive the six facts from the repository root or any subdirectory (both now agree); the
+open human list is (a) compact this log, (b) delete the dead `env:` block in
+`.github/workflows/test.yml`, (c) run the fence in CI, (d) retire this recurring pass, (e) the
+out-of-repo scheduler template. Confirm the instrument fix by running `selfcheck.sh` from a
+SUBDIRECTORY of the repo, not the root — that is the invocation that was broken and it is the one
+no prior pass ever used.
