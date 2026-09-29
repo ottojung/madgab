@@ -26918,3 +26918,61 @@ gate is NO — no item to claim (0 open / 0 working), no MadGab agent to prompt 
 front to integrate, no recovery branch warranted. This pass's two findings are instrument-level, so
 the correct durable state is the state before it plus rules 291 and 292. **Blocked on the human
 reopen/confirm decision.**
+
+## Pass 292 (coord-9f21) — the standing agent census was a fail-open, now scripted
+
+Gate **NO** again: the three scheduler-template clauses (launch/prompt agents / accumulate on
+post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) are declined on `## Status: accepted and paused` plus
+docs/accepted-state-2026-09-27.md. Nothing claimed, launched, stopped, prompted or integrated; no
+new work item; no recovery branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived from the procedure, all unchanged:
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working (fence-scoped single-pass
+   gawk over `docs/work/items/*.md docs/*.md`, gawk exit 0);
+2. clue fence **0** in all six production regions, regions 269/260/464/4242/67/269 as fence.awk's
+   header publishes, decomp arm `0-0-0-1-0-0` (the known-benign `lib.rs:3597` "key came from
+   cells", adjudicated at pass 216, not re-opened). All controls fire in both directions: six
+   canonical plants non-zero (including the U+2019 and decomposed-array spellings), the
+   `mod tests {`-in-a-block-comment / `//`-in-a-string / `mod tests`-as-a-string plants all read 1,
+   and all five test-only boundary spellings plus a comment-only file abort rc=2.
+3. **0** non-terminal MadGab agents among 131 MadGab cwd rows of 708 host rows. The one host-running
+   agent (94a10) is another repository and was left running untouched; the 5 idle rows are other
+   repositories, and a11d sits in /tmp and is not a MadGab cwd.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on post-milestone-acceptance.
+5. at-risk **89** = ref-held 1 (514ed91, durable on `origin/recovery/at-risk-2026-09-29` = eaf7487,
+   byte-identical to `ls-remote`) + reflog-only 88, disjoint; both exclusion arms agree, both
+   controls behaved; audit mirror re-fetched FIRST per rule 14a with **no `--prune`** (exit 0), 205
+   refs. The 88->89 is the residue of the log's own superseded pass drafts, as in passes 273/281.
+   No recovery branch warranted, none created.
+
+### THE FINDING — the standing agent census was a fail-open, and this pass tripped it live
+
+`antonina agent list --json` emits the agent state in a field named **`state`**. This pass's first
+filter was written against `r.status`, which does not exist, so every row tested as non-terminal and
+the pass read **"131 non-terminal MadGab agents"** — an alarming false positive in exactly the
+direction that would make a pass launch agents onto a PAUSED repository. The true figure is 0. The
+defect is the rules 14/14b/14g/182 family: a plausible number, a clean exit, and no abort, from an
+instrument that never checked it was looking at the right field.
+
+That makes the agent census the LAST standing fact still derived by hand, and 291 passes is ample
+evidence that the hand procedure fails open. It is now a running instrument,
+`docs/work/paused-recon/agents.sh` (mode 100755), which REFUSES rather than reports:
+
+- aborts rc=4 if any row lacks a `state` key, naming the keys it did observe;
+- aborts rc=3 if the row list is unparseable or empty (a real host always has rows, so zero is
+  instrument failure, not an empty board);
+- aborts rc=5 if the MadGab cwd pattern matches 0 rows against a logged 131.
+
+Verified in both directions, which is the whole point of a control here (rules 14aa/14q/14r):
+- against a host emitting `status` instead of `state` the script **aborts rc=4**, and the hand-written
+  filter is shown in the same breath returning the wrong number — so the abort is load-bearing, not
+  decorative;
+- against a host with one genuinely `running` MadGab agent it **reports 1** and names it, so the
+  script detects real non-terminal work rather than always answering 0;
+- against a host returning `[]` it aborts rc=3;
+- on this host it reports the 131/0 figures above, rc=0.
+
+NEXT: the five facts stand; the census row in every future pass should be read from `agents.sh`, not
+re-typed from memory (rule 14i/14v). Blocked on the human reopen/confirm decision.
