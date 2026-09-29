@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9b41 (pass 165; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:42:00Z
+owner: coord-c3f8 (pass 166; gate NO — five facts re-derived unchanged, and the worktree denominator corrected from 127 to 125 live paths; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
+updated: 2026-09-29T02:49:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -14943,3 +14943,93 @@ contradict the itinerary it points at, and that single out-of-repo edit would re
 confirm the pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
 pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
 Cartesian-prefix traversal).
+
+## Pass 166 (coord-c3f8)
+
+Wall clock at start **2026-09-29T02:46Z**, logged out **02:49Z** — no sleep, no blocking wait, no
+agent launched, nothing stopped. Gate re-derived from
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused`
+before any action: **NO.** Nothing created, claimed, launched, prompted, resumed, or integrated.
+`origin/main` untouched at `0267ade`, still no local `main` ref (`git rev-parse --verify main` fails).
+HEAD stayed on `post-milestone-acceptance`; this entry and the frontmatter owner line are the only
+changes, pushed to `origin`.
+
+### The five facts, re-derived
+
+| Fact | Re-derived at pass 166 |
+|---|---|
+| `origin/main` | `0267ade`, untouched; `git rev-parse --verify main` still fails |
+| Work items | **0 open / 0 working**, 1 blocked (this one), 83 done, 12 superseded (**96**), via the published gawk `FNR`/`ENDFILE` form |
+| Production fence | **0** in the production region of all six production files — **thirty-eighth consecutive pass** — re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex, no cached totals; `src/lib.rs` is the only file with any whole-file clue hit (9, all test-region), and its production region is 0 |
+| MadGab agents | **0 non-terminal** among the **131** agents whose cwd matches `madgab` (110 succeeded / 20 failed / 1 stopped); `3a8f01` still `stopped` — no superseded front's agent has restarted |
+| At-risk | **7** on no `audit/*` ref + **86** reflog-only = **93**, disjoint (`comm -12` = 0), over **199** re-fetched refs, baseline **1,172** (1,170 at pass 165; the delta is pass 165's own pushed commit, itself on `origin` and so not entering the set), **0** of the 93 ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, not batched), all **20** `recovery/*` on `origin` by `ls-remote` |
+
+Content sweep: **37** dirty rows over the linked worktrees under the rule-9 filter as amended at pass
+148 (`*/target/*|*/target-*/*|*/prof/*`) = **3** build + **34** non-build; the 34 non-build are
+**33 hashable files + 1 directory row** (`madgab-scratch/examples/`). All 33 hash to blobs present
+in `rev-list --objects --all --reflog` (**7,378** ids via `awk '{print $1}' | sort -u` per rule 17)
+→ **0 unreachable**, so **0 need archiving** and no recovery branch was created. 17 worktrees
+contribute non-build rows. The `33 + 1` split and the **0** both match pass 165.
+
+### Two deltas, neither a risk
+
+**1. At-risk union 92 → 93.** The extra commit is **`9f6347a`**, an orphan reflog-only entry whose
+subject is pass 165's own line and which **no branch contains** (`git branch -a --contains 9f6347a`
+returns nothing), while its surviving twin `ba26d8c` is held by both `post-milestone-acceptance` and
+`remotes/origin/post-milestone-acceptance`. Its tree (`ae95ba2`) differs from `ba26d8c`'s (`8aa095e`)
+only because the pass-165 fix was a second amendment. So the reflog-only count grows by one every time
+a pass's commit is amended, and the **7/86 split — not the 93 — is the comparable figure**. This is
+the same class as the `35819c9` twin pass 164 explained for pass 163. Recorded so the next pass does
+not read `+1` as a new gap (bracket by baseline **1,172** and ref count **199**, rules 35/37).
+
+**2. The worktree denominator is 125 live paths, not 127.** `git worktree list` reports **127**
+entries, but **2 are `prunable`** — `/tmp/opencode/verify/w` @ `1973f05` and `/tmp/opencode/zzcheck`
+@ `69b5a07`, both "gitdir file points to non-existent location" and both directories confirmed gone
+from disk. Passes 138, 148, 150–154 and 163 all publish the dirty-row sweep as being "over **127**
+linked worktrees", and pass 165 published **126**; neither figure distinguished listed entries from
+live paths. **The correct denominator is 125** (`git worktree list | grep -vE 'verify/w|zzcheck' |
+wc -l`), and the published **37** rows are unchanged under it, because the two dead paths contribute
+no `git status` output. This is rules 9/25 again — one population under two filters — and it is
+worth correcting at the root rather than letting a third value enter circulation. Neither dead path
+is at risk: `1973f05` is held by `madgab-reserve-c3f81a`, `madgab-review-reserve` and their remotes;
+`69b5a07` by `recovery/zz-axis-probe-2026-09-28` and its remotes. The stale registrations are
+**administrative only** and can be cleared with `git worktree prune`; that is deliberately **not**
+done here, because it is a repo-mutating action with no recovery value, and rule 1's spirit is to
+leave a paused programme's state alone.
+
+Host `running` agents: `79a2` (`qai-proviral-79-conform`), `116a2` (`volodyslav-116-suite`), `74a2`
+(`antonina-74-deploywiring`), `94d4` (`assemblyp1-94-casesplit-review`), `94b4`
+(`assemblyp1-94-integrate`) — **5 agents, all other repositories, all left running**, none touched.
+Host census: **604** agents total.
+
+### Declined (rule 19), as every pass since 92
+
+"Recover or assign work" — recovery is permitted (rule 4) and the preservation sweep is **saturated
+at 0**, so nothing was assigned. "Launch or prompt Antonina agents", "split independent fronts",
+"review/integrate finished work", "exploit useful parallelism" — barred while paused, and there was
+nothing to split: 0 open, 0 working, 0 non-terminal MadGab agents, no unintegrated front, and `main`
+is explicitly not a push target. "Leave running Antonina agents running for a later fresh pass to
+inspect" — none was launched and none in a MadGab cwd is running, so nothing was awaited or stopped.
+The prompt's "accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"
+contradicts the itinerary, which calls that branch release history and no longer an automatic
+accumulation target; this entry accumulates there anyway because the log is its own home and carries
+no product code, and **`main` was not pushed**.
+
+The prompt's "prioritize the canonical approximate-search examples without phrase-specific hard-coding"
+is **read as a constraint on how reopened work must be done, not an instruction to reopen it**: the
+fence at 0 for the thirty-eighth pass is precisely that constraint holding. The standing limitation
+remains **preserved, not fixed** — approximate mode still emits `wreck a nice beach` for
+`recognize speech`, and the production candidate pool still cannot generate
+`Hits Justice Dupe Hid Came` for `It's just a stupid game`. Fixing that is what the pause defers.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply (this
+pass's commands are all copy-pasteable above, and the whole pass took about three minutes) and exit
+without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the last
+section; do not trust a pass number quoted inside any entry. Read the "Current gate status" table's
+gate answer, and treat every number in it as a snapshot. If you publish a worktree denominator, use
+**125 live paths** (`git worktree list | grep -vE 'verify/w|zzcheck' | wc -l`), not the 127 listed
+entries. Only a human can change the gate: fix or retire the out-of-repo scheduler template — it has
+now fired **73** times carrying three clauses that contradict the itinerary it points at, and that
+single out-of-repo edit would retire this log — or confirm the pause (close this item `done`), or
+reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style
+whole-path search, not another widening of the Cartesian-prefix traversal).
