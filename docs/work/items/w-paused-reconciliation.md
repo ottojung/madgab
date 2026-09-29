@@ -26705,3 +26705,91 @@ wiring** — the repository ships an executable hard-coding fence that no CI job
 passes 286, 288 and this pass's repairs are prerequisites for wiring it and do not by themselves wire it.
 Per pass 274, silence is a defect when a live finding exists; this pass had one, so it is recorded, and
 per pass 204 the entry stays short.
+
+## Pass 290 (coord-2f9d) — gate NO; five facts re-derived unchanged; ACTED — two instrument defects
+re-confirmed live, no repository change required
+
+**Gate answer: NO.** The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritise the
+canonical approximate-search examples without phrase-specific hard-coding) are declined for the
+fifty-eighth time, on `## Status: accepted and paused` in [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+plus `## Operational status` in [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md).
+Clause 2 remains a direct textual conflict: the itinerary's closing paragraph says
+post-milestone-acceptance "is no longer an automatic accumulation target", so "exactly as the
+itinerary requires" cannot be honoured by doing what the template says. Nothing claimed, launched,
+stopped, prompted or integrated; no new work item; no recovery branch; **main untouched** — this
+entry is committed on `post-milestone-acceptance`, where the item already lives, and is not a
+development front.
+
+**Five standing facts, re-derived from the procedure and not copied from the log (rules 14i/14k).**
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.** `w-paused-recon` is
+   the 1 `blocked`; every other item is terminal. Unchanged for the eighty-ninth pass.
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 708 host rows. The 2 host-`running`
+   agents — `94a10` (/workspace/assemblyp1-94-tw2) and `123a1` (/workspace/antonina-123-chain) — are
+   **other repositories** and were LEFT RUNNING, untouched. The 5 host-`idle` rows
+   (`78b2`, `92f3`, `92e3`, `98f3`, `a11d`) are also not MadGab cwds and were left alone. Nothing
+   launched, stopped or prompted.
+3. **Clue fence 0 in all six production files** — `fence_rc=0` and 0 bytes of stderr on every one,
+   joined-phrase regex 0 in all six, per-word regex 0 in five and **1** in `lib.rs`. That `1` is
+   `src/lib.rs:3597`, `.expect("key came from cells")` — ordinary English past tense inside a panic
+   message, **not** a hard-code — reproducing pass 216's finding exactly, cause included. Region
+   line counts reproduce the pinned values byte-for-byte: **269 / 260 / 464 / 4,242 / 67 / 269**
+   (adjacency, lexical, approx, lib, wasm, main).
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched**: no local `main` ref (`git rev-parse --verify main` exit 128), `origin/main`
+   `0267ade`, HEAD `aa8bedb` in sync with `origin/post-milestone-acceptance`.
+
+Rule 14a/14m obeyed: `audit/*` re-fetched FIRST by its real source namespace with **no** `--prune`
+(`git fetch origin '+refs/heads/*:refs/remotes/audit/*'`, exit 0, `c9beefa..aa8bedb`), then
+205 refs enumerated by the **bare-prefix** form per 14j. At-risk content state deliberately not
+re-measured: it has been unchanged for 106 passes, the non-build content sweep has been closed on
+content since pass 184, and pass 184's finding was that the population was not saturated — none of
+its inputs (its worktree, its object population) has moved, so re-running it would produce a
+re-derivation dressed as a discovery.
+
+**This pass's live findings — two instrument defects, both re-confirmations rather than new rules.**
+
+*(i) The census trap fired live, fifth documented instance.* The first census I wrote from scratch
+this pass — a fence-scoped `gawk` with an `ENDFILE` close-per-file guard, over `docs/work/items/*.md
+docs/*.md` — printed **nothing at all** and exited 0, i.e. it reported 0 items, 0 open, 0 working.
+The correct per-file `head -20` form, run second, returned 96 with a clean state split. A
+hand-written variant is exactly the thing rule 34 warns about: it produces an EMPTY result that is
+indistinguishable from a real "no work" finding, and an empty census is a **false zero** — the
+dangerous direction, because a false zero invites new work creation on a paused programme. The
+pass-211 form (`head -20` per file, fence-scoped) is the sanctioned spelling and it is the one that
+reproduces.
+
+*(ii) A control that does not exercise the measurement's path is not a control — rule 14r, re-fired
+in a new disguise.* My first fence control ran `fence.awk` on a planted file and read the **fence's
+own exit code**, expecting 1. It read 0, and I nearly recorded a fence failure. But
+`docs/work/paused-recon/fence.awk` is the **region stripper only** — pass 213/214 corrected it to
+contain no matcher at all, and its own header says so. Running it alone against a plant containing
+the full clue necessarily yields `fence_rc=0`, and the region it emits *does* contain the clue; the
+caller's matcher is what must see it. Re-run correctly — strip the region, then match — the same
+plant reads **5** under the per-word regex and the invariant above is trustworthy. The general form
+extends 14r one level down: **a control must exercise the same path as the measurement, and
+"fence_rc" is the wrong thing to read when the fence under test is a stripper feeding someone else's
+matcher.**
+
+*(iii) A figure is not a procedure — rule 14k, a wrong-number-nearly-published instance.* My region
+counts first read 142 / 143 / 392 / 3,250 / 51 / 212, which against the pinned 269 / 260 / 464 /
+4,242 / 67 / 269 would have looked like a catastrophic region collapse across all six files. Cause:
+I measured with `grep -c .` (non-blank lines) where the pinned figures are `wc -l` on the
+stripper's stdout. Re-measured with `wc -l` as documented, all six reproduce exactly. Nothing was
+published from the wrong number, but a pass that had trusted the first reading would have escalated
+a non-event.
+
+**Not re-run, deliberately:** the non-build content sweep (closed on content since pass 184; neither
+its worktree nor its object population has moved). The one genuinely open item remains **pass 267's
+CI wiring** — the repository ships an executable hard-coding fence that no CI job runs
+(`.github/workflows/test.yml` runs tests and clippy only). That is a human decision, not a pass
+action; passes 286, 288, 289's repairs are its prerequisites and do not by themselves wire it.
+
+**Next pass:** re-derive the five facts. There is no useful coordination action available while the
+gate is NO — no item to claim (0 open / 0 working), no MadGab agent to prompt (0 non-terminal), no
+front to integrate (main untouched and nothing on a review branch), and no recovery branch warranted
+(1,224-commit at-risk set unchanged). Per pass 274 silence is a defect only when a live finding
+exists; this pass's findings were instrument-level and are recorded above at rule-14 scale, so the
+correct durable state after this pass is exactly the state before it, plus these three re-confirmed
+defects. **Blocked on the human reopen/confirm decision.**
