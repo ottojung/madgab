@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5f18
-updated: 2026-09-29T14:03:00Z
+owner: coord-3f8a
+updated: 2026-09-29T14:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -25098,3 +25098,165 @@ the two live blind units, nor the CI gap, nor the true 97-item census appears an
 10k lines above. Per pass 274's standing "prefer no entry at all" — which that pass correctly noted
 has itself become a cost — this entry is made **because it is the one pass in 275 that found
 something**, and it is short for that reason. Blocked on the human reopen/confirm decision.
+
+## Pass 276 — `coord-3f8a`, 2026-09-29T14:17Z–14:24Z — gate NO; five facts re-derived unchanged; ACTED — pass 275's desync finding **reproduced from scratch and confirmed live**, but its "LIVE in `src/lib.rs`" placement is **wrong by item class**, and a **second, independent defect in the same fence** is measured: 2,046 lines of `#[cfg(test)]` item bodies are scanned as production
+
+**Gate: NO.** The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritise the canonical
+approximate-search examples) are declined for the **fifty-second** time on `## Status: accepted and
+paused` plus [accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). Clause 2 remains a
+direct textual conflict: the itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target". Nothing claimed, launched, stopped, prompted or integrated;
+no new work item; no recovery branch; `main` untouched. **No file in the repository was modified** —
+every mutation was run in a throwaway `/tmp` copy, and this log is the only change.
+
+**The five standing facts, all re-derived from procedure, all unchanged.**
+
+1. **Census** — **97** = 84 done / 12 superseded / 1 blocked, **0 open / 0 working**. Fence-scoped
+   per-file frontmatter read over `docs/work/items/*.md docs/*.md`, **97** total, confirming pass
+   275's "the true 97 is not the 96 the standing row has carried since pass 92". The
+   `docs/environment-notes.md` false positive (a `state: failed` inside a ```text block in a file
+   with no frontmatter) is still live and still correctly excluded by the fence — rule 276 holds.
+2. **Agents** — **0 non-terminal MadGab agents.** Membership **join** on `git worktree list` with the
+   path-shaped selector (pass 271/272), 696 host rows → **131 joined rows = 110 `succeeded` /
+   20 `failed` / 1 `stopped`**, 0 non-terminal, 106 distinct MadGab cwds over 125 worktrees. Every
+   one of the 696 rows carries a `/`-prefixed field at **position 5 only**, re-confirming that the
+   selector is not a positional coincidence. The 8 host non-terminal rows (3 `running`: `92b3`
+   volodyslav, `120c2` kawun, `98c2` antonina-98; 5 `idle`) are other repositories plus one `/tmp`
+   row, **left running and untouched**. `3a8f01` still `stopped`.
+3. **Clue fence** — **0 phrase hits** in all six production regions under the shipped `fence.awk`,
+   **ninety-first consecutive**; region lines **269 / 260 / 464 / 4242 / 67 / 269** reproduce
+   exactly; stderr empty; exit 0. Per-word arm **1**, at `src/lib.rs:3597`
+   `.expect("key came from cells")` — the pass-216 benign adjudication, not re-opened.
+4. **At-risk** — **0 unreachable, 0 need archiving, no recovery branch warranted or created.**
+   `audit/*` re-fetched **first** and **without `--prune`** (rule 14a/14m held; exit 0,
+   `23696f2..0cb574f`); the mirror's cardinality read **inline** as **205** (not asserted), against
+   `ls-remote --heads origin` = **204** + 1 tag. Both sanctioned exclusion arms read **88** and **89**
+   and differ by **exactly 1** — `514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`, the
+   documented ref-held residual. Reflog-only **88**. `recovery/*` heads on origin = **26**. Non-build
+   sweep with the anchored **path-field** filter (rule 265), one `awk` per porcelain line over 125
+   worktrees: **34 non-build rows → 23 distinct paths → 22 hashable → 21 distinct blobs → 0
+   unreachable** against 8,153 object ids.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128**; `origin/main` =
+   `0267ade`; repository `git status --porcelain` = **0 rows**; **125** worktrees,
+   `git worktree prune -n -v` empty, exit 0.
+
+### Finding 1: pass 275's desync reproduces from scratch, and it is **not** limited to test code
+
+Pass 275 reported a `literals()` desync — an unpaired `'` from a **lifetime** runs the skip-to-closing
+quote off the end of its own text and swallows every `"` after it — with two named live instances at
+`src/lib.rs:7295` and `7341`. It recorded that "a hard-code planted inside `impl SlotOrder` is
+invisible for the same reason the planted `lexical.rs` one was" but never tested it. This pass does,
+in a `/tmp` copy, and the answer changes the finding's placement.
+
+**Reproduction, from scratch, no prior state needed.** `cp -r src web examples` plus
+`tests/no_phrase_hard_coding.rs` and `Cargo.toml` into a scratch dir, then
+`CARGO_MANIFEST_DIR=<scratch> rustc --test --edition 2021 -o fence <scratch>/tests/no_phrase_hard_coding.rs`
+(compile exit 0; the manifest dir must be set at **compile** time or `rustc` aborts). Baseline
+**9 passed / 0 failed** against an unmutated copy, so the instrument reproduces before it is
+challenged.
+
+**Causal control, minimal pair, one token, same line, same unit, production position (`src/lib.rs:700`,
+above the `mod tests` boundary at 4243):**
+
+| planted line 700 | result |
+|---|---|
+| `pub static ZZ_PLANT: &'static str = "hits justice dupe hid came";` | **9 passed / 0 failed — the fence does not see it** |
+| `pub static ZZ_PLANT: String = "hits justice dupe hid came".to_string();` | **8 passed / 1 FAILED** |
+
+The `&'static str` spelling is therefore **necessary and sufficient** for the miss, nothing else in
+the unit is responsible, and the miss is a **false negative in production code** — the direction that
+matters. Two further shapes reproduce it, each with its own `String` control firing: a top-level
+`fn … -> &'static str { "hits justice dupe hid came" }` reads 9/9 while the `-> String` form is
+caught; and a function body `Option<&'static str>` returning both canonical answers reads 9/9 while
+the `Option<String>` body is caught.
+
+**Correction to pass 275's placement, which is the reason this entry exists.** Pass 275 wrote that
+the blind spot "is **LIVE** in this repository" and cited `src/lib.rs:7295` and `7341`. Both of
+those units are **`#[cfg(test)]` items**, not production: `mod tests` opens at 4243 and **closes at
+7263**, and `impl SlotOrder` (7294) and `impl SlotCut` (7340) are **top-level items after the test
+module has already closed**, reachable only under `cfg(test)`. Re-running the fence over a plant of
+the clue in a `#[cfg(test)] fn` body reads **9 passed / 0 failed** — but so does the same plant with
+no lifetime and in a `#[cfg(test)]` context at all, because `test_lines()` marks only the
+**attribute line** for a non-`mod` item and drops the units it starts, so nothing inside those bodies
+is scanned either way. **Those two line numbers therefore do not demonstrate a live production
+exposure; they demonstrate the defect in test-only code.** The production exposure is real — the
+minimal pair above is production, at line 700, one `&'static str` token from a missed clue — but it
+is *latent*, not *live*: no production unit on `main` today happens to contain an unpaired lifetime.
+
+**The census that settles it, over the six production files, using the fence's own `units_of` /
+`test_lines` / `literals` re-implemented verbatim:** a unit is desync-shaped when the
+comment-stripped code contains a `"` and `literals()` extracts **zero**. That returns **exactly the
+same two units**, `lib.rs:7295` and `lib.rs:7341`, and **no production unit at all** —
+adjacency, lexical, approx, wasm, main contribute **0**. So the honest statement is: **the fence has a
+confirmed one-token blind spot, it is currently exercised only by test-only code, and the first
+production `&'static str` that holds a phrase is invisible to it.**
+
+### Finding 2 (new): the same fence scans **2,046 lines of `#[cfg(test)]` item bodies as production**
+
+This is a **separate defect** from the desync, in the **opposite direction** (over-reporting, not
+under-reporting), and it was not visible in any prior pass.
+
+`test_lines()` handles the two `#[cfg(test)]` shapes differently, and only one of them is right. For
+a `mod` it walks to the closing brace and marks the whole body (correct). For **any other item** it
+executes `marked.insert(i + 1)` — the **attribute line alone** — and nothing more. `units_of()` then
+drops only the units whose **first line** is in that set, so the item's **entire body** is scanned as
+production.
+
+Measured on `src/lib.rs`: `mod tests` closes at 7263, and there are **9** top-level `#[cfg(test)]`
+items after it, spanning **2,046 lines**. A clue planted in the body of one of them is **flagged**:
+`fn zz_inner() { let s = "hits justice dupe hid come"; }` inside `impl SlotOrder` reads
+**8 passed / 1 FAILED** with the finding naming `src/lib.rs`. So the fence today scans test-only
+helper code under the production rule, and would report a hard-code that is in a test.
+
+**Both directions of the control, so the number is a measurement and not a broken instrument:**
+
+| plant | result |
+|---|---|
+| clue in the body of a top-level `#[cfg(test)] fn` (`#[cfg(test)]` + `fn` on the next line) | **9 passed / 0 failed** — body dropped, correct |
+| clue in the body of a top-level `#[cfg(test)] fn` written **on one line** with the attribute | **9 passed / 0 failed** — unit starts at the attribute line, dropped |
+| clue in the body of a **multi-line** `#[cfg(test)] fn` (attribute line, then the body) | **8 passed / 1 FAILED — flagged as production, incorrect** |
+| clue in the body of a `#[cfg(test)] impl` block | **8 passed / 1 FAILED — flagged as production, incorrect** |
+
+So the third and fourth rows are the defect and the first two are the correct behaviour, and the
+difference is exactly whether the unit's first line is the attribute. The published standing row
+describes this instrument as scanning "the production region", and 2,046 lines of `src/lib.rs` are
+not production. The effect on the standing invariant is **nil** — the production fence still reads 0
+in all six regions and the per-word arm is still the single adjudicated `src/lib.rs:3597` — but the
+row's claim about what population the instrument measures is **overstated by 2,046 lines**, and a
+future pass that tries to use this fence to decide whether a *test* may name a canonical phrase will
+get a false positive.
+
+**New rules.**
+
+- **278** — a defect reported as "live" must state **which population the live instance is drawn
+  from**, because the fix priority and the blast radius both depend on it and the two readings look
+  identical in a log. Pass 275's two live instances are `#[cfg(test)]` items sitting *after* the test
+  module's closing brace, so they demonstrate the defect in test code; the production exposure is
+  latent and required a minimal-pair control to establish at all. A pass that had trusted the
+  "LIVE" wording without a population would have reported a production incident.
+- **279** — a test-onlyness filter that marks the **attribute line** rather than the **item it
+  annotates** scans that item's whole body as production. `marked.insert(i + 1)` is the whole
+  implementation for the non-`mod` shape, and the gap is invisible in the file's line count because
+  the marked and unmarked regions are contiguous. The general form: a marker that names the start of
+  a construct must cover the construct's extent, and a filter measured only on whether it fires
+  (the plant) cannot tell "correctly dropped" from "dropped the wrong line" — both read 0.
+
+**Why this is recorded and not fixed.** The itinerary is `## Status: accepted and paused` and
+`accepted-state-2026-09-27.md` forbids resuming development without an explicit human instruction.
+Both findings are changes to a test file on the accepted release line, so this pass does not make
+them. Neither is re-derivation: the desync reproduction, the minimal pair, the `#[cfg(test)]` body
+census and the four-row control are all new measurements taken this pass, and the correction to
+pass 275's placement is the reason the entry is long.
+
+**Next useful action, for a human who reopens development** — pass 275's three items stand
+unchanged (fix the lifetime skip in `literals()`, add a lifetime-bearing positive control, add
+`--test no_phrase_hard_coding` to CI, since `grep -rl no_phrase_hard_coding .github` still returns
+**nothing** and an integration test is in neither `--lib` nor `--bins`), and this pass adds two
+more: **extend `test_lines()` to mark a non-`mod` `#[cfg(test)]` item to its closing brace**, and
+add a control that plants a clue in a `#[cfg(test)]` item body and requires **0**. All five are
+test-file or CI changes; none touches search behaviour and none hard-codes a phrase. The accepted
+state's "none of the canonical examples is hard-coded into production logic" remains **true on
+inspection** — region fence 0, ninety-first consecutive, and re-checked here by planting the clue in
+production position and watching the `String` control catch it — but the fence's **9/9 green is not
+evidence about that claim**, since the identical plant one lifetime token away is invisible to it.
