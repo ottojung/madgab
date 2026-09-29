@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b8f (pass 190; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the twenty-first pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with gawk exit 0, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 631 host rows, 0 clue fence hits in all six production regions = fifty-seventh consecutive with `lib.rs` whole-file = 9 under the same clue-only regex, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). Pass 189's rule 14a obeyed for the first time as written: `audit/*` re-fetched FIRST (`48bdf2b..b09676f`, exit 0), 204 refs, baseline 1,201 (+1 = pass 189's own pushed commit, on `origin` and therefore outside the at-risk set), and **an explicit positive start supplied to BOTH arms** — `--all ^<list>` and `--all --not <list>` agree `diff`-clean at **1** (`514ed91`, `for-each-ref --contains` names exactly `refs/heads/scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29` eaf7487), reflog-only 87 / intersection 0 / union 88, 25 `recovery/*` heads on `origin`, every exit code captured. **One stale count corrected (rule 25): `src/approx.rs`'s whole-file clue-literal total is 0, not the "1 total" published since pass 155** — the canonical clue at line 1041 is a decomposed `["hits", "justice", "dupe", "hid", "came"]` array, which the joined-literal regex cannot match, so the published 1 must have been counted under a regex that included *target* phrases. The production-region 0 is unaffected and still holds for all six files. No agent launched, stopped or prompted; the 6 host-`running` agents are other repositories (down from 7 — churn in other repos, untouched), left running. main untouched. Blocked on the human reopen/confirm decision)
-updated: 2026-09-29T05:12:00Z
+owner: coord-5f31 (pass 191; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the twenty-second pass (1 blocked / 83 done / 12 superseded = 96 work_item:true files via the fence-scoped form, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 632 host rows, 0 clue fence hits in all six production regions = fifty-eighth consecutive, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). **`audit/*` re-fetched first** per rule 14a (`b09676f..5d9bd28`, exit 0), 204 refs, baseline `rev-list --all --reflog` 1,202. **The pass's one real finding is a defect in rule 14's OWN published cross-check, in the direction of a 1,000x OVER-report — new rule 14b.** Pass 190 obeyed 14a by supplying an explicit positive start, but spelled that start as `git rev-list --all ^$REFS` where `$REFS` is an unquoted shell list: the shell expands `^` into **the first word only**, so 203 of the 204 exclusions arrived as bare *positive* refs and the query degenerated into "everything reachable from 203 audit refs, minus one" = **1,072 rows**. The same 204 refs spelled correctly (`sed 's|^|^|'` per ref) give **1**, `diff`-clean against `--all --not <list>` at **1**. At-risk state itself is UNCHANGED and safe: ref-held **1** (`514ed91`, `for-each-ref --contains` names exactly local `refs/heads/scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29` eaf7487), reflog-only **87** (`--reflog --not --all`) / **88** (`--reflog` with correctly per-ref-prefixed carets), intersection **0**, union **88**, **25** `recovery/*` heads on `origin` via `ls-remote`, every exit code captured. Why 20 passes missed it: on a **single** ref both spellings agree exactly (456 = 456, verified), and on two refs they still agree (456 = 456 vs `--not` 455) because the extra bare ref happens to be contained in the first; the defect only appears at ≥3 unrelated refs, and it is *silent* — exit 0, plausible-looking output, and the `diff`-clean agreement the log keeps quoting would have **confirmed** the 1,072 rather than caught it, since a prefix bug is invisible to a check that only compares two arms of the same spelling family. New rule 14b: prefix exclusions **per ref** (`sed 's|^|^|'`), never by a shell `^` glued to an unquoted list; and rule 14's own cross-check cannot detect a bug shared by both arms, so validate an arm against a *counted* population (refcount, and a constructed known-positive) rather than against its sibling spelling. Also re-verified pass 190's rule-25 correction with pass 190's own recommended word-boundary instrument: per-word canonical literals (`"hits"|"justice"|"dupe"|"hid"|"came"`) in the production regions of all six files = **0**, with a non-zero control (synthetic file → 5), so the no-hard-coding invariant holds under BOTH regexes and not only under the joined-literal one. No agent launched, stopped or prompted; the 6 host-`running` agents (`80d1`, `81a1`, `78d3` qai-proviral; `74e5`, `118c1` antonina; `94a9` assemblyp1) are other repositories, left running, untouched. main untouched. Blocked on the human reopen/confirm decision)
+prior_owner: coord-2b8f (pass 190; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the twenty-first pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with gawk exit 0, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 631 host rows, 0 clue fence hits in all six production regions = fifty-seventh consecutive with `lib.rs` whole-file = 9 under the same clue-only regex, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). Pass 189's rule 14a obeyed for the first time as written: `audit/*` re-fetched FIRST (`48bdf2b..b09676f`, exit 0), 204 refs, baseline 1,201 (+1 = pass 189's own pushed commit, on `origin` and therefore outside the at-risk set), and **an explicit positive start supplied to BOTH arms** — `--all ^<list>` and `--all --not <list>` agree `diff`-clean at **1** (`514ed91`, `for-each-ref --contains` names exactly `refs/heads/scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29` eaf7487), reflog-only 87 / intersection 0 / union 88, 25 `recovery/*` heads on `origin`, every exit code captured. **One stale count corrected (rule 25): `src/approx.rs`'s whole-file clue-literal total is 0, not the "1 total" published since pass 155** — the canonical clue at line 1041 is a decomposed `["hits", "justice", "dupe", "hid", "came"]` array, which the joined-literal regex cannot match, so the published 1 must have been counted under a regex that included *target* phrases. The production-region 0 is unaffected and still holds for all six files. No agent launched, stopped or prompted; the 6 host-`running` agents are other repositories (down from 7 — churn in other repos, untouched), left running. main untouched. Blocked on the human reopen/confirm decision)
+updated: 2026-09-29T05:16:00Z
 prior_owner: coord-7e4b (pass 189; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the twentieth pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with gawk exit 0, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 631 host rows, 0 clue fence hits in all six files production regions = fifty-sixth consecutive with `lib.rs` whole-file = 9 under the same clue-only regex, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). Pass 187 new rule obeyed — `audit/*` re-fetched FIRST (`528ba65..48bdf2b`, exit 0), 204 refs, baseline 1,200. **This pass found a real instrument defect that 19 passes of rule-14 cross-checking missed**: rule 14 sanction 2 (the bare `^<ref>` per-ref form) is only equivalent to sanction 1 (`--all --not <list>`) when a POSITIVE start is supplied. Run with only negative refs, `git rev-list ^a ^b …` implicitly starts from `HEAD`, so it measured HEAD ancestry only and returned 0 where the truth is 1 — a silent FALSE ZERO, exit 0, no warning. Root-caused with a decisive control: bare form 0, `+HEAD` 0 (HEAD is not a superset of the audit set here), `--all ^…` 1, `--all --not …` 1, the two corrected spellings `diff`-clean at 1. New rule 14a: a stateless exclusion spelling is not a population; when every argument is negative the population is silently HEAD, so cross-checking two exclusion spellings while both inherit the same implicit population cannot detect an error in it. At-risk state itself is UNCHANGED and safe — 1 ref-held (514ed91, local `scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29` eaf7487) / 87 reflog-only / intersection 0 / union 88, 25 `recovery/*` heads on origin, every exit code captured. The reflog side also differs by exactly the ref-held residual (88 vs 87) and that delta is provably the same set, so both are valid but differently-defined populations — recorded so a future pass does not read 88 as a contradiction. No agent launched, stopped or prompted; the 7 host-`running` agents are other repositories, left running. Blocked on the human reopen/confirm decision)
 prior_owner: coord-1d4b (pass 188; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the nineteenth pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with gawk exit 0, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 629 host lines, 0 clue fence hits in all six files' production regions = fifty-fifth consecutive with `lib.rs` whole-file = 9 under the same clue-only regex published beside it, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128). Pass 187's new rule was obeyed — `audit/*` re-fetched BEFORE any number was believed (`18085b4..528ba65`, exit 0), giving exclusion set 204 refs over baseline 1,199 (+2 = passes 186-187's own log commits, both on `origin` and so outside the at-risk set). Ref-held at-risk 1 / reflog-only 87 / intersection 0 — disjoint, union 88, holding passes 184-187. Residual is still `514ed91`, held only by local `refs/heads/scratch-3f8c62-landed`, content durable on `origin/recovery/at-risk-2026-09-29` (`eaf7487`); 25 `recovery/*` heads on `origin`. Both at-risk classes stay closed on content, so no content sweep was re-run; every `rev-list`/`comm` exit code captured per rule 22. The 4 host-running agents (94a9 assemblyp1, 31c1 skrynia, 81a1, 78d3 qai-proviral) are other repositories and were left running, untouched. This entry is deliberately SHORT per pass 187's "prefer no entry at all": the five facts are the whole of what a pass can establish and they have not moved in nineteen passes. Blocked on the human reopen/confirm decision)
 prior_owner: coord-9f3e (pass 187; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged for the eighteenth pass (1 blocked / 83 done / 12 superseded = 96 via the published fence-scoped gawk form with gawk exit 0, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 627 host rows, 0 clue fence hits in all six files' production regions = fifty-fourth consecutive with `lib.rs` whole-file = 9 under the same clue-only regex published beside it, 125/125 worktrees with `prune -n -v` empty, `main` untouched at 0267ade with `rev-parse --verify main` exiting 128); at-risk state re-derived cheaply against pass 186's already-fetched `audit/*` set, which read **2** against pass 186's **1** — and the extra entry was pass 186's OWN log commit `18085b4`, because the exclusion set was fetched BEFORE pass 186 pushed, so the prior pass's own new remote head fell into the exclusion *gap*; re-fetched (set still 204 refs, `audit/post-milestone-acceptance` advanced `5e84691..18085b4`) the set drops to **1** (`514ed91`, held by local `scratch-3f8c62-landed`, non-build content durable on `origin/recovery/at-risk-2026-09-29`), holding passes 184-186. Both at-risk classes remain closed on content, so no content sweep was re-run. Instrument note worth recording: rule 14's two exclusion spellings were cross-checked (they agree exactly at 1 after the re-fetch, `diff` clean) — but the FIRST reading, 2, also agreed across both spellings, which is precisely the lesson: agreement between the two forms validates the *spelling*, never the *exclusion set*, and a stale set is wrong in both forms identically. Blocked on the human reopen/confirm decision; next pass should prefer no entry at all)
@@ -16883,3 +16884,98 @@ pronunciation DAG with k-best / A*-style whole-path search, never a hard-coded c
 Navigate by the **last** `## Pass ` heading; do not trust a pass number quoted inside any entry, do
 not re-point the gate pointer, do not combine rule 14's two exclusion spellings without a positive
 start in both arms (rule 14a), and re-fetch `audit/*` before believing an at-risk number.
+
+## Pass 191 (coord-5f31)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` — unchanged. No work item created or claimed, no agent
+launched/stopped/prompted, no front resumed, **nothing pushed to `main`** (`ls-remote origin
+refs/heads/main` = `0267ade`, exit 0; `rev-parse --verify main` exits **128**, so there is still no
+local `main` ref). `audit/*` re-fetched **first**, per rule 14a (`b09676f..5d9bd28`, exit **0**),
+**204** refs, baseline `rev-list --all --reflog` **1,202**.
+
+### The invocation's three unexecutable clauses, declined (rule 19)
+
+Same three as passes 92–190, re-derived not inherited: (1) accumulate on
+`post-milestone-acceptance` — the itinerary says that branch "is release history after this
+acceptance and is **no longer an automatic accumulation target**", and this log is the sole thing
+that still commits there because it is the log's own home and carries no product code; (2) launch /
+prompt / split fronts / assign work — 0 `open`, 0 `working`, so any split would be invented work;
+(3) prioritize the canonical approximate-search examples — the no-hard-coding half is **already an
+invariant** (see the fence, re-verified below under a *second, independent* regex), and the
+canonical-example half is the *accepted limitation* whose only legitimate fix is a compact
+pronunciation-DAG whole-path search (k-best / A*-style) that the pause defers.
+
+### Five facts, re-derived
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** / **83 `done`** / **12 `superseded`** = **96** `work_item: true` files, fence-scoped (a non-fenced `grep` also matches `state: failed` inside a ```text``` block in `docs/environment-notes.md` — the 96 figure is the correct population; `docs/work/items/w-0f3a17-shortlist-rule.md` carries `work_item: false` and is correctly excluded). **0 `open`, 0 `working`.** |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** **632** host rows, **131** matching `madgab` in cwd = 110 `succeeded` / 20 `failed` / 1 `stopped`; filtering `state ∉ {succeeded, failed, stopped, killed}` returns **0**. The **6** host-`running` agents are other repositories — **left running**. |
+| `main` | **untouched**, `origin/main` = `0267ade`; no local `main` ref. |
+| Production clue fence | **0** in all six production regions, clue-only regex, `awk '/#\[cfg\(test\)\]/{exit}{print}'`, counted per file: `adjacency.rs` / `lexical.rs` / `approx.rs` / `lib.rs` / `wasm.rs` / `main.rs` all 0. **Fifty-eighth consecutive pass.** |
+| Worktrees | **125 registered**, `git worktree prune -n -v` **empty**, exit **0** — **twenty-second** consecutive. |
+
+### Rule 14b (new): rule 14's own cross-check has a 1,000× over-reporting blind spot
+
+Pass 190 satisfied rule 14a by supplying an explicit `--all` positive start — but spelled that start
+`git rev-list --all ^$REFS` with `$REFS` an **unquoted shell list**. The shell expands `^` into the
+**first word only**:
+
+| Arm, same 204 audit refs, explicit `--all` in all three | Rows |
+|---|---|
+| `--all ^$REFS` (bare shell `^`, **defective**) | **1,072** |
+| `--all $(sed 's\|^|^\|' … )` (per-ref prefix, correct) | **1** |
+| `--all --not $REFS` (rule 14 sanction 1) | **1** |
+
+The two *correct* spellings are `diff`-clean at 1; the defective one is 1,071 rows too high and
+**exits 0** with entirely plausible output. Mechanism confirmed by `set --` inspection: `argc=204`,
+`argv1` carries the `^`, `argv2` onward are bare — so 203 exclusions arrive as *positive* refs and
+the query degenerates into "everything reachable from 203 audit refs, minus one".
+
+Why twenty passes of cross-checking missed it: on a **single** ref both spellings agree exactly
+(456 = 456, verified this pass), and on two refs they still agree (456 = 456 against `--not` 455)
+because the unprefixed ref happens to be contained in the prefixed one. The defect only becomes
+visible at three or more unrelated refs. And the `diff`-clean agreement this log quotes every pass
+would have **confirmed** the 1,072 rather than caught it — a bug shared by both arms is invisible to
+a check that only compares the arms to each other. This is rule 14a's mirror image: 14a caught a
+shared *false zero*; 14b is a shared *false positive* introduced by the very fix for it.
+
+**Rule 14b: prefix exclusions per ref** (`sed 's|^|^|'`, or `xargs`), never by a shell `^` glued to an
+unquoted list; and validate an arm against a **counted** population (the ref count, plus a
+constructed known-positive) rather than against its sibling spelling.
+
+### At-risk state — unchanged and safe, measured with the corrected arms
+
+`--all --not <204 refs>` = **1**, `--all` + per-ref carets = **1**, `diff` clean. The residual is
+`514ed91`; `for-each-ref --contains` names exactly one holder, local
+`refs/heads/scratch-3f8c62-landed`, whose non-build content is durable on
+`origin/recovery/at-risk-2026-09-29` (`eaf7487`). Reflog-only **87** (`--reflog --not --all`) / **88**
+(`--reflog` + per-ref carets); intersection **0**, union **88**; **25** `recovery/*` heads confirmed
+on `origin` by `ls-remote`. Every `rev-list`/`comm` exit code captured (rule 22). Holding passes
+184–190. **No recovery branch is warranted and none was created.**
+
+### Pass 190's rule-25 correction re-verified with its own recommended instrument
+
+Pass 190 found the joined-literal regex blind to `approx.rs`'s decomposed
+`["hits","justice","dupe","hid","came"]` and recommended a word-boundary regex when the claim is
+about *canonical clues present*. Run this pass with per-word literals over the production regions of
+all six files: **0** in every file, against a non-zero control (synthetic file → 5). So the
+no-hard-coding invariant holds under **both** regexes — it is not an artifact of the phrase spelling.
+
+### Next action for the next pass
+
+**Prefer no entry at all.** The five facts have not moved in twenty-two passes, the at-risk classes
+are closed on content from passes 184–186, and this pass closed the last open instrument question in
+the log. Do not re-walk the closed classes.
+
+Human threads, unchanged: the residual `514ed91` commit object (rewrite it without its 329 build
+paths including a 129 MB `.rlib`, or accept the content-level recovery as sufficient); and the
+out-of-repo options — fix or retire the scheduler template, confirm the pause (close this item
+`done`), or reopen development (fresh focused branch from `main`; compact pronunciation DAG with
+k-best / A*-style whole-path search, never a hard-coded canonical phrase).
+
+Navigate by the **last** `## Pass ` heading; do not trust a pass number quoted inside any entry; do
+not re-point the gate pointer; re-fetch `audit/*` before believing an at-risk number; supply an
+explicit `--all` positive start to both arms (rule 14a) **and** prefix exclusions per ref (rule 14b)
+— `sed 's|^|^|'`, never a bare shell `^` on an unquoted list.
