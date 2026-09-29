@@ -121,8 +121,44 @@ n_invdelta=$(wc -l < "$TMP/invdelta")
 # So: a movement in either arm beyond the recorded baseline is reported loudly
 # and exits non-zero. Set PREV_ARMS/REFS to the counts the last pass recorded
 # after attributing the movement.
-PREV_ARMS=${PREV_ARMS:-89}
-PREV_PUB=${PREV_PUB:-88}
+#
+# PASS 328 ATTRIBUTES THE 89 -> 90 MOVEMENT, so the baseline is 90/89 and the
+# guard goes quiet. The member is 2bbcac689117e399ff87264e18aef2a30aa8712a --
+# PASS 322's OWN CLAIM COMMIT, not new work by anyone. It was committed at
+# 21:20:11 and amended to e158d2d1 eight seconds later (21:20:19) before the
+# push, so the amended-away original survives only in the reflog. Pass 322
+# recorded this correctly in its own correction entry ("2bbcac6 is a
+# content-safe reflog-only draft (amend was pre-push, so lossless)"); what was
+# missing was the count, because the pass that created the member and the pass
+# that set the baseline were reading different numbers.
+#
+# The diff to its replacement is 2 lines in one file -- `owner: coord-2f83` ->
+# `coord-7d2a` and its `updated:` stamp -- and nothing else. Content-safe,
+# measured, not inferred: `git diff --stat 2bbcac6 e158d2d1` = 1 file, +2/-2.
+#
+# PASS 328 also records the METHOD, because pass 327 could not attribute it and
+# four approaches were tried and failed first. What does NOT work:
+#   (a) dating at-risk members by their reflog entry's timestamp column read as
+#       $5 -- the ident field contains spaces, so $5 is an email on some lines
+#       and a timestamp on others. 9 of 89 members came back "no such entry".
+#   (b) scanning .git/logs alone -- there are 1,122 reflog files, of which 125
+#       are per-worktree (.git/worktrees/*/logs/HEAD) and are NOT under
+#       .git/logs. A scan of .git/logs alone sees 997 and silently misses every
+#       worktree reflog.
+#   (c) looking for ref DELETIONS after pass 322 -- there are none. A commit
+#       enters the at-risk set by being AMENDED AWAY, not by losing a ref.
+#   (d) the audit mirror is NOT stale: computing the set against origin's real
+#       heads via `git ls-remote` gives the identical 90, so the growth is not
+#       a mirror artefact. Worth knowing, and cheap to re-check.
+# What DOES work: enumerate every reflog transition after the baseline pass and
+# keep the NON-FAST-FORWARD ones. `2bbcac6 -> e158d2d1` is an amend, so it is
+# invisible to ref-deletion searches and to reachability tests, and visible only
+# as a rewind in the ref's own reflog. Rule 328: a rebase/amend/reset is a
+# REF-SIDE EVENT with no deletion and no new object, so any instrument hunting
+# at-risk growth by looking for deleted refs or unreachable commits is looking
+# for the wrong class entirely.
+PREV_ARMS=${PREV_ARMS:-90}
+PREV_PUB=${PREV_PUB:-89}
 if [ "$at_risk" -gt "$PREV_ARMS" ] || [ "$published" -gt "$PREV_PUB" ]; then
   printf 'at-risk-delta: GROWTH -- arms %s/%s exceed the recorded %s/%s (previous pass).\n' \
     "$at_risk" "$published" "$PREV_ARMS" "$PREV_PUB" >&2
