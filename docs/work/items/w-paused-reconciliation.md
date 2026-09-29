@@ -29686,3 +29686,155 @@ items are unchanged from passes 312-313 except as noted:
       resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 315 (coord-3a5d, 2026-09-29T19:41Z-19:56Z) — gate NO; six facts re-derived unchanged; ACTED — CI still configures three `MADGAB_TRACE_*` env vars that the accepted code no longer reads, and the one place the canonical clue is hard-coded outside tests is the unfenced `.github/`
+
+### The six standing facts, re-derived this pass (all unchanged)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** /
+83 done / 12 superseded, 0 open / 0 working for the 105th time and the only non-terminal item
+is this one; `agents.sh` exit 0 — 729 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab
+agents** (110 succeeded / 20 failed / 1 stopped), the 1 host-`running` agent (`109a5` skrynia)
+another repository and **left running untouched**; `clue-fence.sh` exit 0 — **0 canonical
+occurrences in the 6 `src/` regions**, 1 adjudicated benign per-word hit, all 15 controls as
+published; `at-risk.sh` exit 0 **only with `--fetch`** — 89 = ref-held 1 + reflog-only 88,
+205 exclusion refs, both arms agreeing, and `at-risk-content.sh` exit 0 — 230 absent blobs over
+320 paths, **non-build absent 0**, control fires; `selfcheck.sh` **7/7**. **main untouched**:
+no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` 0267ade, HEAD on
+`post-milestone-acceptance`, 387 commits ahead with the drift confined to 72 `docs/` paths and
+`git diff origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml .github/` **empty** (zero
+production drift). 125 worktrees, `prune -n -v` empty, exit 0.
+
+`at-risk.sh` without `--fetch` **failed closed** on arrival rather than reporting a clean
+stale figure — it named the mirror as behind and refused. That is pass 293's fix working as
+designed, and this pass is the first to observe it firing on a live arrival rather than in a
+plant. Recorded so a later pass does not read the refusal as a new defect.
+
+**The accepted known limitation reproduces exactly as documented.** Run deliberately, not as
+part of any gate:
+
+    cargo test --release --test corpus_integration -- --ignored --exact \
+      approximate_finds_classic_madgab_resegmentation
+    => FAILED, panicked at tests/corpus_integration.rs:137, "canonical clue missing from top 50"
+       got: ["it said thus test oop dame", ... ] (12 candidates)
+
+`docs/accepted-state-2026-09-27.md` names this as an accepted limitation, the test carries
+`#[ignore]` pointing at that document, and 12/13 pass with the 13th reproducing. The full
+release target is 12 passed / 1 ignored in 14.09s, and `cargo test --all-targets` is green
+across all ten integration targets plus the lib suite (83 passed / 12 ignored).
+
+### This pass's finding: the accepted code dropped the `MADGAB_TRACE_*` probes, and CI never noticed
+
+`.github/workflows/test.yml` sets three env vars on its "real-corpus integration tests" step:
+
+    MADGAB_TRACE_PHRASES: "hits justice dupe hid came|wreck a nice beach"
+    MADGAB_TRACE_SPANS:   "0-3,3-10,10-13,13-15,15-19"
+    MADGAB_TRACE_WORDS:   "hits,justice,dupe,hid,came"
+
+Nothing reads them. The env-gated `eprintln!` probes they address were removed by `784deaae`
+("w-1c3e77: ... drop the dead agent's MADGAB_TRACE probes", 2026-09-26), which **is an ancestor
+of `origin/main`**, so the env block has been dead on `main` for the whole life of the release.
+Three independent derivations, each with a control, because "grep found nothing" is the
+weakest form of this claim:
+
+| check | result |
+|---|---|
+| `grep -rn 'MADGAB_TRACE' src/ tests/ examples/` | 0 lines |
+| `grep -qa` each name in the **compiled** `target/release/deps/corpus_integration-*` binary | all three **ABSENT**; positive control `corpus_integration` **PRESENT** |
+| run the CI step's exact command with the CI env set, `--nocapture`, count `MADGAB_TRACE` lines | **0** |
+| `grep -rn 'env::var\|std::env' src/` | 1 line, `src/main.rs:83`, `std::env::args` (CLI argv, not env lookup) |
+
+The third row is the one that matters: it executes the workflow step itself. The string is
+absent from the **binary**, so no `env::var` and no `cfg`-gated path can produce it.
+
+Why this is a *durable* finding and not a cosmetic one: the env block is the last artifact of
+a probe facility that the research programme used as its primary measurement instrument.
+`MADGAB_TRACE_PHRASES` is cited by ~25 work items as the way to get a rank or a pool count. Its
+removal is correct and reviewed (`REVIEW-1c3e77.md` calls the removal "a net fence
+improvement"), but nothing told CI, and every historical work item that says "measure with
+`MADGAB_TRACE_PHRASES`" is now unfollowable on this head. `w-474813`, `w-7b40d2`, `w-5b1e93`
+and `w-9e2b41` each independently recorded "it does not exist on this head, do not cite it" —
+four items rediscovering the same fact the workflow contradicts.
+
+### The second-order half: `.github/` is the one non-test place the canonical clue is written, and no fence covers it
+
+`grep -rlniE 'hits justice dupe hid came'` over the tree, excluding `docs/` and `target/`:
+`.github/workflows/test.yml`, `src/lib.rs:8598` (below `mod tests` at 4243, so the fence's
+region correctly excludes it), four files under `tests/`, the fence itself, `README.md`,
+`REPORT-a3f19c.md`, `REPORT-9f1c05.md`.
+
+`tests/no_phrase_hard_coding.rs`'s `REGIONS` is `src/.rs`, `web/.js|.html|.css`,
+`examples/.rs`. `.github/` is not in it, and the module doc gives the inclusion test as
+"Cargo.toml and any file extension not listed in REGIONS" are out of scope. So the one
+**shipped, non-test, non-documentation** file in the repository containing the canonical clue
+is a file no fence reads.
+
+That is defensible — a CI env block is not a search path and cannot bias a result — so this
+pass does **not** propose widening `REGIONS`. The problem is narrower and is the one this pass
+records: the same three env-var names carry `hits justice dupe hid came` and
+`wreck a nice beach` as their values, they are dead, and they are the sole reason the file
+needs to be defended at all. **Delete the `env:` block and the file stops being a
+hard-coding exception.** That is a workflow edit, not new code.
+
+### Rule 14ah (new)
+
+**A removal that changes a program's interface is not done when the callers stop compiling —
+it is done when the configuration stops claiming the interface exists.** `784deaae` deleted
+the `MADGAB_TRACE_*` probes and reviewed them as a fence improvement, correctly: `env::var`
+probes in production `src/` are exactly what the no-hard-coding and no-production-knob fences
+are for. The deletion is right. But the *configuration* was left describing a facility that
+no longer exists, in a file CI executes on every push, and no check anywhere compares the two
+— because the tests are the callers, the probes were not part of any test's assertions, and
+removing a feature nobody asserted never fails a build.
+
+The general form: **deleting a capability produces no test failure**, so the failures arrive
+later as documentation and configuration that quietly describe a system that is not there.
+Passes 306-314 each found a *fence* that could not see a population; this is the same shape at
+the interface: CI could not see that the thing it configures was gone. The cheap check is not
+a new test but reading the config for names the source no longer defines, which is a
+one-line `git grep` that nobody ran for three days.
+
+This is also the log's own recurring lesson arriving from a new direction. Passes 308-311 made
+the *matcher* trustworthy and left the *population* implicit; pass 314 closed the population
+gap in the fence; pass 315 finds a third artifact — the CI workflow — asserting an interface
+that no longer exists, in a directory the fence does not read and correctly should not.
+
+### What this pass did and did not do
+
+Re-derived the six facts; deliberately re-ran the one `#[ignore]`d release test to confirm the
+accepted limitation still reproduces as documented rather than quoting the document; measured
+the dead-env claim three ways including a control on the compiled binary and an execution of
+the CI step's own command; recorded the `.github/` fence-coverage observation and explicitly
+declined to widen `REGIONS`, because CI config cannot bias a search result and widening a
+production fence to cover a non-production file would weaken it.
+
+Claimed the item by pushing the owner change (coord-5d3e -> coord-3a5d) at `c543dcf`.
+Declined the three scheduler-template clauses for the sixty-sixth time on
+`## Status: accepted and paused` plus `accepted-state-2026-09-27.md`: no agent launched or
+prompted, no historical item claimed, no new work item, no integration, no push to `main`,
+**no file under `src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched**. The only file
+this pass would change is `.github/workflows/test.yml`, and that is a human decision (see NEXT
+(b)).
+
+NEXT: no pass-actionable item is asserted. The pause holds, and the open items are the
+pass-312-314 list with one addition:
+
+  (a) **Compact this log** (first raised pass 312). 2.4 MB, 240 pass sections, frontmatter
+      broken three times (passes 218, 252, 289).
+  (b) **NEW — delete the dead `env:` block in `.github/workflows/test.yml`** (this pass). Three
+      env vars naming a facility deleted by `784deaae` on `main` since 2026-09-26, verified
+      absent from the compiled test binary with a positive control. The step runs the same
+      either way, so this is a three-line deletion with no behavioural change. A human decision
+      because it edits the workflow that gates pushes to `main`. **Worth doing together with
+      the pass-267 item below**, since both are single edits to the same file.
+  (c) **The fence is still not run by CI** (first raised pass 267).
+      `.github/workflows/test.yml` runs `cargo test --lib --bins`, one integration target
+      (`corpus_integration`), and clippy. The other 8 of 10 integration targets, including
+      `no_phrase_hard_coding`, never run. This pass re-confirms the 9-of-10 figure (passes
+      306-307) and adds that the fix is a workflow edit, not new code. Still a human decision,
+      since it changes what CI gates a push to `main` on.
+  (d) Retiring this recurring pass: the six facts have not moved for 105 passes.
+  (e) `itinerary-madgab.md` line 17 vs the out-of-repo scheduler template. The itinerary wins;
+      resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**
