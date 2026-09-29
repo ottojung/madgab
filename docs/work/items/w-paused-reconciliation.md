@@ -27348,3 +27348,75 @@ and each instrument refuses rather than reporting a number it cannot defend.
 Operational note carried forward from pass 294 and re-confirmed here: do not
 pipe any of these scripts into `head`; that yields rc=141 (SIGPIPE) and reads as
 instrument failure. Read them whole or redirect to a file.
+
+### pass 295 addendum — the pass-218 diagnosis in this file is WRONG, and it was load-bearing
+
+Written while auditing `census.sh`'s duplicate-key refusal, which asserts that
+this item's own frontmatter regressed three times into something "no conforming
+YAML reader can parse". That is only half true, and the half that is false has
+been quoted as the reason for ~75 passes of frontmatter repair.
+
+**What was measured, in isolation:**
+
+| construct | whole-file `yq` | frontmatter-block-only `yq` |
+|---|---|---|
+| `a: 1` / `a: 2` (duplicate key) | parses, last wins | parses, last wins |
+| unquoted value containing `: ` | parses | parses |
+| unquoted value containing an apostrophe | parses | parses |
+| apostrophe **and** `: ` after it | FAILS | FAILS |
+
+So a duplicate key is a **schema** violation — `work-items.md` names eight keys
+and `prior_owner` is not one of them, which is why the repairs were correct to
+make — but it is **not** a parse failure. A conforming reader takes the last
+occurrence and continues. The log's stated cause, "their unquoted values
+contain `: `, so any conforming YAML reader fails with `mapping values are not
+allowed in this context`", does not reproduce: `: ` alone parses fine. The real
+cause needs **two** things together — an apostrophe, which opens a quoted
+scalar, and a `: ` *inside* that span, which then terminates the quoted token
+early. Neither alone is sufficient. This was confirmed against the actual
+regressed file, not reasoned about: at `c9beefa` the frontmatter block alone
+reads `yaml: line 6: mapping values are not allowed in this context`, and the
+line-6 value is `prior_owner: coord-4a2f (pass 288; ... ACTED - pass 287's TWO
+published fence controls ...)`, whose apostrophe is in `287's` and whose
+`: ` follows it.
+
+**The second finding is the one with teeth: the probe this log uses to detect
+the defect does not work, in the direction that hides the defect.** The check is
+"does `yq` fail on the file?". Run over the whole file it fails on **96 of 96**
+items, well-formed ones included — `docs/work/items/w-1c3e77.md` and 95 others
+— because the body is Markdown, not YAML. So the probe has no discriminating
+power at all: it reports the same answer for the current file and for any
+regressed one. Restricted to the frontmatter block (`sed -n '2,/^---$/p'`) it
+parses **96 of 96** today and FAILS at `c9beefa`, which is the only form of the
+check that can distinguish the two states.
+
+The general form, and it is the same shape as every other fail-open in this
+log: **a detector whose healthy reading is "fails" cannot detect anything.** An
+instrument that reports FAIL on all 96 subjects is not a noisy instrument, it
+is an instrument with a constant answer, and it has been cited as evidence of a
+defect recurring three times when what it actually established is that it never
+discriminates. This is rule 14q from the opposite side — a control whose result
+cannot be re-derived from the file it names manufactures confidence in whatever
+direction the conclusion already points. Three of the repairs it prompted were
+still correct (the keys were non-schema); the *reason* recorded for them was
+not, and the reason is what would be copied next time.
+
+**What this does and does not change.** Nothing about the current file: its
+frontmatter is the eight schema keys, and it parses both ways. The census is
+unaffected at 96, because `census.sh` selects on identity and structure rather
+than on a YAML parse — which is incidentally the reason it never needed this
+probe, and is an argument for measuring structure rather than syntax. The
+duplicate-key arm in `census.sh` is *retained*: it is a real schema violation
+and worth refusing over, but it is now documented as a **schema** refusal, not
+a parse refusal, and the file's own header comment — which claimed reader-
+invisibility — should not be read as a parse-failure claim.
+
+`census.sh` is left as committed. Correcting the diagnosis in this file is the
+whole of the durable change; the instrument's behaviour is right for a reason
+that is now stated correctly, which is the pass-294 lesson about a procedure
+versus a figure applied to a narrative.
+
+NEXT: unchanged, and now with one fewer false premise in it. The next pass
+should, if it touches frontmatter at all, validate with the **frontmatter-block**
+form, and should not read a whole-file `yq` failure as evidence of anything.
+**Blocked on the human reopen/confirm decision.**
