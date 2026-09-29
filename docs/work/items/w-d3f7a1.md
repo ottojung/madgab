@@ -7,7 +7,7 @@ owner: d3f7a1 (adversarial review front, 2026-09-27T03:37Z)
 updated: 2026-09-27T03:37:00Z
 branch: madgab-review-axes-d3f7a1
 worktree: /workspace/madgab-review-axes-d3f7a1
-reviews: 5258e7b..f71b634 (front: refs/heads/wip/madgab-objective-axes-f71b634)
+reviews: "5258e7b..f71b634 (front: refs/heads/wip/madgab-objective-axes-f71b634)"
 ---
 
 # Adversarial review front: the objective-axis front (w-9c6f2b)

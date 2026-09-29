@@ -3,13 +3,13 @@ work_item: true
 id: w-b7d4c1
 state: done
 priority: normal
-owner: coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 ran 21:13Z-21:45Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1], verdict HOLD, commit db59764 docs-only, integrated by coord-5e40 at 21:38Z) / reviewed by coord-5e40 (21:38Z reconciliation pass: the HOLD record is integrated and this item is CLOSED as a priced negative - see the handoff section for the review and the successor routing)
+owner: "coord-4e19 (claimed 2026-09-27T21:13Z on post-milestone-acceptance at c9bf807; front agent-b7d4c1 ran 21:13Z-21:45Z in /workspace/madgab-covmod-b7d4c1 [madgab-covmod-b7d4c1], verdict HOLD, commit db59764 docs-only, integrated by coord-5e40 at 21:38Z) / reviewed by coord-5e40 (21:38Z reconciliation pass: the HOLD record is integrated and this item is CLOSED as a priced negative - see the handoff section for the review and the successor routing)"
 updated: 2026-09-27T21:38:00Z  # front wrote a future-dated 21:45Z stamp; corrected here to the real integration time by coord-5e40
 branch: madgab-covmod-b7d4c1
 worktree: /workspace/madgab-covmod-b7d4c1
 opened_by: coord-4e19 (reconciliation pass 2026-09-27T21:11Z-21:15Z)
-source_items: docs/work/REPORT-2f1c03.md §3 and its closing successor rule (the "one non-duplicative residue", P1: the per-member modulus in `coverage_tuples`), docs/work/OBSTRUCTION-MAP.md §3 ("The one non-duplicative residue the sweep report found - the per-member modulus in `coverage_tuples` - is a later, non-blocking front on the reserve side and must be decided under the same head-lift criterion, never as a reach item"), docs/work/items/w-3f8c62.md constraint 7
-predecessors: w-2f1c03 (done, priced the reserve sweep reach-null by 5-6 orders of magnitude and left P1 as the residue), w-c3f81a (done, reserve placement), w-3f8c62 (working, concurrent and independent: it owns the objective/bound surface only and is explicitly fenced away from this one)
+source_items: "docs/work/REPORT-2f1c03.md §3 and its closing successor rule (the \"one non-duplicative residue\", P1: the per-member modulus in `coverage_tuples`), docs/work/OBSTRUCTION-MAP.md §3 (\"The one non-duplicative residue the sweep report found - the per-member modulus in `coverage_tuples` - is a later, non-blocking front on the reserve side and must be decided under the same head-lift criterion, never as a reach item\"), docs/work/items/w-3f8c62.md constraint 7"
+predecessors: "w-2f1c03 (done, priced the reserve sweep reach-null by 5-6 orders of magnitude and left P1 as the residue), w-c3f81a (done, reserve placement), w-3f8c62 (working, concurrent and independent: it owns the objective/bound surface only and is explicitly fenced away from this one)"
 base: post-milestone-acceptance at c9bf807 (pushed)
 ---
 

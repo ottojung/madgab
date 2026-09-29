@@ -5,7 +5,7 @@ state: done
 priority: high
 owner: coord-9d1e
 updated: 2026-09-26T19:13:00Z
-branch: madgab-score-reseg-9a41d3 (40e158b, pushed, NOT merged - the front's own durable line is MERGE RECOMMENDATION: HOLD)
+branch: "madgab-score-reseg-9a41d3 (40e158b, pushed, NOT merged - the front's own durable line is MERGE RECOMMENDATION: HOLD)"
 worktree: /workspace/madgab-score-9a41d3 (removable; durable copy at origin/madgab-score-reseg-9a41d3)
 agents: 9a41d3 (succeeded, P2; report durable at git show madgab-score-reseg-9a41d3:REPORT-9a41d3.md)
 ---

@@ -3,7 +3,7 @@ work_item: true
 id: w-6d2af3
 state: done
 priority: high
-owner: agent-6d2af301 (TERMINAL 2026-09-27T08:11Z: succeeded, exit 0, 1 prompt; verdict REJECT, recorded on madgab-review-bound-6d2af3 at da47326 and integrated verbatim into post-milestone-acceptance as b88051e) / coord-2f9c (integration of the review record only; no source change, nothing from the emission-bound front integrated)
+owner: "agent-6d2af301 (TERMINAL 2026-09-27T08:11Z: succeeded, exit 0, 1 prompt; verdict REJECT, recorded on madgab-review-bound-6d2af3 at da47326 and integrated verbatim into post-milestone-acceptance as b88051e) / coord-2f9c (integration of the review record only; no source change, nothing from the emission-bound front integrated)"
 updated: 2026-09-27T08:12:00Z
 branch: madgab-review-bound-6d2af3
 worktree: /workspace/madgab-review-bound-6d2af3 (agent-6d2af301 terminal at 08:11Z with the report pushed; clean tree at da47326; reviewed range 707fb2a..b49f892 unchanged, 4f76b16 above it is docs-only)
