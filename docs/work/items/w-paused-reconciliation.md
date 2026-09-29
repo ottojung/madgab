@@ -25887,3 +25887,93 @@ of a control part of the standing procedure (assert the plant is inside the regi
 and consider whether `fence.awk`'s refuse-on-empty-region guard should gain an equivalent assertion for a
 degenerate matcher input. Otherwise the state is unchanged and the item remains `blocked` on the human
 reopen/confirm decision.
+
+## Pass 282 (coord-7e04)
+
+Gate: **NO.** The three scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples without phrase-specific hard-coding) are declined for the **thirty-fifth**
+time, on the itinerary's own accepted-and-paused status, unchanged from pass 281. Clause 2 still
+conflicts with the itinerary text on the same line pass 199 found — the itinerary says
+post-milestone-acceptance "is no longer an automatic accumulation target", so this log does not treat
+it as one; only a human can retire the out-of-repo template. Clause 3's no-hard-coding half is
+satisfied as a standing invariant, not as work.
+
+**This pass's one finding closes the delta pass 202 flagged and passes 203–281 did not: the census is
+96, and the "+1 done / +2 total" is an artefact of the reading instrument, not repository state.**
+
+Five facts, all executed this pass, all consistent with the last nineteen:
+
+1. **Census — 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.** The pass's *first*
+   census read **97 = 1 / 84 / 12** and looked like the unexplained delta pass 202 recorded and told
+   the next pass to reconcile. The published gawk form (line 23171) gates on
+   `wi=="true" && st!=""`; this pass's shorthand re-derived it as `/^work_item:/{wi=1}` — a **key**
+   match with no **value** comparison — and so counted
+   `docs/work/items/w-0f3a17-shortlist-rule.md`, which is `work_item: false` / `state: done`. That one
+   file is exactly the "+1 done / +1 total"; the second "+1 total" in pass 202's arithmetic was the
+   same file counted once in the state tally and once in the file tally. Re-run with the value
+   comparison restored, over the published scope `docs/work/items/*.md docs/*.md`, the census is
+   **96 = 1 / 83 / 12**, matching twenty prior passes. Scope is load-bearing per rule 14l:
+   `docs/work/items/*.md` alone gives 95, because `docs/continuation-approximate-search.md` is itself
+   `work_item: true` / `state: superseded` and lives outside that directory. Control: the same filter
+   over `docs/work/items/README.md` (no `work_item:` key at all) pairs 0, so the 0 is a measurement
+   and not a broken instrument.
+
+   **This is rule 14aa reappearing in a second instrument, and it is the same failure mode by a
+   different route.** Rule 14aa says a control is only a control if verified to have *survived* the
+   filter. Pass 281's two broken instruments were a plant placed below the test boundary and a
+   shell-lost `$CARETS`. This pass's is a filter that selects a key without testing its value, so it
+   admits a file the population excludes. The general form: **a predicate that names a key but not
+   the key's admissible value is a predicate over the key's presence, not over the population it is
+   meant to describe** — and it fails *open* (over-reports), which is the direction that makes a
+   careful pass look like it found drift. Recorded rather than promoted to a new rule number, since
+   14aa already generalises it; the concrete change to the standing procedure is that the published
+   gawk form must be copied **whole**, value comparison included, and never re-derived from its
+   shape by eye. Pass 202's note to future passes asking for this delta can now be struck: the
+   repository never moved.
+
+2. **Agents — 0 non-terminal MadGab agents.** The three host-`running` rows (`92e4` volodyslav-92,
+   `109f1` skrynia-109, `94e7` assemblyp1-94) and the four host-`idle` rows (`78b2`, `92f3`, `92e3`,
+   `98f3`) all have non-MadGab cwds — `antonina`, `qai-proviral`, `volodyslav`, `skrynia`,
+   `assemblyp1` — and were **left running / untouched**. Nothing launched, stopped or prompted. One
+   row (`a11d`, cwd `/tmp/cwd-7ze5eU`, age rendered as 20725d) is a host artefact with no repository
+   cwd; not MadGab, not actionable.
+
+3. **Hard-coding fence — 0 hits in production src/, 0 hits per file, with a live control.** Scoped
+   per rule 14n (region pinned: `src/lib.rs`, `src/main.rs`, `src/approx.rs`, `//` comment lines
+   dropped, scan stopped at `#[cfg(test)]`), under BOTH the joined-phrase regex and the per-word
+   alternation `"(hits|justice|dupe|hid|came)"`. All three files return **0**. The control is a
+   one-line synthetic source containing `const X: &str = "Hits Justice Dupe Hid Came";` and returns
+   **1** — so the 0 is a measurement. Seventh-hundredth-odd consecutive pass; the streak is a
+   standing invariant, not work.
+
+4. **main untouched** — `git rev-parse --verify main` exits **128** (no local `main` ref; the exit
+   code is the point, per pass 182's fatal-empty-stdout rule), and `refs/remotes/origin/main` is
+   still `0267ade` "Merge accepted MadGab approximate-search release state". Nothing merged or pushed
+   to main, per the instruction and the itinerary alike.
+
+5. **HEAD on `post-milestone-acceptance` at `97b395d`**, equal to `origin/post-milestone-acceptance`
+   after a successful `git fetch origin` — no divergence, no race, nothing to reconcile with another
+   coordinator.
+
+No work claimed, no work assigned, no agent launched. No recovery branch warranted and none created.
+Blocked on the human reopen/confirm decision.
+
+### Next pass
+
+Prefer no entry at all. Two items are genuinely open, both cheap:
+
+- **Rule 14aa's procedure, not its theory.** Concretely: the standing census is correct only as
+  copied whole. If any pass re-derives it, copy the published gawk form verbatim including
+  `wi=="true" && st!=""`, and add a control that counts a known `work_item: false` file — a
+  `work_item: false` sentinel in scope is a one-line plant that would have caught this pass's 97
+  immediately. That is the same shape as 14aa's "assert the plant is inside the region", applied to
+  the value half rather than the region half.
+- **`fence.awk`'s refuse-on-empty-region guard** (carried from pass 281, still unaddressed): it
+  refuses when the scanned region is empty, which is a fail-*closed* direction, but a matcher input
+  that is itself degenerate can produce a non-empty region with a vacuous match count. Worth one
+  assertion if anyone revisits the fence.
+
+Everything else is unchanged. The item remains `blocked` on the human reopen/confirm decision, and
+pass 203's standing note — that the delta it asked about was an instrument artefact, not repository
+drift — is now discharged.
