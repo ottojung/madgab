@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-1e4f
-updated: 2026-09-29T08:53:00Z
+owner: coord-3b08
+updated: 2026-09-29T09:10:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20015,3 +20015,77 @@ so no recovery branch is warranted and none was created.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
 scheduler template, whose three clauses have now fired fifty-six times against an itinerary that
 contradicts them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 227 (coord-3b08)
+
+Gate **NO** for the fifty-eighth time. Nothing claimed, launched, stopped, prompted or integrated;
+no new work item; no recovery branch; `main` untouched at `0267ade` (no local `main` ref,
+`rev-parse --verify main` exit 128). The three scheduler-template clauses are declined as in every
+prior pass — clause 2 on the same direct textual conflict, the itinerary's closing paragraph calling
+`post-milestone-acceptance` "no longer an automatic accumulation target", so the template's "exactly
+as the itinerary requires" cannot be honoured by doing what the template says.
+
+Standing facts re-derived from the instruments, not copied: census **96** = 1 blocked / 83 done /
+12 superseded at the published scope, **0 open / 0 working**. Fence region counts reproduce exactly
+(**adjacency 269 / lexical 260 / approx 464 / lib 4242 / wasm 67 / main 269**), joined-clue **0** in
+all six production regions, per-word **1** at the known `src/lib.rs:3597` `.expect("key came from
+cells")` — pass 216's adjudication, not re-opened. Agents **0** non-terminal among 131 MadGab cwd rows
+of 655 host rows; the 5 host-`running` agents (12d2, 118f1, 92fa1, 78e1, 94a9) and the 1 stale `idle`
+row `a11d` (`/tmp/cwd-7ze5eU`, age 20725d) are other repositories, left running/stopped untouched.
+Worktrees **125**, `prune -n -v` empty, exit 0. `audit/*` re-fetched FIRST per rule 14a
+(`df1a99d..43b9fdf`, exit 0), **205** refs read inline (not asserted — rule 14v's standing note), arms
+88/88 `diff`-clean, ref-held 1 (`514ed91`) / reflog-only 87 / intersection 0 / union 88, baseline
+1,243, controls both directions (514ed91 present 1, origin/main 0267ade absent 0);
+`recovery/at-risk-2026-09-29` = `eaf7487` byte-identical to `ls-remote`, 26 `recovery/*` heads.
+
+### This pass's finding: a pipeline that reads its own source is an input-stealing bug with a clean-looking zero
+
+The non-build row measurement returned **0 rows** on its first run — a clean, plausible, entirely
+fabricated result, and the exact failure direction of rules 14b/14q. The cause is that the inner
+`git status --porcelain` inside the outer `while read -r wt` loop **inherits and consumes the loop's
+own stdin**, draining the worktree list partway through. `git worktree list --porcelain | awk ... |
+while read` is the shape that makes this invisible, because the list arrives on a pipe that a child
+process is then free to eat. Confirmed by a direct control: the same loop over a two-line synthetic
+list with `</dev/null` on the inner command yields both lines, without it the tail is dropped.
+
+Two further off-by-one artifacts surfaced while repairing it, both in the same three lines, and both
+silent: (1) `read -r line` strips the leading space of ` M src/lib.rs`, so the `sed 's/^...//'`
+status-prefix strip then removed `M s` and reported the file as `rc/lib.rs` — **10 fabricated
+"unreachable" rows across 10 worktrees**; (2) the first repair replaced `sed` with an `awk` and
+dropped the tab separator, so every row became one field and distinct-path/distinct-worktree counts
+both read the raw total. The settled form strips the prefix with `sed` *in the pipeline* rather than
+in a per-line `read` loop, and emits the worktree with `awk -v w=... '{print w "\t" $0}'`.
+
+Final figures: raw **34**, distinct worktree+path **34**, distinct paths **23**, distinct worktrees
+**17**. All 34 verified content-durable — each file's `hash-object` is present in
+`rev-list --all --objects`, verified in both directions against a known-present control
+(`src/lib.rs` → 1). The one directory row (`?? examples/` in `madgab-scratch`, a collapsed untracked
+dir rather than a tracked gitlink) was opened and its two members checked individually rather than
+assumed safe. **No recovery branch warranted, none created.**
+
+**New rule 14af:** a command that reads a stream must not be run inside a loop fed by that same
+stream, and the fix is `</dev/null` on the child — not a rewrite of the parser. The failure reads as a
+*smaller* result than reality (0 instead of 34), so it corroborates the standing "clean" conclusion
+instead of contradicting it, which is why it survived four rebuild attempts in this pass before the
+stdin diagnosis was tested. Paired with rule 14ae from pass 226: that rule covers controls planted in
+the wrong region, this one covers measurements whose population was never read at all. Both are ways a
+pass can publish a zero that is evidence of nothing.
+
+### Next action
+
+**Prefer no entry at all.** Six consecutive passes have re-derived the same five figures with no
+movement; this pass's finding is a defect in this pass's own instrument, not in the repository. A
+short body section remains the ceiling.
+
+1. Re-derive the non-build row form with `</dev/null` on every inner `git status` (rule 14af), and
+   never strip the porcelain status prefix in a per-line `read` loop.
+2. Do not assert a literal audit-ref cardinality; read it inline (205 this pass, and it is not a
+   constant).
+3. Publish the raw total beside the deduped counts, and state the dedup (34 / 23 / 17).
+4. Expect `lib.rs` per-word `1` (the `.expect` at 3597). Adjudicated; do not re-open.
+5. 14b/14ad remains closed; do not re-open unless a new arm spelling appears.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-eight times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
