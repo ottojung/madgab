@@ -21927,3 +21927,81 @@ decision and on nothing a pass can perform.
 Prefer **no entry at all**. If one is written, use census arm C, assert the fence's positive
 control, skip the rule-14m check (discharged above), and do not open a MadGab research front or
 create a work item until a human reopens development.
+
+## Pass 247 (coord-6a12, 2026-09-29T11:00Z) — gate NO; one correction to the discharged 204 invariant; short entry
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-fifth time on `## Status: accepted and
+paused` plus the accepted-state document. Nothing claimed, launched, prompted, stopped or
+integrated; no new work item; no recovery branch; `main` untouched.
+
+Five facts re-derived from the procedure, unchanged from passes 245–246:
+
+- **Census 96 = 1 blocked / 83 done / 12 superseded; 0 open, 0 working** via the log's own
+  published `gawk` form (line 111: `nextfile`/`ENDFILE`, `work_item: true` **and** a non-empty
+  `state:` in the leading `---` block), over the published scope `docs/work/items/*.md docs/*.md`,
+  `gawk` exit 0. Independently reproduced by a shell-loop form that gates on `work_item: true`
+  before reading `state:`, returning the same 1/83/12. The two forms differ in *mechanism* and
+  agree in *count*, which is the cross-check the 96 has never had.
+- **Agents: 680 host rows, 131 MadGab cwd rows, 0 non-terminal MadGab agents.** The one
+  non-`succeeded`/`failed` MadGab row is `3a8f01` at `stopped` on a superseded item — terminal,
+  nothing to recover. Host rows belonging to other repositories left running untouched.
+- **Phrase fence: phrase-arm 0 and decomposed-arm 0 in all six production regions**, measured
+  through `fence.awk` against both alphabets captured from `fence-alphabet.awk` (rules
+  14t/14u/14v/14x — the alphabet read from a file, not re-typed). `src/lib.rs` reads
+  **decomp=1**, and it is the **known benign** `src/lib.rs:3597`
+  `.expect("key came from cells")` adjudicated at pass 216, re-identified by identity and line
+  this pass. **All five control plants were run and all five fired** as *code*, not comments:
+  `"wreck a nice beach"` phrase 1/decomp 1, `"recognize speech"` 1/1, `"it's just a stupid game"`
+  1/1, `["hits","justice","dupe","hid","came"]` phrase 0/decomp 1, `"Hits Justice Dupe Hid Came"`
+  1/1. The pair of arms discriminating exactly as the file documents is what makes the zeros a
+  measurement rather than a fail-open.
+- **Refs: no local `main`** (`rev-parse --verify main` fatal), `origin/main` `0267ade`, HEAD on
+  `post-milestone-acceptance` in sync with origin.
+- **125 worktrees registered, `prune -n -v` empty, exit 0.**
+
+### This pass's one finding: the standing "204" was a count of the wrong population
+
+Pass 246 discharged the owed rule-14m check and published `refs/remotes/audit/*` = **204**. Re-run
+verbatim this pass, the rule-14j command it names —
+`for-each-ref --format='%(refname)' refs/remotes/audit refs/remotes/audit-tag` — returns **205**,
+and the extra ref is `refs/remotes/audit-tag/approximate-search-milestone-2026-09-25`, a **tag**,
+not a head. So `204` was the **heads-only** figure reached by a command whose own second prefix
+also enumerates a tag. The two readings of one published command have differed for every pass
+since 14j was written, and the fence's inline cardinality assertion (14g) was satisfied by the
+figure rather than by the command, so it never fired on the difference.
+
+**The state is safe; only the invariant's wording was wrong.** Verified by the stronger instrument
+this check should have used all along — a full byte-diff of the mirror against the remote rather
+than a count:
+
+- `refs/remotes/audit` = **204 heads**, `origin` = **204 heads**, and the two lists are
+  **byte-identical object-id for object-id** (`diff` empty): no drift, no extras, no stale tips.
+  The mirror is exactly the remote, which is what the check exists to establish.
+- 26 `recovery/*` heads; `recovery/at-risk-2026-09-29` = `eaf7487` locally, byte-identical to
+  `git ls-remote origin refs/heads/recovery/at-risk-2026-09-29` = `eaf7487`. Unchanged.
+- `git cat-file -t 514ed91` = `commit`; `for-each-ref --contains 514ed91` names exactly
+  `refs/heads/scratch-3f8c62-landed`. The residual at-risk object is live and content-durable.
+
+**Correction, to be quoted instead of the bare 204:** the invariant is "**204 remote heads, mirror
+byte-identical to `ls-remote --heads`**, and `recovery/at-risk-2026-09-29` = `eaf7487`." Assert the
+byte-diff, not the count; a count cannot distinguish a healthy mirror from one that lost a ref and
+gained a different one.
+
+**No new rule.** This is an instance of rule 14m already on the page — a delta between a published
+figure and a fresh measurement requires an explanation before the figure is republished — applied
+to the figure a pass wrote two passes ago. A successor rule would be the same content twice.
+
+**Escalation, unchanged and now four passes overdue.** This log is **21,955 lines / 1.80 MB**;
+thirteen consecutive entries now close with "prefer **no entry at all**" and this is the thirteenth
+to write one anyway. Nothing in the five facts has moved in forty-five passes, and the two
+outstanding questions are both a human's: whether to reopen MadGab development, and whether to
+retire this recurring pass. This item is blocked on that decision and on nothing a pass can perform.
+
+### Next pass
+
+Prefer **no entry at all**. If one is written: use the published census form, assert all five fence
+control plants, and check the at-risk invariant as a **byte-diff against `ls-remote --heads`** with
+`eaf7487` on the recovery branch — not as a ref count. Do not open a MadGab research front or
+create a work item until a human reopens development.
