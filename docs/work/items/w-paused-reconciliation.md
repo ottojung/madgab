@@ -29473,3 +29473,101 @@ described below needs a human, and the pause holds regardless:
       resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 313 (coord-7a41, 2026-09-29T19:17Z-19:29Z) — gate NO; six facts re-derived unchanged; ACTED — the at-risk verdict was never put to the CONTENT, and it survives the question
+
+### The six standing facts, re-derived this pass (all unchanged)
+
+`item-state.sh` exit 0 (frontmatter parses, eight schema keys); `census.sh` exit 0 —
+**96** items, **0 open / 0 working / 1 blocked** / 83 done / 12 superseded, so 0 open /
+0 working for the 103rd time and the only non-terminal item is this one; `agents.sh`
+exit 0 — 729 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab agents**
+(110 succeeded / 20 failed / 1 stopped), the 2 host-`running` agents (`109a5` skrynia,
+`94c9` assemblyp1) other repositories and **left running untouched**; `clue-fence.sh`
+exit 0 — **0 canonical occurrences in all six production regions** under the three
+forms, 1 adjudicated benign per-word hit, 118 statement-forms scanned, all 15 controls
+as published; `at-risk.sh --fetch` exit 0 — 89 = ref-held 1 + reflog-only 88, disjoint,
+205 mirror refs, 514ed91 present and 0267ade absent; `selfcheck.sh` **7/7** (this pass
+added the seventh, see below). **main untouched**: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` 0267ade, HEAD on
+`post-milestone-acceptance`. 125 worktrees, `prune -n -v` empty, exit 0.
+
+**Zero code drift.** `git diff --name-only origin/main..HEAD -- src/` is empty.
+
+### This pass's one measurement: the at-risk 89 were never asked whether their CONTENT is lost
+
+`at-risk.sh` measures commits held by no ref and then explicitly declines to judge
+them — its own `next` line reads *"a residual is a HUMAN judgement, not an automatic
+action."* For 100+ passes that judgement was made in prose ("no recovery branch
+warranted") without an instrument that could tell **lost content** from **unbacked
+history**. Pass 273 came closest, counting 7 of the 88 as this log's own superseded
+drafts, but never put a single blob to the question.
+
+New `at-risk-content.sh` does, and the answer is that the standing verdict **holds** —
+now for a reason that was measured rather than asserted:
+
+- at-risk population 88 (reflog-only, the same population `at-risk.sh` uses, so the
+  two agree by construction); origin-mirror 205 refs / 7,887 objects;
+- 807 distinct `(blob, path)` entries across the 88, **706 distinct blobs**;
+- **230 blobs absent from the origin side**, spanning **320 paths**;
+- of those 320 paths, **every one is under `target-after/`** — build output;
+- **non-build absent = 0.**
+
+So the 89 are unbacked *history*, not lost *content*, and no recovery branch is
+warranted on content grounds. That is the same verdict as 100+ passes of prose, now
+backed by a runnable procedure that flips when the answer changes.
+
+**The instrument is planted in the direction that matters.** Removing ONE non-build
+at-risk blob (`00a7a8a5`, `docs/work/items/w-3f8c62.md`) from the origin set flips the
+verdict 0 -> 1, so the 0 is not a population that cannot see non-build content. And
+with the audit mirror pointed at a namespace that does not exist, it **refuses** (exit
+1, "audit mirror has only 0 refs; fetch it first") rather than publishing 0 — the
+fail-closed direction, since a broken population must never read as a measured zero.
+
+**And the build filter is the one that log rule 288 exists for.** The filter as
+published in this log's own history, `grep -vE '(^|/)target/|(^|/)prof/'`, reads
+`target-after/` and `target-base/` as *source* — it requires the slash immediately
+after `target`. On this pass's 320 paths that filter would have reported **320 non-build
+absent blobs** and demanded a recovery branch for 320 files that are all Cargo output.
+The component-wise form `(^|/)(target|prof)[-a-zA-Z0-9_]*/` reads 0. A false alarm
+here would have been expensive and would have looked like diligence.
+
+### Rule 14af (new)
+
+**"Unbacked" and "lost" are different claims, and an instrument that measures the
+first has measured nothing about the second.** `at-risk.sh` is a correct and careful
+instrument that stops one step short of the question that matters, and for 100+ passes
+the step was crossed in prose. The general form: when a measurement's verdict is
+handed off to a judgement, the judgement inherits every assumption the measurement
+never tested — and here the untested assumption (content is already on origin) was
+the one that would have decided whether to spend effort. The cheap fix is not a
+better judgement but a second instrument whose verdict is falsifiable by a one-blob
+plant.
+
+### What this pass did and did not do
+
+Ran the six instruments, added `at-risk-content.sh` (new, with three controls and two
+fail-closed plants), registered it in `selfcheck.sh` at 7/7, claimed the item by
+pushing the owner change (coord-6b3e -> coord-7a41) at `20a8c41`. Declined the three
+scheduler-template clauses for the sixty-fourth time on `## Status: accepted and
+paused` plus `accepted-state-2026-09-27.md`: no agent launched or prompted, no
+historical item claimed, no new work item, no integration, no push to `main`, **no
+file under `src/` touched**, and the entry is short on purpose.
+
+NEXT: no pass-actionable item is asserted, and none should be. The pause holds
+regardless, and the four open items are all human decisions, unchanged from pass 312:
+
+  (a) **Compact this log** (first raised pass 312). 2.4 MB, 230 pass sections, and a
+      frontmatter that has broken discovery three times (passes 218, 252, 289).
+  (b) The fence is still not run by CI (`.github/workflows/test.yml` runs
+      `cargo test --lib --bins`, one integration target, and clippy). First raised at
+      pass 267.
+  (c) Retiring this recurring pass: the six facts have now not moved for 103 passes,
+      and `at-risk-content.sh` is the first instrument in a long while that changed
+      what is *known* rather than re-measuring what was already.
+  (d) `itinerary-madgab.md` line 17 says `post-milestone-acceptance` "is no longer an
+      automatic accumulation target" while the out-of-repo scheduler template
+      instructs every pass to accumulate there "exactly as the itinerary requires".
+      The itinerary wins; resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**

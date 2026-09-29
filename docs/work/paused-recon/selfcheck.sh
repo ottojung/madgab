@@ -87,6 +87,7 @@ INSTRUMENTS=(
   "clue-fence.sh::canonical clue occurrences in all::"
   "agents.sh::non-terminal madgab agents =::"
   "at-risk.sh::at-risk: ::--fetch"
+  "at-risk-content.sh::of those, NON-BUILD (component-wise filter) =::"
   "frontmatter.sh::failed to parse::"
   "item-state.sh::item frontmatter parses::"
 )
