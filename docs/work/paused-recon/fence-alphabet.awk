@@ -82,6 +82,20 @@
 # one representative literal. Measured 2026-09-29 (pass 232): all five spellings
 # read 1, i.e. the fence discriminates rather than returning a constant.
 #
+# PASS 253 ADDED A SIXTH, because a control covers the spelling it plants: the
+# ASCII apostrophe is matched by `.` and the U+2019 typographic apostrophe is
+# NOT (three bytes, C locale). Both are now planted and both must read 1.
+#
+# PASS 254 ADDED THREE MORE, and they are not about this alphabet at all -- they
+# are about the REGION the caller applies this alphabet to, which is
+# fence.awk's job. A plant can read 0 for three quite different reasons and only
+# one of them is a missing word: (1) `mod tests {` inside a block comment
+# collapses the region and the fence then measures one line; (2) a `//` inside
+# a string literal is eaten as comment syntax, taking the clue literal on the
+# same line with it; (3) a `mod tests {` string literal moves the boundary. All
+# four controls below are therefore required, because a clean run of the other
+# three says nothing about any one of them. See fence.awk's rule-14aq block.
+#
 # THE PLANT MUST BE CODE, NOT A COMMENT (measured 2026-09-29, pass 233). fence.awk
 # strips comments by design, so a `// wreck a nice beach` plant reads 0 in BOTH arms
 # and looks like a broken fence, while a string-literal or array-literal plant of the

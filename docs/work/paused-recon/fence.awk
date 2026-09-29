@@ -79,6 +79,58 @@
 # PUBLISH region counts ONLY in the `| wc -l` form, and re-derive them from this
 # file's numbers above. A pass that gets 268/259/463/4241/66/268 is reading
 # through command substitution, not observing a change in the region.
+#
+# ---------------------------------------------------------------------------
+# STRING AND CHAR LITERALS ARE SCANNED (rule 14aq, pass 254). Until pass 254
+# this file located `//`, `/*` and `*/` with bare `index()` -- that is, it
+# treated those two characters as comment syntax wherever they appeared,
+# INCLUDING inside a string literal. It also tested the `mod tests` boundary
+# against the RAW line, before any comment stripping, so a `mod tests` line
+# inside a block comment moved the boundary. Both are fail-open, and both were
+# measured, not conjectured:
+#
+#   plant                                                    before   after
+#   `mod tests {` inside a /* */ block comment at lib.rs:1-3     0        1
+#     (before: region collapsed 4242 -> 1 line, exit 0 -- the fence was
+#      measuring ONE line and reporting a clean 0, with no abort, because
+#      `emitted` was 1 and only an EMPTY region aborts)
+#   `const U: &str = "see http://x";` then a clue literal,
+#     same line                                                0        1
+#   `const S: &str = "mod tests {";` then a clue literal,
+#     same line                                          (not tested)   1
+#
+# The first is the dangerous one and it needs no adversarial intent: an
+# ordinary doc comment that says "mod tests below" is a natural thing to write,
+# and its effect was to reduce the whole fence to a single line while still
+# exiting 0. That is rule 22/28/34's exact shape -- a broken read that is
+# indistinguishable from a passing one.
+#
+# The fix is `strip()`, which walks each line CHARACTER BY CHARACTER carrying
+# inblock / instr / inchar / inraw, and emits TWO projections:
+#
+#   RES    comments removed, string CONTENT PRESERVED -- this is what the
+#          caller matches, because a hard-coded clue IS a string literal and
+#          blanking it would be the defect rather than the fix;
+#   RESNC  comments removed and string content removed -- this is what the
+#          `mod tests` BOUNDARY is tested against.
+#
+# Two projections because the two consumers need opposite answers about strings,
+# and a single projection gets one of them wrong in the fail-open direction.
+# The region counts in this file are UNCHANGED by this repair, and that is the
+# evidence it is a repair rather than a loosening: the new stripper's output is
+# BYTE-IDENTICAL to the old one's on all six production files (`diff` clean),
+# so no region grew and none shrank. The only behavioural differences are on
+# the three plants above, which previously read 0.
+#
+# STANDING CONTROLS -- all four must be run, because each covers a different
+# fail-open path and no one of them implies the others:
+#   1. `mod tests {` inside a block comment, plant a clue literal at lib.rs:300
+#      -> phrase 1 (this is the pass-254 regression control)
+#   2. a `//` inside a string literal, plant a clue literal later on the same
+#      line -> phrase 1
+#   3. a `mod tests {` string literal, plant a clue literal later on the same
+#      line -> phrase 1, and the region must NOT shrink
+#   4. the U+2019 apostrophe form of the target, not the ASCII one (pass 253)
 
 BEGIN {
   inblock = 0
@@ -90,6 +142,96 @@ FNR == 1 {
   emitted = 0
   inblock = 0
   pastfence = 0
+  instr = 0
+  inchar = 0
+  inraw = 0
+  rawhash = ""
+}
+
+# Is the `'` at position i a CHAR LITERAL opener, or a Rust LIFETIME?
+# A char literal closes within a few characters ('a', '\n', '\'', '"', '\u{1}').
+# A lifetime does not (&'a str, &'static str). Getting this wrong in the
+# permissive direction leaves `inchar` stuck ON, and every subsequent `//` on
+# that line and after it is eaten as string content -- a fence that silently
+# stops seeing the code. Default to LIFETIME when undecided.
+function ischar(s, i,   j, c) {
+  if (substr(s, i + 1, 1) == "\\") {
+    for (j = i + 2; j <= length(s); j++) {
+      c = substr(s, j, 1)
+      if (c == "\\") { j++; continue }
+      return (c == "'") ? 1 : 0
+    }
+    return 0
+  }
+  return (substr(s, i + 1, 2) ~ /^.'$/) ? 1 : 0
+}
+
+# Strip ONE line of Rust into two projections, updating inblock / instr /
+# inchar / inraw as a side effect:
+#
+#   RES    comment content removed, STRING CONTENT PRESERVED. This is what the
+#          caller matches, because a hard-coded clue IS a string literal and
+#          must survive the stripper.
+#   RESNC  comment content removed AND string content removed. The region
+#          BOUNDARY is tested against this, so text inside a string cannot move
+#          the boundary.
+#
+# Two projections because the two consumers need opposite answers about strings,
+# and each single-projection mistake fails open -- see rule 14aq for the two
+# measured instances of exactly that.
+function strip(s,   i, n, c, d, j, h, o, onc) {
+  o = ""; onc = ""; n = length(s); i = 1
+  while (i <= n) {
+    c = substr(s, i, 1); d = substr(s, i + 1, 1)
+
+    if (inblock) {
+      if (c == "*" && d == "/") { inblock = 0; i += 2; continue }
+      i++; continue
+    }
+
+    if (inraw) {
+      # Raw string: no backslash escapes. The terminator is `"` followed by
+      # exactly as many `#` as the opener had.
+      if (c == "\"") {
+        j = i + 1
+        while (substr(s, j, 1) == "#") j++
+        if (j - i - 1 == length(rawhash)) { inraw = 0; rawhash = ""; o = o "\""; i = j; continue }
+      }
+      o = o c; i++; continue
+    }
+
+    if (instr) {
+      if (c == "\\") { o = o c substr(s, i + 1, 1); i += 2; continue }
+      if (c == "\"") { o = o c; instr = 0; i++; continue }
+      o = o c; i++; continue
+    }
+
+    if (inchar) {
+      if (c == "\\") { o = o c substr(s, i + 1, 1); i += 2; continue }
+      if (c == "'") { o = o c; inchar = 0; i++; continue }
+      o = o c; i++; continue
+    }
+
+    if (c == "/" && d == "/") break              # line comment: the rest is not code
+    if (c == "/" && d == "*") { inblock = 1; i += 2; continue }
+
+    if (c == "\"") { o = o c; onc = onc c; instr = 1; i++; continue }
+    if (c == "'")  { o = o c; onc = onc c; if (ischar(s, i)) inchar = 1; i++; continue }
+
+    # Raw string opener r"..." / r#"..."#, and the b / br prefixed forms.
+    if (c == "r" && (d == "\"" || d == "#")) {
+      h = ""; j = i + 1
+      while (substr(s, j, 1) == "#") { h = h "#"; j++ }
+      if (substr(s, j, 1) == "\"") { inraw = 1; rawhash = h; o = o c; onc = onc c; i = j + 1; continue }
+    }
+    if (c == "b" && (d == "\"" || (d == "r" && (substr(s, i + 2, 1) == "\"" || substr(s, i + 2, 1) == "#")))) {
+      o = o c; onc = onc c; i++; continue
+    }
+
+    o = o c; onc = onc c; i++
+  }
+  RES = o
+  RESNC = onc
 }
 
 # Region boundary: stop at the test fence. This uses `nextfile`, NOT `exit`.
@@ -103,7 +245,7 @@ FNR == 1 {
 # remaining lines of this one are never re-entered. `pastfence` is kept only as
 # the FNR==1 reset marker.
 {
-  line = $0
+  strip($0)
 
   # `[^{]` rather than `\b`: this host's gawk (5.3.0) does not support the `\b`
   # word boundary in a regex -- it silently matches nothing, which would leave
@@ -111,39 +253,14 @@ FNR == 1 {
   # fail-open class as the `exit`/`ENDFILE` defect above, one rule down, and it
   # is recorded because `\b` reads as obviously correct (rule 14x's lesson: an
   # instrument's own convenience syntax can be the thing that disables it).
-  if (line ~ /^[[:space:]]*mod tests[^{]/) { nextfile }
+  #
+  # Tested against RESNC, not the raw line: a string literal reading
+  # `mod tests {` must not be able to move the boundary (rule 14aq).
+  if (RESNC ~ /^[[:space:]]*mod tests[^{]/) { nextfile }
 
-  if (inblock) {
-    p = index(line, "*/")
-    if (p == 0) next
-    line = substr(line, p + 2)
-    inblock = 0
-  }
-
-  out = ""
-  rest = line
-  while (1) {
-    a = index(rest, "//")
-    b = index(rest, "/*")
-    c = index(rest, "*/")
-
-    if (b > 0 && (a == 0 || b < a)) {
-      out = out substr(rest, 1, b - 1)
-      d = index(substr(rest, b), "*/")
-      if (d == 0) { inblock = 1; rest = ""; break }
-      rest = substr(substr(rest, b), d + 2)
-      continue
-    }
-
-    if (a > 0) { out = out substr(rest, 1, a - 1) }
-    else       { out = out rest }
-
-    if (c > 0) { inblock = 1 }
-    rest = ""
-    break
-  }
-
-  print out
+  # RES keeps string CONTENT -- a hard-coded clue IS a string literal, so
+  # blanking it here would be the defect, not the fix.
+  print RES
   emitted++
 }
 

@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2c58
-updated: 2026-09-29T11:34:00Z
+owner: coord-3a91
+updated: 2026-09-29T11:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -22546,3 +22546,108 @@ per rule 14a with the no-`--prune` spelling, exit 0.
 **Next pass:** plant the U+2019 form as a standing control, not the ASCII one. Do not re-derive the
 `.`-means-byte claim from the comment; it is measured above. Blocked on the human reopen/confirm
 decision. Prefer no entry at all next pass.
+
+## Pass 254 (coord-3a91) — gate NO, but ACTED: the fence's region stripper had two fail-open paths, and one of them needed no intent at all
+
+Template clauses 1–3 declined for the fifty-ninth time on `## Status: accepted and paused` plus
+the accepted-state document. Nothing claimed, launched, stopped, prompted or integrated; no new
+work item; no recovery branch; main untouched at `0267ade`. **This pass found and repaired two
+real defects in `fence.awk` itself**, both of which make the no-hard-coding invariant read 0 for
+reasons that have nothing to do with a hard-code being present.
+
+### Finding (new rule 14aq): a plant that reads 0 has at least four causes, and the fence's own
+### region is one of them
+
+`fence.awk` located `//`, `/*` and `*/` with bare `index()` — comment syntax wherever those two
+characters appear, **including inside a string literal** — and it tested the `mod tests` region
+boundary against the **raw line**, before any comment stripping. Measured on production-region
+copies of `src/lib.rs` with a `const Q: &str = "wreck a nice beach";` plant at line 300:
+
+    plant                                              before   after
+    `mod tests {` inside a /* */ block comment, L1–3       0        1
+    `const U: &str = "see http://x";` + clue, same line     0        1
+    `const S: &str = "mod tests {";` + clue, same line  n/a        1
+    control, neither defect present                        1        1
+
+The first is the one that matters, and it requires **no adversarial intent whatsoever**. A `/* mod
+tests ... */` doc comment collapses the whole region: before the repair the plant read 0 because
+`fence.awk` was measuring **one line**, and it **exited 0**, because `emitted` was 1 and only an
+*empty* region aborts. So a single ordinary doc comment, of the kind a developer writes precisely
+to describe where the tests start, silently reduced the entire lib.rs fence to a one-line region
+and reported a clean pass. That is rule 22/28/34's exact shape — a broken read indistinguishable
+from a passing one — and it is strictly worse than the `#[cfg(test)]` defect pass 215 closed,
+because there the region was cut short but the cut was at a *plausible* place; here the cut is at a
+place chosen by the comment's own wording.
+
+### Repair
+
+`strip()` now walks each line character by character carrying `inblock` / `instr` / `inchar` /
+`inraw`, and emits **two** projections, because the two consumers need opposite answers about
+strings and a single projection gets one of them wrong in the fail-open direction:
+
+- **`RES`** — comments removed, string **content preserved**. This is what the caller matches,
+  because a hard-coded clue *is* a string literal and blanking it would be the defect, not the fix.
+- **`RESNC`** — comments removed *and* string content removed. This is what the `mod tests`
+  **boundary** is tested against, so a string reading `mod tests {` cannot move the boundary.
+
+Rust specifics handled, each with a reason rather than by reflex: lifetimes vs char literals
+(`&'a str` must not leave `inchar` stuck on, which would eat every later `//` as string content);
+escapes in strings and char literals; raw strings `r"…"` / `r#"…"#` (no backslash escapes, and the
+terminator is `"` plus exactly as many `#` as the opener had); the `b` / `br` prefixed forms.
+
+### The evidence that this is a repair and not a loosening
+
+The new stripper's output is **byte-identical to the old one's on all six production files** (`diff`
+clean on adjacency, lexical, approx, lib, wasm, main). No region grew; none shrank. The only
+behavioural differences in the whole suite are the three plants above, which previously read 0.
+Region counts therefore remain 269/260/464/4242/67/269 and the invariant remains
+**0 / 0-0-0-1-0-0**, with the single non-zero still the adjudicated-benign `src/lib.rs:3597`
+`.expect("key came from cells")`. The empty-region abort still fires (exit 2 on a zero-byte input).
+
+### Pass 253's standing control is now in place and passes
+
+Pass 253 asked the next pass to plant the **U+2019** form rather than the ASCII one. Both are now
+planted and both read `phrase=1`:
+
+    wreck a nice beach            1        It's just a stupid game   1
+    Hits Justice Dupe Hid Came    1        It’s just a stupid game   1
+    recognize speech              1        decomposed array  phrase=0 decomp=2
+                                    comment form  phrase=0 decomp=1 (base `came` only)
+
+Four standing controls are now required before publishing any 0, each covering a different
+fail-open path: the block-comment boundary, the in-string `//`, the in-string `mod tests`, and the
+typographic apostrophe. A clean run of three of them says nothing about the fourth.
+
+### Five standing facts, re-derived (not copied)
+
+1. **Census 96** = 83 done / 12 superseded / 1 blocked, **0 open / 0 working**. The fence-scoped
+   gawk FNR/ENDFILE reader run FIRST with no per-file loop, exit 0. Recording the reader's own
+   tripwires because both fired on first draft *this pass*: (a) declaring the buffer `L` and then
+   using it as an array dies with `attempt to use scalar 'L' as an array` (exit 2) — the same
+   scalar/array promotion trap as pass 253's `fence` flag, second live instance, so the fence flag
+   and the buffer must be differently named; (b) **the first version read only the BODY and
+   returned `total=0`, exit 0** — a clean-looking false zero from a frontmatter reader that never
+   looked at the frontmatter, which is the entire population. The `f` counter must select keys
+   when `f==1` (between the fences), not after the closing fence.
+2. **0 non-terminal MadGab agents.** 131 MadGab cwd rows of 683 host rows; 110 succeeded / 20 failed
+   / 1 stopped, the single stopped row `3a8f01` being the superseded `madgab-diversity-3a8f01`
+   front, left stopped. Host-`running` `1a4` (assemblyp1-94-cruxmap), `109a3` (skrynia-109-tranche2)
+   and `98f1` (antonina-98-intenttimeout) are other repositories and were **left running,
+   untouched**. Idle rows `78b2`, `92f3`, `92e3`, `98f3`, `a11d` — none is a MadGab cwd (`a11d` is
+   in `/tmp`).
+3. **Fence 0 / decomp 0-0-0-1-0-0** across all six production files, region counts
+   269/260/464/4242/67/269 in the `| wc -l < FILE` form, not command substitution.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched**: `git rev-parse --verify main` exits 128 (no local `main` ref), `origin/main`
+   `0267ade`, HEAD on `post-milestone-acceptance`.
+
+`audit/*` re-fetched FIRST per rule 14a with the no-`--prune` spelling, exit 0. Mirror assertion in
+pass 252's sanctioned attempt-3 form (`ls-remote --heads`, prefix-stripped, against
+`for-each-ref refs/remotes/audit`): `diff` **byte-identical, exit 0, zero lines**; the two counts
+differ by exactly the one tag (204 heads + 1 `audit-tag` = 205), which is the expected shape and
+not drift. `recovery/at-risk-2026-09-29` = `eaf7487` on both arms per rule 14p. Per pass 220's
+note, the mirror cardinality is read inline and not asserted as a literal.
+
+**Next pass:** run all four standing controls before publishing any fence 0 — a plant reading 0 now
+has four distinct innocent explanations. Prefer no entry at all. Blocked on the human
+reopen/confirm decision.
