@@ -115,7 +115,28 @@ DST='refs/remotes/audit'
 # name and leaves an empty string for every ref; the empty key sorts first and
 # `comm` then reports nearly every remote branch as absent from the mirror. The
 # correct normalisation is `sed 's|^refs/remotes/audit/||'`, or `strip=3`.
-EXPECT_REFS=207
+#
+# PASS 323 RAISES THIS 207 -> 208. The mirror was 206 heads + 1 tag = 207 entries;
+# this pass pushed ONE new branch, `review/drop-dead-trace-env-on-main` (66e28ff),
+# taking it to 207 heads + 1 tag = 208. Per pass 322's standing instruction the
+# delta was confirmed BEFORE raising, in this order and not another:
+#   1. by ref NAME with the sed normalisation above -- `comm -13` and `comm -23`
+#      both 0 against `ls-remote --heads`, i.e. 0 missing and 0 phantom, so the
+#      mirror is a faithful mirror and the growth is real rather than a prune scar
+#      (rule 14m: had this been a phantom, the right move would be to fix the
+#      mirror, NOT to raise the number);
+#   2. by removing the single candidate -- `git update-ref -d
+#      refs/remotes/audit/review/drop-dead-trace-env-on-main` returns the
+#      instrument to green at 206+1, which proves the delta is exactly that one
+#      ref and nothing else.
+# NOTE for whoever raises this next: the deletion test is only sound if you
+# re-fetch afterwards. Deleting the mirror ref and LEAVING it deleted makes this
+# pass's own branch tip 66e28ff read as at-risk and ref-held (at-risk went
+# 90 = 1 + 89 to 91 = 2 + 89 while the ref was absent) -- the self-inflicted class
+# of rule 273, reached here by removing a ref rather than by amending a commit.
+# `git fetch origin '+refs/heads/*:refs/remotes/audit/*'` (never --prune, rule
+# 14m) restores it and the count returns to 90 = ref-held 1 + reflog-only 89.
+EXPECT_REFS=208
 
 # Known-good / known-bad controls. These are the arms' discriminators: a census
 # that cannot tell these two apart is reporting a constant, not a measurement.

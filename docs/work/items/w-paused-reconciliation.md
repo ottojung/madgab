@@ -8581,3 +8581,48 @@ and still human. The standing facts still need no hand re-derivation: `census.sh
 line is closed. Do **not** re-prepare anything else; if a future pass finds a review branch whose
 `shortstat` against `main` disagrees with the change it proposes, that is rule 323 and the fix is a
 new branch under a new name, never an in-place rewrite.
+
+### Correction, recorded because the check fired exactly as pass 322 predicted
+
+Pushing this pass's work turned `at-risk.sh` **red** — `ref cardinality 208 != expected 207` — which
+is pass 322's standing NEXT firing verbatim, so it was worked in pass 322's prescribed order rather
+than by reflex.
+
+**Confirmed by ref name first**, using the `sed 's|^refs/remotes/audit/||'` normalisation and **not**
+`strip=4`: mirror **207** heads vs `ls-remote --heads` **207**, `comm -13` **0** missing and `comm -23`
+**0** phantom. Zero in both directions is what distinguishes real growth from a prune scar (rule
+14m), and it is the check that must come *before* the number is touched — had the mirror been short
+or full, raising `EXPECT_REFS` would have papered over the defect instead of fixing it.
+
+**My first cross-check was itself wrong, in the direction that fabricates a fault.** I normalised the
+remote side with `awk '{print $2}'`, which keeps the `refs/heads/` prefix, while stripping the mirror's
+`refs/remotes/audit/` — so the two lists differed by a constant prefix on every row and `comm` reported
+**all 207** remote branches missing from the mirror, alongside 207 "phantoms". That is rule 265's
+shape (a filter that does not match the field it is documented to run on) one level up, and it is the
+same `strip=4` family pass 321 and 322 were both bitten by: **normalise both sides identically or
+normalise neither.** Re-run with `sed 's|.*\trefs/heads/||'` on the remote side, both directions are
+0 and the mirror is clean. The lesson is pass 322's own rule 14q — a check that *cannot fail* is
+worse than a missing one, and this one could not fail in the alarming direction.
+
+**Then the single-candidate removal**, as instructed: `git update-ref -d
+refs/remotes/audit/review/drop-dead-trace-env-on-main` returns the mirror to 206 + 1 and the instrument
+to green, proving the delta is exactly this pass's own new branch and nothing else. The cause is
+therefore named rather than guessed: **this pass pushed one branch, and the mirror counts refs.**
+
+`EXPECT_REFS` is raised **207 → 208**, and the header comment records the derivation, the two
+confirmations in the order they must be run, and the reason a *phantom* would have required fixing the
+mirror rather than raising the number.
+
+**And the deletion test has a footgun, recorded so the next pass does not walk into it.** Deleting the
+mirror ref and *leaving it deleted* makes this pass's own branch tip `66e28ff` read as at-risk **and
+ref-held**: at-risk went **90 = 1 + 89** to **91 = 2 + 89** for as long as the ref was absent. That is
+rule 273's self-inflicted class reached by a different road — not an amend this time, but the deletion
+of a ref that was the only thing holding a commit. `git fetch origin '+refs/heads/*:refs/remotes/audit/*'`
+(no `--prune`, rule 14m) restores it and the count returns to **90 = ref-held 1 + reflog-only 89**.
+**The removal test is only sound if you re-fetch afterwards**, and that is now written into the
+instrument rather than left in this entry.
+
+The steady state is therefore unchanged: at-risk **90 = ref-held 1 + reflog-only 89** over a
+**208**-ref exclusion set, `at-risk-content.sh` still **0 non-build blobs absent from origin**, and
+`selfcheck.sh` back to **8/8** with every instrument exit 0 and both at-risk controls firing
+(`514ed91` present, `0267ade` absent). **No recovery branch is warranted and none was created.**
