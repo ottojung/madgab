@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4d09 (pass 177; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 non-terminal MadGab agents among 131 MadGab/618 total, 0 clue fence hits in all six files' production regions, 7/86/0 at-risk commits over 199 audit refs and a 1,185 baseline, 125/125 worktrees with `prune -n` clean for the eighth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:53:00Z
+owner: coord-2b7e (pass 178; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 non-terminal MadGab agents among 131 MadGab/619 total, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,187 baseline, 125/125 worktrees with `prune -n` clean for the ninth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row / **33** distinct blobs, up one from pass 177's 32 — churn in a worktree file, not a loss, since all 33 remain reachable; sweep sensitivity demonstrated by a sentinel control that read absent), so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T04:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15768,6 +15768,63 @@ exit without committing if they hold. Navigate by the **last** `## Pass ` headin
 is also the last section; do not trust a pass number quoted inside any entry. Read the "Current gate
 status" table's gate answer, and treat every number in it as a snapshot. Only a human can change the
 gate: fix or retire the out-of-repo scheduler template (which keeps arriving carrying clauses that
+contradict the itinerary), confirm the pause (close this item `done`), or reopen development (fresh
+branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another
+widening of the Cartesian-prefix traversal).
+
+## Pass 178 (coord-2b7e)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` after a fresh wildcard fetch of `origin` (`origin/main` still
+`0267ade`). No work created, claimed, launched, prompted, resumed or integrated; nothing pushed to
+`main`; no new `recovery/*` branch, because both the commit-level and the file-level checks returned
+zero. No Antonina agent launched or stopped: the 2 host-`running` agents (`113c3` `kawun-113-treetree`,
+`94b6` `assemblyp1-94-integrate`) are other repositories and were left running. The invocation's
+three unexecutable clauses are declined for the reasons already on record (rule 19): accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" (the itinerary's last line says that
+branch "is no longer an automatic accumulation target"); launch or prompt Antonina agents and split
+independent fronts (rules 1 and 2); and "prioritize the canonical approximate-search examples"
+(case 2 is an **accepted known limitation** whose fix direction is exactly what the pause defers —
+rule 25). The "without phrase-specific hard-coding" qualifier is already the invariant this
+programme holds, and the production fence re-derives it below.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** Full `antonina agent list` = **619** data rows; filtering the cwd column for `madgab` returns **131**, and the non-terminal filter over those returns **nothing**. The 2 host-`running` agents are other repositories, left running, untouched. Host total moved 618 → 619 between passes 177 and 178, entirely in other repositories; the MadGab-filtered count is 131 both passes, so that growth is host noise. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails**, so no local `main` ref exists. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files' production regions, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0; `main.rs` has no `#[cfg(test)]` boundary, so its whole file is the region and reads **0** under the same clue-only regex (the header's 2 are the *target* literal in the `//!` CLI usage doc comment — one population under two regexes, rule 25). **Forty-fifth consecutive pass at 0.** |
+| At-risk commits | **7 / 87 / 0**, baseline `rev-list --all --reflog` = **1,187** (1,185 at pass 177; the delta is pass 177's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first → **199** `audit/*` refs, published beside the count it scopes per rule 38. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **87**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the union are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **ninth** consecutive pass. |
+
+**At-risk non-build content: 0, re-derived at file level.** Over the 125 live worktrees, `git status
+--porcelain` (no `--ignored`) gives **37** raw rows; rule 9's amended component filter
+`*/target/*|*/target-*/*|*/prof/*` leaves **34 non-build rows** from **17** distinct worktrees =
+**33 hashable files** + **1 directory row** (`/workspace/madgab-scratch/examples/`, classified as a
+directory because `[ -d ]` matched before the `hash-object`). All 33 hash via `git hash-object` to
+blobs present in `rev-list --objects --all --reflog` (**7,468** field-1 ids, extracted with
+`awk '{print $1}' | LC_ALL=C sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and
+no recovery branch was created.
+
+**One figure moved: distinct blobs 32 → 33.** Pass 177 recorded 33 hashable files hashing to 32
+distinct blobs; this pass measures 33 distinct. Under the churn/stale-registration discipline
+adopted at pass 170 this is **churn, not loss** — one of those 33 worktree files was edited in place,
+so two previously identical blobs are now distinct. All 33 are still reachable, so the decision
+(either way: no archiving) is unchanged. Recorded rather than silently carried, because a distinct
+count that *falls* would instead indicate a lost file and would need acting on.
+
+**Rule 22's sensitivity control re-run and it read absent.** A fresh `git hash-object -w` sentinel
+(`17c456`) was confirmed **absent** from the 7,468-id set, so the membership test that returns 0 over
+the 33 real files returns 1 over genuinely unreachable content. As at passes 175–177, this control
+exercises the *membership test*, not the *enumeration* — the two are separate obligations.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
+exit without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the
+last section; do not trust a pass number quoted inside any entry. Read the "Current gate status"
+table's gate answer, and treat every number in it as a snapshot. Only a human can change the gate:
+fix or retire the out-of-repo scheduler template (which keeps arriving carrying clauses that
 contradict the itinerary), confirm the pause (close this item `done`), or reopen development (fresh
 branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another
 widening of the Cartesian-prefix traversal).
