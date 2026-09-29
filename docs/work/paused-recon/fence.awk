@@ -1,4 +1,17 @@
+#!/usr/bin/env -S gawk -f
+#
 # Fence: hard-coded canonical-phrase detection in the PRODUCTION region.
+#
+# SHEBANG ADDED at pass 286, together with mode 100755. Until then this file was
+# committed 100644 with NO shebang, so the direct form `./fence.awk FILE` failed
+# with rc=126 (Permission denied) and produced an EMPTY region -- a hard-coded
+# plant then read as a clean fence 0, and the empty-region abort that pass 283
+# added at b14f7a0 could not fire, because the shell never started awk. Only the
+# log's `gawk -f ...` spelling worked, so the defect was invisible to every pass
+# that used the sanctioned form. `-S` is required: gawk does not accept `-f` in
+# a shebang otherwise. The two .awk files are the only scripts in this directory
+# that are not executable; at-risk.sh and content-sweep.sh were always 100755.
+# See the pass-286 entry in docs/work/items/w-paused-reconciliation.md.
 #
 # SCOPE, corrected at pass 214: this script is the REGION STRIPPER only.
 # It does NOT match, count or detect canonical phrases. It emits each file's
