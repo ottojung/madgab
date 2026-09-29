@@ -3,15 +3,15 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b6d
-updated: 2026-09-29T22:52:00Z
+owner: coord-7f2a
+updated: 2026-09-29T23:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
 
 ## Where the older pass history went (pass 320)
 
-Passes up to and including 308 live in **[../../archive/paused-recon-pass-log.md](../../archive/paused-recon-pass-log.md)**
+Passes up to and including 308 live in **[../archive/paused-recon-pass-log.md](../archive/paused-recon-pass-log.md)**
 (`docs/work/archive/paused-recon-pass-log.md`, 22,305 lines), moved there verbatim by
 `docs/work/paused-recon/compact-log.sh` on 2026-09-29. Nothing was summarised or dropped: the move
 was verified as a line-multiset partition of this file as it stood at `0a1eedb`, independently of the
@@ -113,7 +113,7 @@ This document exists only so a recurring coordinator pass can find, in one place
 paused programme left behind and what must not be resumed without an explicit human
 instruction.
 
-## Current gate status (read this first; the detail is 10k lines below)
+## Current gate status (read this first; the pass-by-pass detail is far below, in the log)
 
 **Gate answer: NO.** A scheduled pass must not create work, claim items, launch agents, resume
 fronts, or integrate anything into `main`.
@@ -205,13 +205,21 @@ template — a human task, outside this repository — is worth more than any fu
 ### The gate list (pass 329; copied here because passes 327/328 pointed at "the top of this file" and nothing was here)
 
 The NEXT of passes 327 and 328 both read *"Use the gate list at the top of this file, which pass 327
-corrected a second time."* The list those passes meant is at **line 9081**, 274 lines from the end of
-a 9,355-line file, inside pass 326's entry. The top section contained no gate list at all, so the
-pointer a fresh pass is given in its own handoff resolves to nothing. That is the failure mode this log
-keeps paying for: a procedure that exists but is filed where no reader looks. It is the same shape as
-rule 14j (a rule that records a defect and not the working spelling) and as pass 231's stale
-instrument reference, but the reader here is the *next pass*, not this pass, which is why it survived
-two passes of a log whose whole subject is not re-deriving what is already known.
+corrected a second time."* The list those passes meant is in pass 326's entry, 37 lines above that
+entry's end, headed `**Corrected gate list for the next pass**`. The top section contained no gate
+list at all, so the pointer a fresh pass is given in its own handoff resolved to nothing. That is the
+failure mode this log keeps paying for: a procedure that exists but is filed where no reader looks.
+It is the same shape as rule 14j (a rule that records a defect and not the working spelling) and as
+pass 231's stale instrument reference, but the reader here is the *next pass*, not this pass, which is
+why it survived two passes of a log whose whole subject is not re-deriving what is already known.
+
+**The line number pass 329 printed here (`line 9081`) was WRONG on arrival, and it is recorded as
+wrong rather than corrected to a new number.** Line 9081 is a closing code fence; the gate list is at
+9116. The generalisation is rule 330, below: **a pointer into an append-only file must be a HEADING
+or a searchable string, never a line number**, because a line number in this file is stale the moment
+this pass appends — the defect is not that the number was wrong, it is that a number of this shape
+cannot be right for long, and publishing one re-creates exactly the class this section exists to
+remove. Do not "fix" the number; ignore it and locate the list by its heading.
 
 **Run these, from the repository root, all bare:**
 
@@ -221,7 +229,8 @@ two passes of a log whose whole subject is not re-deriving what is already known
 | 2 | `docs/work/paused-recon/clue-fence.sh` | **exit 0** | 0 hard-coded canonical phrases, all six production regions |
 | 3 | `docs/work/paused-recon/agents.sh` | **exit 0** | 0 non-terminal agents in a MadGab cwd |
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
-| 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | 9 of 9 instruments alive |
+| 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
+| 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -238,10 +247,11 @@ Two scripts are **not** in the bare list, and running them bare is a mistake (ru
 **closed on content since pass 184** and needs no re-run unless a new at-risk member appears.
 
 **If you are a scheduled coordinator and a human has not spoken since the accepted state, the correct
-pass is short:** run the five gates above, decline the scheduler template's three contradicting clauses
+pass is short:** run the six gates above, decline the scheduler template's three contradicting clauses
 (rule 19), append one concise entry, exit. Do not re-derive anything below; the closed classes are
 listed in each pass's "Next action for the next pass", item 4, and re-walking them is the standing
-reason this log grew to 11,500 lines.
+reason this log grew very large. (This row previously read "11,500 lines", a figure that was
+never a measurement of anything — rule 14k. Take the length from `wc -l` when it is needed.)
 
 ## Standing rules for a scheduled pass while this document exists
 
@@ -9491,3 +9501,137 @@ guard naming an unattributed new at-risk member — attribute it (pass 328's rul
 transitions and keep the non-fast-forward ones) before anything else, and remember 125 of 1,122
 reflog files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`. **(3)** Everything else is
 human, and the highest-value human action is retiring this recurring pass.
+
+## Pass 330 (coord-7f2a, 2026-09-29T22:42Z-23:05Z) — gate NO; six facts re-derived unchanged; ACTED — rule 329's control is BUILT (`refs.sh`), and building it found that pass 329's own fix was wrong: the pointer it added to the standing section names a line that is a closing code fence
+
+**Gate: NO.** `## Status: accepted and paused` is unchanged and no human has reopened development,
+so the scheduler template's three clauses (launch/prompt agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are declined for the **82nd** time — see pass 326's table for the
+verbatim clause/itinerary pairs. Nothing created, claimed, launched, stopped, prompted or
+integrated; no new MadGab work item; no recovery branch; `main` untouched at `0267ade`.
+
+Standing facts, from the gate list only, all unchanged: census **96** = 0 `open` / 0 `working` /
+1 `blocked` / 83 `done` / 12 `superseded`; **0** non-terminal MadGab agents among 131 MadGab cwd
+rows of 740 host rows (4 host-`running` agents — `125c1`, `92a5`, `94c7`, `109a5` — are other
+repositories and were left running, untouched); clue fence **0** in all six production regions;
+**125** registered worktrees (`.git/worktrees` = 125, `prune -n -v` empty, exit 0);
+`at-risk-delta.sh` bare **exit 0**, the growth guard still quiet at arms 90 / published 89. The
+at-risk family was not re-run; closed on content since pass 184.
+
+### ACTED: rule 329 asked for a control; nobody built one, and the pointer it was about is wrong
+
+Pass 329 diagnosed precisely — *"a handoff pointer is an instrument, and it needs a control like any
+other"* — and then did the half that is easy: it moved the gate list to the top and wrote a rule
+about the missing control. **It did not build the control, and the pointer it wrote while moving
+the list is wrong on arrival.**
+
+**Finding 1 — pass 329's citation resolves to a code fence.** Its new standing-section paragraph
+says the list it was copying *"is at **line 9081**, 274 lines from the end of a 9,355-line file"*.
+Line 9081 is a closing ``` fence. The gate list is at **9116**, headed `**Corrected gate list for the
+next pass**`. The paragraph's own arithmetic is also stale twice over: the file is longer than 9,355
+now, so "274 lines from the end" is 412, and both figures decay on the next append.
+
+This is not a nitpick about a number. It is the same failure one pass earlier, one level down: pass
+329 fixed *where the reader is sent* and got it right, then recorded *how it found it* in a form
+that is wrong before the ink is dry. Rule 329's own words — *"confirm the target is where the sentence
+says it is, from the reader's position"* — were applied to the pointer's target and not to the
+pointer.
+
+**Rule 330 — in an append-only file, cite a HEADING or a searchable string, never a line number.**
+A line number is not a stale fact, it is a fact with a *known* half-life: it is wrong the moment the
+next entry is appended, and no check can validate it because there is no lasting correct value. The
+distinction from rule 25, which this generalises: rule 25 is "a claim about a document is still a
+claim about a document" — verify it. Rule 330 is stronger for append-only targets, because
+verification is impossible by construction and the only repair is to stop publishing the form. The
+standing section now names the list by its **heading**, and this pass does not carry the number
+forward. The number is recorded here instead, in the log, where being wrong is harmless.
+
+**Finding 2 — the link to the archive log was broken, and it is a real `docs/` link.** The
+preamble's first line pointed at `[../../archive/paused-recon-pass-log.md]` from
+`docs/work/items/`, which resolves to `docs/archive/…` — **a directory that does not exist**. The
+file is at `docs/work/archive/paused-recon-pass-log.md`, so the correct relative path is
+`../archive/…`. This has been broken since the compaction at pass 320 moved the file; 310 passes of
+"verify the document's own claims" and not one resolved a link that a reader clicking the very first
+line of the item would hit. Repaired.
+
+**Finding 3 — the standing section's own size figure was never a measurement.** Two rows stated this
+log's length: "the detail is 10k lines below" in the heading a reader is told to read first, and "the
+standing reason this log grew to **11,500 lines**". The file is 9,5xx lines. 11,500 is not a stale
+measurement, it is a number that was never one. Both are now removed rather than corrected, per rule
+14k: publishing a corrected line count in an append-only log is publishing a figure that is wrong
+again before the next pass reads it. Take it from `wc -l` when it is needed.
+
+### `refs.sh`: the control, and the two wrong versions of it that came first
+
+Rule 329's control is now a real instrument, `docs/work/paused-recon/refs.sh`, registered in
+`selfcheck.sh` (now **10 of 10**). Over the standing section it checks three things: every relative
+link resolves, every named instrument exists, and there is no **self-pointer** — a line number
+attributed to this file. Findings 1–3 are exactly its three verdicts, so the instrument earns its
+place on its first live run rather than on a plant.
+
+**Two earlier versions of this check were wrong, and both failures are worth more than the check.**
+
+| # | version | what it did | why it is wrong |
+|---|---|---|---|
+| v1 | ban every `line N` in the standing section | fired **29 times**, all false | the section *legitimately* cites line numbers in other files — `src/lib.rs:3597`, the `fence.awk` region boundaries, `src/approx.rs:1041` — and those citations are exactly what lets a reader re-derive the fence result instead of trusting it. A check that condemns correct text is the pass-317 defect, and it would have sent a pass to "repair" citations that are right |
+| v2 | keep only claims attributed to "this file"/"this log" | fired **6 times, 5 of them false** | the item's `prior_owner:` / `updated:` history is 8 KB of verbatim preserved text on single lines, containing both the attribution words and dozens of correct figures about *other* files. It also fired on the sentence explaining the fix it was making |
+
+The general form, and it is rule 14k from the other side: **a self-referential measurement in prose
+cannot be policed by a keyword scan, because a scan cannot tell a live claim from a quoted one.**
+v2 tried to solve that with a context window and made it worse, because the context window pulled in
+8 KB of history. The shipped check discriminates on **structure** instead — it extracts the preamble
+(frontmatter excluded, `prior_owner:`/`updated:` lines excluded, log body excluded) and bans
+self-pointers inside it outright rather than trying to decide whether each one is currently true.
+There is no correct line number to check against, so the check is a prohibition, not a comparison.
+
+**A third defect was in my own first working version, and the plants are what caught it:** the script
+incremented `$badlinks`, printed `BROKEN LINK` on stderr, and **exited 0** — the summary tested a
+`$status` that nothing had set. A detector that reports and does not fail is the same shape as pass
+298's instrument that "succeeded on the failure case". The exit-1 wiring is now derived from the
+defect counts, not from a variable each block has to remember to touch.
+
+**Rule 331 — a control must be PLANTED, and "the instrument is green" is not a plant.** Passes 309,
+310, 311 and 320 each shipped a fence or an instrument and then showed it firing; the standing
+practice since has been to record the plant in the pass entry. `refs.sh` is planted in **both**
+directions, run in place so that only the planted defect can fire:
+
+| plant | what is broken | expected | got |
+|---|---|---|---|
+| 0 (control) | nothing | **exit 0**, 3 links resolve, 0 self-pointers | as expected |
+| 1 | one link → `../archive/GONE.md` | **exit 1**, "3 relative link(s), **1 broken**" | as expected |
+| 2 | `census.sh` → `census-GONE.sh` | **exit 1**, "10 instrument path(s), **1 missing**" | as expected |
+| 3 | a self-pointer: "at **line 4242** of this file" | **exit 1**, "**1** self-pointer(s)" | as expected |
+| 4 | the FALSE-POSITIVE direction: "ends at src/lib.rs line 381 … opens at line 4243" | **exit 0** | as expected — v1 failed exactly here |
+| 5 | `refs.sh` replaced by a silent `exit 0`, in a throwaway dir | `selfcheck` **exit 1**, `SILENT` | as expected |
+| 6 | `refs.sh` deleted, in a throwaway dir | `selfcheck` **exit 2**, `BROKEN POPULATION` | as expected |
+
+Plant 4 is the one that matters and the one whose absence would have shipped v1: **a check is only
+established when it is shown NOT to fire on the correct text it sits next to.** Every other plant
+proves the instrument can complain.
+
+### The standing gate list is now six, and the human list is untouched
+
+`refs.sh` is gate 6 and is cheap; run it directly rather than trusting gate 5 to have run it. The
+human list is unchanged and still decidable by the command `item-state.sh` prints: merge
+`review/drop-dead-trace-and-fence` (`8c88a59`, `branch-containment.sh` verified `CONTAINED and
+mergeable`) and delete `review/drop-dead-trace-env` (`a29f3d7`), `review/run-clue-fence-in-ci`
+(`6edff83`), `review/drop-dead-trace-env-on-main` (present only as `audit/…`). **(d)** retiring this
+recurring pass and **(e)** fixing the out-of-repo scheduler template remain human; **(e)** has its
+three clauses quoted verbatim at pass 326.
+
+**Recommendation for the human, unchanged and now with three passes of evidence.** Passes 327, 328
+and 330 have each found a real defect in the log's own instruments and pointers — a fail-open growth
+guard, an amend-orphan, a pointer into nothing, a pointer into the wrong line, a broken `docs/` link
+and an invented line count. **Not one of the six is a MadGab finding.** The pause is real, the
+accepted state is documented and verified by execution, and everything that remains is the human
+list. That is the argument for **(d)**: the recurrence is no longer protecting anything, it is
+generating work.
+
+NEXT: **(1)** Run the six bare gates at the top of this file and nothing else. Do NOT re-derive the
+standing facts by hand, do not re-run the at-risk family, and do not re-prepare or re-validate the
+review branches. **(2)** If `at-risk-delta.sh` bare exits **3**, attribute the new member first
+(pass 328's rule: enumerate reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog
+files live under `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(3)** Do not re-run this pass's
+plants; they are recorded above and `refs.sh` will report any regression itself. **(4)** Everything
+else is human, and retiring this recurring pass is the highest-value action available.

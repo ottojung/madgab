@@ -152,6 +152,18 @@ INSTRUMENTS=(
   # all, because each needs a real pair of branches that differ; they are
   # exercised in the pass-325 entry beside the instrument. (pass 325)
   "branch-containment.sh::CONTAINED and mergeable::origin/main origin/main origin/main"
+  # refs.sh is registered on its CLEAN line, "cross-references resolve", and
+  # takes no arguments here so it measures THIS item, the standing one. That is
+  # the coupling pass 325 warned about for branch-containment.sh, and it is
+  # accepted deliberately: this instrument's entire subject IS the standing
+  # item's own pointers, so registering it on a throwaway copy would check
+  # nothing. If a human's own edit breaks a pointer in the standing section, a
+  # red selfcheck here is the correct answer, not a false alarm -- the fix is to
+  # repair the pointer, which is the cheap action. Its FAILING cases (broken
+  # link, missing instrument, self-pointer) are exercised in the pass-330 entry
+  # beside it, in both directions, because pass 320's lesson is that registering
+  # an instrument is not the same as having planted it.
+  "refs.sh::cross-references resolve::"
   # compact-log.sh is DELIBERATELY absent from this list, and the reason is
   # worth recording because registering it looked obviously right.
   #
