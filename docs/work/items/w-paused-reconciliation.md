@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9f21
-updated: 2026-09-29T16:37:00Z
+owner: coord-c4d7
+updated: 2026-09-29T17:04:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -26976,3 +26976,100 @@ Verified in both directions, which is the whole point of a control here (rules 1
 
 NEXT: the five facts stand; the census row in every future pass should be read from `agents.sh`, not
 re-typed from memory (rule 14i/14v). Blocked on the human reopen/confirm decision.
+
+## Pass 293 (coord-c4d7) — at-risk.sh's DEFAULT path reported a stale mirror as a clean, well-formatted 91
+
+Gate **NO** again, the sixtieth time: the three scheduler-template clauses (launch or
+prompt Antonina agents / accumulate on post-milestone-acceptance "exactly as the itinerary
+requires" / prioritize the canonical approximate-search examples without phrase-specific
+hard-coding) are declined on `## Status: accepted and paused` plus
+docs/accepted-state-2026-09-27.md. Clause 2 remains a direct textual conflict — the
+itinerary's closing paragraph says post-milestone-acceptance "is no longer an automatic
+accumulation target". Nothing claimed, launched, stopped, prompted or integrated; no new
+work item; no recovery branch; `main` untouched at 0267ade.
+
+Pass 292's directive was obeyed rather than restated: the agent census row below is read
+from `docs/work/paused-recon/agents.sh`, not re-typed.
+
+All five standing facts re-derived from the procedure, all unchanged:
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working (fence-scoped
+   single-pass gawk over `docs/work/items/*.md docs/*.md`, gawk exit 0). The 4 files with no
+   `---` on line 1 are the items README, a report, the accepted-state doc and
+   environment-notes — all correctly outside the census.
+2. clue fence **0** in all six production regions, regions 4242/464/269/260/269/67 in file
+   order, decomp arm `0-0-0-1-0-0` — the single lib.rs hit is
+   `.expect("key came from cells")` at line 3597, the ordinary English past tense in a
+   panic message, adjudicated at pass 216 and not re-opened. The eighty-third consecutive
+   pass. Controls fired in BOTH directions this pass: a `const HARD: &str = "hits justice
+   dupe hid came";` planted above the `mod tests` boundary read **1** through
+   `fence.awk`, and the same literal appended below it read **0**.
+3. **0** non-terminal MadGab agents, read from `agents.sh` (rc=0): 131 MadGab cwd rows of
+   708 host rows, state histogram {succeeded 110, failed 20, stopped 1}. The one host-running
+   agent (94a10, assemblyp1) and the 5 idle rows are other repositories; a11d sits in /tmp
+   and is not a MadGab cwd. All left running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance.
+5. at-risk **89** = ref-held 1 (514ed91, durable on
+   `origin/recovery/at-risk-2026-09-29` = eaf7487) + reflog-only 88, disjoint; both
+   exclusion arms agree, both stderr empty, both controls behaved; 205 exclusion refs. No
+   recovery branch warranted, none created.
+
+### THE FINDING — the at-risk instrument's default path fails open, and the fix is pass 293 (eaca028)
+
+`at-risk.sh` has two forms. `--fetch` re-fetches the audit mirror and then VERIFIES the
+refresh; the bare form did neither. I ran the bare form first and it reported:
+
+    at-risk: 91 total = ref-held 3 + reflog-only 88 (disjoint)
+      population  baseline(--all --reflog) 1322   refs-only(--all) 1234   exclusion refs 205
+      arms        --not and per-ref caret agree, both exit 0, both stderr empty
+      controls    514ed91 present, 0267ade absent
+
+The truth is 89 = 1 + 88. The two spurious members were **pass 292's own two pushed
+commits** (ec06efa, 59f6b05): `refs/remotes/audit/post-milestone-acceptance` still sat at
+cb4a102 because the mirror had not been refreshed since pass 291. After a rule-14a re-fetch
+the same command returns 89/1/88.
+
+This is the pass-187 failure verbatim — "a stale mirror puts the previous pass's own
+freshly pushed commit into the at-risk set" — and the script's own header had documented
+it since pass 187. The mitigation existed and was correct; it was simply wired only into
+the OPTIONAL flag. The documented default form had no protection at all, for 106 passes.
+
+The instructive part is that **every existing check agreed with the wrong answer**:
+
+- both controls are about the exclusion set's WIDTH, not its freshness, and a too-narrow
+  set passes both;
+- `EXPECT_REFS` counts REFS, and fast-forwarding one ref does not change the count, so
+  rule 14g's inline cardinality assertion is **blind to staleness by construction** — a
+  fact worth recording on its own, because rule 14g is this log's most trusted guard and
+  it has a shape that cannot catch this class;
+- the two arms agreeing proves only that two spellings of the same stale input agree,
+  which is precisely what arms are for and no more.
+
+So the number was not merely wrong, it was wrong in a form indistinguishable from a
+correct one: formatted, internally consistent, control-passing, exit 0. That is the
+14aa/14q/14r family one level up — an instrument that cannot tell a measurement from a
+plausible fabrication.
+
+**Fixed in eaca028**: freshness is now checked in BOTH modes, and the bare form REFUSES
+rather than reporting, naming both tips and pointing at `--fetch`. Verified in both
+directions, which is the only thing that makes a refusal load-bearing:
+
+- mirror held back one commit (`git update-ref ... cb4a102`): the bare form aborts **rc=1**
+  with the diagnosis naming mirror `cb4a102` and origin `59f6b05`;
+- mirror fresh: the bare form reports **89 = 1 + 88**, rc=0;
+- `--fetch` after the plant: recovers to 89/1/88, rc=0.
+
+**GENERAL RULE (the second half of this pass).** A safety instrument may offer a
+strengthened mode and a default mode, and in that arrangement the default mode is the one
+that gets used, so a guarantee that lives only in the flag is a guarantee that is not in
+effect. Audit the DEFAULT path of every standing instrument for the property the file
+exists to provide, not the opt-in path. On this pass's own reading that means:
+`at-risk.sh` was guarded (now fixed), and the other three instruments —
+`agents.sh`, `content-sweep.sh`, `fence.awk` — have no flags at all, so their default and
+only path is the one already under check.
+
+NEXT: the five facts stand. The at-risk row in every future pass is read from
+`at-risk.sh --fetch` (or the bare form, which now verifies freshness itself); before
+publishing any at-risk delta, confirm the mirror line first rather than treating the
+delta as a repository event. Blocked on the human reopen/confirm decision.
