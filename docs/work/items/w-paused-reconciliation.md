@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-2f4d (pass 279; gate NO - the content sweep's "0 unreachable" was a false zero over collapsed untracked-directory rows; the two follow-up instrument fixes it named were done at pass 280. See the pass-279 entry at the end of this file)
-owner: coord-3b1a
-updated: 2026-09-29T15:26:00Z
+prior_owner: coord-3b1a (pass 280; gate NO - five facts re-derived unchanged; ACTED - pass 279's two unstarted instrument fixes are done and building the script found two more fail-open defects in it. See the pass-280 entry at the end of this file)
+owner: coord-5e73
+updated: 2026-09-29T16:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -25800,3 +25800,90 @@ is to confirm with `test -d` rather than to trust the spelling; (2) `content-swe
 read the object store and both embed their own spelling of the exclusion set, so the next real step is a
 single shared census that both consume, which is a design task rather than a correction. Per pass 274's
 standing instruction, prefer no entry at all if all of the above is unchanged.
+
+## Pass 281 (coord-5e73) — gate NO; five facts re-derived unchanged; ACTED — the fence's control requirement is under-specified, and **two of this pass's own first attempts were invalid instruments that would each have manufactured a false conclusion**
+
+**The three scheduler-template clauses declined for the eighty-first time**, on `## Status: accepted and paused` in
+[docs/skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) plus the accepted-state document's
+`## Operational status`. Nothing was claimed, created, launched, prompted, stopped, or integrated; no new work
+item; no recovery branch; `main` untouched. No human reopen signal exists in the repository (searched recent
+history for reopen/resume/unpause/accept: no hits), so the gate holds on its own evidence rather than on the
+log's memory of it.
+
+### Five standing facts, re-derived from procedure
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.** Fence-scoped awk over
+   `docs/work/items/*.md docs/*.md`; the skills-doc example header inside its ```` ```yaml ```` block is correctly
+   excluded (rule 34's trap did not fire).
+2. **0 non-terminal MadGab agents** among 131 MadGab cwd rows of 705 host rows. The 3 host-`running` agents
+   (92e4 volodyslav, 109f1 skrynia, 94e7 assemblyp1) are other repositories and were **left running untouched**.
+3. **Fence holds.** Region counts reproduce exactly (adjacency 269 / approx 464 / lexical 260 / lib 4242 /
+   main 269 / wasm 67). Per-word regex reads **0 in all six production regions except `src/lib.rs` = 1**, and
+   that single hit is `src/lib.rs:3597` `.expect("key came from cells")` — the ordinary English past tense in a
+   panic message, **not** a canonical-clue hard-code. Joined-phrase regex reads 0 in all six. So clause 3's
+   no-hard-coding half holds as a **standing invariant**, not as work.
+4. **125 worktrees registered**, `git worktree prune -n -v` empty, exit 0.
+5. **`main` untouched**: no local `main` ref (`rev-parse --verify main` → exit 128), `origin/main` 0267ade,
+   HEAD on `post-milestone-acceptance` in sync with origin at ba044a1.
+
+### This pass's finding — rule 14aa: a control is only a control if it is verified to have SURVIVED the filter
+
+`fence.awk` is a **region stripper**, not a matcher (rule 14x), and its fail-open guard correctly ABORTS on an
+empty region (verified: empty input → exit 2, "produced an EMPTY production region"). But the standing
+procedure's controls are specified only by their *result* ("the control must read 1"), never by their
+*construction*. That is exactly the gap rule 14r closed for the region filter and this pass fell into twice,
+in opposite directions:
+
+- **Attempt 1 (false ALARM).** Control built by appending the planted clue to a copy of `src/lexical.rs`.
+  The append landed at line 395; `mod tests` is at line 261, so the plant sat *below* the test boundary and the
+  stripper correctly removed it. The fence read **0**. Read naively that is "the fence is broken" — a false
+  alarm that would have sent a later pass chasing a non-existent defect in production code. The control was
+  invalid, not the fence. Replanted *above* the boundary, the fence reads **1**.
+- **Attempt 2 (false ZERO, far more dangerous).** The at-risk arms were first run with `$CARETS` built in one
+  shell invocation and consumed in a second. The variable did not survive, so the second arm ran as
+  `--all --reflog` with **no exclusions at all** and returned 1304 — identical to the unfiltered baseline. The
+  two arms then "disagreed" (89 vs 1304), which reads as a *discovered inconsistency*; the true reading is that
+  one arm measured nothing.
+
+Rule 14q (a control exists to make a zero credible) and 14r (a control must exercise the same filter the
+measurement does) both **assume the control is well-formed**. Neither says what to do when the control is
+malformed. **A control that never entered the pipeline cannot distinguish a broken instrument from a working
+one, and it fails in whichever direction the conclusion already leaned** — here both ways within one pass.
+Therefore: before interpreting a control's number, assert the control is still *present in the instrument's
+input*. For a region-stripping fence that means printing the plant's line number and the region's line count
+and checking plant-line < region-end **before** reading the count; for a shell-carried exclusion set it means
+asserting the set's cardinality inline (rule 14g) so an empty expansion aborts instead of degenerating.
+`fence.awk` already refuses rather than passes when the region is empty — the same refusal is owed to a
+degenerate exclusion set, and that is why the cardinality assert, not the fence's own exit code, is what caught
+this one.
+
+Verified controls in both directions after repair: joined plant → per-word 1 / joined 1; decomposed plant
+`["hits","justice","dupe","hid","came"]` → per-word 1 / joined 0. The **per-word regex is a superset** of the
+joined one and catches both spellings, so a fence pass must require **both to be 0** (any single one is
+insufficient), and the empty-region abort is confirmed to fire.
+
+### At-risk: 88 → 89, and the delta is EXPLAINED (rule 14m)
+
+Re-fetched `audit/*` first by its real source namespace with no `--prune` (exit 0). Exclusion set **205** refs
+(asserted inline), baseline `--all --reflog` 1304, refs-only `--all` 1216. Both sanctioned exclusion spellings
+re-derived in **one** self-contained script with per-element `^` prefixing, and they agree at **89,
+diff-clean, both stderr empty**. Split: **ref-held 1** (`514ed91`, `for-each-ref --contains` names exactly
+`refs/heads/scratch-3f8c62-landed`; non-build content durable on `origin/recovery/at-risk-2026-09-29` = eaf7487,
+byte-identical to `ls-remote` full-form vs local full-form per rule 14p) + **reflog-only 88** + intersection 0.
+Controls both directions: 514ed91 present 1, origin/main 0267ade absent 0.
+
+The **+1** is `0f51e2e`, and it is **not** new work: its tree is `5201e11` — **byte-identical** to `a736492`,
+the pass-272 commit that *is* an ancestor of `origin/post-milestone-acceptance`. Same parent (65d39ae), same
+author/committer identity, committer timestamp 4s apart. It is a **duplicate re-commit of this log's own pass-272
+commit**, held only by the reflog. So the at-risk count rose 88 → 89 for the same reason pass 273 found at 88
+(own superseded drafts), and **no unique data is at risk**: every tree in the at-risk set is content-reachable
+from a durable origin ref. Consistent with pass 273/274, **no recovery branch is warranted and none was
+created**.
+
+### Next pass
+
+Prefer no entry at all. If one is written, the only genuinely open item is rule 14aa: make the *construction*
+of a control part of the standing procedure (assert the plant is inside the region before reading its count),
+and consider whether `fence.awk`'s refuse-on-empty-region guard should gain an equivalent assertion for a
+degenerate matcher input. Otherwise the state is unchanged and the item remains `blocked` on the human
+reopen/confirm decision.
