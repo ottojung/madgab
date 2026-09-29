@@ -8235,3 +8235,175 @@ member by identity** — do not report the count as settled while its delta is u
 the same defect rule 273 was written for. Run the accepted-state command before asserting canonical
 status in prose, and do not report the forced `--ignored` case-2 as a regression. The next useful
 action after that is (d) or (e).
+
+## Pass 322 (coord-7d2a, 2026-09-29T21:11Z-21:26Z) — gate NO; six facts re-derived unchanged; ACTED — the 88 → 89 at-risk delta is a SPELLING difference between two published forms, and the "62 trees with no twin" gap is a proxy that at-risk-content.sh already answers with 0
+
+### The six standing facts, re-derived this pass (unchanged for the 112th consecutive time)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** / 83
+done / 12 superseded, this item the only non-terminal one; `agents.sh` exit 0 — 729 host rows, 131
+MadGab cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1
+host-`running` agent (`109a5` skrynia) another repository and **left running untouched**; `clue-fence.sh`
+exit 0 — **0 canonical occurrences in the 6 `src/` regions**, 1 adjudicated benign per-word hit
+(`src/lib.rs:3597`), every control as published; `at-risk.sh` exit 0 — **89 = ref-held 1 + reflog-only
+88**; `at-risk-content.sh` exit 0 — **0 non-build blobs absent from origin**. `selfcheck.sh` **7/7** on
+arrival, **8/8** after this pass's instrument was registered. **main untouched**: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` 0267ade, `git diff origin/main..HEAD -- src/ web/
+examples/ tests/ Cargo.toml .github/` **empty**. **126 worktrees**, `prune -n -v` empty — unchanged
+since pass 321 added `madgab-cifence`.
+
+**Both review branches are still unmerged and were not re-prepared.** `ls-remote`:
+`review/drop-dead-trace-env` = `a29f3d7` (b), `review/run-clue-fence-in-ci` = `6edff83` (c), `main` still
+`0267ade`. So pass 321's NEXT condition ("if either has been merged, verify `origin/main` advanced and
+drop it") is **not** met and the standing instruction not to re-prepare them was followed.
+
+### ACTED: the 88 → 89 delta is attributed, and it is not what pass 321's caveat implied
+
+Pass 321 recorded, correctly and cautiously, that the at-risk set is 89 against pass 273's published
+88, that every member's content is safe, and that **"the +1 was not isolated to a named commit"**. It
+left the attribution open rather than publishing the count as settled — the rule-273 discipline. This
+pass closed it, and the answer is that **the set never grew**.
+
+**Mechanism, measured rather than reasoned.** Two forms of the same query are in this log's published
+record and they do not measure the same population:
+
+| form | spelling | result |
+|---|---|---|
+| pass 273 / the standing row | `rev-list --all --reflog --not --all "^<each audit ref>"` | **88** |
+| `at-risk.sh`, both of its arms | `rev-list --all --reflog --not <refs>` and `... <caret refs>` | **89** |
+
+The difference is a **single extra `--not --all`** in the published form. That flag excludes everything
+reachable from *any* local ref, so it also removes the one at-risk commit that *is* ref-held. Named by
+identity:
+
+```
+514ed91741b848fb6b200fcb15dae5ae351c4155  2026-09-27 21:40:23
+  scratch-3f8c62-landed: the C1d axis landed, with 8 new reds (never to be integrated)
+  held by exactly: refs/heads/scratch-3f8c62-landed
+```
+
+Nesting is asserted, not assumed: `comm -13` (in the published form, absent from the instrument) is
+**0**, so the two populations are strictly nested and 89 − 88 = 1 is exactly the named member. This is
+the **same commit pass 184 named and archived** — it is the one that GitHub rejected for 329 build
+paths, whose non-build content (`src/lib.rs`, +390/−38) was archived byte-exact on
+`origin/recovery/at-risk-2026-09-29` (`eaf7487`). Re-verified this pass: the archived
+`src-lib-rs.blob` hashes to `f86907c…`, identical to `git cat-file 514ed91:src/lib.rs`, so the content
+claim is intact and not merely restated.
+
+**What this retires.** The standing row's "at-risk commits — COMPOSITION (rule 273)" cell, and pass
+321's caveat beside it, both frame 88 → 89 as growth needing an explanation. It is a spelling
+difference between two forms of one query, and the 89 form is the one `at-risk.sh` has measured for
+several passes. **A future pass must not report this as a growing population.** It also means the
+standing "88" and the instrument's "89" are both *correct*, for different questions — which is rule
+14l's shape one level up: a count carries its population, and here the population moved because the
+*question* did.
+
+### ACTED: the "62 trees with no ref-held twin" gap is a proxy, and the direct question reads 0
+
+Pass 321 also left this open: *"62 of the 87 distinct trees are shared with no ref-held commit even
+though all 87 are shared with some commit reachable from `--all --reflog`. That gap between 'safe' and
+'attributed' is the next useful thing to close."* Closed, and the answer is that the gap closes itself
+once you ask the right question.
+
+Measured, with a partition assertion and both controls: **87** distinct at-risk trees = **25** with a
+ref-held twin + **62** without (the arithmetic is asserted, and `origin/main`'s tip tree is the
+positive control). That proxy reads alarming and is **not** a durability finding, because a tree with
+no ref-held twin can still have every non-build blob it carries present under some other ref-held
+commit. So the direct question was asked instead — and the answer is already published by an existing
+instrument, so this pass did not need a new measurement to answer it:
+
+```
+at-risk-content.sh exit 0:  at-risk 88 · origin-mirror objects 8020 · blobs introduced 706
+  · blobs ABSENT from origin 230 · distinct paths 320
+  · of those, NON-BUILD (component-wise filter) = 0
+  VERDICT 0 non-build blobs absent from origin.
+```
+
+The 230 absent blobs are **build output** under `target-after/`, `prof/`, `target*/` — regenerable, and
+correctly excluded by a component-wise filter (rule 265 as amended). The verdict has fired in both
+directions on every prior pass and was re-confirmed here: a commit is held by no ref, yet its content
+is on `origin`. **Unbacked HISTORY, not lost CONTENT** — which is what this log has been asserting in
+prose since rule 42, and which now has the instrument to say it.
+
+**One measurement of my own, to close the loop the proxy left open.** Of the 89 at-risk commits, **26**
+have a ref-held tree twin and **63** do not. All 63 no-twin trees are present in `--all --reflog`
+(0 have no twin at that level, asserted), so no *tree* is unique to an at-risk commit. Going to blob
+level across all 63 trees — **4,962** blobs — **72** are carried by no ref, and **all 72 are build
+output**: every one is a `target-after/release/**` path, and the one commit responsible is
+`33c409e` ("SCRATCH w-2f7a10 slots front", `MUST NEVER BE MERGED`). Its **`src/lib.rs` is ref-held**
+(`75433a90…`, verified present in the ref-held object set), so its actual content is safe and only its
+build directory is orphaned. **Zero non-build content at risk**, reached three independent ways.
+
+### The instrument: `docs/work/paused-recon/at-risk-delta.sh`, registered in `selfcheck.sh` (8/8)
+
+Both findings above are exactly what a hand procedure cannot keep doing: the attribution needs a fourth
+command the published form never carried, and the tree/content distinction needs two populations
+compared. Rule 14k again — **a durable procedure, not a corrected number.** The script attributes the
+delta by identity, asserts the two forms are nested before comparing them, classifies the tree proxy
+explicitly as a proxy, and refuses to print any number it has not validated.
+
+`selfcheck.sh` registers it on its **shape** (`"is a PROXY and reads alarming"`), deliberately not on
+either figure. Pinning `named 514ed91` would go red the moment that commit is finally pushed, and
+pinning `62 without` would go red on any commit added — rule 14k, the exact defect that made 90+
+passes re-derive a census instead of running it. The comment beside the registration says so.
+
+**Seven plants, both directions, all as documented** (a liveness check is not correctness, and this
+log has been bitten by that distinction repeatedly):
+
+| plant | result |
+|---|---|
+| exclusion set starved to 0 refs | **rc 1** `DEAD -- 0 exclusion refs; no number reported` |
+| arm 1 starved to 0 rows (the false-zero direction) | **rc 1** `DEAD -- an arm returned 0 rows; that is a FALSE ZERO` |
+| published form made a strict superset | **rc 1** `DEAD -- the forms are not nested; no number reported` |
+| fabricated-absent control made to fire | **rc 1** `FIRED INCORRECTLY -- the object-set test cannot fail` |
+| ref-held control broken | **rc 1** `control absent; no number reported` |
+| twin split made a non-partition (0 + 174) | **rc 1** `DEAD -- twin split is not a partition` |
+| delta count desynced from the named list | **rc 1** `DEAD -- arithmetic 1 != 2 named deltas` |
+| **unmodified instrument** | **rc 0**, reports 89 / 88 / `514ed91` / 87 = 25 + 62 / 72 build-only |
+
+Two plants were also tried and **correctly did not fire**, which is worth recording because a
+"defect" was assumed and the instrument was right: making the published form *agree* with the
+instrument is a clean result, not a nestedness violation; and removing a delta member together with
+its count keeps the arithmetic consistent. The arithmetic guard was then exercised properly by
+desynchronising the count from the list (row 7 above).
+
+### What this pass did and did not do
+
+Claimed the item by pushing the owner change (`coord-2f83` → `coord-7d2a`) before acting, added and
+plant-verified one instrument, registered it, and recorded all of it. Declined the three
+scheduler-template clauses for the **seventy-third** time on `## Status: accepted and paused` plus
+`accepted-state-2026-09-27.md`: **no MadGab agent launched or prompted** — there is no claimable MadGab
+work to launch one for and the itinerary forbids manufacturing any; **no** historical item claimed, **no**
+new MadGab work item, **no** integration, **no** push to `main`, nothing merged. The single host-`running`
+agent is another repository and was left running. **Zero production drift** against `origin/main`:
+nothing under `src/`, `tests/`, `web/`, `examples/`, `Cargo.toml` or `.github/` was touched. **No
+recovery branch is warranted and none was created** — verified three independent ways, the strongest
+being `at-risk-content.sh`'s 0.
+
+Clause 3's no-hard-coding half still holds as a **standing invariant** rather than as work, measured
+again this pass by `clue-fence.sh` at 0 across all six `src/` production regions with every control
+firing. The canonical-clue limitation was not re-litigated: the accepted state stands as documented,
+and the deliberate `#[ignore]`d case-2 test is not a regression.
+
+**Blocked on the human reopen/confirm decision**, and on human **merge** decisions. The human list is
+still four: **(b)** `review/drop-dead-trace-env`, **(c)** `review/run-clue-fence-in-ci` — both pushed,
+validated, and this pass confirmed neither has been merged; **(d)** retire this recurring pass; and
+**(e)** fix the out-of-repo scheduler template, which still carries the three clauses this pass
+declined. (d) is strengthened by this pass: the recurring work is now, by measurement, **none** — the
+at-risk census is fully attributed, the content verdict is 0, and the remaining actions are human merge
+decisions that no further pass can advance.
+
+### Pass 322 claim commit
+
+`e158d2d` — claim (owner `coord-2f83` → `coord-7d2a`), the new instrument, the `selfcheck.sh`
+registration, and this entry, in one push, verified in sync with `origin` by fetch-and-compare.
+
+NEXT: the at-risk line is **closed** — do not re-derive the 88/89 delta or the tree-twin proxy; run
+`at-risk-delta.sh` and quote its named member instead, and treat any *further* growth as a real delta
+requiring identity, because the spelling explanation now covers exactly this one commit. The standing
+facts still need no hand re-derivation: `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`,
+`selfcheck.sh`, exit 0 each. Skip `at-risk*` unless a new argument requires it; if `at-risk.sh` is red,
+confirm the ref delta **by ref name using `sed 's|^refs/remotes/audit/||'`, not `strip=4`**, and by
+removing the single candidate, before raising `EXPECT_REFS`. Do **not** re-prepare (b) or (c); check
+only whether `origin/main` has advanced past `0267ade`, and if it has, drop them. The next useful
+action is **(d) or (e)**, both human.
