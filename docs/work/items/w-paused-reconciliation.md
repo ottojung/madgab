@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-c3f8 (pass 166; gate NO — five facts re-derived unchanged, and the worktree denominator corrected from 127 to 125 live paths; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:49:00Z
+owner: coord-5b07 (pass 167; gate NO — all five facts re-derived unchanged, no new measurement defect found; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
+updated: 2026-09-29T02:55:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15033,3 +15033,80 @@ now fired **73** times carrying three clauses that contradict the itinerary it p
 single out-of-repo edit would retire this log — or confirm the pause (close this item `done`), or
 reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style
 whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 167 (coord-5b07)
+
+Wall clock at start **2026-09-29T02:52Z**, logged out **02:55Z** — no sleep, no blocking wait, no
+agent launched, nothing stopped. Gate re-derived from
+[../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused`
+before any action: **NO.** Nothing created, claimed, launched, prompted, resumed, or integrated.
+`origin/main` untouched at `0267ade`, still no local `main` ref. HEAD stayed on
+`post-milestone-acceptance`; this entry and the frontmatter owner line are the only changes.
+
+### The five facts, re-derived
+
+| Fact | Re-derived at pass 167 |
+|---|---|
+| `origin/main` | `0267ade`, untouched; `git rev-parse --verify main` still fails |
+| Work items | **0 open / 0 working**, 1 blocked (this one), 83 done, 12 superseded (**96**), via the published gawk `FNR`/`ENDFILE` form |
+| Production fence | **0** in the production region of all six production files — **thirty-ninth consecutive pass** — per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex; `src/lib.rs` is again the only file with a whole-file clue hit (9, all test-region) and its production region is 0 |
+| MadGab agents | **0 non-terminal** among the **131** agents whose cwd matches `madgab` (110 succeeded / 20 failed / 1 stopped); `3a8f01` still `stopped` — no superseded front's agent has restarted |
+| At-risk | **7** on no `audit/*` ref + **86** reflog-only = **93**, disjoint (`comm -12` = 0), over **199** re-fetched refs, baseline **1,173** (1,172 at pass 166; the delta is pass 166's own pushed commit, itself on `origin` and so not entering the set), **0** of the 93 ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, not batched), all **20** `recovery/*` on `origin` by `ls-remote` |
+
+Content sweep: **37** dirty rows over the **125** live worktree paths (pass 166's corrected
+denominator, applied here deliberately) under the rule-9 filter as amended at pass 148
+(`*/target/*|*/target-*/*|*/prof/*`) = **3** build + **34** non-build; the 34 non-build are
+**33 hashable files + 1 directory row** (`madgab-scratch/examples/`), from **17** contributing
+worktrees. All 33 hash to blobs present in `rev-list --objects --all --reflog` (**7,384** distinct
+ids via `awk '{print $1}' | sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and no
+recovery branch was created. The `33 + 1` split, the **0**, and the **125** denominator all reproduce
+pass 166 without a new defect.
+
+**One confirmation worth recording, because it is a claim about a document and rule 25 applies:**
+the two paths pass 166 called *prunable* are genuinely gone from disk (`ls` on
+`/tmp/opencode/verify/w` and `/tmp/opencode/zzcheck` both fail), so **125 is a live-path count and
+not a guess about dead ones**. `git worktree prune` was again deliberately not run.
+
+Host `running` agents: `109a2` (`skrynia-109-verify`), `79a2` (`qai-proviral-79-conform`), `94d4`
+(`assemblyp1-94-casesplit-review`), `94b4` (`assemblyp1-94-integrate`) — **4 agents, all other
+repositories, all left running**, none touched. Host census: **605** agents total (604 at pass 166).
+The count fell 5 → 4 purely because an unrelated repository's agent finished; no MadGab agent is
+implicated and the MadGab non-terminal set held at 0.
+
+### Declined (rule 19), as every pass since 92
+
+"Recover or assign work" — recovery is permitted (rule 4) and the preservation sweep is **saturated
+at 0**, so nothing was assigned. "Launch or prompt Antonina agents", "split independent fronts",
+"review/integrate finished work", "exploit useful parallelism" — barred while paused, and there was
+nothing to split: 0 open, 0 working, 0 non-terminal MadGab agents, no unintegrated front, and `main`
+is explicitly not a push target. "Leave running Antonina agents running for a later fresh pass to
+inspect" — none was launched and none in a MadGab cwd is running, so nothing was awaited or stopped;
+the four running host agents belong to other repositories and were left alone. The prompt's
+"accumulate work on `post-milestone-acceptance` exactly as the itinerary requires" contradicts the
+itinerary, which calls that branch release history and no longer an automatic accumulation target;
+this entry accumulates there anyway because the log is its own home and carries no product code, and
+**`main` was not pushed**.
+
+The prompt's "prioritize the canonical approximate-search examples without phrase-specific hard-coding"
+is **read as a constraint on how reopened work must be done, not an instruction to reopen it**: the
+fence at 0 for the thirty-ninth pass is precisely that constraint holding. The standing limitation
+remains **preserved, not fixed** — approximate mode still emits `wreck a nice beach` for
+`recognize speech`, and the production candidate pool still cannot generate
+`Hits Justice Dupe Hid Came` for `It's just a stupid game`. Fixing that is what the pause defers.
+
+**This entry is deliberately ~50 lines, not the ~90 of the last several passes.** Pass 166's own
+"next action" said to prefer *no entry at all*; the reconciliation this pass had to publish is the
+fact that the five facts are unchanged **and** that pass 166's corrected 125 denominator is the right
+one to use. Everything else previous passes published is still in the file and was re-verified, not
+re-litigated. A pass that finds nothing new should say so briefly.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply (this
+pass took about three minutes) and exit without committing if they hold. Navigate by the **last**
+`## Pass ` heading, which is also the last section; do not trust a pass number quoted inside any
+entry. Read the "Current gate status" table's gate answer, and treat every number in it as a
+snapshot. If you publish a worktree denominator, use **125 live paths**. Only a human can change the
+gate: fix or retire the out-of-repo scheduler template — it has now fired **74** times carrying three
+clauses that contradict the itinerary it points at, and that single out-of-repo edit would retire
+this log — or confirm the pause (close this item `done`), or reopen development (fresh branch from
+`main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another widening of
+the Cartesian-prefix traversal).
