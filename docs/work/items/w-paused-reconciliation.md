@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9a31 (pass 182; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions, 7/87/0 at-risk commits over 199 audit refs and a 1,191 baseline with the two-arg `merge-base --is-ancestor` instrument itself verified at exit 0/1/128 before the population was read, 125/125 worktrees with `prune -n` clean for the thirteenth consecutive pass); the at-risk non-build file sweep deliberately not re-run (its population was unchanged and this pass spent the budget on the validity of the instrument instead); and one new finding — the `--not <list>` and `^<list>` spellings of a multi-ref containment query **disagree on a constructed known-positive instance**, `--not` reporting 0 where two independent censuses (a two-arg `is-ancestor` loop over all 579 non-orphan refs, and `for-each-ref --contains`) say the commit is held by none of them, so pass 181's "0 held only by the orphan" is recorded as **undetermined, not 0**, and no `recovery/*` branch was created on a number this pass does not trust; plus a second false zero that is live on this repository's own layout — an unresolvable ref inside a `rev-list --not` exclusion set makes rev-list print `fatal: ambiguous argument` and emit **zero lines**, which `wc -l` reads as a real "nothing is at risk" and which only the **exit code 128** distinguishes, and since this repository has **no local `main` ref** any check naming `main` reports 0 while measuring nothing. This is the first *under*-report in a preservation sweep on this repository — every earlier wrong count (rules 9/10/11/14/17/22/28) over-reported — and it is the dangerous direction, because it reads as safety and suppresses the recovery action that is the only useful recurring work while paused (rule 4). Rule: capture exit codes on every preservation step and treat fatal-empty-stdout as instrument failure, not a zero result; prefer the stateless `^<ref>` spelling; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T04:24:00Z
+owner: coord-1b6d (pass 183; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions, 7/87/0 at-risk commits over 199 audit refs and a 1,192 baseline with the two-arg `merge-base --is-ancestor` instrument verified at exit 0 on a known-true instance and 1 on a known-false one before the population was read, 125/125 worktrees with `prune -n` clean for the fourteenth consecutive pass); **both items owed by pass 182 discharged** — the at-risk non-build file sweep re-run from scratch with exit codes captured on every step (34 non-build rows = 33 hashable + 1 directory row, 32 distinct hashes after the named same-content pair `a0ef0cf` re-derives, 0 unreachable, 0 need archiving, and a non-empty sentinel control reading 1 so the 0 is a measurement rather than a broken instrument); and the orphan-namespace question **settled at 0 with a sensitive control** — pass 182's "undetermined" was caused by its own control, which placed the probe ref *inside* the exclusion set, so both spellings were excluding the commit they were meant to test; with the probe ref moved to the positive side the `--not` and `^` forms **agree exactly** (both 0 over the 400 orphan seeds against 574 non-orphan exclusions, `diff` clean), the instrument returns 1 on a constructed known-positive and 0 on the same query with the probe removed, and no `recovery/*` branch is warranted. No agent launched, stopped or prompted; the 3 host-`running` agents are other repositories and were left running.
+prior_owner: coord-9a31 (pass 182; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 624 host rows, 0 clue fence hits in all six files' production regions, 7/87/0 at-risk commits over 199 audit refs and a 1,191 baseline with the two-arg `merge-base --is-ancestor` instrument itself verified at exit 0/1/128 before the population was read, 125/125 worktrees with `prune -n` clean for the thirteenth consecutive pass); the at-risk non-build file sweep deliberately not re-run (its population was unchanged and this pass spent the budget on the validity of the instrument instead); and one new finding — the `--not <list>` and `^<list>` spellings of a multi-ref containment query **disagree on a constructed known-positive instance**, `--not` reporting 0 where two independent censuses (a two-arg `is-ancestor` loop over all 579 non-orphan refs, and `for-each-ref --contains`) say the commit is held by none of them, so pass 181's "0 held only by the orphan" is recorded as **undetermined, not 0**, and no `recovery/*` branch was created on a number this pass does not trust; plus a second false zero that is live on this repository's own layout — an unresolvable ref inside a `rev-list --not` exclusion set makes rev-list print `fatal: ambiguous argument` and emit **zero lines**, which `wc -l` reads as a real "nothing is at risk" and which only the **exit code 128** distinguishes, and since this repository has **no local `main` ref** any check naming `main` reports 0 while measuring nothing. This is the first *under*-report in a preservation sweep on this repository — every earlier wrong count (rules 9/10/11/14/17/22/28) over-reported — and it is the dangerous direction, because it reads as safety and suppresses the recovery action that is the only useful recurring work while paused (rule 4). Rule: capture exit codes on every preservation step and treat fatal-empty-stdout as instrument failure, not a zero result; prefer the stateless `^<ref>` spelling; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T04:32:00Z
 prior_owner: coord-4f90 (pass 181; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 621 host rows, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,190 baseline, 125/125 worktrees with `prune -n` clean for the twelfth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row over 7,486 known ids, 0 unreachable, so no durable repair was available, with the 33/32 distinct-blob gap re-derived to the same named same-content pair `a0ef0cf`); and one new finding — an orphaned 400-ref `refs/remotes/origin-all/*` namespace makes `merge-base --is-ancestor` unusable for a multi-ref containment test, and the failure is **silent** (exit 128 on every call, which a `!`-style loop reads as a positive containment result and turned 0 real held-only commits into a spurious 94; corrected with `rev-list A --not B…`, which accepts many exclusions) — the new rule-25/rule-22 instance: a per-item test expected to fail is silently inverted when the tool rejects its arguments, so verify exit codes 0/1 on a known-true and known-false instance before trusting a population of answers, and prefer `rev-list --not` for multi-ref containment; blocked on the human reopen/confirm decision)
 updated: 2026-09-29T04:19:00Z
 branch: post-milestone-acceptance
@@ -16134,6 +16135,135 @@ more than another declining entry:
    answers at once (`for-each-ref --contains` says one, `rev-list` says the other — find out which is
    wrong before quoting either). If any commit is genuinely held only by the orphan namespace, that
    is real at-risk state and it belongs on a `recovery/*` branch per rule 5, never on `main`.
+
+Only a human can change the gate: fix or retire the out-of-repo scheduler template (which keeps
+arriving carrying clauses that contradict the itinerary), confirm the pause (close this item `done`),
+or reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style
+whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 183 (coord-1b6d)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused`. No work created, claimed, launched, prompted, resumed or integrated;
+nothing pushed to `main`; no `recovery/*` branch, because — as pass 182 left open and this pass
+settles — there is no at-risk object. No Antonina agent launched, stopped or prompted: the 3
+host-`running` agents (`113d1` `kawun-113-headbind`, `78d3`/`80b2` `qai-proviral-78/80-*`) belong to
+other repositories and were left running. The invocation's three unexecutable clauses are declined
+for the reasons on record (rule 19): accumulate on `post-milestone-acceptance` "exactly as the
+itinerary requires" (the itinerary's last line says that branch "is no longer an automatic
+accumulation target"); launch/prompt agents and split independent fronts (rules 1–2); and "prioritize
+the canonical approximate-search examples" (case 2 is an accepted known limitation whose fix
+direction is exactly what the pause defers).
+
+This pass exists to discharge the **two items pass 182 explicitly owed**, because a declining entry
+that repeats facts 92–182 already re-derived is the least useful thing this log can contain, and
+pass 182's own next action said so. Both are now closed.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form, run with its exit code captured. **0 `open`, 0 `working`.** Unchanged for the fourteenth pass. |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** `antonina agent list` = **624** data rows; **131** match `madgab` in the cwd column and the non-terminal filter over those returns **nothing**. Host total unchanged at 624 with 3 `running`, all in other repositories. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails** (exit 128, "Needed a single revision"), so no local `main` ref exists. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files' production regions, per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach\|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. `lib.rs` whole-file = **9** under that same clue-only regex, published beside the number per rule 25. **Fiftieth consecutive pass at 0.** |
+| At-risk commits | **7 / 87 / 0**, baseline `rev-list --all --reflog` = **1,192** (1,191 at pass 182; the delta is pass 182's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first → **199** `audit/*`+tag refs, published beside the count it scopes. `rev-list --all --not $REFS` = **7**; `rev-list --reflog --not --all` = **87**; `comm -12` over both `sort -u`ed sides = **0**, so the split is disjoint and the union is **94**; a per-commit two-arg `merge-base --is-ancestor` loop finds **0** ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin`; remote head census **198**; the audit fetch advanced `0b42a36..7f74e0a`, so the refetch was not a no-op. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **fourteenth** consecutive pass. |
+
+### Owed item 1 discharged: the at-risk non-build file sweep, re-run with exit codes
+
+Pass 181's sweep was re-run from scratch over **125** live worktrees with rule 9's amended
+`*/target/*|*/target-*/*|*/prof/*` *component* filter, carried as `worktree<TAB>path` (rule 138):
+
+* **34 non-build rows** = **33 hashable files + 1 directory row**, over 17 contributing worktrees —
+  the same population pass 181 recorded, unchanged.
+* `rev-list --objects --all --reflog` = **7,498** lines, **7,498** distinct field-1 ids, **5,175**
+  carrying a path. `lines == distinct` is the impossibility tell pass 154 named, so it was checked
+  rather than believed: `sort | uniq -d` = **0**, and the with-path lines carry a real second field
+  (`4777bba… .github/workflows/pages.yml`), so the equality is genuine here — this object stream has
+  no duplicate first-field at all, unlike pass 154's broken-split stream. `cut -d' ' -f1` was run
+  alongside and agrees, which is recorded as agreement rather than as licence (rule 17 still says
+  prefer `awk '{print $1}'` unconditionally).
+* **33 hashable files → 32 distinct hashes**, the difference being the *same named same-content pair*
+  `a0ef0cf` that passes 154–181 recorded: `madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+  `madgab-probe-5b1e93/examples/probe_final.rs`. Re-derived, not copied.
+* **0 unreachable**, hence **0 need archiving** and no recovery branch created. The single
+  `comm` hit is the `DIR` sentinel row, correctly classified as a directory row by the
+  `hash-object`-vs-`-d` split rather than mistaken for a finding.
+
+**The instrument's sensitivity is demonstrated, so the 0 is a measurement rather than a broken check
+(this pass's correction of pass 180's empty-file sentinel, which was vacuous because it hashes to the
+canonical empty blob present in any repo):** a non-empty sentinel file's blob is **not** in the id
+set — `comm -23` returns **1** where it would return 0 for an archived blob. Every step above ran
+with its exit code captured rather than `wc -l`-ing a possibly-empty stream, per pass 182's rule.
+
+### Owed item 2 discharged: the orphan-namespace question is **0**, and pass 182's control was the bug
+
+Pass 182 published the orphan-namespace held-only count as **undetermined** because its
+`--not`-versus-`^` disagreement could not be reconciled. Both halves of that disagreement are now
+explained, and **the disagreement was in the control's construction, not in git.**
+
+Pass 182's probe pointed a scratch ref at a known commit and then asked
+`git rev-list --not <574 non-orphan refs> refs/remotes/origin-all/zz-ctl` — i.e. it placed the probe
+ref **inside the exclusion set**. Both spellings were then excluding the very commit they were
+supposed to report, so `--not` returning 0 was *correct for the query as written*, and the mismatch
+came from the `^` run differing in seed position. Rebuilt with the probe ref on the **positive** side
+and the two spellings **agree exactly**:
+
+| Query (positive side / exclusion side) | `--not` form | `^` form | agree |
+|---|---|---|---|
+| probe on positive side, 574 exclusions | **1** | **1** | yes |
+| 400 orphan seeds, 574 non-orphan exclusions | **0** | **0** | yes (`diff` clean) |
+
+The real answer is therefore **0 commits held only by the 400-ref `refs/remotes/origin-all/*`
+namespace**, and it is now a *sensitive* zero rather than an unexplained one: re-pointing the probe at
+a commit genuinely outside the exclusions makes the same query return **1**, and deleting the probe
+returns it to **0**. Three independent instruments agree on the underlying fact — the two `rev-list`
+spellings, a two-arg `merge-base --is-ancestor` loop over all 574 non-orphan refs (**0** holders),
+and `git for-each-ref --contains` (lists only the probe itself). **No `recovery/*` branch is
+warranted, and pass 181's "0 held only by the orphan" is confirmed rather than merely left standing.**
+
+**General form, and it is a new one for this log: a control can be wrong in the direction that makes
+a real defect invisible.** Every other wrong count catalogued here (rules 9, 10, 11, 14, 17, 22, 28)
+was a *check* that could not fail. This was a *control* that could not fail — it was built so that the
+answer was 0 no matter what, and the 0 was then correctly reported as "untrustworthy" rather than
+trusted, which is why it was caught. A pass that had instead accepted its own control would have
+published a confident false zero about a repository-wide preservation question. Rule: **place the
+probe on the side of the query it is meant to test, and require the control to fail loudly when the
+property it claims to check is violated.**
+
+### A live instance of pass 182's second finding, reproduced accidentally
+
+Pass 182 recorded that an unresolvable ref inside an exclusion set makes `rev-list` emit
+`fatal: ambiguous argument`, **exit 128**, and **zero lines** that `wc -l` reads as a real "nothing at
+risk". This pass tripped that exact trap inside its own command, because the orphan ref list had been
+captured *before* the probe ref was deleted:
+
+```
+$ git rev-list $ORPH --not $NON; echo $?
+fatal: ambiguous argument 'refs/remotes/origin-all/zz-ctl183': unknown revision ...
+128
+```
+
+Had this been a preservation sweep rather than a diagnostic, it would have reported "0 at risk,
+clean" and stopped. The general form is already pass 182's rule and this pass confirms it is worth
+keeping: **capture the exit code of every preservation step; a fatal-with-empty-stdout is a failure
+of the instrument, not a zero result.** In practice the cheapest guard is to capture the ref list
+*after* every ref mutation, and to assert `exit 0` before reading `wc -l`.
+
+### Next action for the next pass
+
+Prefer **no entry at all**; re-derive the five facts cheaply and exit without committing if they hold.
+Navigate by the **last** `## Pass ` heading, which is also the last section; do not trust a pass number
+quoted inside any entry, and do not re-point the gate pointer. **Pass 182's two owed items are now
+closed, so for the first time since pass 92 there is no outstanding measurement** — the preservation
+question this log exists to answer is saturated, and a further pass should re-derive the five facts
+and stop rather than looking for a new preservation class. If a pass does want a new fact, the
+remaining unexecuted claims are all of rule 23/24/25's shape (a documented claim that may be true of
+the wrong object), and the untried one is the accepted-state document's own claim that "the accepted
+implementation is the integrated state of the former `post-milestone-acceptance` branch at release
+time" — `origin/main` is now *ahead* of the branch this log commits to, so a successor could re-derive
+whether the accepted state and `main` still agree. That is worth exactly one pass, not a standing one.
 
 Only a human can change the gate: fix or retire the out-of-repo scheduler template (which keeps
 arriving carrying clauses that contradict the itinerary), confirm the pause (close this item `done`),
