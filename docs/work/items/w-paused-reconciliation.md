@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7a11
-updated: 2026-09-29T19:24:00Z
+owner: coord-1f7c
+updated: 2026-09-29T18:56:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28977,3 +28977,124 @@ sit in a false zero for a very long time — 98 passes reported the 0 this pass
 found to be unearned. (a) and (c) are the same decision, and (c) raises its
 stakes: repairing the instrument without scheduling it leaves the repair
 advisory. **Blocked on the human reopen/confirm decision.**
+
+## Pass 309 (coord-1f7c, 2026-09-29T18:51Z-18:56Z) — gate NO; six facts re-derived unchanged; ACTED — pass 308's own repair has a residual false zero, and it is the SAME class: a hard-code split across adjacent string literals is invisible to every form, while all 10 of its own plants pass
+
+### This pass's finding: THE FENCE IS LINE-SCOPED, AND PASS 308's plants ARE ALL SINGLE-LINE
+
+Pass 308 repaired three composition defects and proved the fence against nine
+planted shapes. This pass planted the tenth shape — the one the repair's own
+grammar invites — and read **0 / 0** on it, with the instrument's full control
+suite green and `selfcheck.sh` reporting 6 of 6 live.
+
+**The hole: a hard-code assembled from two adjacent string literals.**
+`let t = "recognize "; let u = "speech";` names the whole target, and
+`"wreck a nice " + "beach"` names the whole clue, but no **single line** contains
+the phrase, and every measurement form in `clue-fence.sh` is a `grep` whose
+match must lie within one line. Measured on a production-region copy of
+`src/adjacency.rs` carrying exactly that plant:
+
+    src/adjacency.rs   region 269   joined 0   per-word 0
+    controls    ... every derived clue, planted contiguous -> 2/2 caught
+                target-side hard-codes (rule 14t) -> 2/2 caught
+                same, with a CURLY apostrophe -> 1/1 caught
+
+A hard-code, undetected, with every control reporting that the fence catches
+hard-codes. Note the per-word form is *not* the failure here in the usual way:
+it is clue-side only by design (pass 308 defect 3, because target words are
+English words), so the target-side split plant has no word to match at all.
+
+**The general form, and why pass 308's plants could not have found it.**
+Rule 308 says "for EVERY string the property names, plant it and require
+non-zero; not one representative literal". Pass 308 obeyed that for the *string*
+and silently narrowed it for the *occurrence*: all nine plants write the clue as
+one literal on one line, so every plant passes through the same line-scope the
+measurement has. A plant suite that only ever plants the shape the matcher can
+see certifies the matcher, not the property — the same echo rule 308 named,
+moved from the pattern's own output to the *line* the pattern reads. The
+complementary hole is on the joined form, which is contiguous-only: a
+`format!("{}{}", t, u)` reassembly is the idiom the repair itself teaches, and
+`concat!` / `format!` are how a real developer splits a long literal for
+readability. The honest-code control for that direction is present and behaves:
+honest code containing the same words in adjacent literals reads 0, so the hole
+is not a false alarm in the other direction.
+
+Measured directly on the idiom, against the pattern as the instrument builds it
+(`clues|targets` disjoined, per-word clue alphabet):
+- `let t = "wreck a nice "; let b = "beach";` — **split, read 0**;
+- `concat!("recognize ", "speech")` — **split, joined 0** (per-word 0, target
+  side not in that alphabet by design);
+- `format!("Hits Justice Dupe Hid {}", "Came")` — caught, 6 per-word words;
+- the same words contiguous on one line — caught, joined 2, target 1;
+- honest code with the same words adjacent — 0.
+
+**Why this is recorded and not repaired in the same pass.** The repair is not
+one line: closing it means matching across line boundaries (normalising the
+production region by joining adjacent string literals before matching, or adding
+a whitespace/newline-tolerant pattern), and a wrong repair here is
+indistinguishable from a real hard-code until a human adjudicates it. Pass 308
+spent a full pass on the previous three defects and this item is already
+28,9xx lines; the durable contribution this pass can make without a human is the
+NAMED, PLANTED, REPRODUCIBLE hole and the instrument shape that would close it,
+so a later pass or a human applies it deliberately rather than a pass silently
+widening what counts as a hit.
+
+### The six standing facts, all re-derived, all unchanged
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.**
+   `census.sh` exit 0; the 1 work-item-shaped header with `work_item not true`
+   correctly excluded; the skills-doc fenced-example control reads selector 0 /
+   fence-blind 1, so the rule-34 trap is live and correctly excluded.
+2. **Fence 0 in all six production regions, ninety-ninth consecutive**, alphabet
+   9 clue words / 2 clue phrases / 2 target phrases derived from
+   `docs/accepted-state-2026-09-27.md`; region counts 269/260/464/4242/67/269;
+   the single per-word hit is the pass-216-adjudicated `lib.rs:3597`
+   `.expect("key came from cells")`, not re-opened. Pass 308's 10 controls all
+   reproduce. **This 0 is unchanged but, for the shape above, still not
+   sufficient** — that is this pass's contribution.
+3. **0 non-terminal MadGab agents** among 131 MadGab cwd rows of 729 host rows
+   (110 succeeded / 20 failed / 1 stopped). The 2 host-`running` agents
+   (109a5 skrynia-109-tranche6, 94c9 assemblyp1-94-tw3-eulerian) are other
+   repositories and were left running untouched. Nothing launched, prompted or
+   stopped. The 5 host-`idle` rows are not MadGab cwds.
+4. **125 registered worktrees, `prune -n -v` empty, exit 0.**
+5. **Main untouched**: no local `main` ref (`rev-parse --verify main` exit 128),
+   `origin/main` 0267ade, HEAD 9a9d2c6 on `post-milestone-acceptance` in sync
+   with origin. **Zero code drift** between `origin/main` and HEAD under `src/`
+   and `.github/`.
+6. **At-risk 89 = ref-held 1 + reflog-only 88, disjoint**, unchanged from passes
+   307/308. Both arms agree, stderr empty, controls both directions (514ed91
+   present, 0267ade absent). Baseline 1348 / refs-only 1260 / 205 exclusion refs.
+   514ed91 held by exactly `refs/heads/scratch-3f8c62-landed`.
+
+   **One process note, recorded because this log already contains passes that
+   published a wrong at-risk number**: this pass's first hand-written
+   cross-check printed the FULL baseline (1348) instead of 89, i.e. the exclusion
+   was inert — the empty-`$REFS` class of rules 14g/14i, reached by a shell form
+   the 205-ref cardinality assertion does not cover. The instrument's own figure
+   was used and the hand-written one discarded, rather than reconciling the two.
+   Standing rules 14b/14h/14i/14j/14p unchanged.
+
+**What this pass did NOT do**, so a later pass does not repeat it: it did not
+edit `clue-fence.sh` (the hole is recorded, not closed — see above); did not edit
+`.github/workflows/test.yml` (still a human decision, pass 267 / 306 / 307); did
+not touch any file under `src/` — `git diff --name-only` is this work item only;
+did not re-run the nine integration targets (nothing in `src/` changed, so pass
+307's 46-green / 1-`#[ignore]`d figure stands); did not re-run the at-risk
+cross-check by any spelling other than the two sanctioned ones; and did not
+create a work item, launch an agent, or claim anything.
+
+NEXT: the pause holds and the six facts stand. The fence's hundredth measurement
+will be reported as 0 next pass, and it is worth being explicit that the correct
+reading of that 0 narrows rather than widens: it means *no hard-code appears
+contiguously on one line*, not *no hard-code exists*. Two gaps remain open and
+both attach to the same human decision, now the highest-value one in the item:
+**(c) the fence is still not run by CI**, so this pass's newly named hole, like
+pass 308's three, will sit undetected until a scheduled pass happens to plant it
+— and passes 308 and 309 together are a two-pass demonstration that an unrun
+fence's silent zero persists. (a) and (c) are one decision (whether to add the
+test targets to `.github/workflows/test.yml`), and (c) raises the stakes again.
+(b), retiring this recurring pass, is unchanged: none of the six facts has moved
+in 99 passes. The new, pass-actionable item is the line-scope hole above: a
+later pass may close it, deliberately and with a named adjudication, or a human
+may. **Blocked on the human reopen/confirm decision.**
