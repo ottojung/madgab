@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c2e
-updated: 2026-09-29T10:58:00Z
+owner: coord-7d19
+updated: 2026-09-29T11:08:00Z
+prior_owner: coord-6a12 (pass 247; gate NO; declined the three scheduler-template clauses for the fifty-sixth time; published the at-risk invariant as a byte-diff. Pass 248 found that invariant was ALREADY FALSE on arrival and repaired it — see the last entry)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -22005,3 +22006,66 @@ Prefer **no entry at all**. If one is written: use the published census form, as
 control plants, and check the at-risk invariant as a **byte-diff against `ls-remote --heads`** with
 `eaf7487` on the recovery branch — not as a ref count. Do not open a MadGab research front or
 create a work item until a human reopens development.
+
+## Pass 248 (coord-7d19, 2026-09-29T11:08Z) — gate NO; the pass-247 byte-diff invariant was false on arrival; repaired; short entry
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-sixth time on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary
+says that branch "is no longer an automatic accumulation target". Nothing claimed, launched,
+prompted, stopped or integrated; no new work item; no recovery branch; `main` untouched.
+
+**This pass ACTED, because the standing invariant it was asked to check was already false.**
+Pass 247 (one minute before this pass began) published the at-risk mirror as "**204 remote heads,
+mirror byte-identical to `ls-remote --heads`**" and told the next pass to assert the byte-diff rather
+than the count. Run verbatim, that byte-diff is **not empty**: `post-milestone-acceptance` stood at
+**`29bf722`** in `refs/remotes/audit/` against **`860b4b8`** on the remote. Everything else matched,
+so the counts agreed at 204/204 — a live instance of pass 247's own argument that a count cannot
+distinguish a healthy mirror from a stale one, in the one direction the count hides.
+
+Repaired by rule 14m's own method, unchanged: `git fetch --no-tags origin
+'+refs/heads/*:refs/remotes/audit/*'` with **no `--prune`**, exit 0, fast-forwarding
+`audit/post-milestone-acceptance 29bf722..860b4b8`. Re-derived after the fetch: **204 heads,
+byte-identical to `ls-remote --heads`**. Controls: `recovery/at-risk-2026-09-29` = `eaf7487` locally
+and byte-identically on the remote; `git cat-file -t 514ed91` = `commit`, held by exactly
+`refs/heads/scratch-3f8c62-landed`. The residual at-risk object is live and content-durable.
+
+**Why it was false, stated once so the next pass does not re-derive it:** the mirror advances by one
+with every pass's own pushed commit (already recorded at pass 220), and pass 247 re-fetched the
+mirror *before* pushing its own `860b4b8` — so the byte-diff it published was true at the instant it
+ran and false the instant its own push landed. **A pass cannot both re-fetch the mirror and leave it
+in sync, because publishing the check is itself the event that invalidates it.** The correct order is
+therefore: push first, then fetch, then diff, then write the entry. This is pass 247's rule 25
+(a claim about a document is still a claim about a document) applied to a claim about a *ref mirror*.
+
+Five facts re-derived, all unchanged:
+
+- **Census 96 = 1 blocked / 83 done / 12 superseded; 0 open, 0 working**, via the published
+  fence-scoped `gawk` form over `docs/work/items/*.md docs/*.md`, exit 0.
+- **0 non-terminal MadGab agents** among 131 MadGab cwd rows of 680 host rows. The 5 host-`running`
+  agents are other repositories; left running, untouched.
+- **Phrase fence: phrase 0 and decomp 0 in all six production regions**, measured through `fence.awk`
+  against both alphabets read from `fence-alphabet.awk`. `src/lib.rs` reads **decomp=1**, re-identified
+  by line as the known benign `src/lib.rs:3597` `.expect("key came from cells")`. **All five control
+  plants fired as code** (`wreck a nice beach` 1/2, `recognize speech` 1/2, `it's just a stupid game`
+  1/2, `["hits","justice","dupe","hid","came"]` phrase 0/decomp 2, `Hits Justice Dupe Hid Came` 1/2),
+  and the comment-form plant reads phrase 0 — so the two arms discriminate and the zeros are a
+  measurement, not a fail-open. Region counts 268/259/463/4241/66/268.
+- **No local `main`** (`rev-parse --verify main` fatal), `origin/main` `0267ade`, HEAD on
+  `post-milestone-acceptance` in sync with origin.
+- **125 worktrees registered, `prune -n -v` empty, exit 0.**
+
+### Escalation, unchanged and now five passes overdue
+
+This log is **22,0xx lines / ~1.8 MB**; fourteen consecutive entries now close with "prefer **no entry
+at all**" and this is the fourteenth to write one anyway — but this one earned it, because the only
+thing a pass can still do while paused is repair a broken instrument, and this pass found one. The
+five facts have not moved in forty-six passes and both outstanding questions are a human's: whether
+to reopen MadGab development, and whether to retire this recurring pass.
+
+### Next pass
+
+Prefer **no entry at all**. If one is written: **push before you re-fetch** (see above), then assert
+the mirror as a byte-diff against a fresh `ls-remote --heads` with `eaf7487` on the recovery branch.
+Do not open a MadGab research front or create a work item until a human reopens development.
