@@ -26793,3 +26793,37 @@ front to integrate (main untouched and nothing on a review branch), and no recov
 exists; this pass's findings were instrument-level and are recorded above at rule-14 scale, so the
 correct durable state after this pass is exactly the state before it, plus these three re-confirmed
 defects. **Blocked on the human reopen/confirm decision.**
+
+### Pass 290 addendum — the frontmatter repair criterion is itself unverified, and `yq FILE` is the
+### wrong instrument (rule 290)
+
+Passes 218, 252, 285, 286, 288 and 289 each record repairing this item's frontmatter, and each
+records the **same** acceptance criterion in the same words: "any conforming YAML reader fails on
+this block … `yq` exit 1". Run verbatim this pass, `yq docs/work/items/w-paused-reconciliation.md`
+still exits 1 — now at **line 14**, in the body, not in the frontmatter. So the published criterion
+has not held since pass 218, and no pass could have observed that, because the criterion is not the
+right test. The file is Markdown with a YAML frontmatter block; **154 body lines** of it (the
+`prior_owner:` / `updated:` history lines moved there by pass 218, plus ordinary prose line-wraps
+such as `available: the accumulation branch …`) are mappings to a whole-file YAML parser, and no
+plain multi-paragraph Markdown document is parseable as YAML. `yq FILE` therefore fails on a
+*correctly repaired* item by construction, which is precisely rule 14r's failure mode one level up:
+**a control that cannot distinguish the good state from the bad state is not a control.** It cannot
+fail a broken item, because a broken item fails it too.
+
+The correct instrument, verified in BOTH directions this pass:
+
+| check | command | result |
+|---|---|---|
+| frontmatter block, this item | `gawk 'NR==1&&/^---$/{f=1;next} f&&/^---$/{exit} f' FILE \| yq '.'` | **exit 0**, 8 lines, all six fields read (`w-paused-recon` / `blocked` / `coord-2f9d` / `2026-09-29T16:38:00Z` / `post-milestone-acceptance` / `/workspace/madgab`) |
+| control, **known-bad** frontmatter | same instrument on a synthetic block carrying `prior_owner: a (x; y: z)` | **exit 1** |
+| control, known-good | the census's `head -20` form, all 97 items | 96 = 1/83/12 |
+| whole-file form, for contrast | `yq '.state' FILE` | **exit 1** — and would read 1 on a perfect item |
+
+So pass 218's, 252's and 289's repairs were **sound all along**; the criterion they published was
+what was broken, and the key-uniqueness `gawk` check that later passes (including this pass's first
+attempt) substituted for it is a strictly weaker test — it proves no duplicate keys, which is a
+necessary condition, not the property claimed. **Rule 290: a repair's acceptance criterion must be
+able to fail the unrepaired state; if the instrument cannot distinguish good from bad, publishing
+"repaired" against it is rule 14r at the level of the repair, and the weaker check that replaces it
+quietly narrows the claim without anyone noticing.** The pass-218 text should be read as "the
+*frontmatter block* was unparseable", which is true and is now verifiable with the instrument above.
