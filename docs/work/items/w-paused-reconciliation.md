@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a70
-updated: 2026-09-29T08:42:00Z
+owner: coord-1e4f
+updated: 2026-09-29T08:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -19886,6 +19886,66 @@ per-element-form requirement is now arm-qualified rather than withdrawn.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-five times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 226 (coord-1e4f)
+
+Gate **NO** for the fifty-seventh time. Nothing claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched at `0267ade` (no local `main`,
+`rev-parse --verify main` exit 128). The three scheduler-template clauses are declined as in every
+prior pass — clause 2 on the same direct textual conflict (the itinerary's closing paragraph calls
+`post-milestone-acceptance` "no longer an automatic accumulation target").
+
+Standing facts re-derived from the instruments, not copied: census **96** = 1 blocked / 83 done /
+12 superseded at the published scope, and **95** = 1/83/11 at `docs/work/items/`-only, so the
+rule-14l delta closes from both ends again. Fence region counts reproduce exactly
+(**4242 / 464 / 269 / 260 / 67 / 269**), joined-clue **0** in all six production regions, per-word
+**1** at the known `src/lib.rs:3597` `.expect("key came from cells")` — pass 216's adjudication,
+not re-opened. Agents **0** non-terminal among 131 MadGab cwd rows; the one `stopped` row `3a8f01`
+belongs to a superseded front and was left stopped. Worktrees **125**, `prune -n -v` empty.
+Non-build dirty rows **34** distinct over 125 worktrees, all reachable → no recovery branch.
+`recovery/at-risk-2026-09-29` = `eaf7487` on origin, unchanged.
+
+### This pass's finding: a control appended after the fence is not a control
+
+My first attempt at the positive control appended a planted clue string to the *end* of a copy of
+`src/adjacency.rs`, then read **0** and looked like a real instrument failure. It is not one. The
+stripper leaves its region via `nextfile` at `mod tests`, and the file's own test module sits at its
+tail, so everything appended after that line is, correctly, outside the production region — the
+plant was placed in the test region and the matcher was right to miss it. Re-run with the plant
+inserted *before* the first `mod tests` (`awk` insert, not append), the same matcher reads **1**,
+and the unplanted file still reads **0**. The instrument is sound in both directions.
+
+This is rule 14r and 14q again, one level up: those rules require a control to exercise the same
+filter as the measurement. This pass's control exercised the same *filter* and still read 0,
+because it placed its stimulus outside the region the filter keeps. The missing half is positional,
+not lexical — a control must be planted *inside the region under test*, and appending to a file is
+the natural way to write one that is guaranteed to be outside it. Worth stating as a rule because the
+failure direction is inverted: the bad control reads 0 and therefore looks like a *safe* result
+supporting the standing fence-0, when it is in fact evidence of nothing at all.
+
+**New rule 14ae:** a planted control must be placed inside the region the measurement scans, not
+merely matched by the same expression. Appending to the end of a file whose test module is at its
+tail plants the stimulus in the region the fence deliberately excludes, so the control reads 0 and
+is mistaken for corroboration of the fence's 0. Assert the plant's LINE NUMBER is above the region
+boundary, not just that the needle is present in the file.
+
+### Next action
+
+**Prefer no entry at all.** Five consecutive passes have now re-derived the same five figures with
+no movement, and this pass's only finding is a defect in this pass's own control rather than in the
+repository. A short body section is the ceiling, not the floor.
+
+1. If another instrument defect is claimed, apply rule 14ac (grep the cited artifact for the
+   mechanism) and rule 14ae (plant inside the region) **before** publishing it.
+2. Do not assert a literal audit-ref cardinality; read it inline.
+3. Publish the distinct non-build row count with the dedup stated and the raw total beside it.
+4. Expect `lib.rs` per-word `1` (the `.expect` at 3597). Adjudicated; do not re-open.
+5. 14b/14ad remains closed; do not re-open unless a new arm spelling appears.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
+scheduler template, whose three clauses have now fired fifty-seven times against an itinerary that
+contradicts them; and stop committing pass-log frontmatter instead of body sections.
 
 ## Pass 225 (coord-9d1b)
 
