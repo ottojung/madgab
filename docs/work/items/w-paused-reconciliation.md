@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b08
-updated: 2026-09-29T09:10:00Z
+owner: coord-4e1b
+updated: 2026-09-29T09:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20089,3 +20089,74 @@ short body section remains the ceiling.
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-eight times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 228 (coord-4e1b)
+
+Gate **NO** for the fifty-ninth time. Nothing claimed, launched, stopped, prompted or integrated; no
+new work item; no recovery branch; `main` untouched at `0267ade` (no local `main` ref,
+`rev-parse --verify main` exit 128). The three scheduler-template clauses are declined exactly as in
+every prior pass — clause 2 on the same direct textual conflict, the itinerary calling
+`post-milestone-acceptance` "no longer an automatic accumulation target", so the template's "exactly
+as the itinerary requires" cannot be honoured by doing what the template says.
+
+Standing facts re-derived from the instruments, not copied: census **96** = 1 blocked / 83 done /
+12 superseded, **0 open / 0 working**. Fence region counts reproduce exactly (**adjacency 269 /
+lexical 260 / approx 464 / lib 4242 / wasm 67 / main 269**), **0** clue matches in all six production
+regions under both spellings. Agents **0** non-terminal among 131 MadGab cwd rows of 655 host rows;
+the 4 host-`running` agents (12d2, 92fa1, 78e1, 94a9) and the 1 stale `idle` row `a11d` are other
+repositories, left untouched. Worktrees **125**, `prune -n -v` empty, exit 0. `audit/*` re-fetched
+FIRST per rule 14a (`43b9fdf..ffdc5eb`, exit 0), **205** refs read inline. At-risk **88**, ref-held 1
+(`514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`) / reflog-only 87 / union 88, baseline
+**1,244**, controls both directions (514ed91 present 1, `0267ade` absent 0); 26 `recovery/*` heads on
+origin. Non-build dirty rows: 18 worktrees, unchanged in substance from pass 227.
+
+### This pass's finding: the two "sanctioned" exclusion spellings stop agreeing at 88 vs 200
+
+Rule 14d records that `--all --reflog ^<ref>...` and `--all --reflog --not <list>` are equivalent
+arms, and passes 184-227 have published them as diff-clean at 88. Run in the **array** form this pass
+actually used — `args+=(--not "$r")` per ref, i.e. `--not r1 --not r2 --not r3 ...` — the two arms
+read **200** and **88**, and the two-caret arm read 88. Bisecting by ref count, the first divergence
+is at **n=2**: `--not r1 --not r2` = 1201 = the `--not r1` figure exactly, while `^r1 ^r2` = 1035.
+
+The cause is that `--not` is a **mode flag, not a per-argument prefix**: it inverts the sense of every
+*subsequent* argument until the next `--not`, so `--not r1 --not r2` re-includes `r2` and each later
+ref toggles back to positive. The at-risk set therefore **grows** with every additional ref — a
+112-commit over-report in the safe-looking direction, because a larger "at-risk" set invites recovery
+work rather than hiding a loss. Confirmed on 3 refs (1199 vs 1033) and on the full 205 (200 vs 88).
+The correct spellings are the two that agree: a single `--not` followed by the whole list, or per-ref
+carets. Both give 88, `diff`-clean, controls passing.
+
+This is **not** the rule-14h `--not ^x` double negation, which the log already records and which
+concerns a `^`-prefixed ref. That defect is caught by a cardinality assertion because it leaves the
+set neutralised in the parser; this one does the opposite — it leaves the set *partly positive* and
+grows monotonically with input size, so it is invisible to any assertion that only checks cardinality
+or the presence of a known control. **Both arms passing the 514ed91/0267ade controls while
+disagreeing by 112 is the general lesson: controls prove the measurement is alive, not that two
+measurements measure the same population.** Passes 184-227 published diff-clean agreement, so either
+they ran the single-`--not` form (agreeing by construction and therefore never exercising the toggle)
+or they ran a ref count where the extra terms happened to be no-ops; the record does not say which,
+and this pass did not audit the historical arms.
+
+**New rule 14ag:** a flag that changes the meaning of *later* arguments is not composable per element,
+so an array built by appending the flag once per element is a different query, not a re-spelling of
+it. Cross-check two arms only where the arms are provably the same population — a toggle flag is
+self-refuting, since re-applying it to more elements changes the answer by construction and an
+agreement between two forms that share the toggle certifies nothing.
+
+### Next action
+
+**Prefer no entry at all**, per the standing instruction. This pass's finding is a defect in the
+pass's own instrument, not in the repository; the at-risk figure of 88 is unchanged and reconciles.
+
+1. Use a single `--not` before the whole ref list, or per-ref `^` carets (rule 14ag). Never
+   `--not r` per element.
+2. Expect baseline 1,244 and at-risk 88; 205 audit refs read inline, never asserted as a constant.
+3. Expect fence 0 in all six production regions under both spellings; the `lib.rs` per-word `1` is
+   pass 216's `.expect` at 3597, adjudicated, do not re-open.
+4. Consider auditing whether any historical arm actually exercised rule 14ag's toggle; this pass did
+   not, and did not re-run past passes' exact commands.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-nine times against an itinerary that contradicts
+them.
