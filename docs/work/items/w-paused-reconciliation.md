@@ -18700,3 +18700,142 @@ fence pipeline is currently a scratch script in `/tmp`; committing it under `doc
 beside `link-census.mjs` would stop each pass re-deriving the region filter and re-tripping the
 fail-open trap. Not done this pass because the pause forbids new work items and because the finding
 is recorded in full here.
+
+## Pass 213 (coord-7f31)
+
+**Gate: NO**, unchanged — the three scheduler-template clauses declined for the **forty-fourth** time
+on `## Status: accepted and paused` plus `docs/accepted-state-2026-09-27.md`. Nothing claimed,
+launched, stopped, prompted, or integrated; no new work item; `main` untouched. **This pass was not
+idle**: it found and closed a real four-blob content gap and corrected a standing figure in the
+at-risk row.
+
+Five standing facts re-derived from the **procedure**, all unchanged:
+
+1. **Census 96** — 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open` / 0 `working`**, via the
+   published-scope fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`,
+   gawk exit 0, no per-file loop.
+2. **Fence 0** in all six production files under rule 14v's alphabet — **eighty-first** consecutive.
+   The script is now committed at `docs/work/paused-recon/fence.awk` (rule 5's dedicated location,
+   beside `link-census.mjs`), which discharges pass 212's "candidate follow-up" without creating a
+   work item.
+3. **Agents** — 0 non-terminal MadGab agents among 131 MadGab cwd rows. The 2 host-`running` agents
+   (`98d2` `antonina-98-char`, `94a9` `assemblyp1-94-cruxmap`) are **other repositories**, left
+   running and untouched. Nothing launched, stopped or prompted.
+4. **125** worktrees registered, `worktree prune -n -v` empty, exit 0. **`main` untouched** — no
+   local `main` ref (`rev-parse --verify main` exit 128), `origin/main` `0267ade`, HEAD
+   `post-milestone-acceptance`.
+5. **Rule 14a/14m repair HELD** — `audit/*` re-fetched FIRST by its real source namespace with no
+   `--prune` (exit 0), **205** refs by the bare-prefix form per 14j (**204** at pass 212, **+1** =
+   this pass's own new `recovery/*` head, so the repair did not regress), matching
+   `ls-remote --heads` 203 + 1 tag. `recovery/at-risk-2026-09-29` = `eaf7487` byte-identical to
+   `ls-remote` per 14p. **26** `recovery/*` heads on origin (**25** at pass 212, **+1** = this pass's).
+
+### Finding 1 — the published at-risk arms were measuring the wrong population (rule 14d again)
+
+Pass 212 published "both exclusion arms **1 / 1** `diff`-clean" and paired it with baseline
+**1,225**. Those cannot both be right, and the mismatch is rule 14d's exact shape: the baseline is
+`rev-list --all --reflog` (reflog-inclusive) while the arms as spelled omit `--reflog` and so measure
+the refs-only population.
+
+Measured both ways this pass, self-contained:
+
+| arm | refs-only | reflog-inclusive |
+|---|---|---|
+| `--all --not <refs>` | 1 | **88** |
+| `--all <per-ref ^refs>` | 1 | **88** |
+| baseline `--all --reflog` | — | 1,226 |
+
+The two arms agree with each other at **both** numbers, which is precisely why this survived 30+
+passes: agreement validates the *spelling*, never the *population* (rule 14s). The reflog-inclusive
+figure **88** is the correct one for the stated baseline, and it is internally consistent with the
+`ref-held 1 / reflog-only 87 / intersection 87 / union 88` split those same passes record. The
+published "1 / 1" is the refs-only reading quoted beside a reflog-inclusive baseline.
+
+**The dangerous direction, and why it mattered here.** A small at-risk number reads as safety. It was
+in fact the number that let pass 192–212 conclude "no recovery branch warranted, none created" for
+twenty passes while a real content gap sat inside the 87. **New rule 14w: publish the baseline's own
+flags beside every arm, and if an arm's result changes when `--reflog` is added, the arm was never
+measuring the population its sentence claimed** — bracket the arm, do not just cross-check it.
+
+### Finding 2 — four blobs were genuinely unrecoverable, and are now durable
+
+Because the arms were re-read against the reflog-inclusive population, the **87** reflog-only commits
+were examined for the first time at the *content* level rather than the *commit* level:
+
+1. **87** reflog-only commits (held by no ref).
+2. **63** of them have a tree not reachable from any `audit/*` ref.
+3. Those 63 were expanded to non-build path entries with rule 9's filter applied by path component
+   (`*/target/*`, `*/target-*/*`, `*/prof/*` excluded), and every blob checked against the full
+   `rev-list --objects --all` id set (7,367 ids).
+4. Exactly **4** entries came back missing — and **all four are earlier revisions of this very log**:
+   passes **92**, **163**, **165** and **177**, each held by nothing but the reflog that a `git gc`
+   or reflog expiry deletes.
+
+Archived byte-exact on **`recovery/reflog-log-revisions-2026-09-29`** (from `9f53202`), pushed and
+`ls-remote`-verified per rule 26; **26** `recovery/*` heads now on origin. Each file verified by
+`git hash-object` of the extracted file equalling the original blob id — **not** by "the path was
+archived", which is rule 6's failure mode:
+
+| pass | commit | blob | verified |
+|---|---|---|---|
+| 92 | `e860ad67` | `3daf0618` | `git hash-object` = `3daf0618` |
+| 163 | `35819c93` | `f1fff1ee` | = `f1fff1ee` |
+| 165 | `9f6347af` | `af791066` | = `af791066` |
+| 177 | `069074f3` | `edd7f4ff` | = `edd7f4ff` |
+
+All four now read 1 hit in the re-derived `rev-list --objects --all` id set, so the class is closed
+on content. **Pass 92's revision is the one that first refuted this log's standing 0-at-risk verdict**
+(*"the standing 0-at-risk verdict is refuted: 81 of 88 are reflog-only, 317 objects held by no ref"*);
+it is the origin of the at-risk machinery every later pass runs, and it was the single most
+recoverable-looking item in the repository.
+
+**Control**: a known-present id (`eaf7487`) returns 1 hit; a fabricated id returns 0. The 0 was a
+measurement, not a broken instrument. Recorded rather than assumed: an earlier attempt this pass
+compared only against `origin/main` + `origin/post-milestone-acceptance` instead of all 205 refs and
+called 24 commits "UNIQUE" — a wrong-population reading in the same family, caught by re-deriving
+against the full `rev-list --all` before publishing anything.
+
+**General form, and it is rule 10 one level down**: the standing at-risk check asked whether a
+*commit* is reachable from a ref. These four blobs **are** reachable — by the very reflog the check
+would see — so no commit-level instrument can ever find them. A preservation check must ask whether
+the *content* is durable somewhere **other than the thing that might be pruned**. A reflog is not a
+backup; it is a deletion timer.
+
+### The fence script, and a fail-open reproduced
+
+Pass 212 recorded that its `sed 's:/\*.*:\n::'` comment-stripper fails with `unknown option to 's'`
+and silently passes an empty string to the matcher. **This pass reproduced that exact failure** on
+its first fence attempt — four of six files reported a `sed` error, and all six still printed 0,
+which is exactly the trap. The committed `fence.awk` is a real block-comment state machine that
+**aborts rather than degrading**, and its region stage is a *checked* step: every file is required to
+produce a non-empty production region (268/259/463/380/67/269 lines) before its count is read, so a
+failed strip cannot shrink the input into a clean 0.
+
+Controls, all run and all passing before the 0 was published (rule 14v's per-string requirement, kept
+as pass 212 left it):
+
+* **Per-string planting** — each canonical string planted in a production region must read **1**:
+  `"recognize speech"`, `"It's just a stupid game"`, `"wreck a nice beach"`, `"Hits Justice Dupe Hid
+  Came"`, `"hits justice dupe hid came"`, and the decomposed `["hits", …]` array — **all 1**.
+* **Region** — a literal in a `//` comment reads **0**; in a `/* */` comment **0**; in a multi-line
+  block comment **0**; above a `#[cfg(test)]` boundary with a second below it reads **1**.
+
+**Fence 0 across all six files, eighty-first consecutive, and now by measurement** rather than by an
+instrument whose failure mode was identical to a pass.
+
+### Next action
+
+**Prefer no entry at all** — repeated. The human decisions are unchanged since pass 184: confirm the
+pause and close this item `done`, or reopen MadGab development; decide the residual `514ed91` commit
+object; retire or correct the out-of-repo scheduler template, now firing forty-four times with clauses
+that contradict the itinerary it points at; and stop committing frontmatter without a body section.
+
+**For the next pass, specifically:**
+
+1. Check the `recovery/reflog-log-revisions-2026-09-29` blobs are still 4-hit durable after a fetch,
+   and that `audit/*` reads **205** and `recovery/*` on origin reads **26**.
+2. Adopt rule **14w** when publishing any at-risk arm: bracket it with the baseline's own flags.
+3. The **reflog is still the only holder of the 87**, of which 63 have unique trees. Their *code*
+   content is durable (blobs held by other commits), so no second archive is warranted — but if a
+   future pass wants that class closed for good rather than content-by-content, the cheap move is a
+   single `recovery/reflog-held-2026-09-29` branch naming the 63, not a per-file re-audit.
