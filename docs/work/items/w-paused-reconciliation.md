@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3f7a (pass 174; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents among 131 MadGab/613 total, 0 fence hits in all six files, 7/86/0 at-risk commits over 199 audit refs and a 1,181 baseline, 125/125 worktrees with `prune -n` clean for the fifth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:38:00Z
+owner: coord-7c04 (pass 175; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents among 131 MadGab/615 total, 0 clue fence hits in all six files' production regions, 7/86/0 at-risk commits over 199 audit refs and a 1,182 baseline, 125/125 worktrees with `prune -n` clean for the sixth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15562,6 +15562,88 @@ rule 25 warns about: a claim that is not wrong about a number can still be wrong
 hands. The corrected statement, to be carried forward: **`main.rs` contains 0 clue literals and 0
 target literals from the canonical pair in either case, and its `//!` block quotes target phrases
 only.** The invariant is the per-file 0, never the route by which it was reached.
+
+**Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
+while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
+Navigate by the **last** `## Pass ` heading. Only a human can change the gate: fix or retire the
+out-of-repo scheduler template (which keeps arriving carrying clauses that contradict the
+itinerary — treat its pass count as unbound, not as a number to increment here), or confirm the
+pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
+
+## Pass 175 (coord-7c04)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` plus a fresh wildcard fetch of `origin` (`origin/main` still
+`0267ade`, the accepted merge). No work created, claimed, launched, resumed or integrated; nothing
+pushed to `main`; no new recovery branch, because both the commit-level and the file-level checks
+came back at zero. The invocation's three unexecutable clauses are declined for the reasons
+already on record: accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"
+(the itinerary's last line says that branch "is no longer an automatic accumulation target",
+rule 19); launch or prompt Antonina agents and split independent fronts (rules 1 and 2 — the gate
+forbids both while paused); and "prioritize the canonical approximate-search examples" (case 2 is
+an **accepted known limitation** whose fix direction is precisely what the pause defers, rule 25).
+The "without phrase-specific hard-coding" qualifier is already the invariant this programme holds
+and the production fence verifies below: the accepted implementation hard-codes none of the
+canonical phrases, and rule 1 forbids doing so to manufacture case 2. This log is the only thing
+that commits to `post-milestone-acceptance`, the carve-out rule 19 established.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Full `antonina agent list` = **615**; filtering on the cwd column for `madgab` returns **131**, and the non-terminal filter over those returns **nothing** — every one terminal. The 3 host-`running` agents (`113b3` `kawun-113-snapshot`, `113a3` `kawun-113-treetree`, `80b1` `qai-proviral-80-impl`) are other repositories and were **left running**, untouched. No superseded item's agent has restarted. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails** ("Needed a single revision"), so no local `main` ref exists and a push to it would still require creating one. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files' production regions, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Forty-second consecutive pass at 0.** |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,182** (1,181 at pass 174; the delta is pass 174's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs, published beside the count it scopes per rule 38. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and the union is **93**; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the 93 are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. Delta over pass 174's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live** (`[ -d ]` per `git worktree list --porcelain` path), `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **sixth** consecutive pass. |
+
+**Rule 14's cross-check was run rather than assumed, and the two spellings agree.** `--all --not
+$REFS` = 7 and the stateless `--all ^r1 ^r2 …` form = 7 with `diff` of the two sorted outputs
+**empty**; both `comm` inputs passed `LC_ALL=C sort -c` before use. The `^`-prefix-plus-`--not`
+trap that returns a number arithmetically identical to the unfiltered baseline was not re-created:
+this pass would have published **1,182** instead of 7 had it been, and the baseline is printed
+beside the count precisely so that substitution is visible.
+
+**At-risk non-build content: 0, re-derived file-level as well.** Over the 125 live worktrees,
+`git status --porcelain` (no `--ignored`) filtered by rule 9's amended component filter
+`*/target/*|*/target-*/*|*/prof/*` gives **34 non-build rows** from **17** distinct worktrees =
+**33 hashable files** + **1 directory row** (`madgab-scratch/examples/`, correctly classified as a
+directory because `[ -d ]` matched before the `hash-object`). All 33 hash via `git hash-object` to
+blobs present in `rev-list --objects --all --reflog` (**7,438** field-1 ids, extracted with
+`awk '{print $1}' | LC_ALL=C sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and
+no recovery branch was created. The 33 files hash to **32** distinct blobs, matching pass 174.
+
+**One measurement defect of my own, and it is a new instance of the leading-field family — a
+truncated path that read as an empty hash, i.e. rule 138's "directory row" classification
+manufactured out of thin air.** The first run of the sweep parsed each status row with a bare
+`while read -r line; do path=${line:3}`. `read` applies the default `IFS` and therefore **strips
+leading whitespace**, so a tracked-modification row (` M src/lib.rs` — status, space, path) arrived
+as `M src/lib.rs` and `${line:3}` produced **`rc/lib.rs`**. Ten of the 33 rows are tracked `M` rows
+on `src/lib.rs` in probe worktrees, and all ten were silently dropped: the sweep reported
+**23 hashable + 11 directory rows**, publishing eleven "directory" rows of which ten did not exist,
+and reporting 0 unreachable over a population that had quietly shrunk by a third. Untracked rows
+(`?? src/…`) were unaffected because they carry no leading whitespace, which is why the error
+looked like a plausible small delta rather than a systematic one. With `IFS= read -r line` the same
+34 rows give **33 hashable + 1 directory row**, the real `madgab-scratch/examples/` being the only
+directory, and the 0 is re-derived over the full population. The general form is rules 9/14/17/22
+one level up again: **any `${line:N}` slice of a record you have already passed through `read` is a
+slice of the post-`IFS`-stripped record, not of the line the tool printed** — and rule 138's
+"empty `hash-object` means directory" rule actively rewards the mistake, since a wrong path hashes
+to empty and is then filed as a benign directory row instead of a finding. Always publish the
+row partition (rows = hashable + directory) and check it against the previous pass, exactly as
+rule 9's amendment already demands of its own counts.
+
+**Rule 22 restated because the control is the only thing that makes the 0 mean anything.** The
+sensitivity control wrote a fresh `git hash-object -w` sentinel and confirmed it is **absent** from
+the 7,438-id set, so the same membership test that returns 0 over the 33 real files returns 1 over
+the sentinel. A check whose sensitivity has been demonstrated can return a negative result; one
+that has not can only return a number of unknown meaning. Note that the sentinel control would
+**not** have caught the truncation defect above — the sentinel exercises the membership test, not
+the enumeration — so enumeration correctness and test sensitivity are separate obligations and
+each needs its own control.
 
 **Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
 while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
