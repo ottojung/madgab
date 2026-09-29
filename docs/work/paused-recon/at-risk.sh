@@ -32,10 +32,17 @@
 #   docs/work/paused-recon/at-risk.sh            # report
 #   docs/work/paused-recon/at-risk.sh --fetch    # re-fetch the audit mirror first
 #
+# BOTH FORMS NOW VERIFY MIRROR FRESHNESS (pass 293). The bare form used to skip
+# that check and did so well: pass 293 ran it first and got a formatted,
+# internally consistent, control-passing "ref-held 3, at-risk 91" where the truth
+# is ref-held 1, 89. The bare form now REFUSES on a stale mirror; --fetch
+# refreshes and then verifies as before.
+#
 # `--fetch` is rule 14a: the audit namespace is a LOCAL MIRROR of the remote's
 # ordinary refs/heads/* under a renamed destination, so a stale mirror puts the
 # previous pass's own freshly pushed commit into the at-risk set (this happened
-# in pass 187, which read 2 where the truth was 1). It also passes --prune NEVER
+# in pass 187, which read 2 where the truth was 1, and again in pass 293, which
+# read 3 where the truth was 1). It also passes --prune NEVER
 # (pass 202: `--prune` against a mirror whose source namespace does not exist
 # remotely deleted 203 of 204 local refs).
 #
@@ -113,6 +120,41 @@ if [ "${1:-}" = "--fetch" ]; then
     || fail "fetch left the mirror at $mirrored while origin is at $probe -- the refresh was partial; refusing to report"
   printf 'audit mirror re-fetched from %s to %s (no --prune), verified at %s\n' \
     "$SRC_NS" "$DST_FETCH" "$mirrored"
+else
+  # PASS 293 FIX -- the DEFAULT path used to report against a stale mirror, and
+  # did so well. This pass ran the bare form first and got a clean, formatted,
+  # self-consistent, control-passing report of "ref-held 3 + reflog-only 88 =
+  # 91", where the truth is ref-held 1 and 89. Every internal check agreed: the
+  # two arms matched, the partition summed, the known-positive was present and
+  # the known-negative absent, and EXPECT_REFS was satisfied at 205. The two
+  # spurious members were pass 292's own pushed commits (ec06efa, 59f6b05),
+  # which the mirror had not yet picked up.
+  #
+  # Note WHICH checks failed to catch it, because that is the generalisable part:
+  #   - the controls are about the EXCLUSION SET's width, not its freshness, and
+  #     a too-narrow set still passes both of them;
+  #   - EXPECT_REFS counts REFS, and a fast-forward of one ref does not change
+  #     the count -- rule 14g's cardinality assertion is blind to staleness by
+  #     construction;
+  #   - the arms agreeing proves only that two spellings of the same stale
+  #     input agree, which is what they are for.
+  # The file's own header already named this failure ("pass 187, which read 2
+  # where the truth was 1"), and the mitigation was documented but only wired
+  # into the OPTIONAL flag. An operator running the documented default form got
+  # no protection at all.
+  #
+  # So: staleness is now checked in BOTH modes, and in the default mode a stale
+  # mirror is a refusal, not a number. Refusing is the whole point -- the
+  # alternative is publishing a plausible, wrong, safety-relevant figure.
+  origin_tip=$(git ls-remote origin refs/heads/post-milestone-acceptance | awk '{print $1}')
+  [ -n "$origin_tip" ] || fail "could not read origin's post-milestone-acceptance tip; refusing to report"
+  if ! git rev-parse --verify --quiet "refs/remotes/audit/post-milestone-acceptance" >/dev/null; then
+    fail "audit mirror has no post-milestone-acceptance ref -- the exclusion set cannot be trusted; re-run with --fetch"
+  fi
+  mirrored_tip=$(git rev-parse refs/remotes/audit/post-milestone-acceptance)
+  [ "$mirrored_tip" = "$origin_tip" ] \
+    || fail "audit mirror is STALE: mirror at $mirrored_tip, origin at $origin_tip -- the previous pass's own pushed commits would be reported as at-risk (this is the pass-187 failure, unfixed on the default path until pass 293). Re-run with --fetch"
+  printf 'audit mirror verified fresh against origin (no fetch needed) at %s\n' "$mirrored_tip"
 fi
 
 # ---------------------------------------------------------------------------
