@@ -20160,3 +20160,95 @@ pass's own instrument, not in the repository; the at-risk figure of 88 is unchan
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-nine times against an itinerary that contradicts
 them.
+
+## Pass 229 (coord-6b3f)
+
+Gate **NO** for the sixtieth time. Nothing claimed, launched, prompted, stopped or integrated; no
+new work item; no recovery branch; `main` untouched at `0267ade` (no local `main` ref,
+`rev-parse --verify main` exit 128). The three scheduler-template clauses are declined as in every
+prior pass: clause 2 remains the same direct textual conflict — the itinerary calls
+`post-milestone-acceptance` "no longer an automatic accumulation target", so "accumulate on
+`post-milestone-acceptance` exactly as the itinerary requires" cannot be satisfied by doing what the
+template says, and the itinerary's "do not launch MadGab agents unless a human explicitly asks to
+reopen" governs the "launch or prompt Antonina agents" clause.
+
+**Five facts, re-derived (not carried):**
+
+1. **Work items 1 blocked / 83 done / 12 superseded = 96**, from the published fence-scoped gawk form
+   over `docs/work/items/*.md docs/*.md` (both arguments load-bearing, rule 14l), gawk exit 0.
+   0 `open`, 0 `working`.
+2. **Antonina: 0 non-terminal in a MadGab cwd.** Host census 656 rows, 3 `running` — `92fa1`
+   (`volodyslav-92-plan`), `78e1` (`qai-proviral-78-reapply`), `94a9` (`assemblyp1-94-cruxmap`) — all
+   other repositories, all left running, untouched. `madgab` in the cwd column: **131** rows, every
+   one terminal.
+3. **Production fence 0** under the clue-only regex `wreck a nice beach|hits justice dupe hid came`
+   in the production region (`awk '/#\[cfg\(test\)\]/{exit}{print}'`) of all six production files:
+   `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0.
+   `lib.rs` whole-file clue-only 9. The per-word form (`"hits"|"justice"|"dupe"|"hid"|"came"`) is
+   **0** in `lib.rs`'s production region, with a synthetic one-line file as a non-zero control
+   reading **5** (`grep -Eio … | wc -l`; `-c` reads 1 because all five land on one line — the
+   earlier "control = 1" instances are this). The no-hard-coding invariant holds under both regexes.
+4. **`main` untouched; 125 registered / 125 live worktrees, `git worktree prune -n -v` empty.**
+5. **At-risk: 1 ref-held / 87 reflog-only / 0 intersection / 88 union, baseline 1,245**, over **204**
+   `audit/*` refs re-fetched first per rule 14m (`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'
+   '+refs/tags/*:refs/remotes/audit-tag/*'`, no `--prune`, exit 0). Both sanctioned arms `diff`-clean
+   at **1** using the per-ref caret spelling (rule 14b, `sed 's|^|^|'` over the ref list). Residual is
+   still `514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`, with its content durable on
+   `origin/recovery/at-risk-2026-09-29` = `eaf7487`, `ls-remote`-verified this pass. `recovery/*`
+   heads on `origin` read **26** inline, not the 25 asserted in earlier entries: the 26th is
+   `recovery/reflog-log-revisions-2026-09-29`, i.e. this log's own durable output, not new churn.
+
+**This pass's finding is a real defect, in the direction the preservation sweep has never reported
+before: a false *at-risk*.** Re-deriving the non-build row with `</dev/null` on every inner
+`git status` (rule 14af) and keeping the porcelain prefix out of the path field gives the published
+population exactly — **37** dirty rows = **3** build + **34** non-build over 125 worktrees, **17**
+contributing, **33** hashable files + **1** directory row (`madgab-scratch/examples/`, opened and
+checked member-wise: `structrank.rs` and `structs.rs` both durable). But the first hash comparison
+reported **`a0ef0cf` unreachable** — 1 of 33. It is not. Root cause: the left side was produced with
+`cut -f3 | sort`, i.e. **sorted but not deduplicated**, and `a0ef0cf` is the long-known same-content
+*pair* (`madgab-base-5b1e93/examples/zzz_final_probe.rs` and `madgab-probe-5b1e93/examples/probe_final.rs`,
+33 files → 32 distinct hashes). `comm` requires duplicate-free sorted input and **neither diagnoses
+nor fails on violations** — it consumed the second copy as a new left-only row, so a blob that is
+present in the object set at line 4936 of 7,845 was reported absent, `comm` exit **0**, no warning, a
+plausible single-row "1 file at risk" finding. Re-derived with `LC_ALL=C sort -u` on both sides the
+answer is **0 missing / 32 present**, and confirmed by an independent instrument,
+`grep -Fxc -f hashes objects` = **32**. Every prior pass reported 0 partly because it used `sort -u`;
+this pass dropped the `-u` and the sweep briefly inverted.
+
+This is the first over-report in the *preservation* direction, and it is the dangerous one for a
+paused programme: a lone unreachable row is exactly the trigger for creating a `recovery/*` branch and
+committing content that is already durable. It points the opposite way from rules 9/10/11/14/17/22/28,
+which were all over-reports in the safe direction.
+
+**New rule 14ah:** deduplicate *both* sides of a set comparison explicitly, and never trust a lone
+row from `comm`. `comm` assumes duplicate-free sorted input, does not check it, and reports the
+violation as a data difference with exit 0 — so a duplicate on the left is indistinguishable from a
+missing element. Where a single row decides whether recovery work happens, confirm it with a
+second, differently-implemented instrument (`grep -Fxc -f`, or a direct `git cat-file -e`) before
+acting. A measurement whose result would trigger an irreversible durable change needs a control;
+a measurement whose result would trigger no action does not.
+
+**Also recorded, no action:** `## Pass 226` sits at line **19890**, *above* `## Pass 225` at line
+**19950** — the section bodies are not in numeric order. The log's own reading rule (highest
+`## Pass N` number, not last position) still resolves correctly, so this is cosmetic; noted so a
+future pass does not read position as order.
+
+### Next action
+
+**Prefer no entry at all**, per the standing instruction. This pass's finding is again a defect in
+this pass's own instrument, not in the repository; all five figures are unchanged and reconcile.
+
+1. Re-derive the non-build row with rule 14ah: `LC_ALL=C sort -u` **both** sides before `comm`, or
+   use `grep -Fxc -f` and skip `comm` entirely. Expect 37 = 3 build + 34 non-build, 33 files / 1
+   directory row, 32 distinct hashes, 0 unreachable.
+2. Expect baseline **1,245** and at-risk **1 / 87 / 0 / 88**; read `audit/*` ref count and
+   `recovery/*` head count **inline** (204 and 26 this pass) — they are not constants.
+3. Expect fence 0 in all six production regions under the clue-only regex; `lib.rs` whole-file 9;
+   per-word production-region 0 with a control of 5 (count matches, not lines).
+4. Do not re-open 14b/14ad/14ag; do not re-open `lib.rs`'s per-word `1` (pass 216's `.expect` at 3597,
+   adjudicated).
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired sixty times against an itinerary that contradicts them;
+and stop committing pass-log frontmatter instead of body sections.
