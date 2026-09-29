@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c47 (pass 170; gate NO — same contradictory clauses declined; five facts re-derived and unchanged, 7/86/0 at-risk; one durable action taken: two stale prunable worktree registrations pruned losslessly after confirming each commit is ref-held, so the denominator is 125 registered == 125 live and `prune -n` is clean for the first time; at-risk non-build content 0; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:35:00Z
+owner: coord-3a19 (pass 171; gate NO — same contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents, 0 fence hits, 7/86/0 at-risk commits over 199 audit refs, 125/125 worktrees with `prune -n` clean for the second consecutive pass); no durable repair was available because at-risk content is 0 at both commit and file level; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15312,3 +15312,62 @@ human can change the gate: fix or retire the out-of-repo scheduler template (it 
 **77** times carrying clauses that contradict the itinerary), or confirm the pause (close this item
 `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
 k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 171 (coord-3a19)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` plus a fresh `git fetch` of `origin` (main still `0267ade`, the
+accepted merge). No work created, claimed, launched, resumed or integrated; nothing pushed to
+`main`; no new recovery branch (there was nothing at risk — see below). The invocation again
+carried the same two unexecutable clauses and both are declined for the reasons already on record:
+accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" (the itinerary's
+last line says that branch "is no longer an automatic accumulation target", rule 19), and
+prioritize the canonical approximate-search examples (case 2 is an **accepted known limitation**,
+and its fix direction is precisely what the pause defers, rule 25). This pass is the **only** thing
+that commits to `post-milestone-acceptance`, which is the carve-out rule 19 established.
+
+**No durable repair was available this pass**, and that is a measured result rather than a skipped
+step: the one recurring action this log sanctions is at-risk recovery, and the commit-level and
+file-level checks both came back at zero. So there was nothing to recover, nothing to review and
+nothing to integrate, and inventing a front to fill the pass would have been the failure mode.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Filtered the full `antonina agent list` (610 agents) on the cwd column: **131** MadGab agents, **every one terminal**. The 3 host-`running` agents (`9421` `assemblyp1-94-integrate`, `118b1` `antonina-118-fix`, `43a1` `antonina-43-reconcile`) are other repositories and were **left running**, untouched. |
+| `main` | **untouched.** `origin/main` = `0267ade`; still **no local `main` ref**, so a push to it would still require creating one. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Thirty-eighth consecutive pass at 0.** |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,178**, exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs (rule 38: the ref count is published beside the count it scopes). `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and the union is **93**; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the 86 are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. Delta over pass 170's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the first consecutive pass. Per the header row's own note, a different reading now would be a signal. |
+
+**At-risk non-build content: 0, re-derived file-level as well.** Over the 125 live worktrees,
+`git status --porcelain` (no `--ignored`) gives **37** dirty rows = **3 build** (`prof/`,
+`target-front-3a8f01/`, `target-front-3a8f02/`, excluded by rule 9's amended
+`(^|/)target|target-*|prof(/|$)` filter) + **34 non-build** = **33 hashable files** + **1 directory
+row** (`madgab-scratch/examples/`), from **17** contributing worktrees. All 33 hash via
+`git -C <wt> hash-object` to blobs present in `rev-list --objects --all --reflog`
+(7,414 field-1 ids, extracted with `awk '{print $1}' | sort -u` per rule 17) → **0 unreachable**,
+so **0 need archiving** and no recovery branch was created. The single duplicate-hash pair noted
+last pass is present again and unchanged (`madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+`madgab-probe-5b1e93/examples/probe_final.rs`, blob `a0ef0cf`) — 33 files, 32 distinct hashes, and
+a pass that compared the two counts without de-duplicating would again report a spurious mismatch.
+
+**A note on the host, because it cost this pass one command.** This host's `awk` **is** GNU Awk
+5.3.0 (`/usr/bin/awk` → gawk, verified directly), so the published `nextfile`/`ENDFILE` form in the
+work-items row runs as written and no `gawk` prefix is needed. The pass's first attempt at the
+rule-9 filter failed with a syntax error for a different reason worth recording under rule 25: awk
+has no shell-style interpolation, so `case "/$p"/ in …` inside an awk program is a *literal* `$p`,
+not the variable. The shell form rule 9 actually publishes is correct and was used for the figures
+above; the error was in a form the log does not publish, which is the cheap kind of mistake — it
+cannot produce a wrong number, only a refusal to run.
+
+**Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
+while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
+Navigate by the **last** `## Pass ` heading. Only a human can change the gate: fix or retire the
+out-of-repo scheduler template (which keeps arriving carrying clauses that contradict the
+itinerary — treat its pass count as unbound, not as a number to increment here), or confirm the
+pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
