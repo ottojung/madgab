@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9b4e
-updated: 2026-09-29T17:45:00Z
+owner: coord-7a04
+updated: 2026-09-29T17:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28215,4 +28215,106 @@ and the queue index. The remaining known gap is unchanged and is a human
 decision, not a pass action: CI still does not run the clue fence
 (`.github/workflows/test.yml` runs tests and clippy only), first raised at
 pass 267. Nothing further here is actionable without the human reopen decision.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 303 (coord-7a04, 2026-09-29T17:50Z) — gate NO; five facts re-derived unchanged; ACTED — the handoff the protocol says to read first had no reader
+
+The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples without phrase-specific
+hard-coding) were declined for the **sixty-sixth** time on `## Status: accepted
+and paused` plus `docs/accepted-state-2026-09-27.md`. Clause 2 remains a direct
+textual conflict: the itinerary says that branch "is no longer an automatic
+accumulation target", so the template's "exactly as the itinerary requires"
+cannot be honoured by doing what the template says. Nothing claimed, launched,
+stopped, prompted or integrated; no new MadGab work item; no recovery branch;
+`main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; skills-doc control selector 0 / fence-blind 1; 49
+   non-schema headers listed once each and correctly not counted.
+2. clue fence **0 joined in all six** production regions; per-word `0-0-0-1-0-0`
+   (`.expect("key came from cells")` at lib.rs:3597, adjudicated at pass 216).
+   Regions 269/260/464/4242/67/269. The ninety-third consecutive pass;
+   `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   718 host rows, {succeeded 110, failed 20, stopped 1}. The 4 host-`running`
+   agents (120b1, 92a3, 124a1, 109a4) are other repositories, left running and
+   untouched. 5 host `idle` rows, none a MadGab cwd.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on
+   post-milestone-acceptance. Zero release drift: `git diff --quiet origin/main
+   HEAD -- src tests examples web Cargo.toml Cargo.lock README.md .github` rc=0,
+   so the accepted release is still byte-identical to the accumulation tip.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree,
+   both stderr empty, both controls behaved (514ed91 present, 0267ade absent).
+   `at-risk.sh --fetch` rc=0 per rule 14a, no `--prune`; no recovery branch
+   warranted and none created.
+
+`selfcheck.sh` rc=0 at **6 of 6** instruments (was 5 of 5) — the third
+consecutive green. `frontmatter.sh` rc=0: 97 leading blocks, 0 failed to parse,
+all four controls healthy.
+
+### ACTED — `scheduled.md` tells every pass to read this item's state and handoff first, and no instrument could do it
+
+The five facts were unchanged for the ninety-third consecutive fence
+measurement, which is the shape of a pass with nothing to do. So this pass
+re-read what the protocol actually requires first. `scheduled.md` says:
+
+> "Read the selected work item's current state and handoff notes before
+> claiming it."
+
+and `work-items.md` makes frontmatter parsing the mechanism by which a
+coordinator discovers work at all. For the other 95 items that is cheap and
+`census.sh` already enumerates it. For **this** item it is not: it is
+**28,218 lines / 2,304,689 bytes**, because it carries a per-pass log, and the
+state a pass needs first — `state`, `owner`, `branch`, `worktree`, and the next
+action the previous pass left — is the state furthest from the top of the file.
+The one file the protocol names as the mandatory first read is the one file in
+the repository that cannot be read without a multi-megabyte tail. This pass
+itself did exactly that: `read` returned lines 1-81 and stopped at a 50 KB
+cap, and the only reason the newest entry was reached at all was a separate
+`tail -c 6000`.
+
+That is the failure class this log has been catching in the *instruments* for
+ninety passes, one level out again. Five scripts each measure a fact about the
+pause; none measured the file they all log into, and the log has raised its own
+size as an escalation on many passes without ever instrumenting it. Rules
+14q/14r say a zero nothing can falsify is not a measurement; here the number
+(2.3 MB) was obvious and unmeasured, and its *consequence* — that a fresh pass
+can read a stale owner and stop — went unmeasured for 92 passes. A pass that
+opened the first 2,000 lines of this file would learn it is owned by a
+coordinator from two days ago.
+
+`item-state.sh` is the reader: it parses the leading block via `yq` (never a
+hand-rolled loop — pass 218's 35 duplicate keys with unquoted `: ` values are
+exactly what a hand-rolled parse would sail through), asserts all eight
+`work-items.md` schema keys and an allowed `state`, then locates the **last**
+`## Pass ` heading — the log's own rule that the newest entry is the last
+section — and quotes its NEXT guidance, and prints size so growth stays a
+number. Fail-closed on six plants, all firing rc=1: unparseable frontmatter,
+unclosed block, disallowed `state`, missing NEXT guidance, missing file, and
+missing schema key. A reader that fell back to "no handoff found" when the
+handoff is present-but-unparseable would manufacture precisely the wrong
+conclusion, that a pass left nothing.
+
+**A defect in this pass's own instrument, found on its first live run, not by
+a plant**: it parsed `head -n "$close_line"`, which includes the closing
+`---`, so `yq` saw a second (null) document and `.state` returned
+`blocked\n---\nnull` — the script failed closed on a healthy file. Repaired to
+`$((close_line - 1))`; re-run reproduces the real `state: blocked`. Recorded
+because the same class has twice before shipped an instrument whose first live
+run was its only live run (pass 300's `at-risk.sh` argument bug). Registered
+in `selfcheck.sh`, whose broken-population guard was verified still rc=2 when
+the new instrument is withheld. Committed `0dd0edb`.
+
+NEXT: the pause holds, the six facts stand, and the handoff is now readable in
+one command. The remaining known gap is unchanged and is a human decision, not
+a pass action: CI still does not run the clue fence
+(`.github/workflows/test.yml` runs tests and clippy only), first raised at
+pass 267. The second human decision is unchanged too and is now the one this
+item's own size makes expensive: whether to retire this recurring pass, since
+none of the five facts has moved in 93 passes and the log is 2.3 MB.
 **Blocked on the human reopen/confirm decision.**
