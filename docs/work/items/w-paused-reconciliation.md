@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7e42 (pass 172; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents, 0 fence hits, 7/86/0 at-risk commits over 199 audit refs and a 1,179 baseline, 125/125 worktrees with `prune -n` clean for the third consecutive pass); 0 at-risk non-build content at both commit and file level, so no durable repair was available; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:26:00Z
+owner: coord-1b6d (pass 173; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents among 131 MadGab/613 total, 0 fence hits in all six files, 7/86/0 at-risk commits over 199 audit refs and a 1,180 baseline, 125/125 worktrees with `prune -n` clean for the fourth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 32 distinct blobs, sweep sensitivity demonstrated by a control that read 1), so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15417,6 +15417,85 @@ cannot fail* returning a clean number, which is rules 9/14/17/22 for the sixth t
 both inputs present and both `sort -u`ed (rule 22), the answer is **0 in each direction**
 (`comm -23` = 0 not-reachable, `comm -13` = 0 not-in-file-set), so the 0 is real and the harness is
 demonstrably sensitive rather than silent.
+
+**Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
+while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
+Navigate by the **last** `## Pass ` heading. Only a human can change the gate: fix or retire the
+out-of-repo scheduler template (which keeps arriving carrying clauses that contradict the
+itinerary — treat its pass count as unbound, not as a number to increment here), or confirm the
+pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
+
+## Pass 173 (coord-1b6d)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` plus a fresh wildcard `git fetch` of `origin` (`origin/main` still
+`0267ade`, the accepted merge). No work created, claimed, launched, resumed or integrated; nothing
+pushed to `main`; no new recovery branch, because the commit-level and file-level checks both came
+back at zero. The invocation's three unexecutable clauses are declined for the reasons already on
+record: accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" (the
+itinerary's last line says that branch "is no longer an automatic accumulation target", rule 19);
+launch or prompt Antonina agents and split independent fronts (rules 1 and 2 — the gate forbids
+both while paused); and "prioritize the canonical approximate-search examples" (case 2 is an
+**accepted known limitation** whose fix direction is precisely what the pause defers, rule 25).
+This log is the only thing that commits to `post-milestone-acceptance`, the carve-out rule 19
+established.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Full `antonina agent list` = **613** agents; filtering on the cwd column for `madgab` returns **131**, and the non-terminal filter over those returns **nothing** — every one terminal. The 3 host-`running` agents (`9421` `assemblyp1-94-integrate`, `118b1` `antonina-118-fix`, `43a1` `antonina-43-reconcile`) are other repositories and were **left running**, untouched. No superseded item's agent has restarted. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails** ("Needed a single revision"), so no local `main` ref exists and a push to it would still require creating one. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Fortieth consecutive pass at 0.** The 0 for `main.rs` (which has no `#[cfg(test)]` boundary) continues to be reached because its only 2 hits are lines 9 and 11 of the `//!` CLI usage doc comment and are *targets* quoted on a command line, never generated *clues*. |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,180** (1,179 at pass 172; the delta is pass 172's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs, published beside the count it scopes per rule 38. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and the union is **93**; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the 86 are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. Delta over pass 172's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **fourth** consecutive pass. |
+
+**At-risk non-build content: 0, re-derived file-level as well.** Over the 125 live worktrees,
+`git status --porcelain` (no `--ignored`) filtered by rule 9's amended
+`(^|/)target|target-*|prof(/|$)` component filter gives **34 non-build rows** from **17**
+distinct worktrees = **33 hashable files** + **1 directory row**
+(`madgab-scratch/examples/`, correctly classified as a directory because `[ -d ]` matched before
+the `hash-object`). All 33 hash via `git hash-object` to blobs present in
+`rev-list --objects --all --reflog` (**7,426** field-1 ids, extracted with `awk '{print $1}' |
+sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and no recovery branch was
+created. The 33 files hash to **32** distinct blobs; the single duplicate pair is unchanged
+(`madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+`madgab-probe-5b1e93/examples/probe_final.rs`), so a pass that compared the two counts without
+de-duplicating would again report a spurious mismatch.
+
+**The `comm` was mis-sorted on first run and the check was re-run — rule 22 for the seventh time,
+and this time the log's own published filter would have produced the same wrong number.** The
+negative control appended a sentinel sha with `cat h.s.txt; echo "$sha" >> h.s.txt`, which placed
+it out of order (`sort: h.s.txt:33: disorder: 28027719…`). `comm` warned twice and still returned a
+count of **1**, i.e. the *correct* answer for the wrong reason — a passing control obtained from a
+broken invocation. Rebuilt as `{ cat h.s.txt; echo "$sha"; } | LC_ALL=C sort -u`, both inputs pass
+`sort -c`, and the control then reads **1** for the right reason while the baseline reads **0**.
+The standing instruction is unchanged and restated because it has now bitten seven times: **sort
+both sides *inside the pipeline that produces them*, never by appending to an already-sorted
+file**, and treat any `comm` sort warning as voiding its output rather than as noise.
+
+**Rule 14's `--not`/`^` trap reproduced live, with this pass's own figure: `1,094`.** The
+exclusion set was first built with the `^` prefix and combined with `--not` —
+`git rev-list --all --not $(... '--format=^%(refname)')` — which returned **1,094**, arithmetically
+identical to the unfiltered `git rev-list --all` (also 1,094), because `--not` is a stateful prefix
+that flips each following `^r` back into an inclusion. The stateless forms agree with each other
+and disagree with it: `--all --not $REFS` (bare) = **7**, `--all ^r1 ^r2 …` (no `--not`) = **7**,
+`diff` of the two sorted outputs **empty**. Already on record from passes 79–82, so nothing new is
+claimed; it is noted because the number a careless pass would publish this time is 1,094 rather
+than the 982/1002/1029/1066 of the earlier passes, and a reader comparing figures across passes
+would see an unexplained change rather than the same defect recurring.
+
+**One measurement defect of my own, recorded because it is the same shape and would have looked
+like a finding.** The worktree liveness count was first taken with a shell glob
+(`ls -d /workspace/madgab* /workspace/*probe* …`) and returned **204 "live" worktrees** against
+125 registered — a 79-path overcount, because the glob matches any matching directory, not a
+registered worktree path. Re-derived from the authoritative source
+(`git worktree list --porcelain` → each `worktree` path → `[ -d ]`) it is **125 OK, 0 DEAD**, which
+agrees with `prune -n` being empty. The general form is rules 9/10/14 one level up again: **count
+the population the tool enumerated, never a pattern-matched superset of it.**
 
 **Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
 while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
