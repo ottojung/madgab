@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e7a
-updated: 2026-09-29T09:50:00Z
+owner: coord-7f4b
+updated: 2026-09-29T09:56:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20929,3 +20929,126 @@ this log, is what keeps generating passes whose correct outcome is "nothing to d
 Next pass: prefer no entry at all. Before choosing a number, run
 `grep -o '^## Pass [0-9]*' docs/work/items/w-paused-reconciliation.md | awk '{print $3}' | sort -n | uniq -d`
 and expect **empty** (rule 14ae).
+
+---
+
+## Pass 237 (coord-7f4b) — 2026-09-29T09:56Z
+
+**Gate NO**, for the fifty-sixth time, on the same grounds: `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. The three
+scheduler-template clauses (launch or prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) are declined again; clause 2 remains a direct textual conflict, since
+the itinerary says that branch "is no longer an automatic accumulation target".
+
+Nothing claimed, launched, stopped, prompted or integrated. No new MadGab work item. No recovery
+branch. `main` untouched. The 3 host-`running` Antonina agents belong to other repositories and were
+left running, untouched, nothing prompted.
+
+This pass's one real contribution is a defect in **rule 14s's own prescribed remedy**, which has been
+in this log since pass 209 and was copied verbatim by every pass since.
+
+### New rule 14af: `--not` is a mode toggle, so per-element prefixing of `--not` cancels itself
+
+Rule 14s correctly diagnosed a *shell* defect — an unquoted `$REFS` prefixes `^` to only the first
+word — and prescribed the remedy "per-element prefixing" (`"${REFS[@]/#/^}"`, "equivalently
+`--not "${REFS[@]}"`"). The two things it offers as equivalent are **not** equivalent, and the
+`--not` side of that equivalence is wrong:
+
+- `^<ref>` is a **per-element prefix operator** — each `^` negates exactly the word it precedes;
+- `--not` is a **mode toggle** — it flips the sense of *all subsequent arguments*, and a second
+  `--not` flips them back.
+
+So "per-element prefixing" applied to `--not` produces `--not A --not B …`, which is the *unfixed*
+form, not the fix. Measured on this repository's real 205-ref audit set, against the 1,253-commit
+`rev-list --all --reflog` baseline:
+
+| refs | per-element `--not X --not Y` | single toggle `--not X Y` | correct answer |
+|-----:|-----------------------------:|--------------------------:|---------------:|
+| 1    | 1210 | 1210 | 1210 |
+| 2    | **1210** | 1044 | 1044 |
+| 3    | 1208 | 1042 | 1042 |
+| 10   | 1203 | 1033 | 1033 |
+| 100  | 552  | 522  | 522 |
+| 205  | **209** | **88** | **88** |
+
+The n=2 row is the decisive one and it is a pure logical identity, not an empirical coincidence:
+`--not A --not B` is **byte-identical** to `--not A` (`md5sum` equal), because the second `--not`
+un-negates B and makes it a *positive start*. At n=205 the per-element form reported **209** against a
+truth of 88 — a 2.4x over-report, in the same over-report direction as rule 14b.
+
+**This pass hit it live.** The first exclusion arm built here was `sed 's|^|--not |'` per element —
+per-element prefixing of `--not`, exactly as rule 14s prescribes for that spelling. It returned 209
+and disagreed with the inclusion arm's 88. The disagreement was diagnosed as an instrument defect
+rather than published as a finding, which is the whole point of 14r/14q: a cross-check disagreement
+found at n=2 refutes the instrument before it refutes the repository.
+
+**The corrected reading of rule 14s, and the form to use:** either apply the mode toggle **once** and
+then pass every ref bare — `git rev-list --all --reflog --not "${REFS[@]}"` — or prefix each element
+with `^` — `git rev-list --all --reflog "${REFS[@]/#/^}"`. **Never** write `--not` more than once.
+All three of {inclusion arm `comm -23`, `--not "${REFS[@]}"`, `"${REFS[@]/#/^}"`} were run and agree
+**88 / 88 / 88, mutually `diff`-clean, stderr empty on all three**. The mis-built form is the only one
+of the four that does not.
+
+Rule 14s's cardinality sweep is what exposed this and remains the right check: the per-element arm
+*did* vary with input, so a sweep that only asks "does it move?" would not have flagged it. The
+sweep's second question — "does it move *the way the correct arm does*?" — is the one that catches it,
+and the fix is to sweep both spellings side by side and compare, not to sweep one in isolation.
+
+**Scope of the correction: none of the published at-risk figures change.** Passes 209–236 used
+`"${REFS[@]/#/^}"` or the single-`--not` array form, both of which are correct; only the `sed
+'s|^|--not |'` reading of "per-element prefixing" is broken, and no pass is recorded as having used
+it. The at-risk numbers below are re-derived from scratch with the corrected spelling, not carried
+over.
+
+### Five standing facts, re-derived from instruments this pass
+
+1. Census **96** = 1 `blocked` / 83 `done` / 12 `superseded`, **0 `open`, 0 `working`**, by a plain
+   per-file frontmatter tally with the file count asserted alongside the state count: both **96**.
+   `w-0f3a17-shortlist-rule.md` is work-item-*shaped* but `work_item: false`, correctly excluded.
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 660 host rows (110 succeeded / 20
+   failed / 1 stopped). The 4 host non-terminal rows — `12b1` kawun, `78f1` qai-proviral, `94a9`
+   assemblyp1, and the stale `idle` row `a11d` in `/tmp` — are other repositories, left running and
+   untouched. Read via the JSON field `state`, not `status`.
+3. Fence **0 in all six production regions** (region line counts 269 / 260 / 464 / 4242 / 67 / 269),
+   phrase form **0/0/0/0/0/0** and decomposed form **0/0/0/1/0/0**. The single decomposed hit is
+   `src/lib.rs:3597` `cells.get_mut(&key).expect("key came from cells")` — pass 216's adjudicated
+   non-defect (ordinary English in a panic message), not re-opened. **Controls in both directions**:
+   six canonical strings planted one per line immediately above `mod tests` read phrase **4** /
+   decomp **7** (baseline decomp 1 + 6 plants), so the alphabet matches; the same strings planted
+   *inside* `mod tests` read phrase **0** / decomp **1** (baseline only), so the region stage fires and
+   the zero is a measurement rather than a dead instrument. `src/lib.rs` restored byte-clean
+   afterwards (`git diff --stat` empty).
+4. **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+5. `main` untouched: no local `main` ref (`git rev-parse --verify main` exits **128**), `origin/main`
+   **0267ade**. HEAD `9b30b05` on `post-milestone-acceptance`, in sync with origin.
+
+**Preservation, re-derived with the corrected spelling: at-risk set 88, no recovery branch warranted.**
+`audit/*` re-fetched FIRST by its real source namespace with **no `--prune`** per amended rule 14a
+(exit 0; `audit/post-milestone-acceptance` advanced `1a5be9f..9b30b05`). Enumerated by the bare-prefix
+form of rule 14j, cardinality read inline: **205** refs (`ls-remote --heads origin` = 204; +1 is the
+local-only `scratch/`, consistent with prior passes). Baseline `rev-list --all --reflog` **1,253**
+(+1 vs pass 236's 1,252 = this log's own commits). Split: ref-held **1** (`514ed91`, held by exactly
+`refs/heads/scratch-3f8c62-landed`), reflog-only **87**, intersection **0**, union **88**. Controls in
+both directions: `514ed91` present (1), `origin/main` `0267ade` absent (0).
+`refs/remotes/audit/recovery/at-risk-2026-09-29` = `eaf7487`, byte-identical to
+`git ls-remote origin` on that ref. 26 `recovery/*` heads on origin. No content sweep re-run: closed
+on content since pass 184, and the only population change is these log commits.
+
+### Next pass
+
+Pass number chosen per rule 14ae: the duplicate check
+`grep -o '^## Pass [0-9]*' … | awk '{print $3}' | sort -n | uniq -d` returned **empty** first, and the
+maximum was 236, so this is 237.
+
+**Prefer no entry at all**, still. The at-risk side is now fully re-derived with a corrected
+instrument, so there is no owed measurement. If you do build the at-risk exclusion arm, use
+`--not "${REFS[@]}"` (toggle once) or `"${REFS[@]/#/^}"` (prefix each element) — never
+`--not X --not Y`.
+
+Still **blocked on the human reopen/confirm decision**, unchanged and not agent-actionable. The three
+outstanding human items: (1) reopen MadGab development or confirm the pause stands and close this item
+`done`; (2) decide the residual `514ed91` commit object, whose content is already durable on the
+remote recovery branch; (3) retire or correct the out-of-repo scheduler template, whose three clauses
+have now fired 237 times against an itinerary that contradicts them — that template, not this log, is
+what keeps generating passes whose correct outcome is "nothing to do".
