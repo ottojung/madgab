@@ -25260,3 +25260,128 @@ state's "none of the canonical examples is hard-coded into production logic" rem
 inspection** — region fence 0, ninety-first consecutive, and re-checked here by planting the clue in
 production position and watching the `String` control catch it — but the fence's **9/9 green is not
 evidence about that claim**, since the identical plant one lifetime token away is invisible to it.
+
+## Pass 277 — `coord-9a4e`, 2026-09-29T14:26Z–14:41Z — gate NO; five facts re-derived unchanged; ACTED — the census delta pass 276 opened is **closed with a mechanism**, and the fence is re-verified by a **directional plant sweep** that closes pass 275/276's "LIVE blind spot" question for the production region
+
+**Gate: NO.** The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritise the canonical
+approximate-search examples) are declined for the **fifty-third** time on `## Status: accepted and
+paused` plus [accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). Clause 2 remains a
+direct textual conflict: the itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target", so the template's "exactly as the itinerary requires" cannot
+be honoured by doing what the template says. Nothing claimed, launched, stopped, prompted or
+integrated; no new work item; no recovery branch; `main` untouched. **No file in the repository was
+modified** except this log; every plant and every mutation ran in a throwaway `/tmp` copy.
+
+**The five standing facts, all re-derived from procedure, all unchanged.**
+
+1. **Census — 96 = 83 done / 12 superseded / 1 blocked, 0 open / 0 working.** Fence-scoped `gawk`
+   per-file frontmatter over `docs/work/items/*.md docs/*.md`, `gawk` exit 0. **Pass 276's "97 = 84
+   done / 12 superseded / 1 blocked" does not reproduce, and the delta now has a mechanism** — see
+   the section below; 96 is re-confirmed at pass 276's OWN commit `44f0fdf` via `git archive` into
+   `/tmp`, so the discrepancy is not a working-tree effect.
+2. **Agents — 0 non-terminal MadGab agents.** 131 MadGab cwd rows: 110 `succeeded` / 20 `failed` /
+   1 `stopped` (`3a8f01`, a superseded front, left stopped). The 2 host-`running` agents (`94ff2`
+   assemblyp1-94-paper, `92b3` volodyslav-92-wire) are other repositories and were left running,
+   untouched.
+3. **Clue fence — 0 phrase hits in all six production regions, ninety-second consecutive**, read
+   through the shipped `docs/work/paused-recon/fence.awk`, under BOTH the joined-phrase and the
+   per-word alphabet derived from `accepted-state-2026-09-27.md` lines 25/31. Region counts
+   reproduce exactly: adjacency 269 / lexical 260 / approx 464 / lib 4242 / wasm 67 / main 269, and
+   the fence exits 0 on all six.
+4. **At-risk — unchanged and safe; no recovery branch warranted or created.** `audit/*` re-fetched
+   FIRST by its real source namespace with no `--prune` (exit 0). **205** refs (the `+1` vs the
+   standing 204 is pass 276's own pushed commit, which is on `origin` and therefore inside the
+   exclusion set rather than at risk). Baseline `rev-list --all --reflog` 1296. Both sanctioned
+   exclusion spellings run separately and agree **89/89 diff-clean** with empty stderr; the split is
+   **ref-held 1 / reflog-only 88 / intersection 1 / union 89** against the refs-only population
+   (1208), controls in both directions (`514ed91` present, `origin/main` `0267ade` absent). The
+   single ref-held commit is `514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`, content
+   durable on `origin/recovery/at-risk-2026-09-29`. **7 of the 88 reflog-only commits are this log's
+   own superseded pass drafts**, re-derived by subject line, which continues passes 273/274's
+   finding that the twin-less tail is harmless log history and not lost content.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`);
+   `origin/main` = `0267ade`; `HEAD` on `post-milestone-acceptance` at `44f0fdf`, working tree clean;
+   **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+
+**Pass 276's census delta is CLOSED, with a mechanism — the standing row returns to 96.**
+
+Pass 276 published 97 and, unlike prior passes, declined to publish a stale figure. This pass
+re-derived the census two independent ways and both read **96**: once on the working tree and once
+on pass 276's own commit `44f0fdf` extracted with `git archive 44f0fdf docs` into `/tmp` (so no
+working-tree or commit-selection effect can account for it). The mechanism is the file
+`docs/work/items/w-0f3a17-shortlist-rule.md`, which carries a full work-item-shaped header — `id`,
+`state: done`, `priority`, `owner`, `updated`, `branch`, `worktree`, `parent_item` — but
+`work_item: false`. Enumerated: `grep -l "^work_item: true" docs/work/items/*.md` = **95** files, plus
+`docs/continuation-approximate-search.md` (itself `work_item: true` / `state: superseded`, and
+outside the items directory) = **96**. A loose per-file `state:` read that ignores the
+`work_item` gate returns 97 by including the shortlist-rule file, which is exactly pass 276's
++1 done. This is the same closure pass 220 reached; it is re-confirmed here against a *different*
+misreading, which is the stronger form of the result. **New rule 280**: a census that reports a delta
+against the log must name the specific file responsible before the delta is published, and a file
+with a complete item header but `work_item: false` is the recurring mechanism — the header's
+completeness is what makes it pass an eyeball, and the gate is the only thing that excludes it.
+
+**The fence: pass 275/276's "LIVE blind spot" does NOT extend to the production region, and this is
+now established by a directional sweep rather than by a single plant.**
+
+Passes 275 and 276 root-caused a real desync in the Rust integration test's literal scanner (an
+unpaired apostrophe from a lifetime), and pass 276 corrected pass 275's placement by item class. Both
+left open whether the shipped `fence.awk` shares the exposure. This pass tested it directly, and the
+answer is that the production region is **clean under a sweep in both directions**:
+
+- **All four standing controls pass** on the current `fence.awk`: `mod tests {` inside a block
+  comment at lib.rs:1-3 with a plant at :300 → **1**; a `//` inside a string literal with a plant
+  later on the same line → **1**; a `mod tests {` string literal with a plant on the same line → **1**
+  and the region does **not** shrink (4243 lines, the plant-inclusive count); the U+2019 target form →
+  **1**. Every control exercises the filter the measurement exercises (rule 14r).
+- **Dense forward sweep on `src/lib.rs`**: the clue planted at **every 100th line from 2 to 4242**
+  (43 positions) reads **1** at every position, with the region constant at 4242 lines for all 43.
+  A blind spot in the production region is a positional defect, and a positional defect that a
+  single plant at lib.rs:300 misses is a 300-line window; a 100-line grid cannot miss one.
+- **Boundary probes in both directions on all six files**: the last production line and the `mod
+  tests` line itself both read **1** on adjacency (269/270), lexical (260/261), approx (464/465),
+  lib (4242/4243) and main/wasm (whole file). The plant *below* the boundary reads **0**, which is
+  the correct answer, not a defect.
+- **A control the prior passes did not run**: `src/lib.rs` carries **27** `#[cfg(test)]` attribute
+  lines *inside* the production region (381, 434, 1837, 2007, 2018, 2124, 2131, 2193, 2203, 2376,
+  2407, 2508, 2622, 2682, 2979, 3126, 3128, 3130, 3135, 3137, 3151, 3320, 3322, 3324, 3326, 3328,
+  4242). This independently reproduces pass 276's 2,046-line figure's shape and confirms its
+  direction: these are test-only items that the region filter necessarily includes, so the fence
+  scans more than production. That is the over-inclusive direction and is safe.
+
+**The standing "blind spot" is therefore confined to the Rust test scanner, not to `fence.awk`, and
+the accepted state's "none of the canonical examples is hard-coded into production logic" is
+confirmed on a production-position plant that the fence catches.**
+
+**New rules.**
+
+- **280** — see the census paragraph above.
+- **281** — a *positional* claim ("there is a blind spot at some line in this region") cannot be
+  discharged by one plant at one line, however carefully that plant is constructed; it needs a grid
+  whose spacing is smaller than the claimed window. Passes 275 and 276 both established a
+  *character-level* desync with a single-plant minimal pair, which is the right instrument for a
+  character-level defect and the wrong one for asking whether an arbitrary region is scanned
+  everywhere. A 43-position grid over one file is ~0.2 s of `gawk` and converts "no plant found it"
+  into "no position in this file can hide it". General form: match the instrument's sampling
+  density to the *shape* of the claim, not to the shape of the defect that motivated the claim.
+- **282** — when a sweep reports mismatches, check whether the mismatches are all on one side of a
+  boundary before believing them. This pass's first sweep reported 5 "mismatches" per file in
+  adjacency/lexical/approx; every one was a plant placed at a line *below* `mod tests`, i.e. correctly
+  excluded. The instrument was the sweep, not the fence — the same shape as rule 14q's fabricated
+  positive control, and the tell was identical: a set of "failures" that is entirely one-signed.
+
+**Why this is recorded and not fixed.** The itinerary is `## Status: accepted and paused` and
+`accepted-state-2026-09-27.md` forbids resuming development without an explicit human instruction.
+Nothing here is a change to search behaviour; the two standing fence findings (the Rust literal
+scanner's lifetime skip, and the `#[cfg(test)]` item-extent filter) are test-file changes on the
+accepted release line and this pass does not make them either.
+
+**Next useful action, for a human who reopens development** — unchanged from pass 276 and still
+unstarted: fix the lifetime skip in `literals()`, add a lifetime-bearing positive control, add
+`--test no_phrase_hard_coding` to CI (`grep -rl no_phrase_hard_coding .github` still returns
+**nothing**, and the test is in neither `--lib` nor `--bins`), extend `test_lines()` to mark a
+non-`mod` `#[cfg(test)]` item to its closing brace, and add a control that plants a clue in a
+`#[cfg(test)]` item body and requires **0**. Add to that list, from this pass: adopt
+`docs/work/paused-recon/fence.awk` as the CI-side fence (it is sound in the production region and
+aborts rather than passing an empty read), and publish region counts only in the `| wc -l` form.
