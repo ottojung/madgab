@@ -15110,3 +15110,54 @@ clauses that contradict the itinerary it points at, and that single out-of-repo 
 this log — or confirm the pause (close this item `done`), or reopen development (fresh branch from
 `main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another widening of
 the Cartesian-prefix traversal).
+
+## Pass 168
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` and the fetch of `origin/main` (still `0267ade`, the accepted
+merge). No work created, claimed, launched, resumed, integrated or pushed to `main`.
+
+This pass was invoked with instructions that **contradict the itinerary**: to accumulate work on
+`post-milestone-acceptance` "exactly as the itinerary requires", and to "prioritize the canonical
+approximate-search examples". Neither clause is executable under the current gate:
+
+- `itinerary-madgab.md` line 17 states the historical `post-milestone-acceptance` branch "is release
+  history after this acceptance and is **no longer an automatic accumulation target**", so there is
+  no branch policy to follow that would license new accumulation.
+- The canonical `It's just a stupid game` -> `Hits Justice Dupe Hid Came` clue is recorded in
+  [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) as an **accepted known
+  limitation**, with the remaining problem diagnosed as a whole-path enumeration problem. Working
+  it is exactly what the pause defers, and doing it well is what forbids phrase-specific
+  hard-coding — the production-region clue fence below is the invariant that request would put at
+  risk.
+
+The pause is the deciding authority and it is intact; nothing in the repository reopens it.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Filtered the full `antonina agent list` on the cwd column; every MadGab agent is terminal. Host-`running` agents (`79a2`, `94d4`, and others) are other repositories and were **left running**, untouched. |
+| `main` | **untouched.** `origin/main` = `0267ade`; still **no local `main` ref**. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0**, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach\|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0 (no `#[cfg(test)]` fence, so its whole file is its production region). **Thirty-fifth consecutive pass at 0.** |
+| At-risk commits | **93** (the published figure is 91), re-fetched the exclusion set first: `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' '+refs/tags/*:refs/remotes/audit-tag/*'` -> **198** `audit/*` refs. Split: **7** on no `audit/*` ref, **86** reflog-only, `comm -12` = **0** so the split is disjoint and the union is **93**; **0** of the 86 are ancestors of `origin/main` (per-commit `merge-base --is-ancestor` loop, never batched). Baseline `rev-list --all --reflog` = **1,174**. **Bracket every at-risk number by the baseline and ref count** (rules 35/37). The +2 over the published 91 is this queue's own two reconciliation commits landing above the earlier baseline; it is queue churn, not a MadGab risk, and the decision-relevant facts (all above baseline, 0 ancestors of `origin/main`, the 7 ref-held are re-fetchable by name) are unchanged. |
+| Live worktree paths | **125** (of 127 registered worktrees), consistent with the denominator pass 166 corrected. |
+
+**Method note (rule 17 family, worth recording because it nearly produced a false number):** the
+first at-risk measurement used `git rev-list --all --reflog --not $REFS`, which reports **237** — a
+union of two *different* populations (`--all` and `--reflog` are not the same commit set) and
+therefore not the published quantity at all. The correct form keeps the two populations separate,
+as the log already prescribes: `git rev-list --all --not $REFS` (**7**) and
+`git rev-list --reflog --not --all` (**86**). Quote which population you measured.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply
+(about three minutes) and exit without committing if they hold. Navigate by the **last** `## Pass `
+heading, which is also the last section; treat every number inside the gate table and inside any
+prior entry as a snapshot, not a live value. If you publish a worktree denominator, use **125 live
+paths**; if you publish an at-risk figure, publish the **7 / 86 / 0** split and its baseline and
+ref count, never a single number. Only a human can change the gate: fix or retire the out-of-repo
+scheduler template — it has now fired **75** times carrying clauses that contradict the itinerary
+it points at, and that single out-of-repo edit would retire this log — or confirm the pause (close
+this item `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with
+k-best / A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
