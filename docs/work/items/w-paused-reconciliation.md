@@ -3,14 +3,23 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-4a2f (pass 288; gate NO; five facts re-derived unchanged; ACTED - pass 287's TWO published fence controls do not reproduce, root-caused to `mod tests[^{]` requiring a character after the word, so a bare `mod tests` line left the boundary dead and a test-only file escaped the empty-region abort; repaired to `([^{]|$)`, regions byte-identical on all six production files. See the pass-288 entry at the end of this file)
-prior_owner: coord-9a1b (pass 285; gate NO; five facts re-derived unchanged; ACTED - named the census instrument's over-report mode as a sticky flag across a re-opened frontmatter block: 131 = 114 at the closing `---` + 17 double-counted at ENDFILE, the 17 named. See the pass-285 entry at the end of this file)
-prior_owner: coord-3e2c (pass 286; gate NO; five facts re-derived unchanged; ACTED - repaired fence.awk from mode 100644 with no shebang, so its empty-region abort was unreachable and a hard-coded plant read as a clean 0; both the repair and the five facts re-confirmed this pass)
-owner: coord-4a2f
-updated: 2026-09-29T16:00:00Z
+owner: coord-5b21
+updated: 2026-09-29T16:22:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
+
+## Frontmatter history re-recovered at pass 289
+
+Three duplicate `prior_owner:` keys (passes 288, 285, 286) had re-entered the frontmatter. None is a
+`work-items.md` schema key, and their unquoted values contain `: `, so any conforming YAML reader
+fails on this block — the pass-218 defect, regressed a third time. The block is now the eight schema
+keys; the displaced text is preserved verbatim below rather than dropped, in the order it occupied the
+frontmatter.
+
+prior_owner: coord-4a2f (pass 288; gate NO; five facts re-derived unchanged; ACTED - pass 287's TWO published fence controls do not reproduce, root-caused to `mod tests[^{]` requiring a character after the word, so a bare `mod tests` line left the boundary dead and a test-only file escaped the empty-region abort; repaired to `([^{]|$)`, regions byte-identical on all six production files. See the pass-288 entry at the end of this file)
+prior_owner: coord-9a1b (pass 285; gate NO; five facts re-derived unchanged; ACTED - named the census instrument's over-report mode as a sticky flag across a re-opened frontmatter block: 131 = 114 at the closing `---` + 17 double-counted at ENDFILE, the 17 named. See the pass-285 entry at the end of this file)
+prior_owner: coord-3e2c (pass 286; gate NO; five facts re-derived unchanged; ACTED - repaired fence.awk from mode 100644 with no shebang, so its empty-region abort was unreachable and a hard-coded plant read as a clean 0; both the repair and the five facts re-confirmed this pass)
 
 ## Recovered frontmatter history (pass 218)
 
@@ -26574,3 +26583,125 @@ wiring** — the repository ships an executable hard-coding fence that no CI job
 pass 286's and this pass's repairs are prerequisites for wiring it and do not by themselves wire it. Per
 pass 274, silence is a defect when a live finding exists; this pass had one, so it is recorded, and per
 pass 204 the entry stays short.
+
+## Pass 289 (coord-5b21) — gate NO; five facts re-derived unchanged; ACTED — pass 288's boundary fix
+### closed ONE spelling of a boundary that has several, and `pub mod tests {` was still fail-open
+
+**Gate: NO.** The three scheduler-template clauses are declined for the sixty-second time, on the same
+grounds as passes 284-288. MadGab is `accepted and paused` (`docs/skills/itinerary-madgab.md`
+`## Status: accepted and paused`; `docs/accepted-state-2026-09-27.md` `## Operational status`), so
+nothing is claimed, created, launched, prompted, stopped or integrated. Clause 2 remains a direct
+textual conflict — the itinerary says `post-milestone-acceptance` "is no longer an automatic
+accumulation target", so the template's "accumulate ... exactly as the itinerary requires" cannot be
+satisfied by doing what the template says; this pass pushed only to the branch the item already names.
+Clause 3's no-hard-coding half is a standing invariant, verified below, not work. There is nothing to
+assign: **0 `open` and 0 `working`**, so no front can be split, no Antonina agent was launched or
+prompted, and nothing was integrated. No human reopen appears anywhere in the log.
+
+**Five standing facts, all re-derived from their instruments this pass, all unchanged.**
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working** — the published fence-scoped
+   gawk `FNR`/`ENDFILE` form from the Work-items row, exit 0, stderr empty, 96 rows / 96 distinct files.
+2. **Fence 0.** Regions **269 / 464 / 260 / 4242 / 269 / 67** (adjacency, approx, lexical, lib, main,
+   wasm), every file `fence_rc=0` with 0 bytes of stderr. Phrase arm **0 0 0 0 0 0**, decomposed arm
+   **0 0 0 1 0 0**, the single non-zero still `src/lib.rs:3597` `.expect("key came from cells")`,
+   adjudicated benign at pass 216, not re-opened. Pass 286's shebang/mode repair and pass 288's
+   `([^{]|$)` repair both **hold**; the direct `./fence.awk` spelling is byte-identical to the sanctioned
+   `gawk -f` spelling on all six files.
+3. **0 non-terminal MadGab agents**, by pass 272's `$5` membership join against `git worktree list`:
+   **106** MadGab-cwd rows joining against the 125 registered worktree paths, = 107 `succeeded` /
+   16 `failed` / 1 `stopped`, 0 non-terminal. Path-shaped selector re-verified (0 host rows carry a
+   `/`-prefixed field at any position other than 5). `3a8f01` remains `stopped` on a superseded front,
+   left stopped. The one host-`running` agent, `123a1` (`/workspace/antonina-123-chain`), is **another
+   repository** and was **left running, untouched**.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **main untouched.** No local `main` ref (`rev-parse --verify main` exit 128), `origin/main`
+   `0267ade`, HEAD = `origin/post-milestone-acceptance`, 0/0 ahead-behind.
+
+**At-risk state unchanged and safe.** `audit/*` re-fetched first by its real source namespace with **no**
+`--prune` per rule 14m (exit 0, `fec89a8..c9beefa`): **204** heads = `ls-remote --heads` **204**,
+`comm` **0** in both directions, cardinality asserted inline per rule 14g, **26** `recovery/*` heads on
+`origin`, `recovery/at-risk-2026-09-29` = `eaf7487` byte-identical to `ls-remote` full-form vs
+full-form per rule 14p, baseline `rev-list --all --reflog` **1,315** (+1 = pass 288's own pushed commit,
+on `origin` and so outside the at-risk set). Both sanctioned exclusion arms read **89** and are
+`diff`-clean. Split: ref-held **1** (`514ed91`, `for-each-ref --contains` names exactly
+`refs/heads/scratch-3f8c62-landed`), reflog-only **88**, union **89**, holding pass 288. Controls both
+directions (514ed91 present 1, `0267ade` absent 0). No recovery branch warranted, none created.
+
+**THIS PASS'S FINDING — pass 288 fixed the bare-token hole for ONE spelling of a boundary that has
+several, and `pub mod tests {` was left fail-open.** Pass 288 diagnosed its `[^{]` class correctly and
+repaired it to `([^{]|$)`, verified in both directions. Its control set, however, covered the bare
+`mod tests` token and the braced `mod tests {` spelling only, so a boundary that cannot match
+`pub mod tests {` — the ordinary rustfmt-normal spelling for a test module whose items the crate
+re-exports — passed every control it was given. This is pass 288's own new rule 288 restated against
+itself: *an empty or trivially-short input is the adversarial case for a boundary matcher, so every
+boundary predicate needs a control at its own degenerate spelling*, and `pub`-prefixed is a spelling,
+not a degenerate input. Measured on a file whose **only** module is the test module:
+
+| boundary spelling | pre-repair | post-repair | correct |
+|---|---|---|---|
+| `mod tests {` | rc=**2** (abort) | rc=2 (abort) | rc=2 |
+| `pub mod tests {` | rc=**0**, region = **whole file** | rc=**2** (abort) | rc=2 |
+| `mod  tests {` (two spaces) | rc=**0**, region = **whole file** | rc=2 (abort) | rc=2 |
+
+Both pre-repair cases are **fail-open in the dangerous direction**, and the second consequence is the
+one that matters: on a file with production code above a `pub mod tests {` fence, a hard-code living
+**only inside the test body** reads **1** in the production region — a false positive that would
+condemn a correct file, the exact class rule 14r exists to prevent. A false positive is the
+over-report direction, so it cannot silently manufacture a passing fence; the **under-report** direction
+is the one that matters, and a **test-only** file spelled `pub mod tests {` reads rc=0 with a
+non-empty region, so the empty-region guard that pass 283 added never fires and a vacuous clean 0
+remains reachable. Cause: the predicate hard-coded one literal space (`mod tests`) with no optional
+visibility group, so it was a matcher for the spelling this repository happens to use rather than for
+the boundary itself.
+
+**Repair, one regex, verified in BOTH directions.**
+`^[[:space:]]*mod tests([^{]|$)` ->
+`^[[:space:]]*(pub(\([^)]*\))?[[:space:]]+)?mod[[:space:]]+tests([^{]|$)`:
+`mod[[:space:]]+` admits any run of whitespace, and the optional `pub(...)` group admits bare `pub`,
+`pub(crate)` and `pub(in a::b)`. The trailing `([^{]|$)` is retained, so `mod tests{` (no space) and
+`mod testing {` still do not match, and `mod tests_sub {` still over-matches and over-cuts — the
+latter fails closed and is deliberately left alone. Verified, not assumed:
+
+| check | result |
+|---|---|
+| six production regions, pre (`git show HEAD:...`) vs post | **byte-identical** (md5 on each file's stdout, all six) |
+| the invariant | still **0**; regions 269/464/260/4242/269/67, every `fence_rc=0`, stderr 0 |
+| the three pass-287/288 published controls, re-run verbatim | `mod tests` line 1 **rc=2**; test-only bare **rc=2**; `#[cfg(test)]` + bare `mod tests` **regions=1** — all as published |
+| 35-input differential, pre vs post | **9 change, all intended** (`s03`, `s05`, `t-pub`, `t-pub-clue`, `t-twospace`, `d1`, `d2`, and the two now-aborting test-only spellings); the other 26 identical, including the two ASCII/U+2019 target-phrase controls, the block-comment-strip control, the string-literal control, `mod tests ;`, `mod tests::inner`, `mod tests_sub`, `mod testing`, comment-only and empty-file |
+| direct `./fence.awk` vs `gawk -f` | equivalent on all six files |
+
+**Rule 289: a boundary predicate spelled as a literal is a matcher for the repository's current
+spelling, not for the boundary; the fix for one unmatched spelling must be re-checked against the set
+of *syntactic* spellings, and "the current file is all that is worth matching" is precisely what a
+boundary matcher must not assume.** Pass 288's reasoning — "`mod tests{` (no space) still does not
+match, and that is deliberate, because it is not a boundary this repository writes" — is sound as far
+as it goes, but the same argument applied unchanged to `pub mod tests {` and it was wrong, because the
+fence's job is to survive a *change* to a file it currently reads correctly. The general form, extending
+rule 288 one level up: **288 says give every boundary predicate a control at its degenerate spelling;
+289 says also give it a control at every spelling the language permits, and prefer a predicate over the
+language's own token structure (`mod` + whitespace + `tests` + optional visibility) over a predicate
+over one observed line.**
+
+**One false reading of my own, recorded because the standing rows warn against exactly this.** My
+first invariant re-measurement printed `rc=1` for five of the six production files, which would have
+read as five fence failures. Cause: I captured `$?` from a `grep -c` in the same command list rather
+than from the fence, and `grep -c` exits 1 on zero matches. Re-measured with the fence's own exit code
+isolated, all six are `fence_rc=0` with 0 bytes of stderr. **Rule 289b: in a multi-instrument command,
+capture each instrument's exit code immediately, or attribute it to the wrong tool** — the same "the
+argument list is not what you think" family as rules 14g/287b, one level down.
+
+**Also repaired this pass: the frontmatter regressed a third time.** Three duplicate `prior_owner:` keys
+(passes 288, 285, 286) had re-entered the block. None is a `work-items.md` schema key, and their
+unquoted values contain `: `, so `yq` exits 1 and any conforming reader fails on this item — the
+pass-218 defect, regressed at pass 252 and now again. Repaired the same way: the eight schema keys in
+frontmatter, the displaced text moved verbatim into a new section directly below it. The census was
+re-run after the repair and is unchanged at 96.
+
+**Not re-run, deliberately:** the non-build content sweep (closed on content since pass 184; neither its
+worktree nor its object population has moved). The one genuinely open item remains **pass 267's CI
+wiring** — the repository ships an executable hard-coding fence that no CI job runs
+(`.github/workflows/test.yml` runs tests and clippy only) — which is a human decision, not a pass action;
+passes 286, 288 and this pass's repairs are prerequisites for wiring it and do not by themselves wire it.
+Per pass 274, silence is a defect when a live finding exists; this pass had one, so it is recorded, and
+per pass 204 the entry stays short.

@@ -278,12 +278,31 @@ function strip(s,   i, n, c, d, j, h, o, onc) {
   # a TEST-ONLY file spelled that way did not trip the empty-region abort below
   # (rc=0 against rc=2 for the `mod tests {` spelling) -- so the guard against
   # emitting a clean 0 covered only the braced spelling. `$` closes the hole
-  # without widening the fence: `mod tests{` (no space) still does not match, and
-  # that is deliberate, because it is not a boundary this repository writes (all
-  # four `mod tests {` fences carry the space). Regions on all six production
-  # files are BYTE-IDENTICAL before and after, and the eight fence controls
-  # (five positive, three negative) are unchanged.
-  if (RESNC ~ /^[[:space:]]*mod tests([^{]|$)/) { nextfile }
+  # without widening the fence. Regions on all six production files are
+  # BYTE-IDENTICAL before and after, and the eight fence controls (five positive,
+  # three negative) are unchanged.
+  #
+  # REWRITTEN at pass 289. `[[:space:]]+` and the optional visibility group close
+  # the two holes pass 288's `[^{]|$` fix left open, and both are fail-open in
+  # the dangerous direction. Pass 288's control set covered the bare
+  # `mod tests` token and the braced spelling only, so a boundary that cannot
+  # match `pub mod tests {` -- the ordinary, rustfmt-normal spelling for a test
+  # module whose items the crate wants to re-export -- passed every control it
+  # was given. Measured consequences on a file whose only module is the test
+  # module:
+  #   `mod tests {`      -> boundary fires, empty region, ABORT rc=2  (correct)
+  #   `pub mod tests {`  -> boundary dead, region = WHOLE FILE, rc=0     (FAIL-OPEN)
+  # and on a file with production code above a `pub mod tests {` fence, a hard
+  # -code living ONLY inside the test body reads 1 in the production region --
+  # a false positive that would condemn a correct file. So the one hole
+  # pass 288 fixed was fixed for one spelling of a boundary that has several.
+  #
+  # `mod[[:space:]]+` also matches `mod  tests {` (two spaces). The trailing
+  # `([^{]|$)` is retained: `mod tests{` (no space) and `mod testing {` still do
+  # not match, and `mod tests_sub {` still over-matches and over-cuts, which
+  # fails closed and is left alone. The visibility group is
+  # `pub(\([^)]*\))?[[:space:]]+` -- bare `pub`, or `pub(crate)` / `pub(in a::b)`.
+  if (RESNC ~ /^[[:space:]]*(pub(\([^)]*\))?[[:space:]]+)?mod[[:space:]]+tests([^{]|$)/) { nextfile }
 
   # RES keeps string CONTENT -- a hard-coded clue IS a string literal, so
   # blanking it here would be the defect, not the fix.
