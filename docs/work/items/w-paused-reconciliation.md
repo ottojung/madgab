@@ -17361,3 +17361,85 @@ above — the one published in pass 192 does not reproduce. The only actions tha
 human and unchanged since pass 184: confirm the pause and close this item `done`, or reopen MadGab
 development. Also still open and human: the residual `514ed91` commit object, and the out-of-repo
 scheduler template still firing these passes.
+
+## Pass 196 (coord-2f81)
+
+**Gate: NO.** Re-derived from `docs/skills/itinerary-madgab.md` `## Status: accepted and paused`
+plus `docs/accepted-state-2026-09-27.md` `## Operational status`. Nothing created, claimed,
+launched, resumed, prompted, integrated or merged. `main` untouched at `0267ade`.
+
+### Three contradictory clauses, declined for the twenty-seventh time
+
+Identical to passes 168–195 and still contradicted by the deciding authority: (1) recover/assign
+work, split fronts, launch or prompt MadGab agents — forbidden absent an explicit human reopen, and
+there is nothing to recover (**0 `open`, 0 `working`**); (2) accumulate on `post-milestone-acceptance`
+"exactly as the itinerary requires" — the itinerary calls that branch release history and no longer
+an accumulation target; (3) prioritise the canonical approximate-search examples without
+hard-coding — the classical case is the deliberately preserved accepted limitation, and the
+no-hard-coding invariant is verified green below, so inaction costs nothing there. This entry is
+appended to that branch solely because the reconciliation log itself lives there; no development
+work is accumulated on it.
+
+### Five facts, re-derived independently, unchanged for the twenty-seventh pass
+
+| | |
+|---|---|
+| Work items | **1 `blocked`** / **83 `done`** / **12 `superseded`** = **96**, fence-scoped `gawk`, exit **0**. 0 `open`, 0 `working`. |
+| Antonina agents | **0 non-terminal MadGab agents** among **131** MadGab cwd rows of **635** host rows. The 3 host-`running` (`113f1` kawun-113-macfix, `94a9` assemblyp1-94-cruxmap, `81a1` qai-proviral-81-view) are other repositories — **left running**, untouched. |
+| Production clue fence | **0** in all six production regions, `awk '/#\[cfg\(test\)\]/{exit}{print}'`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Sixty-third consecutive pass.** |
+| Worktrees | **125 registered**, `git worktree prune -n -v` **empty**, exit **0**. |
+| `main` | **untouched**, `origin/main` = `0267ade`; `rev-parse --verify main` exits **128** (no local ref); HEAD `post-milestone-acceptance`. |
+
+### New: two rule-14 instrument defects found in this pass's OWN first attempt
+
+The at-risk query was cross-checked per rule 14d and the two arms **disagreed** at 88 vs 87. Both
+defects were in this pass's instruments, not in the population — and both are the dangerous
+direction, because each produced a *plausible* number that understated the one decision-relevant
+commit:
+
+1. **Rule 14e (new): `--objects` must not be used to build the audit-reachable exclusion set for a
+   commit population.** Arm B was spelled `git rev-list --objects --all $REFS | awk '{print $1}'`,
+   which mixes blob and tree ids into a set later `comm`'d against a commit list. That union is
+   *superset-shaped* rather than commit-shaped, so it silently absorbed `514ed91` — **the residual
+   at-risk commit itself** — and reported **87**. Corrected to `git rev-list $REFS` (commits only,
+   **1,119** rows) both arms agree exactly at **88**, `diff` clean. Note the trap shape: `--objects`
+   looks *stricter* because it sees more history, and rule 17's warning that a broader extraction
+   can fabricate a finding cuts both ways — here the broader extraction fabricated a *reassuring*
+   finding. This is a sibling of rules 9 and 17, in the under-reporting direction first identified
+   at pass 182.
+2. **Rule 14f (new): `comm` requires sorted input, and a plain `git rev-list` output is not
+   byte-sorted.** The split step passed unsorted `rev-list` output to `comm`, which emitted
+   `comm: file 1 is not in sorted order` — a diagnostic on **stderr**, while `comm` still exits **0**
+   and emits a wrong number. That run reported **ref-held 0 / reflog-only 7**, i.e. it reclassified
+   the residual from *ref-held* to *reflog-only* and so understated the surviving risk class to 7.
+   With `sort -u` on all three inputs the split is **1 / 87**, classes **disjoint** (`comm -12` =
+   **0**), union **88**, and `88 = 1 + 87` closes as arithmetic. This is rule 22 (capture exit codes)
+   failing to cover the case: the exit code was clean, the *diagnostic* was the only evidence, and
+   nothing in the pipeline was reading stderr.
+
+Controls were run in both directions before the numbers were believed: known-positive `514ed91` is
+in arm A (**1**) and arm B2 (**1**); known-negative `origin/main` tip `0267ade` is in arm A (**0**).
+Ref-held arm confirmed a second way — a per-commit `merge-base --is-ancestor` loop over all **204**
+audit refs finds **0** refs holding `514ed91`, while its parent `8bfe7de` is held by many, so the
+commit is genuinely unbacked rather than excluded by an unreachable ref. Every `rev-list`/`comm`
+exit code captured.
+
+### At-risk state — unchanged
+
+`audit/*` re-fetched **first** per rule 14a (`9de113c..6ee7941`, exit **0**) before any number was
+believed. Exclusion set **204** refs. Baseline `rev-list --all --reflog` **1,207** (1,206 at pass
+195; the delta is pass 195's own pushed commit, itself on `origin`). Ref-held **1** (`514ed91`,
+`for-each-ref --contains` naming exactly local `refs/heads/scratch-3f8c62-landed`), reflog-only
+**87**, intersection **0**. Non-build content durable on `origin/recovery/at-risk-2026-09-29`
+(`eaf7487`, `ls-remote`-verified); **25** `recovery/*` heads on origin. Holding passes 184–195.
+**No recovery branch warranted and none created.** No agent launched, stopped or prompted.
+
+### Next action for the next pass
+
+**Prefer no entry at all.** The five facts have not moved in twenty-seven passes and both at-risk
+classes remain closed on content. If the at-risk query is re-run, use the **rule-14d corrected**
+table with the two corrections this pass added: **`git rev-list $REFS`, never `--objects`**
+(rule 14e), and **`sort -u` every `comm` input and read its stderr** (rule 14f). The only actions
+that change anything are human and unchanged since pass 184: confirm the pause and close this item
+`done`, or reopen MadGab development. Also still open and human: the residual `514ed91` commit
+object, and the out-of-repo scheduler template still firing these passes.
