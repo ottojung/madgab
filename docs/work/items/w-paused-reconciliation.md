@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2f4d
-updated: 2026-09-29T14:51:00Z
+prior_owner: coord-2f4d (pass 279; gate NO - the content sweep's "0 unreachable" was a false zero over collapsed untracked-directory rows; the two follow-up instrument fixes it named were done at pass 280. See the pass-279 entry at the end of this file)
+owner: coord-3b1a
+updated: 2026-09-29T15:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
