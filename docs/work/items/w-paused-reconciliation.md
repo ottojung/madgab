@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b97
-updated: 2026-09-29T17:19:00Z
+owner: coord-5d10
+updated: 2026-09-29T17:32:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -27665,4 +27665,129 @@ NEXT: the pause still holds and the five facts stand. One premise is now
 correct in both places it had propagated to, and the block-form probe is the
 last standing fact without an instrument. Nothing else here is actionable
 without the human reopen decision.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 298 (coord-5d10) — the block-form frontmatter probe is now an instrument, and building it found three defects in the form this log has published for 75 passes
+
+Gate **NO** again, the sixty-first time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict: the itinerary's closing paragraph says post-milestone-acceptance
+"is no longer an automatic accumulation target". Nothing claimed, launched,
+stopped, prompted or integrated; no new MadGab work item; no recovery branch;
+`main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; the skills-doc control reads selector 0 / fence-blind 1.
+2. clue fence **0 joined in all six** production regions; per-word `0-0-0-1-0-0`
+   (`.expect("key came from cells")` at lib.rs:3597, adjudicated at pass 216).
+   Regions 269/260/464/4242/67/269. The eighty-eighth consecutive pass.
+   `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   714 host rows, {succeeded 110, failed 20, stopped 1}. The 4 host-`running`
+   agents (112a7, 113a2, 109a4, 123a2) are other repositories and were left
+   running, untouched — up from 3 at pass 297, which is churn in those
+   repositories and not a MadGab fact. The 5 idle rows likewise.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD c2f49c8 on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1333, refs-only 1245. The audit
+   mirror was re-fetched FIRST per rule 14a with no `--prune` (44b44ba..c2f49c8,
+   exit 0) and verified fresh, so `at-risk.sh` reported without fetching. No
+   recovery branch warranted, none created.
+
+### ACTED — `frontmatter.sh`, the last hand-typed standing fact
+
+Pass 297 named this exactly: the block-form probe `sed -n '2,/^---$/p' FILE |
+yq .` is the correct and only discriminating parse check, and it is still typed
+by hand at every pass that touches frontmatter. Written in the same refusing
+style as the other four instruments, mode 100755, and — the part that matters —
+**it was verified by planting every failure it claims to catch**, which is how
+passes 278, 280 and 281 each found one more defect in the validator itself.
+
+**First real measurement in this repository: 97 leading blocks, 0 parse failures,
+97 scanned against 96 discoverable items.** The difference is exactly
+`docs/work/items/w-0f3a17-shortlist-rule.md`, whose header is work-item-shaped
+with `work_item: false` and which pass 220 already established. The script
+publishes that delta rather than leaving it to be rediscovered as an unexplained
+mismatch (rule 14o).
+
+**Three defects in the published form, all found by planting, all fixed here.**
+
+1. **`sed -n '2,/^---$/p'` silently returns the whole body on an UNCLOSED
+   block.** When the end pattern never matches, sed prints to EOF: exit 0,
+   non-empty, indistinguishable from a correct block. So a frontmatter that
+   census.sh refuses as UNCLOSED would be "validated" here — a real blind spot
+   in the one check that exists to catch unreadable items. The closing delimiter
+   is now located explicitly first, and an unclosed block is skipped with a
+   named reason rather than partially read. This is the **same defect family as
+   pass 293's at-risk stale mirror**: an arm that succeeds on the failure case.
+2. **yq's diagnostic is `Error: bad file '-': yaml: line N: ...`,** with N a
+   BLOCK coordinate behind two prefixes. This script's first version anchored on
+   `^line `, which never matches, so every real failure silently degraded to
+   "no line number, here is the whole block" — the refusal was right and the
+   diagnosis was useless. The number is now extracted, and the file coordinate is
+   printed beside it so no pass repeats pass 297's mis-mapping.
+3. **A missing population file and an empty queue are the same gawk exit-0
+   output.** `docs/*.md` matching nothing makes gawk exit 2, but the version
+   first written captured only stdout, so a broken population was reported as
+   "0 discoverable items" and refused for the wrong reason. The exit code is now
+   read separately and names the distinction: a BROKEN POPULATION is not an empty
+   queue, and the two want opposite responses.
+
+**Seven plant directions, all behaving after the fixes** (each run in a throwaway
+`/tmp` git tree; nothing in `docs/` or `src/` was touched — `git diff --stat --
+src/` empty throughout):
+
+| plant | expected | got |
+|---|---|---|
+| A clean tree, 1 good item | 0 | 0, 2 blocks scanned |
+| B colon-space in a plain scalar | 4, line named | 4, `block line 3 = file line 4: prior_owner: c (a block: 1)` |
+| C duplicate `state:` key | 0, SCHEMA stderr | 0, "these PARSE … census.sh's arm" |
+| D unclosed block | 5, shortfall attributed | 5, "the shortfall EQUALS the 1 UNCLOSED file(s)" |
+| E `docs/*.md` absent | 5, BROKEN POPULATION | 5, exactly that wording |
+| F `work_item: false` header | 0, delta named | 0, "difference 2 - 1 = 1" |
+| G `yq` not on PATH | 3, not a clean 0 | 3, "a missing instrument is not a clean result" |
+
+Two runs on the real repository are byte-identical on stdout and stderr, and
+`census.sh` still exits 0 afterwards.
+
+**What it does and does not claim, kept apart deliberately.** It refuses on PARSE
+failure and reports SCHEMA defects separately, non-fatally, because they are
+different defects: a duplicate key parses fine — a conforming reader takes the
+last occurrence (plant C, re-confirmed on this host) — so a script that conflated
+them would attribute parse failures to a cause that cannot produce them. That
+conflation is what passes 295 and 297 spent two passes undoing. A clean run here
+means a conforming reader can **read** these items, not that they are
+**well-formed**; census.sh remains the authority on the second, and the header
+says so in both directions.
+
+**The general form, fourth instance of one shape.** Passes 278, 280, 281 and this
+one all found their instrument defective by planting the failures it claimed to
+catch, and in every case the defect was in the *validator's* handling of a
+malformed input, not in the detection it advertised. Pass 293's `at-risk.sh` and
+pass 294's fence were the same. Building an instrument is not the work; the
+plants are. Every one of the five existing instruments in this directory was
+audited this way and all five changed.
+
+**Operational note for the next pass.** The parse check is no longer the
+outstanding instrument. What remains hand-typed is the *five* facts' prose
+summary — every pass rewrites the same paragraph from the scripts' output, which
+is correct practice and not a defect. A genuine gap, not actable without the
+human decision, is that no instrument checks that these five scripts themselves
+still run: a future edit to any of them would be discovered by a pass that
+happens to run it, not automatically. `content-sweep.sh` already refuses to run
+non-build content over an unvalidated tree, which is adjacent but not the same
+thing.
+
+NEXT: the pause still holds and the five facts stand. All five standing facts now
+have running instruments with controls and directional plants, which was the
+remaining hand-typed work. Nothing else here is actionable without the human
+reopen decision.
 **Blocked on the human reopen/confirm decision.**
