@@ -22435,3 +22435,36 @@ whole file; and **never publish an at-risk figure from a single arm** — build 
 plain ref names and confirm both arms agree before the number means anything. Re-derive any
 correction or repair published by the immediately preceding pass instead of trusting it. Do not
 open a MadGab research front or create a work item until a human reopens development.
+
+### Addendum — the mirror assertion is sound, and a THIRD probe of it was wrong first
+
+Post-push, the standing byte-diff invariant was re-checked and initially read as **failing** twice
+before reading as passing, which is worth recording because the false alarms are instructive and
+both were in my own probe rather than in the repository.
+
+Attempt 1 compared `ls-remote --heads` (`<sha>\trefs/heads/<name>`) against
+`for-each-ref --format='%(objectname)\t%(refname)'` (`<sha>\trefs/remotes/audit/<name>`) — correct
+field order, **different ref spelling**, so all 204 lines differ. "MIRROR DIFFERS" here means
+nothing; it is the field-order rule the log warns about, one level up.
+
+Attempt 2 stripped the prefixes to a common name and diffed, and still reported a real difference,
+because the comparison was a `join -j2` **keyed on ref name** while both sides were `sort`ed by
+*line*. Two distinct remote refs, `wip/integrate-queue-rebased-89163dd` and
+`wip/madgab-integrate-queue-89163dd`, point at the **same** commit `89163dd`, so the join emitted
+each SHA against the other ref's name and both lines read as a mismatch. The mismatch was an
+artifact of sorting by one field and joining on another.
+
+Attempt 3, the sanctioned form — strip the prefix on **both** sides, emit `<sha> <name>`, `sort`
+both, `comm`/`diff` — is **byte-identical at 204 heads**, with zero entries unique to either side.
+
+The general form, and it is the same shape as this pass's other two findings: **a cross-check whose
+two arms are joined or ordered on different keys will manufacture differences that look like
+corruption.** Two arms agreeing is only evidence when they are aligned; here a duplicated SHA
+across two ref names, which is ordinary (a branch and its renamed copy), manufactured a
+two-line "mismatch" that would have been published as mirror drift. `eaf7487` on
+`recovery/at-risk-2026-09-29` remains byte-identical to `ls-remote` per rule 14p.
+
+**Next pass:** for the mirror assertion use exactly attempt 3 —
+`git ls-remote --heads origin | sed 's|refs/heads/||' | awk '{print $1" "$2}' | sort` against
+`git for-each-ref --format='%(objectname) %(refname:lstrip=3)' refs/remotes/audit | sort`, then
+`diff`. Do not `join` on ref name; do not diff across the two different ref spellings.
