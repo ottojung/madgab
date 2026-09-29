@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a5e
-updated: 2026-09-29T17:40:00Z
+owner: coord-7f31
+updated: 2026-09-29T17:45:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28031,4 +28031,95 @@ ninetieth consecutive fence measurement. Nothing further here is actionable
 without the human reopen decision. If this schedule continues, the next
 non-gate action worth taking is a check that does not depend on the instrument
 set at all.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 301 (coord-7f31) — gate NO; five facts re-derived unchanged; ACTED — the check that does NOT depend on the instrument set: zero code drift since acceptance
+
+Gate **NO** again, the sixty-fourth time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict — the itinerary's closing paragraph says post-milestone-acceptance
+"is no longer an automatic accumulation target", so the template's "exactly as the
+itinerary requires" cannot be honoured by doing what the template says. Nothing
+claimed, launched, stopped, prompted or integrated; no new MadGab work item; no
+recovery branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; skills-doc control selector 0 / fence-blind 1.
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0` (`.expect("key came from cells")` at lib.rs:3597, adjudicated
+   at pass 216). Regions 269/260/464/4242/67/269. The ninety-first consecutive
+   pass. `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   716 host rows, {succeeded 110, failed 20, stopped 1}. The 2 host-`running`
+   agents (124a1 `/workspace/antonina-124-prereq`, 109a4
+   `/workspace/skrynia-109-tranche5`) are other repositories and were left
+   running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD b574184 on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1338, refs-only 1250. Audit mirror
+   re-fetched FIRST per rule 14a with no `--prune`, verified fresh at b574184, so
+   no recovery branch warranted and none created.
+
+Pass 300's fix to `selfcheck.sh` (run each instrument with its own documented
+arguments, `at-risk.sh --fetch` rather than its refusal default) is **CONFIRMED
+LANDED AND GREEN on arrival**: 5 of 5 instruments present, executable, parsing,
+exit 0 and printing their invariant. So the structurally-always-red alarm pass 300
+diagnosed is genuinely disarmed, verified by the real repository on the first live
+run — the eighth consecutive instrument finding, and the first of the eight found
+already fixed rather than open.
+
+### ACTED — the non-instrument check pass 300 asked for: is the accepted release state still byte-identical?
+
+Pass 300 said the next non-gate action worth taking is "a check that does not
+depend on the instrument set at all". This pass took it, in the form that asks the
+question the pause actually rests on — *has any of this log's 300 passes changed
+the thing that was accepted?* — using no instrument, no awk, no fence, no census,
+no agent list, and no `git` plumbing beyond a path-limited diff:
+
+    git diff --quiet origin/main HEAD -- src tests examples web Cargo.toml \
+        Cargo.lock README.md .github
+    # rc=0
+
+**Zero drift.** Every shipped path — all of `src/`, `tests/`, `examples/`, `web/`,
+`Cargo.toml`, `Cargo.lock`, `README.md`, `.github/` — is byte-identical between the
+accepted release (`origin/main` 0267ade) and the accumulation branch tip (HEAD
+b574184, i.e. 300 reconciliation passes later). The whole divergence between
+`main` and HEAD is documentation and recovery archives: 67 files, +12,977/-171,
+all of it under `docs/` and `docs/work/recovery/`.
+
+This is a **different kind** of fact from the other four, which is why it was worth
+a pass. Facts 1–3 and 5 each depend on an instrument this log wrote, and a pass
+that has been wrong about an instrument has been wrong about its figure; fact 4 is
+two git exit codes. This one depends on git's own tree comparison, and it is the
+only one that speaks directly to the accepted release rather than to the log's own
+bookkeeping. It is also the check that would catch the failure mode all four of the
+others are blind to: a pass that edited shipped code and then recorded only its
+census entry would leave all five standing facts green.
+
+The canonical-example half of the template's clause 3 was checked in the same
+instrument-free direction, by identity rather than by fence: the two claims the
+accepted-state document makes are present verbatim in the shipped test suite at
+`src/lib.rs:8598-8599` — `("It's just a stupid game", "hits justice dupe hid
+came")` and `("recognize speech", "wreck a nice beach")` — matching
+docs/accepted-state-2026-09-27.md:25 and :31 exactly, and every `justice`/`dupe`/
+`wreck a nice` occurrence under `src/`, `tests/`, `examples/` sits in a test module
+or a test-only `CASE2_CLUE` constant (src/approx.rs:1041/1091, src/lib.rs:5987,
+7607, 8745), which is what the fence's production-region reading of 0 is asserting.
+The preserved limitation is still preserved and still described accurately.
+
+NEXT: the pause still holds, the five facts stand unchanged for the ninety-first
+consecutive fence measurement, and the accepted release state is now verified
+intact by a check with no instrument in it. Nothing further here is actionable
+without the human reopen decision. Any future pass wanting a check independent of
+the instrument set should start from `git diff --quiet origin/main HEAD --` over the
+shipped paths above; that is the one question here that no defect in
+`docs/work/paused-recon/` can make a pass answer wrongly.
 **Blocked on the human reopen/confirm decision.**
