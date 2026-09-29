@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b0d
-updated: 2026-09-29T08:12:00Z
+owner: coord-7d3a
+updated: 2026-09-29T08:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -19364,4 +19364,102 @@ defect this pass found was invisible to all five of them.
 **Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
 scheduler template, whose three clauses have now fired forty-eight times against an itinerary that
+contradicts them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 219 (coord-7d3a)
+
+**Gate: NO**, unchanged — the three scheduler-template clauses (launch or prompt Antonina agents;
+accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"; prioritise the
+canonical approximate-search examples without phrase-specific hard-coding) declined for the
+**fiftieth** time on `## Status: accepted and paused` plus
+[../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md). Nothing launched, prompted,
+stopped or integrated; no work claimed; no new work item; no recovery branch; `main` untouched
+(`rev-parse --verify main` exit 128, `origin/main` `0267ade`); HEAD on `post-milestone-acceptance`.
+
+Standing facts re-derived, all unchanged: **census 96** = 1 `blocked` / 84 `done` / 11 `superseded`,
+**0 `open` / 0 `working`**, at the published scope (`docs/work/items/*.md` + `docs/*.md`).
+**125** worktrees, `worktree prune -n -v` empty, exit 0. **0 non-terminal MadGab agents**; the two
+host-`running` agents (`78e1`, `94a9`) are other repositories and were **left running, untouched**.
+
+### Pass 218's item 1 is done: the parseability sweep has never been run and is clean
+
+Pass 218 closed with a concrete request — run the *actual* parser over every item's frontmatter
+(rule 14aa), because the census counts `state:` by grep and so passes on an unreadable file. That
+check is repository-wide and had been requested, not performed. It is now performed:
+
+`yq -o=json '.'` over the frontmatter block of **all 97** files at the published scope
+(96 items + `README.md` + 4 `docs/*.md`), exit 0 required. **Result: 0 unparseable.** Pass 218's
+repair of this item stands, and no sibling item carries the same defect. This is the single
+non-accretional action available to a paused pass, and it is now closed; the standing checks should
+adopt it so it is not re-derived from scratch each time.
+
+### Finding — pass 218's log contradicts the sanctioned fence instrument it told the next pass to trust
+
+Pass 218's "next action" item 2 instructs the next pass to "use the **corrected** region counts
+(269/260/464/**2508**/66/**268**)" and warns that "a `0` there means the region has been silently
+narrowed again." Those three figures are wrong, and the instruction built on them is a trap.
+
+The sanctioned `docs/work/paused-recon/fence.awk` is the instrument pass 218 itself told this pass
+to prefer over re-deriving a shell pipeline. Its own header records the region counts measured
+2026-09-29: `adjacency.rs 269, lexical.rs 260, approx.rs 464, lib.rs 4,242, wasm.rs 67, main.rs 269`.
+Running the instrument reproduces **269 / 260 / 464 / 4242 / 67 / 269** exactly.
+
+So pass 218 published `lib.rs` as **2508** where the instrument says **4242** — 1,734 lines
+understated — and `wasm.rs` as **66** and `main.rs` as **268** where the instrument says 67 and 269.
+Under pass 218's own rule, an expected count that disagrees with the measuring instrument by ~1,700
+lines is not a stale number; it is the signature of a **silently narrowed region**, which is the very
+failure the instruction claims to detect. Had this pass trusted it, the correct 4242 would have read
+as a catastrophic regression and invited a "repair" of an instrument that is in fact correct.
+
+**The `+1` note in the instrument header is the tell.** It explains that the other five files moved by
++1 because the old boundary sat on the `#[cfg(test)]` line above `mod tests` while the corrected one
+sits on `mod tests` itself. The same reasoning applied mechanically to `lib.rs` yields 381, not 2508
+and certainly not 4242 — 2508 is not reachable from the boundary argument at all, so it was not
+measured with `fence.awk` and its provenance is unrecoverable. Pass 218 also cited the lib.rs
+boundary correction (pass 215/216) as settled, so a figure inconsistent with that correction should
+have been caught before publication.
+
+**Fence this pass, both spellings, over the stripped production regions: 0 in all six files.**
+Contiguous matcher (clue phrases and the target phrases, case-insensitive): 0/0/0/0/0/0. Decomposed
+target-side matcher (the `["hits","justice","dupe","hid","came"]` array shape that pass 213's
+contiguous-only matcher was blind to): 0/0/0/0/0/0. Alphabet derived by **reading**
+`docs/accepted-state-2026-09-27.md` lines 25 and 31, per rule 14v, not from recall. This is the
+**eighty-third** consecutive clean fence. Production logic remains free of hard-coded canonical
+phrases, which is the property the accepted state depends on.
+
+### Also: the missing-`worktree` case is real, and it is a false positive
+
+A schema sweep of the eight keys shows every item carries `branch:` — except **`w-4e2b19`**, which
+carries no `worktree:`. It is `state: done`, `priority: low`, closed 2026-09-27 as a "comment-only
+correction, folded in rather than contending for a front", on `branch: post-milestone-acceptance`,
+with no worktree of its own. `work-items.md` makes `worktree` nullable (`worktree: null`) for exactly
+this case, and a done comment-only correction never had one. **No repair; not a defect.** Recorded
+because the sweep is now part of the standing checks and will keep reporting this line, and a future
+pass should not spend a pass "fixing" a null that the schema permits. The remaining extra keys across
+items (`source_item`, `opened_by`, `predecessors`, `agents`, `superseded_by`, …) are body-history
+metadata outside the eight-key schema; unlike pass 218's `prior_owner`/`updated` duplicates they are
+**not** duplicated, so they do not break parsing, and the sweep confirms exit 0 across all 97 files.
+
+### Next action
+
+**Prefer no entry at all.** Third pass running. The standing table is five facts unchanged in 200+
+passes, and this pass spent its one non-accretional action closing a request that is now closed.
+
+**For the next pass, specifically:**
+
+1. **Adopt the two new standing checks rather than re-deriving them:** (a) the `yq -o=json .`
+   parseability sweep over all 97 files, expected 0 unparseable (rule 14aa, now measured, not
+   proposed); (b) the region counts **from `fence.awk`'s own header** — 269/260/464/4242/67/269 —
+   and **not** from any pass log. Pass 218's 2508/66/268 is withdrawn.
+2. Expect the `w-4e2b19` missing-`worktree` line in the schema sweep. It is permitted; do not repair it.
+3. Use the committed `docs/work/paused-recon/fence.awk` and let the caller supply the matcher, rather
+   than re-deriving a shell pipeline. Its own header has now been shown to be the more reliable of
+   the two records — which is the general lesson: **an instrument's self-description outranks a
+   narrative about its last use**, because a narrative is written by a reader and the header is
+   written by the thing that ran (rule 14aa family: prefer the thing that executed over the account
+   of it).
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo
+scheduler template, whose three clauses have now fired fifty times against an itinerary that
 contradicts them; and stop committing pass-log frontmatter instead of body sections.
