@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9b4d
-updated: 2026-09-29T12:04:00Z
+owner: coord-51af
+updated: 2026-09-29T12:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23011,3 +23011,82 @@ pass 184 and its population did not change. **No recovery branch warranted; none
 directions as a broken control rather than as a passing invariant — then re-run it as a code line
 before believing it. Never widen the mirror enumeration to the tag namespace when checking the head
 count. Prefer no entry at all. Blocked on the human reopen/confirm decision.
+
+## Pass 259 — `coord-51af`, 2026-09-29T12:07Z–12:15Z — gate NO; five facts re-derived unchanged; one census delta explained, no new rule
+
+**Declined, for the sixty-fourth time, the three clauses of the scheduler template that contradict the
+itinerary it points at** — launch/prompt Antonina agents, accumulate on `post-milestone-acceptance`
+"exactly as the itinerary requires", and prioritise the canonical approximate-search examples without
+phrase-specific hard-coding. Deciding text unchanged: `docs/skills/itinerary-madgab.md`
+`## Status: accepted and paused` and `docs/accepted-state-2026-09-27.md` `## Operational status`.
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+**main untouched at `0267ade`** (`git rev-parse --verify main` exit 128, no local `main` ref).
+
+**Standing facts, re-derived from the instruments and not copied — all five reproduce:**
+
+1. **Census 96 = 1 `blocked` / 83 `done` / 12 `superseded`, 0 `open`, 0 `working`**, at rule 14l's
+   published scope (`docs/work/items/*.md docs/*.md`). See the delta note below for the `docs/`-wide
+   form. This item is the single `blocked` one.
+2. **0 non-terminal MadGab agents** among **131** MadGab-cwd rows of **688** host rows
+   (110 `succeeded` / 20 `failed` / 1 `stopped`). The 5 host-`running` agents (`92c2`, `92b2`
+   volodyslav, `94d6` assemblyp1, `79e2` qai-proviral) and 4 `idle` rows are other repositories —
+   `a11d` sits in `/tmp` and is not a MadGab cwd — and were **left running, untouched**.
+3. **Fence 0** in all six production files, region counts **269/260/464/4242/67/269** in the
+   `wc -l < FILE` form per rule 14y. Both pass 258's asks were obeyed: the control was carried as a
+   **code line** (`const … = "wreck a nice beach";`), reading **1** at planted line 300 (inside the
+   region) and **0** at planted line 5000 (inside `mod tests`) — so the control discriminates, and
+   the mirror enumeration was **not** widened to the tag namespace: bare prefix `refs/remotes/audit`
+   = **204** heads, matching `ls-remote --heads` = 204; adding `refs/remotes/audit-tag` = 205, which
+   is pass 258's recorded tag, not a regression.
+4. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0.
+5. **HEAD `cfbef23` in sync with `origin/post-milestone-acceptance`**, 0 unpushed.
+
+**Census delta, explained per rule 14m rather than published unexplained.** This pass's first
+census was taken at rule 34's `docs/`-wide spelling and read **97 with 1 `open`**, against the
+standing 96 with 0 open. The extra file is named by identity: **`docs/skills/work-items.md`** — the
+protocol specification itself, `work_item: true` / `state: open`. Rule 34 already identifies it as
+permanently open and non-claimable ("the protocol specification itself"), and the `name set
+difference` is exactly that one path. So this is a **scope difference between the two published
+spellings, not a new queue entry**: at rule 14l's published scope the census is 96/0 open, unchanged
+for many passes. Recorded because a pass that reads the `docs/`-wide number as a change would
+manufacture a phantom queue entry out of a measurement artifact — and the artifact is a *reassuring*
+one (an "open item" that looks claimable), which is rule 14q's dangerous direction. No new rule: this
+is rule 14l and rule 34's existing content, restated because the log's own two published census
+spellings disagree on the surface. `docs/work/TEMPLATE.md` correctly carries `work_item: false`.
+
+**At-risk state, re-derived from a freshly fetched exclusion set.** `git fetch origin
+'+refs/heads/*:refs/remotes/audit/*'` FIRST per rules 14a/14m, **no `--prune`**, exit 0
+(`96965b9..cfbef23`). Exclusion set **204** heads, cardinality asserted inline per rule 14g. Baseline
+`rev-list --all --reflog` **1,276** (+1 over pass 258's 1,275 = pass 258's own entry commit, on
+`origin` and therefore outside the set); refs-only baseline 1,189. **Arm A** (reflog-inclusive,
+audit-only subtrahend) **88**; **Arm B** (refs-only) **1**; reflog-only **87**; intersection 0; union
+88, disjoint and summing. Controls in both directions: `514ed91` present in arm A (1), `origin/main`
+`0267ade` absent (0), so the arms discriminate rather than returning a constant. `514ed91` is held by
+exactly `refs/heads/scratch-3f8c62-landed`; its non-build content is durable on
+`origin/recovery/at-risk-2026-09-29` = `eaf7487`, **byte-identical** on `ls-remote` and on
+`audit/recovery/at-risk-2026-09-29` per rule 14p. `recovery/*` heads on origin: **26**.
+
+**Content sweep re-run from scratch** (rule 9's amended component filter, published beside the
+number): 34 non-build rows = **33 hashable + 1 directory** (`/workspace/madgab-scratch/examples/`),
+**32 distinct** blobs after the known same-content pair, over 8,044 known ids — **0 unreachable**, so
+**no recovery branch warranted and none created**.
+
+**The sentinel control was re-run in its correct order, and this pass hit pass 201's recorded defect
+before catching it.** First attempt: the probe file was `-w` written *after* `unreachable.txt` had
+been captured, so it reported the 0 that pass 201 diagnosed — the probe "passed" for the wrong
+reason, from list staleness. Second attempt: the sentinel was injected into the population *before*
+`comm` ran, and the run **crashed** with two concatenated 40-char ids on one line, because the
+hash list had **no trailing newline** and the probe id was appended straight onto the last live hash.
+Third attempt: the list was terminated explicitly and re-sorted — population 33 (32 live + 1
+sentinel), **unreachable = 1, and that one row is exactly the sentinel** `5262fab1`, with all 32 live
+blobs reachable. So the 0 is a measurement and not a broken instrument. No new rule: this is
+pass 201's and pass 249's content, and the *generalisation* worth carrying is already recorded —
+**a hash list is a sequence of lines, not a stream of bytes; `sort -u` and `comm` are line-oriented
+and an unterminated last line silently merges two ids into one unreadable row**, which under
+`wc -l` reads as a *missing* row rather than a malformed one. In the reassuring direction again: a
+merged id is unmatchable, so it drops out of `unreachable` and the count falls.
+
+**Next pass:** prefer no entry at all. If a census ever reads 97 with an `open`, check whether the
+extra path is `docs/skills/work-items.md` before treating it as a queue entry; terminate any hash list
+before appending to it; run the fence control as a code line; do not widen the mirror enumeration to
+the tag namespace. Blocked on the human reopen/confirm decision.
