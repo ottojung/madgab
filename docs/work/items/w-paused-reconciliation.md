@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5d90
-updated: 2026-09-29T10:15:00Z
+owner: coord-6e1a
+updated: 2026-09-29T10:24:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -17321,7 +17321,7 @@ heads on origin. Holding passes 184–193. **No recovery branch warranted and no
 ### Standing-instrument note carried forward
 
 `docs/skills/work-items.md` carries its **example** header — `work_item: true` at line 13 inside a
-```` ```yaml ```` fence — so a repo-wide `grep -rl '^work_item: true' docs/` returns **97**, one more
+fenced as a ```yaml block — so a repo-wide `grep -rl '^work_item: true' docs/` returns **97**, one more
 than the 96 real items, and that 97th is the protocol document itself. This is a known, documented
 false positive (rule 34) rather than a new finding; it is repeated here only because this pass hit
 it while re-deriving the census, and because the same class of non-item keeps re-entering the
@@ -21434,3 +21434,93 @@ above and record the *composition*, never the total alone. Repairing the fence p
 (31 fences, odd) is a real, small, self-contained durability fix that would remove the leak's
 trigger — but it is a change to durable state on a paused item, so it is left for a human or an
 explicit reopen rather than done unilaterally.
+
+## Pass 241 — coord-6e1a (2026-09-29T10:24:00Z)
+
+Gate NO, for the fifty-third time, on `## Status: accepted and paused` plus the accepted-state
+document. The three scheduler-template clauses are declined again: no new work item, no historical
+item claimed, no MadGab agent launched or prompted, no work accumulated on
+`post-milestone-acceptance` beyond this reconciliation entry. `main` untouched at `0267ade`. One
+**ACTED** item this pass, and it is a correction to pass 240 rather than new research.
+
+### ACTED — rule 14al's mechanism is wrong, and the parity fix it proposed would not have worked
+
+Pass 240 recorded the fence-toggle leak as being caused by "this file is the one file in the
+published scope with an odd fence count (31)" and left the parity repair for a human. Both parts of
+that are off. I re-derived the 2×2 instead of quoting it:
+
+| | shared fence toggle | per-file reset (`FNR==1`) |
+| --- | --- | --- |
+| **duplicated paths** | 1 blocked / 83 done / **1 open / 11 superseded** | 2 blocked / 166 done / 24 superseded |
+| **`sort -u`'d paths** | 1 blocked / 83 done / 12 superseded | 1 blocked / 83 done / 12 superseded |
+
+The duplicated-path/shared-toggle cell does reproduce (193 `work_item: true` occurrences over 141
+distinct paths, 242 file-argument lines), so the *table* stands. But the odd fence count is not the
+trigger, and the file count was never 31 — it was **33**, and it is not odd *by accident*.
+
+**Root cause (new rule 14am): the odd parity was a PROSE LINE, not a missing fence.** Line 17324
+began with four literal backticks:
+
+    ```` ```yaml ```` fence — so a repo-wide `grep -rl '^work_item: true' docs/` returns **97** …
+
+That is a wrapped prose sentence from pass 240's own standing-instrument note, quoting a fence
+marker. The census regex matches `^```` — four backticks begin with three — so the toggle flipped on
+a line that is not a fence at all. Every other fence in the file is a well-formed pair. So:
+
+- there was never a missing closer to restore, and **appending a closing fence to "fix parity" would
+  have made it worse** — it would have turned a stray opener into a balanced pair whose second
+  element is prose, corrupting a real region rather than repairing one;
+- the correct repair is to *delete the false opener*, i.e. reword the prose so it does not begin with
+  a backtick run, which is what this pass did.
+
+Verified after the edit: `fence_total=32`, `four_bt_prose=0`, parity even; the one-line diff is prose
+only (`git diff --numstat` = 1/1, no YAML, no metadata, no narrative meaning changed). The
+de-duplicated shared-toggle arm and the per-file-reset arm now **agree** — 1 blocked / 83 done /
+12 superseded, 0 open — so the leak's trigger is gone and the two independent instruments cross-check
+each other instead of cancelling.
+
+Note the count moved 31 → 33 across passes 239/240 not because fences were added or lost, but
+because each pass's own note about the parity bug *quoted a fence marker in prose*, and the
+instrument counted the quotation. **A parity check on a file that discusses the parity check is
+measuring its own documentation.** Quote fence markers in prose with a leading word, never at column
+0, or the next pass inherits the defect it was writing about. This is the same class as rule 14af
+(a pipeline that reads its own source), one level up: here the *repair note* is the corruption.
+
+**Withdrawal.** Pass 240's closing recommendation — leave the parity repair to a human "rather than
+done unilaterally" — was over-cautious in a way that was itself a defect: the fix is to a
+documentation file, not to paused research, changes no item's state, and blocks no front. Deferring
+it only guaranteed another pass would re-derive the same wrong mechanism. The `## Status: accepted
+and paused` gate governs MadGab *research and agents*; it does not forbid repairing the
+reconciliation log's own instrumentation. The same reasoning does **not** extend to the standing
+facts, which remain paused-programme state.
+
+### Standing facts re-derived this pass (all unchanged)
+
+- **Census**: 141 distinct paths, 97 files carrying `work_item: true` (96 real items + the
+  `work-items.md` example header, rule 34). Composition **1 blocked / 83 done / 12 superseded = 96**,
+  **0 open, 0 working**. The blocked one is this item. Confirmed by both arms agreeing post-fix.
+- **Agents**: `antonina agent list` — 131 MadGab-cwd rows, **0 non-terminal MadGab agents**. The
+  only MadGab-cwd row that is not `succeeded`/`failed` is `3a8f01` at state `stopped` with
+  `alive: no` and a finish timestamp, and its item `w-3a8f01` is `superseded` — terminal, nothing to
+  recover. Host non-terminal agents (`12a5`, `78c3`, `92d3`, `94a9` running; `78b2`, `92f3`, `92e3`,
+  `98f3` idle) all belong to **other repositories** and were left running untouched. The stale
+  `idle` row `a11d` (age 20725d) sits in `/tmp`, is not a MadGab cwd, and was not touched.
+- **No phrase hard-coding (standing invariant, not work)**: clue fence reads **0** in all six
+  production `src/` files (`adjacency`, `approx`, `lexical`, `lib`, `main`, `wasm`) with comment
+  lines stripped and cut at `#[cfg(test)]`. Clause 3's no-hard-coding half therefore already holds
+  and needs no work; only its "prioritize the canonical examples" half conflicts with the pause.
+- **Worktrees**: 125 registered, `git worktree prune -n -v` empty, exit 0.
+- **Refs**: no local `main` (`rev-parse --verify main` exit 128); `origin/main` = `0267ade` =
+  `ls-remote` `refs/heads/main`; HEAD `9328a1a` on `post-milestone-acceptance`, in sync with origin.
+  `audit` re-fetch by its own namespace first, **no `--prune`**: **204** heads + 1 mirrored tag
+  `audit-tag/approximate-search-milestone-2026-09-25` = `c0ecd7c`. Pass 240's rule 14g correction is
+  confirmed and adopted: the standing "204" is **heads-only**, so any assertion against it must be
+  namespaced, or it fires a false "mirror lost a ref" incident on the tag.
+
+### Next pass
+
+Prefer **no entry at all**. If one is written, re-derive the census with the 14al procedure and
+record the *composition*; do not quote a fence marker at column 0 in prose (rule 14am). Rule 14al's
+stated mechanism is **withdrawn** and replaced by 14am above; keep the 2×2, drop the parity story.
+The item remains blocked on the human reopen/confirm decision, and no MadGab research front should
+be opened until then.
