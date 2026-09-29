@@ -108,6 +108,15 @@ INSTRUMENTS=(
   "agents.sh::non-terminal madgab agents =::"
   "at-risk.sh::at-risk: ::--fetch"
   "at-risk-content.sh::of those, NON-BUILD (component-wise filter) =::"
+  # at-risk-delta.sh is registered on its SHAPE -- that it names a delta and
+  # classifies the tree proxy -- and NOT on either figure. Both are counts over
+  # populations that move with this log's own commits, and rule 14k is exactly
+  # "a standing figure is not a standing procedure": pinning "named 514ed91"
+  # would go red the moment that commit is finally pushed, and pinning
+  # "62 without" would go red on any commit added. The instrument is fail-closed
+  # on its own controls, so a green liveness check here is the honest one.
+  # (pass 322)
+  "at-risk-delta.sh::is a PROXY and reads alarming::"
   "frontmatter.sh::failed to parse::"
   "item-state.sh::item frontmatter parses::"
   # compact-log.sh is DELIBERATELY absent from this list, and the reason is
