@@ -433,6 +433,60 @@ done < <(find src -name '*.rs' -type f | sort)
 [ "${#missing[@]}" -eq 0 ] \
   || fail "src/ contains ${#missing[@]} file(s) not in this script's list: ${missing[*]} -- a production file outside the fence is an unfenced production file; refusing to report a clean fence over a subset"
 
+# ---------------------------------------------------------------------------
+# The guard above is a guard over src/ ONLY, and src/ is not the whole
+# production region. tests/no_phrase_hard_coding.rs names three of them --
+# src/, web/ and examples/ -- and states the reason web/ is in scope: "web/
+# app.js is a real user-facing search entry point, so a hard-code committed
+# there is as reachable as one in src/". This script measured src/ alone and
+# its verdict line said "0 canonical clue occurrences in all 6 production
+# regions", which a reader takes to cover the program.
+#
+# It does not. Verified at pass 314: a canonical clue appended to web/app.js
+# made tests/no_phrase_hard_coding.rs FAIL (naming web/app.js:105) while this
+# script still exited 0 printing "0 canonical clue occurrences in all 6
+# production regions". The Rust test caught it; this one could not see it.
+#
+# So the two fences have DISJOINT coverage and only one of them is named in
+# the verdict. Rather than reimplement a JS/HTML/CSS and examples/ scanner
+# here, the honest fix is to make the scope VISIBLE and to refuse when the
+# rest of the production region is not covered by SOME fence. If the Rust
+# test is deleted or stops scanning web/ or examples/, this refuses instead
+# of publishing a narrower 0 than the one it used to publish.
+#
+# DERIVED, NOT RECALLED: the region list is read out of the test's own
+# REGIONS table, so editing that table changes what is demanded here.
+# ---------------------------------------------------------------------------
+RUSTFENCE=tests/no_phrase_hard_coding.rs
+[ -f "$RUSTFENCE" ] || fail "$RUSTFENCE not found -- it is the only fence covering web/ and examples/; without it this script measures src/ alone and cannot report a whole-program zero"
+
+# The (dir, ext) pairs the Rust fence claims, one per line.
+rust_regions() {
+  awk '/^const REGIONS/,/^\];/' "$RUSTFENCE" \
+    | sed -n 's/^[[:space:]]*("\([^"]*\)", "\([^"]*\)"),*$/\1 \2/p'
+}
+mapfile -t RREG < <(rust_regions)
+[ "${#RREG[@]}" -ge 3 ] \
+  || fail "read ${#RREG[@]} region(s) from $RUSTFENCE's REGIONS table; the table is src+web+examples and a short read means the population is broken, not small -- refusing"
+
+# Every region the Rust fence claims, grouped by directory, must be non-empty
+# on disk. An empty region is the same shape as a missing one: the Rust fence
+# would scan nothing there and report nothing wrong.
+rbad=()
+for pair in "${RREG[@]}"; do
+  set -- $pair
+  rdir=$1; rext=$2
+  n=$(find "$rdir" -name "*.$rext" -type f 2>/dev/null | grep -c .)
+  [ "$n" -gt 0 ] || rbad+=("$rdir/*.$rext(0 files)")
+done
+[ "${#rbad[@]}" -eq 0 ] \
+  || fail "regions claimed by $RUSTFENCE but empty on disk: ${rbad[*]} -- an empty region scans clean by construction; refusing"
+
+# And this script must not silently under-report them: name the directories it
+# does NOT measure, on the verdict line, so "all 6 production regions" can
+# never again be read as the whole program.
+UNFENCED_DIRS=$(printf '%s\n' "${RREG[@]}" | awk '{print $1}' | sort -u | grep -vxF 'src' | paste -sd, -)
+
 printf 'fence: alphabet %d clue words / %d clue phrases / %d target phrases derived from %s\n' "$n_alpha" "$n_phrase" "$n_target" "$DEFECT"
 printf '  words      %s\n' "$(printf '%s' "$ALPHA" | tr '\n' ' ')"
 printf '  clues      %s\n' "$(printf '%s' "$PHRASES" | tr '\n' '|')"
@@ -770,7 +824,13 @@ printf '             literal-join form, planted BELOW mod tests -> %s (must be 0
 [ "$lj_below" -eq 0 ] \
   || fail "control: a literal-join plant BELOW the test-module boundary WAS detected (read $lj_below) -- the new form does not honour the boundary; refusing (pass 311)"
 
-printf '  verdict     0 canonical clue occurrences in all %d production regions; %d adjudicated benign per-word hit\n' "${#FILES[@]}" "$benign_hits"
+printf '  verdict     0 canonical clue occurrences in all %d src/ regions; %d adjudicated benign per-word hit\n' "${#FILES[@]}" "$benign_hits"
+# The scope half, stated every run. "all N production regions" read as
+# whole-program coverage is exactly the misreading pass 314 measured: a
+# canonical clue in web/app.js left this line printing 0. The rest of the
+# production region is fenced by tests/no_phrase_hard_coding.rs, not here.
+printf '  scope       this script measures src/ ONLY (%d regions). NOT measured here: %s\n' "${#FILES[@]}" "${UNFENCED_DIRS:-(none)}"
+printf '  scope       those directories are fenced by %s; this script refuses if that file or its region table disappears.\n' "$RUSTFENCE"
 printf '  note        CI does not run this fence. .github/workflows/test.yml runs tests and clippy only.\n'
 printf '              That gap is a HUMAN decision (first raised at pass 267), not a pass action.\n'
 exit 0
