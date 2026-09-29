@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7b4e
-updated: 2026-09-29T23:58:00Z
+owner: coord-9d2f
+updated: 2026-09-29T23:47:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -248,7 +248,7 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
 | 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
-| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, and every branch published **with a sha** is checked against the live commit and base — added at pass 331, extended at pass 332, also cheap, and also run it directly |
+| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, and the run-evidence sentence is reconciled against the real test counts — added at pass 331, extended at passes 332/334/335, also cheap, and also run it directly |
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
 can change without anything in the repository changing: a human who deletes one of the branches named
@@ -283,6 +283,27 @@ removed, an ASCII-minus spelling, an unparseable shape, a second competing claim
 target, a removed payload claim, and the ASCII variant of the Unicode sign. **Rule 334: a check
 added to close a prose gap must be shown to go RED before its green is published, and its failure
 modes are 0-read and 1-read, not only 1-versus-2.**
+
+**Gate 7 now also adjudicates the RUN EVIDENCE (pass 335).** The test-target check established that
+`tests/<name>.rs` exists and printed a count of its `#[test]` attributes, but never compared that
+count to the number this section records in the same sentence — so the section's own figure was
+carried by prose while an instrument printed a different one beside it. It now **reconciles**, and
+the count it takes is corrected first: the original `^[[:space:]]*#\[test\]` matched **10** in
+`tests/no_phrase_hard_coding.rs` where the true number is **9**, because the tenth sits inside a raw
+string of synthetic source used as test data (the fence's own negative fixture for a `#[cfg(test)]`
+mod body) and a raw text count cannot see a string literal — rule 14x's blindness in a second
+instrument. It counts column-0 attributes, reports indented ones separately, and reconciles against
+`passed + ignored`, **not** `passed`: `corpus_integration` is 13 = 12 passed + 1 ignored, and
+comparing against `passed` alone reddens a section that is exactly right. Six plants: a corrected
+count, an added real test, a deleted `/ N ignored` term, a removed claim (green — the claim occurs
+twice, so that plant is inconclusive, not a pass), two copies made to disagree, and the ignored term
+wrapped onto the next line. That last one is a **live property of this section**, not a
+hypothetical: the `no_phrase_hard_coding` claim already wraps across the line break mid-sentence, and
+it is harmless today only because the term that wraps (`0 failed`) is not part of the unit. A human
+rewrapping this paragraph could redden a correct section; the check is fail-closed, which is the
+right direction. **Rule 335: a number printed beside a claim is not a check, and a count taken with a
+text matcher must be reconciled against the number the document asserts, in the document's own unit.
+A check that cannot redden the truth will eventually accept a lie.**
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -10119,5 +10140,79 @@ NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-verif
 hand - gate 7 does it, and it is planted; if you extend it further, plant before you trust
 (rule 334). **(3)** If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328:
 enumerate reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
+`.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
+recurring pass is still the highest-value action available.
+
+## Pass 335 (coord-9d2f, 2026-09-29T23:41Z-23:47Z) - gate NO; seven gates 7/7 exit 0; ACTED - the run-evidence sentence in the human list was never checked against the test targets, and checking it found the instrument counting a `#[test]` inside a string literal
+
+Seven bare gates, all exit 0, in the standing order. Then the one action this pass had:
+**gate 7's test-target check verified that `tests/<name>.rs` EXISTS and printed a test count, but
+never compared that count to the number the human list records** - "`corpus_integration` 12 passed /
+0 failed / 1 ignored, `no_phrase_hard_coding` 9 passed". Pass 334 built that check and its own entry
+then wrote "the 9-test `no_phrase_hard_coding` target", so the section's number was being carried by
+prose through an instrument printing a different one.
+
+**The discrepancy was real and the instrument was wrong.** `tests/no_phrase_hard_coding.rs` has
+**10** occurrences of `#[test]` matching `^[[:space:]]*`, and the tenth (line 1311) sits inside a raw
+string of *synthetic source* used as test data by `test_modules_and_comments_are_not_scanned` - it
+is not a test, it is a fixture asserting the fence does not fire on a `#[cfg(test)] mod` body. The
+true count is **9**, which is what the section says. So the old instrument was over-counting by one
+for the same reason the clue fence cannot see a decomposed array (rule 14x): **a raw text count
+cannot see a string literal.** The fix counts column-0 attributes, reports indented ones separately
+rather than folding them in or dropping them silently, and then **reconciles** against the claim.
+
+**Reconciliation found the unit is `passed + ignored`, and getting that wrong is not hypothetical.**
+The first version compared the count to `passed` alone and reddened `corpus_integration` by exactly
+its one ignored regression - which the human list states correctly. **A check that reddens on a
+correct document is a check that teaches its reader to ignore it**, so that is a defect in the same
+class as the vacuous zero pass 334 fixed, and it was caught only because the run went red against
+the real section before any plant was built. The unit is now `passed + ignored` (13 = 12 + 1).
+
+**Two more defects were in the new code, both found by the fail-closed guard rather than by
+inspection.** **(a)** The `sed` that split name from count emitted a literal `t` instead of a tab, so
+both targets were read as `corpus_integration 12` and every target went MISSING; the gate **refused
+to go green** on a population of zero real names, which is the behaviour pass 334 built the
+`NO TARGET CLAIM` guard for, used here for the first time on a real defect. **(b)** The old
+`grep -c ... || echo 0` fallback appended a second line to the count, because `grep -c` PRINTS its 0
+and EXITS 1 on no match - the variable would have held `"0\n0"`. It is latent rather than live only
+because both targets have matches; it is now `| head -1` with no fallback that can add a line.
+
+**Six plants, all behaving, all reverted byte-for-byte:** (1) claim corrected to 10 -> mismatch;
+(2) a real `#[test]` appended to the fence -> mismatch (10 vs claimed 9); (3) the `/ 1 ignored` term
+deleted from the evidence -> mismatch (13 vs 12); (4) the evidence sentence removed, one copy -> still
+green, correctly, because the claim occurs **twice** in the section (this plant was inconclusive, not
+a pass, and is recorded as such); (5) the two copies made to **disagree** -> mismatch, so a stale
+duplicate cannot hide behind a fresh one; (6) the `/ 1 ignored` term wrapped onto the next line ->
+mismatch, because the claim is read per line. **Plant 6 is a live property of the section, not a
+hypothetical: the `no_phrase_hard_coding` claim already wraps mid-sentence across lines 10-11 of the
+reader-facing section.** It is currently harmless (the `0 failed` it drops is not part of the unit),
+but a human rewrapping that paragraph could turn a correct section red. Left as-is deliberately:
+reflowing the human list is a human edit, and the check is fail-closed, which is the right direction.
+
+**Rule 335: a number printed beside a claim is not a check, and a count taken with a text matcher
+must be reconciled against the number the document asserts - in the document's own unit.** A
+`#[test]` count reconciled against `passed` alone is wrong by exactly the ignored tests; a raw text
+count is wrong by exactly the fixtures; and neither error is visible until the two numbers are put
+side by side. Extends rule 334: the plants that matter include the ones that make a *correct*
+document go red, because a check that cannot redden the truth will eventually accept a lie.
+
+**Nothing else moved.** Census unchanged: 96 items, **0 open / 0 working / 1 blocked / 83 done /
+12 superseded**. Clue fence **0** occurrences in all six production regions. Agents: 751 host rows,
+131 MadGab-cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped); the 3
+host-`running` agents (`126a3`, `125a1`, `94c7`) are **other repositories, left running and
+untouched**. `selfcheck.sh`: 11 of 11 instruments alive, `branches.sh` included. The at-risk family
+is closed on content since pass 184 and was **not** re-run. `main` untouched at `0267ade`. No item
+claimed, no front resumed, no agent launched or prompted, nothing merged or pushed to `main`. The
+three scheduler-template clauses are declined for the **seventy-first** time on
+`## Status: accepted and paused`: launching or creating work while paused, accumulating on
+`post-milestone-acceptance` "exactly as the itinerary requires" against an itinerary whose own closing
+paragraph says that branch is no longer an automatic accumulation target, and prioritizing the
+canonical examples against clause 3's no-hard-coding half already holding as a standing invariant
+(fence 0) and its other half being the accepted known limitation.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Gate 7 now adjudicates the run
+evidence as well as tip, base and payload; it is planted, so do not re-verify any of it by hand.
+**(3)** If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328: enumerate
+reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
 `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
 recurring pass is still the highest-value action available.

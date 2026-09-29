@@ -474,8 +474,30 @@ fi
 # `corpus_integration` to `corpus_integ_TYPO` shrank the population to one entry
 # and the check stayed green. A population filter must be wider than the names it
 # is meant to catch, or a violation is indistinguishable from an absence.
+#
+# The count printed here is the CLAIMED pass count, so it must mean what the
+# section's sentence means. Pass 335 found it did not: the original counted
+# `^[[:space:]]*#\[test\]`, and tests/no_phrase_hard_coding.rs contains one such
+# attribute at column 5 INSIDE a raw string of synthetic source used as test
+# data, so the gate printed 10 where the section's own run evidence says 9
+# passed. A raw text count cannot see a string literal — the same blindness the
+# clue fence calls rule 14x. Two fixes, and the second is the load-bearing one:
+#
+#   1. count only column-0 attributes, which is what a Rust integration-test
+#      target actually runs, and report the indented ones separately rather than
+#      folding them in or dropping them silently;
+#   2. RECONCILE the count against the number the section claims. The claim
+#      "no_phrase_hard_coding 9 passed" is a checkable statement about the file
+#      and was previously printed beside a tool number that disagreed with it,
+#      with nothing saying which was right. A check that reports a number
+#      nobody compared is decoration.
+#
+# A mismatch is a DEFECT (red), not a note. If a target ever grows a real
+# nested-`mod` test, this goes red and says so in the same line, which is the
+# correct direction: the standing section's run evidence would then be stale
+# and a human has to re-run it.
 ntarget=0
-while IFS= read -r tgt; do
+while IFS=$'\t' read -r tgt claimed claimed_ignored; do
   [ -n "$tgt" ] || continue
   ntarget=$((ntarget + 1))
   if [ ! -f "tests/$tgt.rs" ]; then
@@ -483,11 +505,44 @@ while IFS= read -r tgt; do
       "$tgt" "$tgt" >&2
     payload_bad=$((payload_bad + 1))
   else
-    ntests="$(grep -c '^[[:space:]]*#\[test\]' "tests/$tgt.rs" 2>/dev/null || echo 0)"
-    printf 'branches: target OK        tests/%s.rs exists, %s #[test]\n' "$tgt" "$ntests"
+    # `grep -c` PRINTS its 0 and EXITS 1 on no match, so the old `|| echo 0`
+    # fallback appended a second 0 and the variable held "0\n0". Take the first
+    # field instead; never let a fallback add a line to a count.
+    ntests="$(grep -c '^#\[test\]' "tests/$tgt.rs" 2>/dev/null | head -1)"
+    ntests="${ntests:-0}"
+    nindent="$(grep -c '^[[:space:]][[:space:]]*#\[test\]' "tests/$tgt.rs" 2>/dev/null | head -1)"
+    nindent="${nindent:-0}"
+    printf 'branches: target OK        tests/%s.rs exists, %s #[test] (claimed %s passed' \
+      "$tgt" "$ntests" "$claimed"
+    if [ "$claimed_ignored" != "0" ]; then
+      printf ' + %s ignored' "$claimed_ignored"
+    fi
+    printf ')'
+    if [ "$nindent" -gt 0 ]; then
+      printf '; %s indented #[test] not counted — in this repo that one is synthetic source inside a string literal' \
+        "$nindent"
+    fi
+    printf '\n'
+    # The unit is passed + ignored, because a `#[ignore]`d test is still a test
+    # the runner accounted for. Comparing the count against `passed` alone
+    # reddened corpus_integration by exactly its one ignored regression, which
+    # the human list states correctly — and a check that reddens on a correct
+    # document is a check that teaches its reader to ignore it.
+    expect=$(( claimed + claimed_ignored ))
+    if [ "$ntests" -ne "$expect" ]; then
+      printf 'branches: COUNT MISMATCH   tests/%s.rs has %s top-level #[test] but the human list records "%s passed + %s ignored" = %s; one of the two is stale, and the run evidence has to be re-run, not reconciled on paper (pass 335)\n' \
+        "$tgt" "$ntests" "$claimed" "$claimed_ignored" "$expect" >&2
+      payload_bad=$((payload_bad + 1))
+    fi
   fi
 done <<EOF
-$(cat "$HUMANLIST" | grep -oE '`[A-Za-z0-9_]+` [0-9]+ passed' | sed 's/`//g; s/ [0-9]* passed//' | sort -u)
+$(cat "$HUMANLIST" | grep -oE '`[A-Za-z0-9_]+` [0-9]+ passed( / [0-9]+ failed( / [0-9]+ ignored)?)?' \
+  | sed 's/`//g' \
+  | awk '{
+      name = $1; passed = $2; ignored = 0
+      for (i = 1; i <= NF; i++) if ($i == "ignored") ignored = $(i - 1)
+      printf "%s\t%s\t%s\n", name, passed, ignored
+    }' | sort -u)
 EOF
 
 # Same zero-population guard as the payload claim, for the same reason: 0 targets
