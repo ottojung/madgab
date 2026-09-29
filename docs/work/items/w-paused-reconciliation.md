@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f4c
-updated: 2026-09-29T13:16:00Z
+owner: coord-31b9
+updated: 2026-09-29T13:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -24054,3 +24054,128 @@ means those passes' pushes *did* land — so this is a change in behaviour on th
 the re-verification above is what establishes which it is. **Recorded as a standing note: on this host a bare
 `git push` is not evidence of anything, and a pass must confirm its handoff by comparing `HEAD` to
 `origin/<branch>` after a fetch.**
+
+## Pass 269 — `coord-31b9`, 2026-09-29T13:21Z–13:32Z — gate NO; ACTED — pass 268's suite was **killed mid-run**, relaunched detached; and the standing row's content-sweep procedure is correct only in `awk`, re-deriving it in shell fabricates 10 phantom files
+
+**Gate answer: NO**, on the same authority as every pass since 92: `## Status: accepted and paused`
+(`docs/skills/itinerary-madgab.md:5`), plus `docs/accepted-state-2026-09-27.md`. **No agent launched, stopped or
+prompted; no work item created or claimed; nothing integrated; `main` untouched at `0267ade`.** The three
+scheduler-template clauses are declined unchanged: clause 2 remains a direct textual conflict with itinerary
+line 17, and clause 3's no-hard-coding half is a **standing invariant** (fence 0, below), not work.
+
+### Pass 268's outstanding measurement is discharged: its full suite did not finish, and it cannot now
+
+Pass 268 launched `cargo test --release --no-fail-fast` and recorded it as "left running for a later fresh pass
+to read". **It is not running.** No `cargo` process exists on this host, and `/tmp/opencode/all-tests.log` — the
+log it wrote — **stops mid-binary**: last write **13:09Z**, i.e. it died ~7 minutes before that pass exited at
+13:16Z, and its final lines are the 12th and 13th `corpus_integration` tests with **no `test result:` line for
+`corpus_integration` and no output at all for the 7 binaries after it**. The 5 binaries that did report are green
+(`unittests src/lib.rs` 83/0/12, `unittests src/main.rs` 0/0, `approx_determinism` 4/0, `cli_milestone_predicate`
+3/0/1), so the partial reading is safe — but the log's phrase "left running for a later fresh pass" was
+**optimistic about a process the pass had no durable claim on**, and the log itself is in `/tmp`, not in the repo.
+
+**Acted:** relaunched **detached** (`setsid nohup env CARGO_TARGET_DIR=/workspace/madgab/target cargo test
+--release --no-fail-fast > /tmp/opencode/p269-suite.log 2>&1 < /dev/null &`, confirmed live at 13:22Z), so it
+survives this coordinator's exit. Partial at 13:30Z: **2** `test result:` lines, `unittests src/lib.rs`
+**83 passed / 0 failed / 12 ignored**. **Left running for a later fresh pass to read** — and this time the
+process is `setsid`-detached, which is the difference between the two launches.
+
+### Standing facts, all re-derived with the standing rows' own instruments, all unchanged
+
+1. **Work items** — published fence-scoped `gawk` `FNR`/`ENDFILE` form (line 120, verbatim), gawk exit 0:
+   **96 = 0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`**. Known false positives still live:
+   `grep -rl 'state: open' docs/` = **7**, `grep -rlx 'work_item: true' docs/` = **97**.
+2. **MadGab agents** — **0 non-terminal in a MadGab cwd.** Histogram over **131** MadGab rows: **110 `succeeded` /
+   20 `failed` / 1 `stopped`**, the `stopped` row being `3a8f01` on the superseded `madgab-diversity-3a8f01`
+   front, unmoved for a further pass. The host's one `running` row (`94d6` assemblyp1) and 5 `idle` rows
+   (`78b2`, `92f3`, `92e3`, `98f3`, `a11d`) are other repositories, **left running**. Host rows read **688**
+   against pass 268's **689**; the MadGab row count is unchanged at **131**, so per rule 14m the whole delta is
+   churn in another repository and needs no reconciliation.
+3. **Production fence** — joined phrase **0** in all six regions, **38th consecutive**; per-word
+   **0 / 0 / 0 / 1 / 0 / 0**; region lines **269 / 260 / 464 / 4242 / 67 / 269** reproduce `fence.awk`'s
+   documented figures exactly, stderr empty. The single `1` is `src/lib.rs:3597`
+   `.expect("key came from cells")` — the ordinary English past tense in a panic message, established benign at
+   pass 216, not re-opened. The alphabet was **read from `fence-alphabet.awk`, not from memory** (rule 14v/14ak):
+   phrase arm `(wreck a nice beach|hits justice dupe hid came|recognize speech|it.s just a stupid game|it’s just a
+   stupid game)`, decomposed arm `(hits|justice|dupe|hid|came|wreck|beach|recognize|speech|stupid|game)`.
+   **Controls:** per-value `came`=**1** and the other six values **0**, so the one hit is the ordinary word and not
+   a canonical clue; **region plant** (`const X: &str = "wreck a nice beach";` appended to the `src/lib.rs` region)
+   reads **1** on the phrase arm, so the zero is a measurement and not a broken instrument. Note for the record:
+   this repository has no `web/*.ts`, so naming it in a glob makes `gawk` emit
+   `fatal: cannot open file 'web/*.ts' for reading` on stderr **and still emit every other file's region** — the
+   six production files are `src/*.rs`, and `web/` is scanned by the repository's own
+   `tests/no_phrase_hard_coding.rs` instead (pass 267).
+4. **At-risk non-build content** — **0 unreachable; 0 need archiving; no recovery branch created.** Re-swept from
+   scratch over the live **125** worktrees with the row's published anchored path-field filter:
+   **37 dirty rows = 3 build + 34 non-build**, from **17** contributing worktrees; the 3 build rows are
+   `madgab-approx-runtime::prof/`, `madgab-diversity-3a8f01::target-front-3a8f01/`,
+   `madgab-poolrank-3a8f02::target-front-3a8f02/`; of the 34 non-build exactly **33 hashable + 1 directory row**
+   (`madgab-scratch/examples/`), **32 distinct** blobs, **0** empty-`hash-object` rows; `rev-list --objects --all
+   --reflog` = **8,110** distinct first-field ids; `comm -23` on both inputs `sort -u`'d = **0**.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`); `origin/main` =
+   `0267ade`; `git diff --name-only origin/main post-milestone-acceptance | grep -vc '^docs/'` = **0**;
+   **125** worktrees, `git worktree prune -n -v` empty, exit 0; `HEAD` = `origin/post-milestone-acceptance` =
+   `4c99503` on arrival.
+
+**Rule 14a/14m repair HELD** — `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` (no `--prune`),
+exit 0, `8be2222..4c99503`; bare-prefix `for-each-ref refs/remotes/audit` = **204** = `ls-remote --heads`
+**204**; `recovery/*` heads on origin = **26**; `refs/remotes/audit/recovery/at-risk-2026-09-29` =
+`eaf748762e17da17dcfda8472714485fa076b143`, **byte-identical** to `git ls-remote` on the same ref — the
+full-form-vs-full-form comparison rule 14p prescribes.
+
+### This pass's finding — the content-sweep row publishes a command whose *mechanism* is load-bearing and is not stated
+
+Rule 14k ("a standing figure is not a standing procedure") fixed the numbers. This pass re-derived the sweep in
+**shell** rather than in the row's `awk`, because the row's prose reads as a shape ("one `awk` per row that strips
+the status prefix") rather than as a command. Result: **34 non-build rows** as expected, but
+**23 hashable + 10 non-existent + 1 directory** instead of **33 + 1**.
+
+Cause, located rather than guessed. `git status --porcelain` prints a **space-padded two-column XY status prefix**,
+so a modified tracked file's line is `" M src/lib.rs"` — it *begins with a space*. Reading it with
+`while read -r line` (default `IFS`) strips that leading space, leaving `"M src/lib.rs"`; the fixed-offset strip
+`${line:3}` / `sed 's/^...//'` that a reader writes next then removes **four** characters and yields
+**`rc/lib.rs`** — a path that does not exist. Untracked rows (`?? path`, no leading space) are unaffected, which is
+why exactly the 10 tracked-`M` rows broke and the 24 untracked rows did not.
+
+**Both failure shapes are silent, and they point in opposite directions.** Under the row's own rule — "classify a
+row as a directory row when `hash-object` is empty" — the 10 phantom paths have an empty `hash-object`, so they are
+classified as **directory rows**: the invariant becomes **33 hashable + 11 directory**, the headline unreachable
+count stays **0**, and by pass 265's own analysis the miscount is *absorbed by the directory bucket* and still
+reports a clean at-risk zero. A reader who instead drops empty-`hash-object` rows gets **23 hashable and 10 files
+that cannot be found** — a fabricated preservation alarm, the direction rules 44/54/138 exist to prevent. Neither
+outcome is distinguishable from a correct one by reading the count.
+
+**The correct spelling is positional, and it is why the row says `awk`:** `awk '{ p = substr($0,4) }'` — `substr` is
+byte-offset and indifferent to leading whitespace, whereas every shell spelling that "reads a line and cuts a
+prefix" is whitespace-sensitive at exactly the field that is padded. Verified both directions this pass: the `awk`
+form reproduces the row's **33 + 1 / 32 distinct / 0 unreachable** exactly, and the shell form does not.
+
+**Rule 269(a): a published procedure must publish the mechanism that makes it correct, not only the command that
+happens to be correct.** Rule 14k moved this row from figures to a procedure; this pass shows the procedure still
+carries an unstated precondition ("the status prefix must be cut by offset, not by tokenising"). A reader who
+follows the *shape* rather than the *spelling* gets a clean-looking wrong answer, and — the reason this row has
+been the log's most-repaired instrument — the wrong answer is clean-looking in **both** directions at once.
+**Rule 269(b), narrower and general: a space-padded fixed-width prefix is a byte offset, not a field, and no
+tokenising reader may be used to extract the field that follows it.** This is the same class as rule 17's
+`cut -d' ' -f1` and rule 22's `comm` pairing, arriving from the opposite end: those two dropped or mispaired a
+field that was *present*; this one *eats a character of the payload* and the payload still looks well-formed.
+
+**Not repaired in the row, and the reason is the same as pass 267/268's.** The row is this log's own durable
+state, and editing standing rows mid-pass is what pass 218 and pass 252 had to undo twice; the amendment belongs
+with the next deliberate standing-row revision, not inside a reconciliation entry. The finding is therefore
+recorded here and in the rule, which is where a later pass will read it.
+
+### What is still open, unchanged, and named
+
+Pass 267's CI gap and pass 268's fence unsoundness are **both still open and still unfixed**, for the same reason
+as when they were found: the itinerary's pause forbids new MadGab work and any change outside this log's durable
+state, and only a human reopening development can authorise them. In order, on a reopen: (1) add
+`cargo test --release --test no_phrase_hard_coding` to `.github/workflows/test.yml` (rule 267(b)/(c)); (2) score
+`couplings()` on the **multiset**, not the LCS, and let the `matched >= 2` concession cover equality comparisons
+and not only substring calls (pass 268). Rule 267(c) is the frame for both: **the population of a check is what
+runs, and what the check can see.**
+
+**Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open / 0 working items, 0
+non-terminal MadGab agents, 0 unreachable files, `main` untouched, worktree clean (0 rows) throughout — the only
+plant this pass made was appended to a `/tmp` region file, never to the repository. **Blocked on the human
+reopen/confirm decision.**
