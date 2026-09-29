@@ -68,6 +68,26 @@ set -uo pipefail
 
 DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 
+# --- the repo root is resolved, not inherited (pass 317 defect) ----------------
+# This script runs the instruments as children, so it handed them the CALLER's
+# cwd. Every instrument resolves its own root now, so each is
+# invocation-independent on its own; running them from the resolved root as well
+# means the liveness verdict itself cannot be a function of where the
+# coordinator was standing. That is the whole defect, twice: the same relative
+# path read as a real file from the root and as a real failure from anywhere
+# else.
+#
+# An explicit DIR argument still wins -- it is resolved against the CALLER's
+# cwd first, so the plant mechanism below (a throwaway directory of fake
+# instruments) keeps working from wherever the caller was standing.
+case "$DIR" in
+  /*) ;;
+  *)  DIR="$(pwd)/$DIR" ;;
+esac
+if ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" && [ -n "$ROOT" ] && [ "${ROOT#/}" != "$ROOT" ]; then
+  cd "$ROOT" || { echo "selfcheck: cannot cd to $ROOT" >&2; exit 3; }
+fi
+
 # instrument :: the invariant its output must contain for a clean run.
 # Split on '::' because several invariant lines contain spaces and colons.
 #

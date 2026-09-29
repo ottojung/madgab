@@ -57,7 +57,50 @@
 set -u
 set -o pipefail
 
+# root is resolved, not assumed (pass 317 defect) ------------------
+# census.sh and frontmatter.sh already `cd "$(git rev-parse --show-toplevel)"`.
+# This script did not, so its ITEM path was relative to the CALLER's cwd. From
+# the repo root that happened to resolve; from any other directory the file was
+# genuinely absent and the script printed "item file not found" and exited 1.
+# That is fail-closed, so it was not a false PASS -- but it was a false ALARM
+# about the wrong cause, and it propagated: selfcheck.sh runs the instruments
+# with the caller's inherited cwd, so `selfcheck.sh` from docs/ reported
+# "item-state.sh DEAD" and then "the instrument set is not trustworthy as it
+# stands". A pass following that would have "repaired" a healthy instrument.
+#
+# General form: an instrument that takes no path argument still names paths, and
+# a relative path is an argument to the filesystem with an ambient cwd the
+# script did not choose. Every instrument here must be invocation-independent:
+# a standing fact must not be a function of where the coordinator happened to
+# be standing.
+#
+# The caller's cwd is captured BEFORE the root is resolved, because a relative
+# argument is relative to the caller, and resolving the root must not change
+# what a relative argument means.
+CALLER_PWD="$PWD"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
+  || { echo "item-state: not in a work tree" >&2; exit 3; }
+[ -n "$ROOT" ] || { echo "item-state: not in a work tree" >&2; exit 3; }
+case "$ROOT" in
+  /*) ;;
+  *)  echo "item-state: not in a work tree" >&2; exit 3 ;;
+esac
+
+# The DEFAULT ITEM is joined to the resolved root. An explicit relative
+# argument is tried against the CALLER's cwd first and the root second, so
+# neither the documented default nor a hand-passed path depends on where the
+# coordinator was standing. Absolute arguments are used as given.
 ITEM="${1:-docs/work/items/w-paused-reconciliation.md}"
+case "$ITEM" in
+  /*) ;;
+  *)
+    if [ -f "$CALLER_PWD/$ITEM" ]; then
+      ITEM="$CALLER_PWD/$ITEM"
+    else
+      ITEM="$ROOT/$ITEM"
+    fi
+    ;;
+esac
 FAILED=0
 
 fail() { printf 'item-state: FAIL: %s\n' "$1" >&2; FAILED=1; }
