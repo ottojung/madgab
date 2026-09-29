@@ -30142,3 +30142,81 @@ restated above, with (b) now scoped to a single proven-inert deletion.
 `post-milestone-acceptance` before the findings were recorded, so a competing coordinator would have
 seen the claim. This entry and the claim are one push; a pass reading only `item-state.sh` sees the
 newest entry and its NEXT, which is the reader pass 303 added for exactly that case.
+
+## Pass 319 (coord-7c1b, 2026-09-29T21:04Z-21:15Z) — gate NO; six facts re-derived unchanged; ACTED — human item (b) is no longer a described edit but a prepared, validated review branch
+
+### The six standing facts, re-derived this pass (all unchanged for the 109th consecutive time)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** / 83
+done / 12 superseded, the 1 non-terminal item being this one; `agents.sh` exit 0 — 729 host rows, 131
+MadGab cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1
+host-`running` agent (`109a5` skrynia) another repository and **left running untouched**, 5 host-`idle`
+rows none a MadGab cwd; `clue-fence.sh` exit 0 — **0 canonical occurrences in the 6 `src/` regions**,
+1 adjudicated benign per-word hit (`src/lib.rs:3597`), all controls as published; the two slow
+`at-risk*` instruments skipped per pass 318's NEXT (no new argument); `selfcheck.sh` **7/7**. **main
+untouched**: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` 0267ade, and
+`git diff origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml .github/` **empty**. 125
+worktrees.
+
+Per pass 318's NEXT the accepted state was re-checked **by execution** before being asserted:
+`corpus_integration-9da4be35735cc27f` (all) = **12 passed, 0 failed, 1 ignored**, rc 0; the forced
+`--ignored` case-2 = **FAILED** as expected (a deliberate `#[ignore]`, not a regression, per pass
+318's explicit instruction not to report it as one). The accepted-state document's central claim
+therefore still holds and is still re-runnable.
+
+### ACTED: human item (b) prepared as a reviewable branch instead of described again
+
+Passes 315 and 318 converged on one finding: the three `MADGAB_TRACE_*` variables in
+`.github/workflows/test.yml` are dead, and they are the only place outside `tests/` carrying the
+canonical clue in a directory the fence does not cover. Both passes stopped at "this is a finding, not
+an edit", because the workflow gates pushes to `main` and that is a human decision. **That reasoning is
+right about the MERGE and wrong to also block the PREPARATION.** The human's decision is a merge
+decision; nothing about it requires the edit to be re-derived from prose a fourth time. So the edit is
+now made, validated and pushed on its own branch, and `main` is untouched.
+
+Branch `review/drop-dead-trace-env` at `a29f3d7`, off `f908422` (`post-milestone-acceptance`).
+**Awaiting human review and merge; not merged by this pass.**
+
+Inertness re-verified this pass from source, not carried over:
+
+- `tests/corpus_integration.rs` — the only target the step runs — has **0** `env::var`/`var_os`/`std::env`;
+- `git grep -l MADGAB_TRACE` outside `docs/` and `target/` returns only `.github/workflows/test.yml`
+  itself plus two historical `REPORT-`/`REVIEW-` documents, i.e. **no live reader anywhere**;
+- the facility was removed upstream by `784deaae` ("drop the dead agent's MADGAB_TRACE probes").
+
+Validation of the change itself, all re-run this pass:
+
+| check | result |
+|---|---|
+| `grep -niE 'hits justice dupe\|wreck a nice beach\|MADGAB_TRACE' .github/` | **NONE** — the directory now carries **zero** canonical-clue literals, closing the pass-315/318 fence-coverage gap as a side effect |
+| `YAML.load_file` on the workflow | **parses**, `jobs.test.steps` = **7** (unchanged) |
+| the step's exact command, run with **no** env vars | **12 passed, 0 failed, 1 ignored**, 13.45 s, rc 0 |
+| `git diff --stat` | 1 file, **4 deletions**, 0 insertions |
+
+So the human now has, for item (b), a one-command review of a 4-line deletion with the inertness proof
+attached in the commit message, instead of a paragraph to re-derive. Items (a), (c), (d) and (e) are
+unchanged: (a) compact this log (**now 2.4 MB, 236 pass sections, 30,250 lines**), (c) run the fence in
+CI, (d) retire this recurring pass, (e) fix the out-of-repo scheduler template.
+
+### What this pass did and did not do
+
+Re-derived the six facts, re-verified the accepted state by execution, claimed the item by pushing the
+owner change (`coord-3f9a` -> `coord-7c1b`, commit `f908422`) before acting, prepared and pushed the
+(b) review branch, then returned to `post-milestone-acceptance`. Declined the three scheduler-template
+clauses for the **seventieth** time on `## Status: accepted and paused` plus
+`accepted-state-2026-09-27.md`: **no MadGab agent launched or prompted** — there is no claimable MadGab
+work to launch one for and the itinerary forbids manufacturing any; **no** historical item claimed,
+**no** new MadGab work item, **no** integration, **no** push to `main`. The single host-`running` agent
+is another repository and was left running. No file under `src/`, `tests/`, `web/`, `examples/` or
+`Cargo.toml` was touched anywhere; the zero production drift against `origin/main` is unchanged.
+
+**Blocked on the human reopen/confirm decision**, and now additionally on a human **merge** of
+`review/drop-dead-trace-env`.
+
+NEXT: the standing facts need no hand re-derivation — run `census.sh`, `clue-fence.sh`, `agents.sh` and
+`item-state.sh` and accept exit 0 as the measurement; skip the two slow `at-risk*` instruments unless a
+new argument requires them. Run the two accepted-state commands above before ever asserting the
+canonical status in prose. Do **not** report the forced `--ignored` case-2 failure as a regression. If
+`review/drop-dead-trace-env` has been merged by a human, verify `origin/main` advanced and drop item
+(b) from the list, leaving (a), (c), (d), (e). If it has **not**, do not re-prepare it — the branch is
+already pushed; the next useful action is item (a) or (d).
