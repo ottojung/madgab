@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a91
-updated: 2026-09-29T11:41:00Z
+owner: coord-5d7c
+updated: 2026-09-29T11:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -22651,3 +22651,92 @@ note, the mirror cardinality is read inline and not asserted as a literal.
 **Next pass:** run all four standing controls before publishing any fence 0 — a plant reading 0 now
 has four distinct innocent explanations. Prefer no entry at all. Blocked on the human
 reopen/confirm decision.
+
+## Pass 255 (coord-5d7c) — gate NO; ACTED: the standing "25 recovery heads" figure was stale at 26, and a fence control I re-derived from memory was a false zero for the third time
+
+Template clauses 1–3 declined for the sixtieth time on `## Status: accepted and paused` plus the
+accepted-state document. Nothing claimed, launched, stopped, prompted or integrated; no new work
+item; no recovery branch created; main untouched at `0267ade`. The one finding is a stale standing
+figure, and this pass's own draft re-entered two already-documented instrument traps while producing
+it — which is the substantive observation.
+
+### Finding (rule 14ar): a re-derived COUNT is a claim about a POPULATION, and the population here
+### grew by exactly the one head its own log created
+
+Prior passes publish "25 `recovery/*` heads on origin" as a standing fact. Re-derived today it is
+**26**, byte-identical on both arms (`ls-remote --heads 'refs/heads/recovery/*'` against
+`for-each-ref refs/remotes/audit` filtered to the same namespace, `diff` exit 0, zero lines). The
+extra head is `recovery/reflog-log-revisions-2026-09-29` = `d542508`, and the log itself says why:
+its subject line is *"pass 213 - recover 4 reflog-only log revisions, and correct the at-risk arms
+to 88"*. **Pass 213 created a recovery branch and the standing count was never advanced past it.**
+
+This is rule 14m's exact failure mode in a new place. 14m established that a census delta requires
+an explanation before the new number is published, and 14o that a delta no enumerated population
+reproduces is a defective measurement. Here the delta IS reproducible and the standing figure was
+simply never re-derived. The figure under-reports, so the direction is safe — but it is a *stale
+number presented as a standing fact*, and 14k already ruled that a standing FIGURE is not a standing
+PROCEDURE. The standing count is therefore corrected to **26** here, and the durable form is the
+command, not the number:
+
+    git ls-remote --heads origin 'refs/heads/recovery/*' | wc -l
+
+No new at-risk content: `recovery/at-risk-2026-09-29` = `eaf7487` on both arms per rule 14p, the
+ref-held element is still exactly `514ed91` (held by `refs/heads/scratch-3f8c62-landed`), arms still
+88/88 diff-clean under both sanctioned spellings, split still 1 ref-held / 87 reflog-only /
+intersection 87 / union 88, controls both directions (`514ed91` present, `0267ade` absent), baseline
+1,272. Content sweep not re-run (closed on content since pass 184). No recovery branch warranted.
+
+### Two of this pass's OWN drafts re-entered documented traps, which is why 14k exists
+
+Both were caught before publication, and both are recorded because the pattern — not the individual
+error — is the finding.
+
+1. **The census reader's first draft returned `NOCAND` for `w-0f3a17-shortlist-rule.md` and a clean
+   `exit 0`.** That file is the one pass 220 already adjudicated: it carries a full work-item-shaped
+   header but `work_item: false`, so it is correctly *not* discoverable. A reader that treats
+   "frontmatter present but no `work_item: true`" as an ERROR will report a hard failure on a file
+   that is working exactly as specified. Not a real defect; recorded so the next pass does not
+   re-investigate it as one.
+2. **A frontmatter key-count check printed 0 on a frontmatter that is complete and clean.** The
+   `inb==2 { exit }` rule fired before the `inb==1` block's `print`, so a reader that tests the
+   boundary *before* the body rule never prints anything and reports 0 keys with exit 0 — a
+   clean-looking zero over the entire population, i.e. rule 34's census trap for the fourth
+   recorded time and the second distinct instance *inside this same pass*. The correct reading
+   (8 schema keys, 0 duplicate keys, no `prior_owner:` leakage) reproduces.
+
+Neither reached durable state. Neither was a property of the repository; both were properties of a
+transient instrument. That is the argument for re-deriving rather than copying, and the argument for
+recording them.
+
+### Five standing facts, re-derived (not copied)
+
+1. **Census 96** = 83 done / 12 superseded / 1 blocked, **0 open / 0 working**, by the fence-scoped
+   gawk FNR/ENDFILE reader run first with no per-file loop, exit 0.
+2. **0 non-terminal MadGab agents.** 131 MadGab cwd rows of 686 host rows; 110 succeeded / 20 failed
+   / 1 stopped. The single non-terminal MadGab row is `3a8f01` `stopped` on the superseded
+   `madgab-diversity-3a8f01` front, **left stopped**. Host-`running` `92f5`, `79e2`, `109a3`, `98f1`
+   are other repositories and were **left running, untouched**. Idle rows `78b2`, `92f3`, `92e3`,
+   `98f3`, `a11d` are none of them MadGab cwds (`a11d` is in `/tmp`).
+3. **Fence 0 / decomp 0-0-0-1-0-0** across all six production files, region counts
+   269/260/464/4242/67/269 in the `| wc -l < FILE` form, not command substitution. The single
+   non-zero is the adjudicated-benign `src/lib.rs:3597` `.expect("key came from cells")`, confirmed
+   by reading the line rather than by trusting the adjudication.
+4. **Pass 254's four controls all re-run and all hold, plus a negative control:** block-comment
+   `mod tests` boundary, in-string `//`, in-string `mod tests`, and the U+2019 typographic
+   apostrophe each read `phrase=1`; the U+2019 plant **also** read 0 under a raw hand-typed
+   `it.s` regex on this pass's first attempt — pass 253's finding, re-entered live, because the
+   alphabet was re-typed from memory instead of read from `fence-alphabet.awk` (rule 14v/14ak). The
+   plant reads 1 the moment the sanctioned alphabet is used, which is the whole point of that file.
+   A negative control with nothing planted reads 0.
+5. **125 registered worktrees**, `git worktree prune -n -v` empty, exit 0. **main untouched**:
+   `git rev-parse --verify main` exits 128 (no local `main` ref), `origin/main` `0267ade`, HEAD on
+   `post-milestone-acceptance`.
+
+`audit/*` re-fetched FIRST per rule 14a with the no-`--prune` spelling, exit 0. Mirror in pass 252's
+sanctioned form: `ls-remote --heads` (204) against `for-each-ref refs/remotes/audit` (204),
+prefix-stripped, `diff` **byte-identical, exit 0, zero lines**; the two differ from each other by
+exactly the one `audit-tag` (205 total), read inline and not asserted as a literal.
+
+**Next pass:** take every count from a command in this entry, never from its prose. The one count
+that was stale is the one that had been copied longest. Prefer no entry at all. Blocked on the
+human reopen/confirm decision.
