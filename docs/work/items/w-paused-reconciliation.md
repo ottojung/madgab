@@ -3,7 +3,7 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f31
+owner: coord-9b4e
 updated: 2026-09-29T17:45:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
@@ -28122,4 +28122,97 @@ without the human reopen decision. Any future pass wanting a check independent o
 the instrument set should start from `git diff --quiet origin/main HEAD --` over the
 shipped paths above; that is the one question here that no defect in
 `docs/work/paused-recon/` can make a pass answer wrongly.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 302 (coord-9b4e) — gate NO; five facts re-derived unchanged; ACTED — the pause was documented in the itinerary but NOT in the queue index a reader enters by
+
+Gate **NO** again, the sixty-fifth time: the three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples without phrase-specific hard-coding) are declined on `## Status: accepted
+and paused` plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct
+textual conflict: the itinerary says post-milestone-acceptance "is no longer an
+automatic accumulation target", so the template's "exactly as the itinerary
+requires" cannot be honoured by doing what the template says. Nothing claimed,
+launched, stopped, prompted or integrated; no new MadGab work item; no recovery
+branch; `main` untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; skills-doc control selector 0 / fence-blind 1; 49 non-schema
+   headers listed once each on stderr and correctly not counted.
+2. clue fence **0 joined in all six** production regions; per-word `0-0-0-1-0-0`
+   (`.expect("key came from cells")` at lib.rs:3597, adjudicated at pass 216).
+   Regions 269/260/464/4242/67/269. The ninety-second consecutive pass.
+   `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   717 host rows, {succeeded 110, failed 20, stopped 1}. The 3 host-`running`
+   agents (92a3 `/workspace/volodyslav-92-fixtures`, 124a1
+   `/workspace/antonina-124-prereq`, 109a4 `/workspace/skrynia-109-tranche5`) are
+   other repositories and were left running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD 17fb7e9 on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1339, refs-only 1251. Audit mirror
+   re-fetched FIRST per rule 14a with no `--prune`, verified fresh at 17fb7e9, so
+   no recovery branch warranted and none created.
+
+`selfcheck.sh` rc=0: 5 of 5 instruments executable, parsing, exit 0, printing
+their invariant — the second consecutive green, so pass 300's structural
+always-red alarm stays disarmed. `frontmatter.sh` rc=0: 97 leading blocks, 0
+failed to parse, all four controls healthy as required.
+
+Pass 301's zero-drift check re-run verbatim: `git diff --quiet origin/main HEAD --
+src tests examples web Cargo.toml Cargo.lock README.md .github` rc=0. The accepted
+release is still byte-identical to the accumulation tip.
+
+### ACTED — the pause was stated in the itinerary and in the accepted-state document, and nowhere a reader of the queue actually lands
+
+This pass re-derived all five facts and found them unchanged for the
+ninety-second consecutive fence measurement, which is the shape of a pass with
+nothing left to do. So this pass went looking for the question the pause's
+*durability* rests on, which is the one none of the six checks above asks: **if
+the next pass enters the repository the way a reader does, what does it read?**
+
+The answer was: the mechanics, and not the status. `docs/work/README.md` — the
+index titled "Madgab work queue", the natural entry point to the work-item
+protocol, linked from the itinerary and from `docs/skills/work-items.md` — spent
+its whole body on how to submit, claim, hand off and complete work items, and
+said nothing about the 2026-09-27 acceptance. Its own text said "The active
+accumulation branch is defined by the itinerary" and then delegated the one
+decision that matters to a document the reader may not open. Every instrument
+in this directory measures *bookkeeping about the pause* (its census, its fence,
+its agents); not one of them measured whether the pause is *stated at the point of
+use*, and the six green facts would all have stayed green with a reader about to
+open a fourth item in a paused repository.
+
+That is the same failure class this log has been catching in the instruments for
+ninety passes, one level out: an instrument that reports the number correctly
+while the thing it is a number *about* is undocumented where anyone looks.
+Rules 14q/14r are the same principle stated for controls — a zero that nothing
+can falsify is not a measurement — and rule 14z is the same failure found in the
+wrong direction, a figure published from a pass rather than re-derived from the
+file it names. Here the figure was right and its *reach* was not established.
+
+The fix is a `## Status: the MadGab queue is paused` section in that README,
+naming the accepted-state document, and saying the one sentence a reader
+arriving at an empty queue most needs: **0 `open` / 0 `working` is the pause, not
+a backlog awaiting a claim.** Committed `e921391`. The new link was verified by
+re-running `link-census.mjs` — still 3 broken edges, all the known
+`items/w-5e2d42.md` phantom, so the added edge resolves.
+
+This is documentation of an existing decision. It creates no MadGab work, claims
+nothing, launches nothing, and `main` is untouched — the change is on
+post-milestone-acceptance and confined to `docs/`, so the accepted release stays
+byte-identical (drift re-checked after the edit).
+
+NEXT: the pause holds, the six facts stand, and the pause is now stated in the
+three places a reader can arrive at — the itinerary, the accepted-state document,
+and the queue index. The remaining known gap is unchanged and is a human
+decision, not a pass action: CI still does not run the clue fence
+(`.github/workflows/test.yml` runs tests and clippy only), first raised at
+pass 267. Nothing further here is actionable without the human reopen decision.
 **Blocked on the human reopen/confirm decision.**
