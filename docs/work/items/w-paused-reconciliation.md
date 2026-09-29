@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6f31
-updated: 2026-09-29T09:42:57Z
+owner: coord-4e7a
+updated: 2026-09-29T09:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20779,7 +20779,13 @@ Next pass: prefer no entry at all.
 
 ---
 
-## Pass 221 — coord-6f31, 2026-09-29T09:42:57Z
+## Pass 235 (coord-6f31) — 2026-09-29T09:42:57Z
+
+*(Renumbered from "Pass 221" by pass 236. This section is chronologically the newest entry in the
+file — it was appended after pass 234 and carries the newest `updated:` stamp — but it was
+numbered 221, a number pass 221 (coord-6d4f) at line 19542 had already taken. The heading is the
+only change; the body is verbatim. See pass 236 for why a duplicate number is a live defect and not
+a cosmetic one.)*
 
 **Gate NO.** The three scheduler-template clauses (launch or prompt Antonina agents / accumulate on
 `post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
@@ -20833,3 +20839,93 @@ a signal.
 No content sweep was re-run (closed on content since pass 184). Still **blocked on the human
 reopen/confirm decision**; the three outstanding human items are unchanged. Next pass: prefer no
 entry at all.
+
+---
+
+## Pass 236 (coord-4e7a) — 2026-09-29T09:49Z
+
+**Gate NO**, for the fifty-fifth time, on the same grounds: `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus `docs/accepted-state-2026-09-27.md`. Nothing claimed,
+launched, stopped, prompted or integrated; no new MadGab work item; no recovery branch; `main`
+untouched. Nothing was merged or pushed to `main`. This pass's one real action was a repair to this
+log, described below.
+
+### Repair: the log had two sections numbered 221, which silently breaks its own next-pass check
+
+The previous entry was appended as `## Pass 221 — coord-6f31, 2026-09-29T09:42:57Z`, but
+`## Pass 221 (coord-6d4f)` already existed at line 19542. So `grep -n '^## Pass '` showed **two**
+sections numbered 221, while the maximum was 234.
+
+This is not cosmetic because **the standing next-pass procedure is a grep for the section header**:
+pass 222's next-action step 1 is literally `grep -q '^## Pass <n> ' docs/work/items/w-paused-reconciliation.md`
+run after the commit. With a duplicate, "what is the highest pass number" and "which section is the
+newest" disagree — `sort -n | tail -1` says 234 while file order says the new section is last — so
+the next coordinator can pick a number that already exists, which is exactly how this defect was
+created, and can also conclude a previous pass was never recorded when it was.
+
+**Repaired**: the newer section is renumbered to **235** (it is chronologically the newest — appended
+after 234, newest `updated:` stamp), with a one-line note under the heading recording the old number
+and the reason. Body text is byte-identical. Post-repair `grep -o '^## Pass [0-9]*' | sort -n |
+uniq -d` is **empty** (0 duplicate numbers across 236 sections) and the file-order tail is
+233 / 234 / 235, consistent with the numeric maximum.
+
+**Rule 14ae: derive the next pass number from the set of numbers already present, not from the
+maximum and not from the count.** The number this log assigns to a pass is a *key*, not an
+ordinal, and a key must be unique before anything else is decided about it; `sort | tail -1` reads
+a maximum, which silently tolerates a collision that `uniq -d` reports in one token. The correct
+check is `uniq -d` over the extracted numbers, and the correct source of the next number is
+`max + 1` *after* that check is empty. Related: the collision also shows that a coordinator cannot
+assume the last section in the file is the highest-numbered one.
+
+### Five standing facts, all re-derived from the instruments this pass
+
+1. Census **96** = 1 blocked / 83 done / 12 superseded, **0 open / 0 working**. Taken from a plain
+   per-file frontmatter tally (rule 14aa's remedy, not the buggy double-incrementing gawk form, and
+   not the fence-flag form that leaks without rule 14ab's `FNR == 1` reset). File count asserted
+   alongside the state count: both **96**. `w-0f3a17-shortlist-rule.md` is work-item-*shaped* but
+   `work_item: false` and correctly excluded.
+2. **0 non-terminal MadGab agents** among 131 MadGab-cwd rows of 660 host rows (110 succeeded / 20
+   failed / 1 stopped). The 4 host non-terminal rows (`12b1` kawun, `78f1` qai-proviral, `94a9`
+   assemblyp1, and the stale `idle` row `a11d` in `/tmp`) are **other repositories** and were left
+   running, untouched, nothing prompted. Note: the JSON field is `state`, not `status` — a reader
+   keying on `status` sees 131 undefined and every row as non-terminal.
+3. Fence **0 in all six production regions** (region line counts 269 / 260 / 464 / 4242 / 67 / 269)
+   under rule 14v's alphabet, in BOTH sanctioned spellings — phrase via
+   `gawk -f docs/work/paused-recon/fence-alphabet.awk` (88-char regex) and decomposed via
+   `gawk -v decomposed=1 -f …` (69-char regex). The single decomposed hit is `src/lib.rs:3597`
+   `cells.get_mut(&key).expect("key came from cells")` — pass 216's adjudicated non-defect, not
+   re-opened. **Controls in both directions**: six canonical strings planted one per line read
+   phrase 4 / decomp 6, so the alphabet is live and matches; a `wreck a nice beach` planted inside
+   `mod tests` reads **0**, so the region stage fires and the 0 is a measurement rather than a
+   broken instrument.
+4. **125** registered worktrees, `git worktree prune -n -v` empty, exit 0.
+5. `main` untouched: no local `main` ref (`git rev-parse --verify main` exits **128**),
+   `origin/main` **0267ade**, HEAD `1a5be9f` on `post-milestone-acceptance`, in sync with
+   `origin/post-milestone-acceptance` `1a5be9f`.
+
+**Preservation re-derived, at-risk set 88, no recovery branch warranted.** `audit/*` re-fetched
+FIRST by its real source namespace with **no `--prune`** per amended rule 14a (exit 0;
+`audit/post-milestone-acceptance` advanced `eb6eb3a..1a5be9f`). Enumerated by the **bare-prefix**
+form of rule 14j, cardinality read **inline** rather than asserted against a literal (pass 220's
+correction): **205** refs. Baseline `rev-list --all --reflog` **1,252**. Both sanctioned arms run
+**unmixed** per rule 14h — the inclusion arm (`xargs -n100 git rev-list` over the 205 refs, then
+`comm -23` against the baseline) and the exclusion arm (`--all --reflog --not <205 refs>`, stderr
+empty) agree **88/88, `diff`-clean**. Split: ref-held **1** (`514ed91`, held by exactly
+`refs/heads/scratch-3f8c62-landed`), reflog-only **87**, intersection **0**. Controls in both
+directions: `514ed91` present (1) in both arms, `origin/main` `0267ade` absent (0). Residual content
+durable — `refs/heads/recovery/at-risk-2026-09-29` on the remote is `eaf7487` per
+`git ls-remote origin`, and that commit's diff against its parent `fd3780d` is the 5-file
+`docs/work/recovery/3f8c62-landed/` recovery set including `src-lib-rs.blob` and
+`src-lib-rs.patch`. 26 `recovery/*` heads on origin. Content sweep not re-run: closed on content
+since pass 184, and the only population change is these log commits.
+
+**Blocked on the human reopen/confirm decision**, unchanged and not agent-actionable. The three
+outstanding human items: (1) reopen MadGab development or confirm the pause stands and close this
+item `done`; (2) decide the residual `514ed91` commit object, whose content is already durable on
+the remote recovery branch; (3) retire or correct the out-of-repo scheduler template, whose three
+clauses have now fired 236 times against an itinerary that contradicts them — that template, not
+this log, is what keeps generating passes whose correct outcome is "nothing to do".
+
+Next pass: prefer no entry at all. Before choosing a number, run
+`grep -o '^## Pass [0-9]*' docs/work/items/w-paused-reconciliation.md | awk '{print $3}' | sort -n | uniq -d`
+and expect **empty** (rule 14ae).
