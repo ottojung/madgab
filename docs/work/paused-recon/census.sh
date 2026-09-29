@@ -20,10 +20,29 @@
 #      total by one (pass 220).
 #   3. The frontmatter must be VALID. This item's own frontmatter regressed
 #      three times (passes 218, 252, 285-289) with duplicate non-schema
-#      `prior_owner:` / `updated:` keys whose unquoted values contain ": ",
-#      so any conforming YAML reader fails with `mapping values are not allowed
-#      in this context`. A census run over unparseable frontmatter reports a
-#      plausible count for a file no reader can see.
+#      `prior_owner:` / `updated:` keys. A census run over a frontmatter it has
+#      not validated reports a plausible count for a file a reader may not see.
+#
+#      This is a SCHEMA refusal, not a parse refusal, and the distinction is
+#      load-bearing (pass 295 addendum). A duplicate key is a violation of the
+#      eight-key schema in docs/skills/work-items.md -- a conforming reader
+#      takes the last occurrence and continues; it does not fail to parse. The
+#      earlier claim in this header, that any conforming YAML reader fails with
+#      `mapping values are not allowed in this context` because the values
+#      contain ": ", is WRONG and does not reproduce: ": " alone parses fine.
+#      A real parse failure needs an apostrophe (which opens a quoted scalar)
+#      AND a ": " inside that span (which closes it early); neither alone
+#      suffices. The repairs the old claim prompted were still correct -- the
+#      keys were non-schema -- but the recorded REASON was not, and the reason
+#      is what gets copied.
+#
+#      Note also that the whole-file `yq FILE` probe this log used to detect the
+#      defect has no discriminating power at all: it fails on 96 of 96 items,
+#      well-formed ones included, because the body is Markdown, not YAML. A
+#      detector whose healthy reading is "fails" cannot detect anything. If you
+#      need a parse check, scope it to the block: `sed -n '2,/^---$/p'`. This
+#      script does not use yq at all -- it selects on identity and structure,
+#      which is precisely why it never needed that probe.
 #
 # So this script REFUSES to report a number over frontmatter it has not
 # validated, in the same spirit as at-risk.sh and clue-fence.sh.

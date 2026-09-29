@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-71a4
-updated: 2026-09-29T17:12:00Z
+owner: coord-877d
+updated: 2026-09-29T17:20:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -27419,4 +27419,100 @@ versus a figure applied to a narrative.
 NEXT: unchanged, and now with one fewer false premise in it. The next pass
 should, if it touches frontmatter at all, validate with the **frontmatter-block**
 form, and should not read a whole-file `yq` failure as evidence of anything.
+**Blocked on the human reopen/confirm decision.**
+
+### pass 296 (coord-877d) — gate NO; the corrected diagnosis had been recorded in the log but left standing in the instrument
+
+The three scheduler-template clauses (launch or prompt Antonina agents /
+accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples) declined for the
+fifty-ninth time, on `## Status: accepted and paused` plus
+docs/accepted-state-2026-09-27.md. Clause 2 remains a direct textual conflict:
+the itinerary's closing paragraph says post-milestone-acceptance "is no longer
+an automatic accumulation target". Nothing claimed, launched, stopped, prompted
+or integrated; no new MadGab work item; no recovery branch; `main` untouched at
+0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; the skills-doc trap control reads selector 0 / fence-blind
+   1, i.e. still live and still correctly excluded.
+2. clue fence **0 joined in all six** production regions; per-word
+   `0-0-0-1-0-0`, the lib.rs hit being `.expect("key came from cells")` at
+   3597, adjudicated at pass 216. Regions 269/260/464/4242/67/269. The
+   eighty-sixth consecutive pass. `clue-fence.sh` rc=0, all five controls
+   behaved, including the negative one that matters (`planted below mod tests`
+   -> 0).
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   712 host rows, {succeeded 110, failed 20, stopped 1}. The 5 host-`running`
+   agents (123a3, 112a6, 109a4, 123a2, 94a10) are all other repositories and
+   were left running, untouched.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD 3cca947 on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree,
+   both stderr empty, both controls behaved (514ed91 present, 0267ade absent);
+   205 exclusion refs; baseline(--all --reflog) 1331, refs-only 1243. The audit
+   mirror was re-fetched FIRST per rule 14a with no `--prune` (exit 0, verified
+   at 3cca947) and `at-risk.sh` then reported it fresh rather than fetching.
+   No recovery branch warranted, none created.
+
+### ACTED — the false parse-failure premise was corrected in the LOG at pass 295 but left standing in `census.sh`
+
+Pass 295 established, by isolated measurement, that the pass-218 diagnosis
+repeated in this file for ~75 passes is half false: a duplicate key is a
+**schema** violation, not a parse failure, and `: ` alone parses cleanly (a real
+failure needs an apostrophe opening a quoted scalar *and* a `: ` inside that
+span). It also established that the whole-file `yq FILE` probe used to detect
+the defect fails on 96 of 96 items including good ones, so it has no
+discriminating power at all.
+
+It then wrote: "`census.sh` is left as committed. Correcting the diagnosis in
+this file is the whole of the durable change." That was half a fix. The
+diagnosis was corrected in the log; **the same false claim was still the first
+thing a reader of `census.sh` met**, in the file's WHY block, item 3:
+
+    whose unquoted values contain ": ", so any conforming YAML reader fails
+    with `mapping values are not allowed in this context`
+
+That is the sentence that would be copied. An instrument's header comment is
+not documentation, it is a claim every future pass inherits as a premise — and
+this one is *false*, and false in a way that manufactures a reason to distrust
+`yq` output for no reason.
+
+Corrected in place, keeping the part that is true (the refusals stay; the
+schema argument is why) and stating the reason correctly (a schema refusal, not
+a parse refusal), plus the two traps pass 295 measured: the whole-file `yq`
+probe's constant answer, and the fact that this script does not use `yq` at all
+— it selects on identity and structure, which is exactly why it never needed
+that probe.
+
+**Verification, both directions.** `bash -n` rc=0. `census.sh` re-run rc=0 and
+its stdout is **byte-identical** to the pre-edit run (`diff` clean) and stderr
+is still 49 lines: a comment-only edit, confirmed rather than assumed, because
+rule 14k is a standing figure and not a standing procedure. Re-derived the two
+probe forms rather than quoting pass 295: the **frontmatter-block** form
+(`sed -n '2,/^---$/p' | yq .`) on this file reads rc=0 with empty stderr, and the
+whole-file form on a known-good item (`w-1c3e77.md`) reads rc=1 — the constant
+answer, reproducing exactly as recorded. No `src/` file touched; the production
+tree is untouched.
+
+### The general form, and it is not specific to this repository
+
+**Correcting a false premise in the narrative is only half a repair; the same
+claim is usually also standing in the artifact, where it is load-bearing in a
+way the narrative is not.** A log entry is read by a pass that has already
+learned to be suspicious of it. A script header is read by code and by the next
+pass as *the specification of what that script checks*, and a wrong reason
+specified there propagates into every future refusal the script makes: a reader
+who believes the script is guarding against unparseable YAML will believe its
+frontmatter-block `yq` check is a redundant confirmation, and will not notice
+that the script has none. This is the pass-294 lesson — a procedure versus a
+figure — applied to the one artifact in this log that is a *reason* rather than
+either.
+
+NEXT: unchanged, and now with the corrected reason living in both places. A
+future pass touching frontmatter should validate with the **frontmatter-block**
+form and should not read a whole-file `yq` failure as evidence of anything.
 **Blocked on the human reopen/confirm decision.**
