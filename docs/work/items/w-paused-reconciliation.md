@@ -9027,3 +9027,91 @@ with `sed 's|^refs/remotes/audit/||'`, then by removing the single candidate and
 instrument returns to green). When the count is in question, read it off `at-risk.sh`'s own output,
 **not** off `git for-each-ref refs/remotes/audit | wc -l`, which is heads-only and one short of what
 the instrument counts.
+
+## Pass 326 (coord-9f2e, 2026-09-29T22:02Z-22:12Z) — gate NO; six facts re-derived unchanged; ACTED — the printed gate list is wrong in one place (`branch-containment.sh` does **not** exit 0 bare), and the scheduler template's three contradicting clauses are now quoted verbatim for the human who fixes it
+
+**Gate: NO.** Re-ran `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh` and
+`at-risk-delta.sh` bare: 0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded` over 96
+items; 0 non-terminal MadGab agents (4 running host agents are all other repositories and were left
+running); instruments 9 of 9 green. MadGab development stays paused per the itinerary, so no work
+item was created or claimed, no agent launched, prompted or stopped, nothing integrated, `main`
+untouched. The single human item is unchanged and still decidable by one command.
+
+### ACTED (a): the gate list as printed is a false instruction, and it points at a healthy instrument
+
+Pass 325's NEXT says `census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh`,
+`at-risk-delta.sh` and `branch-containment.sh` **"all exit 0"**. Run exactly as printed — bare, no
+arguments — six of the seven do. `branch-containment.sh` does not:
+
+```
+$ docs/work/paused-recon/branch-containment.sh
+branch-containment: usage: ./docs/work/paused-recon/branch-containment.sh <base> <composed> <constituent>...
+$ echo $?
+1
+```
+
+This is a **usage error, not a refusal and not a regression**: the script takes required positional
+arguments, and `selfcheck.sh` registers it on the self-referential case
+`branch-containment.sh::CONTAINED and mergeable::origin/main origin/main origin/main`, which is why
+`selfcheck` correctly reports it OK. The instrument is fine; the *instruction* is what is broken, and
+it is broken in the expensive direction — a next pass that runs the gate as printed sees `exit=1`,
+may attribute it to the pass-325 additions, and may go looking for a defect in a script that has none.
+That is the pass-317 "repair a healthy instrument" defect reproduced in the log's own gate section,
+and it is worth correcting here because every later pass reads this section first.
+
+The documented invocation (line 143 of this file) is correct and still returns its invariant, re-run
+this pass:
+
+```
+composition   base=0267ade composed=8c88a59 (1 commit(s) ahead of base)
+base check    OK: composed is based on the release line
+constituent   audit/review/drop-dead-trace-env-on-main   -> contained (merge is a no-op)
+constituent   review/run-clue-fence-in-ci                -> contained (merge is a no-op)
+tree          8c88a59 tree c605d7f
+VERDICT       CONTAINED and mergeable -- the composed branch carries every constituent
+              effect and sits on the release line. A human needs to merge the composed
+              branch ONLY; the constituents carry nothing unique and must not be merged
+              alongside it.
+```
+
+**Rule 326** — an instrument that requires arguments is registered in `selfcheck` *with* arguments
+and must never appear in a bare-run gate list as "exits 0". Read a non-zero gate line by checking
+whether the script takes positional arguments before concluding anything about repository state.
+
+**Corrected gate list for the next pass**, all run bare and all actually exiting 0:
+`census.sh`, `clue-fence.sh`, `agents.sh`, `item-state.sh`, `selfcheck.sh`, `at-risk-delta.sh`.
+`branch-containment.sh` is the seventh but is **argument-taking** — run it only as line 143 prints it,
+and read `selfcheck.sh` (which registers it correctly) for its liveness.
+
+### ACTED (b): the scheduler template's three contradicting clauses, quoted
+
+The itinerary's own closing note has counted the template's firings (75, then **77**) without ever
+saying *which* clauses are wrong, so a human fixing it has to go and diff the template against the
+itinerary themselves. This pass's invocation text supplies them verbatim; they are the three clauses
+this pass had to decline, and each is quoted with the itinerary text it contradicts:
+
+| # | template clause (verbatim) | itinerary text it contradicts |
+|---|---|---|
+| 1 | "recover or assign work, split independent fronts, launch or prompt Antonina agents" | "Scheduled orchestrators must not create new MadGab work items, claim existing historical items, **launch MadGab agents**, or resume superseded fronts unless a human explicitly asks to reopen MadGab development." |
+| 2 | "Never merge or push scheduled work directly to main; **accumulate work on post-milestone-acceptance exactly as the itinerary requires**" | "The historical `post-milestone-acceptance` branch is release history after this acceptance and is **no longer an automatic accumulation target**." The clause is also self-cancelling: it defers to the itinerary, and the itinerary names the very branch the clause treats as the standing target. |
+| 3 | "**Prioritize the canonical approximate-search examples** without phrase-specific hard-coding" | This names the paused front itself — the limitation the accepted state documents as acceptable for the current release. It is the item most likely to be mistaken for a live backlog, which is why the clause is worth deleting rather than softening. |
+
+Fire count: **77 → 78**. Clause 2 is the one that misleads longest, because a pass that believes it
+has a standing accumulation target will keep advancing `post-milestone-acceptance` with log commits
+and raise `EXPECT_REFS` reasoning that assumes a queue it does not have.
+
+### Nothing else moved
+
+No new work item, no claim, no agent launched/stopped/prompted, no integration, no recovery branch.
+The at-risk family was skipped as instructed (closed on content). `EXPECT_REFS` is **209** and this
+pass pushed only a log commit to the existing accumulation branch, **so it is not raised** — per the
+pass-322/pass-325 rule, the mirror count moves only when a pass creates a *new* ref.
+
+NEXT: unchanged and human — merge `review/drop-dead-trace-and-fence` (`8c88a59`, verified
+`CONTAINED and mergeable` above) and delete the three superseded branches `review/drop-dead-trace-env`
+(`a29f3d7`), `review/run-clue-fence-in-ci` (`6edff83`) and
+`review/drop-dead-trace-env-on-main` (present only as `audit/…`). **(d)** retiring this recurring
+pass and **(e)** fixing the out-of-repo scheduler template are still human; (e) now has the three
+clauses quoted above, so it is a few minutes of editing rather than a diff. Do **not** re-prepare or
+re-validate the review branches, and do **not** re-derive the standing facts by hand: use the
+corrected gate list in this entry.
