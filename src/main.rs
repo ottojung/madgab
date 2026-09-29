@@ -272,7 +272,11 @@ fn main() -> ExitCode {
                 pool_size as f64 / clues.len() as f64
             }
         );
-        if show_pool_rank {
+        // The second search is the whole cost of this flag, so it is reported
+        // for the query form as well as the annotate form. A surface whose
+        // price is only knowable by timing it from outside cannot be judged
+        // against the alternative of not asking the question.
+        if needs_pool {
             eprintln!("(pool-rank run: second search {pool_ms}ms)");
         }
         eprintln!();

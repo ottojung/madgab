@@ -359,6 +359,34 @@ fn case_two_is_reported_as_present_or_absent_never_as_a_guess() {
     assert!(verdict_line(&out).contains("ABSENT from the pool"));
 }
 
+/// The flag's price is the second search, and the binary reports it. A
+/// surface whose cost is only knowable by timing it from outside cannot be
+/// weighed against the alternative of not asking the question, and "opt-in"
+/// is only a real claim if the cost of opting in is visible.
+#[test]
+fn the_query_reports_the_second_search_it_pays_for() {
+    let out = run(CASE1_TARGET, Some(CASE1_CLUE));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let line = stderr
+        .lines()
+        .find(|l| l.contains("second search"))
+        .unwrap_or_else(|| panic!("no second-search cost reported: {stderr}"));
+    let ms: u64 = line
+        .split_whitespace()
+        .last()
+        .and_then(|n| n.trim_end_matches(')').trim_end_matches("ms").parse().ok())
+        .unwrap_or_else(|| panic!("no millisecond figure in {line:?}"));
+    assert!(ms < 60_000, "implausible second-search cost {ms}ms in {line:?}");
+
+    // And the default path says nothing about it, which is the observable
+    // form of "off by default".
+    let plain = String::from_utf8_lossy(&run(CASE1_TARGET, None).stderr).into_owned();
+    assert!(
+        !plain.contains("second search"),
+        "the default path must not report a second search it does not run: {plain}"
+    );
+}
+
 /// Whitespace and case in a typed clue are a shell artefact, not a fact about
 /// the search: `Wreck  A Nice Beach` asks the same question as the canonical
 /// spelling. A surface that reported absence here would be measuring the
