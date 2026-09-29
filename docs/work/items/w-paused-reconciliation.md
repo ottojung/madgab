@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e3a
-updated: 2026-09-29T11:09:00Z
+owner: coord-5f7b
+updated: 2026-09-29T11:13:10Z
+prior_owner: coord-4e3a (pass 249; gate NO; declined the three scheduler-template clauses for the fifty-seventh time; ACTED — found that fence.awk's 34-pass-old "under-reads by 33" was itself a command-substitution reading, corrected the magnitude to 1, and recorded that passes 247/248 had published region counts off by one in all six files. Pass 250 re-derived that correction rather than trusting it and it reproduces exactly, cause included — see the last entry)
 prior_owner: coord-7d19 (pass 248; gate NO; declined the three scheduler-template clauses for the fifty-sixth time; found the pass-247 byte-diff invariant ALREADY FALSE on arrival and repaired it by the push-then-fetch-then-diff order. Pass 249 found a 34-pass-old "under-reads by 33" in fence.awk that was itself a command-substitution reading — see the last entry)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
@@ -22157,3 +22158,87 @@ Prefer **no entry at all**. If one is written: **push before you re-fetch**, ass
 **byte-diff** against a fresh `ls-remote --heads` with `eaf7487` on the recovery branch, and publish
 region counts **only** in the `| wc -l` form (268/259/463/4241/66/268 means command substitution).
 Do not open a MadGab research front or create a work item until a human reopens development.
+
+## Pass 250 (coord-5f7b, 2026-09-29T11:13Z) — gate NO; pass 249's off-by-one correction independently reproduced, cause included; no new rule, no instrument change
+
+The three scheduler-template clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) were declined for the fifty-eighth time on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary
+says that branch "is no longer an automatic accumulation target". Nothing claimed, launched,
+prompted, stopped or integrated; no new work item; no recovery branch; `main` untouched at `0267ade`.
+
+**This pass verified rather than restated.** Pass 249 had just published a correction — that
+`fence.awk`'s long-standing "under-reads by 33" warning was itself a command-substitution reading,
+that the true difference is exactly 1 per file, and that this had put passes 247/248's published
+region counts one line below the instrument. A one-pass-old correction to a *committed instrument* is
+exactly the artifact class rule 14m exists for, so it was re-derived rather than trusted, **including
+the stated cause**. Both reproduce:
+
+| file | `\| wc -l` | `$( )` cmdsub | diff | last region line |
+|---|---|---|---|---|
+| adjacency.rs | 269 | 268 | 1 | `#[cfg(test)]` |
+| lexical.rs | 260 | 259 | 1 | `#[cfg(test)]` |
+| approx.rs | 464 | 463 | 1 | `#[cfg(test)]` |
+| lib.rs | 4242 | 4241 | 1 | `#[cfg(test)]` |
+| wasm.rs | 67 | 66 | 1 | `}` |
+| main.rs | 269 | 268 | 1 | `}` |
+
+Pass 249's claim that the last line of every region is non-blank is confirmed by the last column
+independently of the arithmetic — which is the half that makes the off-by-one *uniform* (rule 14ao)
+rather than a coincidence, so it is worth stating that the cause reproduces and not only the number.
+**No instrument edit was made and no new rule is published**: the general form is already 14ao plus
+14m, and pass 249 declined to restate them for exactly this reason. A pass that invents a rule
+number to mark "I checked the last pass" is the log's own failure mode.
+
+**No invariant moved.** All five facts re-derived from the procedure, all unchanged:
+
+- **Census 96 = 1 blocked / 83 done / 12 superseded; 0 open, 0 working**, via the published
+  fence-scoped `gawk` form over `docs/work/items/*.md docs/*.md`, exit 0.
+- **0 non-terminal MadGab agents** among 131 MadGab cwd rows of 681 host rows. The single non-terminal
+  MadGab row is `3a8f01`, `stopped` on a superseded front, left stopped. The 3 host-`running` agents
+  (109a3 skrynia-109-tranche2, 98f1 antonina-98-intenttimeout, 94a9 assemblyp1-94-cruxmap) and the 4
+  host-`idle` rows (78b2, 92f3, 92e3, 98f3) are other repositories; all left running/idle, untouched.
+  The stale `idle` row `a11d` sits in `/tmp/cwd-7ze5eU` and is not a MadGab cwd.
+- **Phrase fence: phrase 0 and decomp 0 in all six production regions**, measured through `fence.awk`
+  against both alphabets read from `fence-alphabet.awk` (never from recall, rule 14v). `src/lib.rs`
+  reads **decomp=1**, re-identified by line as the known benign `src/lib.rs:3597`
+  `.expect("key came from cells")`, adjudicated benign at pass 216, not re-opened. **All five code
+  control plants fired** (`wreck a nice beach` 1/1, `recognize speech` 1/1, `it's just a stupid game`
+  1/1, the decomposed array phrase 0/decomp 1, `Hits Justice Dupe Hid Came` 1/1), and the comment-form
+  plant reads phrase 0/decomp 0, so the strip stage is exercised in both directions and the zeros are
+  a measurement rather than a fail-open.
+- **No local `main`** (`rev-parse --verify main` fatal, exit 128), `origin/main` `0267ade`, HEAD on
+  `post-milestone-acceptance`.
+- **125 worktrees registered, `prune -n -v` empty, exit 0.**
+
+**Mirror verified in pass 248's prescribed order** (push, then fetch, then diff): `git push origin
+post-milestone-acceptance` exit 0 ("Everything up-to-date"), then `git fetch --no-tags origin
+'+refs/heads/*:refs/remotes/audit/*'` exit 0. **204 audit heads, `diff` exit 0 against a fresh
+`ls-remote --heads`** — byte-identical, so the pass-248/249 repair held for a second consecutive pass.
+The one apparent extra local ref was the `audit-tag` mirror of
+`refs/tags/approximate-search-milestone-2026-09-25` (`c0ecd7c`), which is a tag and not a head and
+therefore correctly has no `refs/heads/` counterpart; it is byte-identical to `ls-remote` for that tag.
+`recovery/at-risk-2026-09-29` = `eaf7487` locally and byte-identically on the remote; 26 `recovery/*`
+heads; `cat-file -t 514ed91` = `commit`, held by exactly `refs/heads/scratch-3f8c62-landed`. The
+residual at-risk object is live and content-durable.
+
+### Escalation, unchanged and now seven passes overdue
+
+This log is **22,2xx lines / ~1.8 MB**; sixteen consecutive entries now close with "prefer **no entry at
+all**", and this is the sixteenth to write one. The only justification available is that pass 249's
+instrument correction was re-derived and confirmed, which is a genuine verification but **not a new
+finding** and **not a change to any invariant** — this entry is therefore the weakest in the recent
+series and the next pass has a correspondingly stronger claim to write nothing. The five facts have
+not moved in forty-eight passes and both outstanding questions are a human's: whether to reopen MadGab
+development, and whether to retire this recurring pass. Neither can be settled by another pass.
+
+### Next pass
+
+Prefer **no entry at all**, and the standing argument for it is now concrete: the last two passes found
+nothing but a verification of each other. If an entry is written anyway: **push before you re-fetch**,
+assert the mirror as a **byte-diff** against a fresh `ls-remote --heads` with `eaf7487` on the recovery
+branch, publish region counts **only** in the `| wc -l` form (269/260/464/4242/67/269; a pass reading
+268/259/463/4241/66/268 is reading through command substitution), and **re-derive any correction
+published by the immediately preceding pass rather than trusting it**. Do not open a MadGab research
+front or create a work item until a human reopens development.
