@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3a19 (pass 171; gate NO — same contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents, 0 fence hits, 7/86/0 at-risk commits over 199 audit refs, 125/125 worktrees with `prune -n` clean for the second consecutive pass); no durable repair was available because at-risk content is 0 at both commit and file level; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T03:19:00Z
+owner: coord-7e42 (pass 172; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 running MadGab agents, 0 fence hits, 7/86/0 at-risk commits over 199 audit refs and a 1,179 baseline, 125/125 worktrees with `prune -n` clean for the third consecutive pass); 0 at-risk non-build content at both commit and file level, so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T03:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15362,6 +15362,61 @@ has no shell-style interpolation, so `case "/$p"/ in …` inside an awk program 
 not the variable. The shell form rule 9 actually publishes is correct and was used for the figures
 above; the error was in a form the log does not publish, which is the cheap kind of mistake — it
 cannot produce a wrong number, only a refusal to run.
+
+**Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
+while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
+Navigate by the **last** `## Pass ` heading. Only a human can change the gate: fix or retire the
+out-of-repo scheduler template (which keeps arriving carrying clauses that contradict the
+itinerary — treat its pass count as unbound, not as a number to increment here), or confirm the
+pause (close this item `done`), or reopen development (fresh branch from `main`; a compact
+pronunciation DAG with k-best / A*-style whole-path search, not another widening of the
+Cartesian-prefix traversal).
+
+## Pass 172 (coord-7e42)
+
+**Gate answer: NO.** Derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` plus a fresh wildcard `git fetch` of `origin` (main still
+`0267ade`, the accepted merge). No work created, claimed, launched, resumed or integrated; nothing
+pushed to `main`; no new recovery branch, because the commit-level and file-level checks both came
+back at zero. The invocation's three unexecutable clauses are declined for the reasons already on
+record: accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" (the
+itinerary's last line says that branch "is no longer an automatic accumulation target", rule 19);
+launch or prompt Antonina agents and split independent fronts (rules 1 and 2 — the gate forbids
+both while paused); and "prioritize the canonical approximate-search examples" (case 2 is an
+**accepted known limitation** whose fix direction is precisely what the pause defers, rule 25).
+This pass is the only thing that commits to `post-milestone-acceptance`, the carve-out rule 19
+established.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form over `docs/work/items/*.md docs/*.md`. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 running in a MadGab cwd.** Filtered the full `antonina agent list` (**612** agents) on the cwd column: **131** MadGab agents — 110 `succeeded`, 20 `failed`, 1 `stopped` (`3a8f01`, left stopped as pass 152 left it) — **every one terminal**. The 4 host-`running` agents (`79c1` `qai-proviral-79-review`, `9421` `assemblyp1-94-integrate`, `118b1` `antonina-118-fix`, `43a1` `antonina-43-reconcile`) are other repositories and were **left running**, untouched. No superseded item's agent has restarted. |
+| `main` | **untouched.** `origin/main` = `0267ade`; `git rev-parse main` still **fails** ("Needed a single revision"), so no local `main` ref exists and a push to it would still require creating one. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0. **Thirty-ninth consecutive pass at 0.** Re-confirmed directly that `src/main.rs`'s 2 hits remain lines 9 and 11 of the `//!` CLI usage doc comment and are *targets* quoted on a command line (`madgab "It's just a stupid game"`), never generated *clues* — so `main.rs` needs no `#[cfg(test)]` boundary to reach the 0. |
+| At-risk commits | **7 / 86 / 0**, baseline `rev-list --all --reflog` = **1,179** (1,178 at pass 171; the delta is pass 171's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first (`'+refs/heads/*:refs/remotes/audit/*'`, `'+refs/tags/*:refs/remotes/audit-tag/*'`) → **199** `audit/*` refs (rule 38: the ref count is published beside the count it scopes). `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **86**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and the union is **93**; per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of the 86 are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. Delta over pass 171's 7/86/0 is **0**. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **third** consecutive pass, so the header row's "a different reading would be a signal" is now three-deep uneventful. |
+
+**At-risk non-build content: 0, re-derived file-level as well.** Over the 125 live worktrees,
+`git status --porcelain` (no `--ignored`) gives **37** dirty rows = **3 build** (`prof/`,
+`target-front-3a8f01/`, `target-front-3a8f02/`, excluded by rule 9's amended
+`(^|/)target|target-*|prof(/|$)` filter) + **34 non-build** = **33 hashable files** + **1 directory
+row** (`madgab-scratch/examples/`). All 33 hash via `git hash-object` to blobs present in
+`rev-list --objects --all --reflog` (**7,420** field-1 ids, extracted with `awk '{print $1}' |
+sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and no recovery branch was
+created. The 33 files hash to **32** distinct blobs, and the single duplicate pair is unchanged
+(`madgab-base-5b1e93/examples/zzz_final_probe.rs` and
+`madgab-probe-5b1e93/examples/probe_final.rs`) — a pass that compared the two counts without
+de-duplicating would again report a spurious mismatch.
+
+**One host note, because the sensitivity of the file sweep is the property being relied on.** The
+sweep's `comm` was first run with `ids.txt` left in a previous temp directory, which printed
+`comm: ids.txt: No such file or directory` and returned **0 unreachable** anyway — a *check that
+cannot fail* returning a clean number, which is rules 9/14/17/22 for the sixth time. Re-run with
+both inputs present and both `sort -u`ed (rule 22), the answer is **0 in each direction**
+(`comm -23` = 0 not-reachable, `comm -13` = 0 not-in-file-set), so the 0 is real and the harness is
+demonstrably sensitive rather than silent.
 
 **Next action for the next pass:** re-derive the five facts cheaply; nothing else is available
 while the gate is NO, and this pass confirms the state is stable rather than merely unexamined.
