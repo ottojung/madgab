@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3e7b
-updated: 2026-09-29T18:14:00Z
+owner: coord-4e1f
+updated: 2026-09-29T18:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -28700,4 +28700,101 @@ about *whether*. Two gaps remain, both still human decisions rather than pass
 actions: that CI change (first raised pass 267, now measured at pass 306), and
 whether to retire this recurring pass, which this item's size (28,566 lines)
 keeps making more expensive — none of the six facts has moved in 96 passes.
+**Blocked on the human reopen/confirm decision.**
+
+## Pass 307 (coord-4e1f, 2026-09-29T18:19Z-18:29Z) — gate NO; six facts re-derived unchanged; ACTED — the one open CI question is closed on the *whether* side too, and pass 306's "46 of their tests green" reproduces with the 47th identified as the deliberately-`#[ignore]`d case-2 red
+
+Gate NO: the three scheduler-template clauses are declined for the fifty-eighth
+time on `## Status: accepted and paused` plus the accepted-state document's
+operational status. Nothing claimed, launched, prompted, stopped or integrated;
+no new work item; main untouched at 0267ade. Clause 2 remains a direct textual
+conflict — the itinerary says post-milestone-acceptance "is no longer an
+automatic accumulation target" — and clause 3's no-hard-coding half holds as a
+standing invariant (fence 0), not as work.
+
+All six standing facts re-derived from the instruments, not from the log:
+
+1. **Census 96 = 1 blocked / 83 done / 12 superseded, 0 open / 0 working**, by
+   IDENTITY (`work_item: true`), fence-scoped, gawk exit 0.
+2. **Agents: 0 non-terminal MadGab agents** among 131 MadGab cwd rows of 724
+   host rows (110 succeeded / 20 failed / 1 stopped). The 3 host-`running`
+   agents (`94c9` assemblyp1, `92a3` volodyslav, `109a4` skrynia) are other
+   repositories and were **left running untouched**; the 5 `idle` rows are not
+   MadGab cwds. Nothing launched or stopped.
+3. **Clue fence 0 in all six production regions** (97th consecutive), with all
+   five controls behaving and the single per-word hit the pass-216 adjudicated
+   benign `.expect("key came from cells")` at lib.rs:3597.
+4. **125 worktrees registered, `prune -n -v` empty, exit 0.**
+5. **main untouched**: no local `main` ref (`rev-parse --verify main` exit
+   128), `origin/main` 0267ade, HEAD `ef32b2f` on post-milestone-acceptance,
+   0/0 vs origin.
+6. **At-risk 89 = ref-held 1 + reflog-only 88, disjoint** (the +1 vs the last
+   pass is this item's own line growth, not new work). Both sanctioned arms
+   agree, controls behave both directions, and — the check worth stating —
+   **all 89 are already covered by the 26 `recovery/*` branches on origin**
+   (uncovered count 0 in both classes), so no recovery branch is warranted and
+   none was created.
+
+`selfcheck.sh` reports all 6 instruments executable, parsing, exiting 0 and
+printing their invariant.
+
+### This pass's contribution: the CI question is now closed on "whether", not just "what"
+
+Pass 306 measured the standing gap (first raised pass 267) as *9 of 10
+integration targets unrun by CI, all 46 of their tests green*, and left the
+human decision as "whether to change". This pass **re-ran all nine targets
+end-to-end and reproduced 306's figure exactly**, which independently confirms
+a measurement rather than inheriting it — and it identified the 47th test, which
+306 could not have reported as "46 green" without this:
+
+| target | tests | result |
+| --- | --- | --- |
+| `approx_determinism` | 4 | 4 passed (30.3s) |
+| `cli_milestone_predicate` | 4 | 3 passed, **1 `#[ignore]`d** (34.4s) |
+| `display_ordering_attribution` | 9 | 9 passed (13.4s) |
+| `emit_coverage` | 7 | 7 passed (6.4s) |
+| `exact_determinism` | 1 | 1 passed (5.0s) |
+| `no_phrase_hard_coding` | 9 | 9 passed (0.02s) |
+| `objective_is_a_search_input` | 1 | 1 passed (25.7s) |
+| `pool_rank_reporting` | 5 | 5 passed (15.0s) |
+| `worst_word_axis` | 7 | 7 passed (4.3s) |
+
+**46 passed, 0 failed, 1 ignored, across all nine targets** — so 306's figure
+reproduces, and the 47th is `cli_milestone_predicate`'s case-2 test, which is
+`#[ignore = "known base red: approximate_finds_classic_madgab_resegmentation"]`
+by deliberate design. Its own doc comment states the intent: the case-2 gap is
+`#[ignore]`d *rather than green-on-purpose* because `OBSTRUCTION-MAP.md` §4 says
+do not re-pin it and do not let a change turn it green by accident.
+
+That makes the human decision fully specified and **one-directional**: adding
+these targets to CI is safe today and would not turn the suite red, and the
+known limitation would stay visible as the `#[ignore]`d test rather than being
+asserted as success. Nothing here argues the change should be made — the pause
+forbids it, and a release-pipeline change is the human's. The pass's job was
+only to remove the open-ended part of the question, and it is now removed:
+**adding `cargo test --release --tests` to `.github/workflows/test.yml` would
+run 46 green tests and one ignored, today, on the accepted head.**
+
+**What this pass did NOT do**, so a later pass does not repeat it: it did not
+edit `.github/workflows/test.yml`, did not re-run `corpus_integration` (it is
+the one target CI already runs), and did not re-run the nine targets twice for
+confirmation — the run above is a single pass whose cost is ~2m15s of test
+time plus a warm build, so a future pass re-deriving it should budget ~3
+minutes and not use a tight shell timeout.
+
+NEXT: the pause holds and the six facts stand; the ninety-seventh consecutive
+fence measurement is unchanged. This pass's contribution is a confirmation plus
+a completion, not a repair: **the "CI does not run the fence" gap is now fully
+characterised on both axes — 9 of 10 integration targets unrun, 46 passing and
+1 deliberately ignored among them, and the ignored one is the named case-2
+limitation, so the change is safe-today and one-directional.** Two gaps remain,
+both human decisions rather than pass actions: (a) whether to add the test
+targets to `.github/workflows/test.yml` (first raised pass 267, measured pass
+306, now closed on "whether" at pass 307), and (b) whether to retire this
+recurring pass, which this item's size (28,7xx lines / 2.3 MB) keeps making
+more expensive — none of the six facts has moved in 97 passes, and every pass
+since 267 has re-derived the same numbers at rising cost. **(b) is now the
+larger of the two: the standing recommendation is that a human should retire
+this recurring pass rather than let it re-measure an unchanged pause
+indefinitely.**
 **Blocked on the human reopen/confirm decision.**
