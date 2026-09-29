@@ -29,12 +29,16 @@
 #      takes the last occurrence and continues; it does not fail to parse. The
 #      earlier claim in this header, that any conforming YAML reader fails with
 #      `mapping values are not allowed in this context` because the values
-#      contain ": ", is WRONG and does not reproduce: ": " alone parses fine.
-#      A real parse failure needs an apostrophe (which opens a quoted scalar)
-#      AND a ": " inside that span (which closes it early); neither alone
-#      suffices. The repairs the old claim prompted were still correct -- the
-#      keys were non-schema -- but the recorded REASON was not, and the reason
-#      is what gets copied.
+#      contain ": ", is wrong in its DETAIL: it names the wrong mechanism. What
+#      actually fails is a ":" followed by a space inside an unquoted plain
+#      scalar -- that alone is a parse failure, with no apostrophe anywhere in
+#      the value; and an apostrophe alone is not one. Both halves re-measured at
+#      pass 297 (yq v4.52.4), including against the real regressed file.
+#      The repairs the old claim prompted were still correct -- the keys were
+#      non-schema -- but the recorded REASON was not, and the reason is what
+#      gets copied. Pass 295 replaced it with a premise that was itself half
+#      false; pass 297 corrected that in turn. Two corrections is the cost of a
+#      cause asserted from memory instead of from the failing line.
 #
 #      Note also that the whole-file `yq FILE` probe this log used to detect the
 #      defect has no discriminating power at all: it fails on 96 of 96 items,

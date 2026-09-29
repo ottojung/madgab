@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-877d
-updated: 2026-09-29T17:20:00Z
+owner: coord-3b97
+updated: 2026-09-29T17:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -27361,24 +27361,49 @@ been quoted as the reason for ~75 passes of frontmatter repair.
 | construct | whole-file `yq` | frontmatter-block-only `yq` |
 |---|---|---|
 | `a: 1` / `a: 2` (duplicate key) | parses, last wins | parses, last wins |
-| unquoted value containing `: ` | parses | parses |
+| unquoted value containing `: ` | FAILS | FAILS |
 | unquoted value containing an apostrophe | parses | parses |
 | apostrophe **and** `: ` after it | FAILS | FAILS |
+
+> **CORRECTED AT PASS 297 — the middle row above was FALSE when written.** Pass
+> 295 recorded `: ` alone as parsing cleanly and an apostrophe as a necessary
+> half of a failure. Re-measured in isolation on this host (yq v4.52.4,
+> block form): `key: with colon: inside` **FAILS**, `key: it's an apostrophe
+> alone` **parses**, `key: semi; colon: yes` fails, `key: trailing colon:`
+> fails, and a duplicate key alone still parses (last wins). The sufficient and
+> sufficient-alone condition is a **`:` followed by a space inside an unquoted
+> plain scalar**. The apostrophe is not involved at all. Pass 295's row is
+> replaced in place rather than left standing, because pass 296's ACTED
+> committed its wrong mechanism into `census.sh`'s header, which is where the
+> next pass would have read it.
 
 So a duplicate key is a **schema** violation — `work-items.md` names eight keys
 and `prior_owner` is not one of them, which is why the repairs were correct to
 make — but it is **not** a parse failure. A conforming reader takes the last
-occurrence and continues. The log's stated cause, "their unquoted values
-contain `: `, so any conforming YAML reader fails with `mapping values are not
-allowed in this context`", does not reproduce: `: ` alone parses fine. The real
-cause needs **two** things together — an apostrophe, which opens a quoted
-scalar, and a `: ` *inside* that span, which then terminates the quoted token
-early. Neither alone is sufficient. This was confirmed against the actual
-regressed file, not reasoned about: at `c9beefa` the frontmatter block alone
-reads `yaml: line 6: mapping values are not allowed in this context`, and the
-line-6 value is `prior_owner: coord-4a2f (pass 288; ... ACTED - pass 287's TWO
-published fence controls ...)`, whose apostrophe is in `287's` and whose
-`: ` follows it.
+occurrence and continues. The log's original cause, "their unquoted values
+contain `: `, so any conforming reader fails with `mapping values are not
+allowed in this context`", was **right about the mechanism and wrong about the
+fatality** — the mechanism is exactly the load-bearing one, and it does not need
+an apostrophe to fire. This was confirmed against the actual regressed file, not
+reasoned about: at `c9beefa` the frontmatter block alone reads `yaml: line 6:
+mapping values are not allowed in this context`.
+
+**Pass 295's off-by-one is what produced its error, and it is worth keeping.**
+It identified "the line-6 value" as `prior_owner: coord-4a2f (pass 288; ...
+ACTED - pass 287's TWO published fence controls ...)` and read the apostrophe in
+`287's` as the cause. `line 6` is a coordinate **in the piped block**, which
+starts at file line 2, so block line 6 is **file line 7** — the `coord-9a1b`
+value, not the `coord-4a2f` one. Measured directly, as whole values:
+
+| value from `c9beefa` | block-form `yq` |
+|---|---|
+| the `coord-4a2f` line, apostrophe in `287's`, backticks, no `: ` | **parses, rc=0** |
+| the `coord-9a1b` line, containing `a re-opened frontmatter block: 131 = 114` | **FAILS, rc=1** |
+| the same `coord-9a1b` line with that `: ` reworded away | **parses, rc=0** |
+
+So the blamed line is innocent and the line the error named is guilty, and the
+guilty span is `block: 131`. The error message carried the right line number and
+it was read in the wrong coordinate system.
 
 **The second finding is the one with teeth: the probe this log uses to detect
 the defect does not work, in the direction that hides the defect.** The check is
@@ -27515,4 +27540,129 @@ either.
 NEXT: unchanged, and now with the corrected reason living in both places. A
 future pass touching frontmatter should validate with the **frontmatter-block**
 form and should not read a whole-file `yq` failure as evidence of anything.
+**Blocked on the human reopen/confirm decision.**
+
+### pass 297 (coord-3b97) — gate NO; pass 295's CORRECTION was itself half false, and pass 296 committed it into the instrument
+
+Handoff: owner was coord-877d (pass 296). The three scheduler-template clauses
+(launch or prompt Antonina agents / accumulate on post-milestone-acceptance
+"exactly as the itinerary requires" / prioritize the canonical approximate-search
+examples) declined for the sixtieth time, on `## Status: accepted and paused`
+plus docs/accepted-state-2026-09-27.md. Clause 2 remains a direct textual
+conflict: the itinerary's closing paragraph says post-milestone-acceptance "is
+no longer an automatic accumulation target". Nothing claimed, launched, stopped,
+prompted or integrated; no new MadGab work item; no recovery branch; `main`
+untouched at 0267ade.
+
+All five standing facts re-derived from their instruments, all unchanged:
+
+1. census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working.
+   `census.sh` rc=0; the skills-doc control reads selector 0 / fence-blind 1.
+2. clue fence **0 joined in all six** production regions; per-word `0-0-0-1-0-0`
+   (`.expect("key came from cells")` at lib.rs:3597, adjudicated at pass 216).
+   Regions 269/260/464/4242/67/269. The eighty-seventh consecutive pass.
+   `clue-fence.sh` rc=0, all five controls behaved.
+3. **0** non-terminal MadGab agents. `agents.sh` rc=0: 131 MadGab cwd rows of
+   712 host rows, {succeeded 110, failed 20, stopped 1}. The 3 host-`running`
+   agents (112a6, 109a4, 123a2) are other repositories and were left running,
+   untouched — down from 5 at pass 296, which is churn in those repositories and
+   not a MadGab fact.
+4. 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref
+   (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD 44b44ba on
+   post-milestone-acceptance, 0/0 against origin.
+5. at-risk **89** = ref-held 1 + reflog-only 88, disjoint; both arms agree, both
+   stderr empty, both controls behaved (514ed91 present, 0267ade absent); 205
+   exclusion refs; baseline(--all --reflog) 1332, refs-only 1244. The audit
+   mirror was re-fetched FIRST per rule 14a with no `--prune`, verified fresh at
+   44b44ba, so `at-risk.sh` reported without fetching. No recovery branch
+   warranted, none created.
+
+### ACTED — the pass-295 correction was measured from the wrong line, and its corrected mechanism is also false
+
+Pass 295 replaced this log's pass-218 cause with a new one: not a parse failure
+but a **schema** violation, with a parse failure requiring an apostrophe *and* a
+`: ` inside that span. Pass 296 then did the right thing with it and wrote the
+mechanism into `census.sh`'s header — which is where this pass read it from, and
+where the next pass would have read it from.
+
+**It is still wrong, in the same shape, one correction later.** Measured in
+isolation on this host (yq v4.52.4, frontmatter-block form):
+
+| construct | result |
+|---|---|
+| `key: with colon: inside` | **FAILS** (`mapping values are not allowed in this context`) |
+| `key: trailing colon:` | **FAILS** |
+| `key: (note: yes)` | **FAILS** (parentheses are not a YAML flow context) |
+| `key: it's an apostrophe alone` | parses, rc=0 |
+| `key: it's an apostrophe: and a colon` | FAILS |
+| `a: 1` / `a: 2`, duplicate key, no colon, no apostrophe | parses, last wins, rc=0 |
+
+The apostrophe contributes nothing. The sufficient and sufficient-alone
+condition is a **`:` followed by a space inside an unquoted plain scalar** — which
+is exactly the mechanism this log recorded at pass 218 and then disowned. So the
+original cause was **right about the mechanism and wrong about the fatality**;
+pass 295 inverted the error (right about fatality, wrong about mechanism); the
+apostrophe story is new and false, and it has now been repeated in two durable
+places.
+
+**How the false mechanism was produced, which is the part worth keeping.** Pass
+295 read "the frontmatter block alone reads `yaml: line 6: ...`" and then quoted
+"the line-6 value" as the `coord-4a2f` line with the apostrophe in `287's`. But
+`line 6` is a coordinate **inside the piped block**, and the block starts at
+file line 2 — so block line 6 is **file line 7**, the `coord-9a1b` value.
+Measured as whole values against `c9beefa`:
+
+| value | block-form `yq` |
+|---|---|
+| `coord-4a2f` line (apostrophe in `287's`, backticks, no `: `) | **rc=0, parses** |
+| `coord-9a1b` line (contains `a re-opened frontmatter block: 131 = 114`) | **rc=1, FAILS** |
+| same `coord-9a1b` line with that `: ` reworded away | **rc=0, parses** |
+
+The line the error named is guilty; the line that was blamed is innocent. The
+parser's line number was correct and was read in the wrong coordinate system, and
+the intuition that followed it — a long value with an apostrophe and backticks
+*looks* like the culprit — confirmed it. The duplicate-key half of pass 295 is
+unaffected and still true: a duplicate key is a schema violation, not a parse
+failure, and that is why the repairs were right.
+
+**Repaired in both places it had propagated to**, in the same spirit as pass
+296's: the pass-295 addendum's table row is replaced in place with the measured
+result and carries a dated correction note, and `census.sh`'s header states the
+mechanism correctly. The header edit is comment-only and was verified rather
+than assumed (rule 14k): `bash -n` rc=0, `census.sh` re-run rc=0, stdout
+**byte-identical** to the pre-edit run, stderr still 49 lines, `git diff --stat
+-- src/` empty. All plants lived under a throwaway `/tmp` tree. This item's own
+frontmatter block re-validated rc=0 with the block form after editing.
+
+**The general form, third instance of the same shape in this one defect.** The
+pass-218 cause, the pass-295 correction and this pass's correction are all
+statements about *why* an observed parse error happened, and each was produced
+by reading rather than by measuring — twice from memory of a synthetic probe
+that had never been run, once by mis-mapping a line number. Each correction was
+in turn written into a durable artifact, which is how a wrong *mechanism*
+outlives the file it was measured on: the repairs to the frontmatter were right
+all three times, and the reasons were wrong twice, and only the reasons were
+carried forward. **A cause asserted from memory is a standing figure, not a
+measurement, and this one had 130 passes of confident quotation behind it.** The
+half of pass 295's finding that survives — a duplicate key is a schema
+violation, not a parse failure, and the whole-file `yq` probe fails on 96 of 96
+items and cannot discriminate (both re-confirmed here: block rc=0 / whole-file
+rc=1 on `w-1c3e77.md`, `w-a1f3d2.md`, `w-2f7a10.md`) — is unaffected by any of
+this.
+
+**Operational carry-forward for whoever writes the next instrument.** The block
+form `sed -n '2,/^---$/p' FILE | yq .` is the correct and only discriminating
+probe, and it is still hand-typed at every pass that touches frontmatter, which
+is the same "last hand-typed standing fact" shape passes 294 and 295 scripted
+for the other four. It is the natural next instrument (`frontmatter.sh`): check
+every census-population file's block, assert the population against the census
+so a shrink cannot read as a pass, and carry the discrimination control — the
+duplicate-key plant must PARSE and a `: `-bearing plant must FAIL, or the probe
+has no power and the run should be discarded. The control is what makes it
+different from the whole-file probe this log spent 75 passes citing.
+
+NEXT: the pause still holds and the five facts stand. One premise is now
+correct in both places it had propagated to, and the block-form probe is the
+last standing fact without an instrument. Nothing else here is actionable
+without the human reopen decision.
 **Blocked on the human reopen/confirm decision.**
