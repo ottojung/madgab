@@ -3,10 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5f7b
-updated: 2026-09-29T11:13:10Z
-prior_owner: coord-4e3a (pass 249; gate NO; declined the three scheduler-template clauses for the fifty-seventh time; ACTED — found that fence.awk's 34-pass-old "under-reads by 33" was itself a command-substitution reading, corrected the magnitude to 1, and recorded that passes 247/248 had published region counts off by one in all six files. Pass 250 re-derived that correction rather than trusting it and it reproduces exactly, cause included — see the last entry)
-prior_owner: coord-7d19 (pass 248; gate NO; declined the three scheduler-template clauses for the fifty-sixth time; found the pass-247 byte-diff invariant ALREADY FALSE on arrival and repaired it by the push-then-fetch-then-diff order. Pass 249 found a 34-pass-old "under-reads by 33" in fence.awk that was itself a command-substitution reading — see the last entry)
+owner: coord-2c58
+updated: 2026-09-29T11:34:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23,6 +21,15 @@ history is preserved verbatim below rather than dropped.
 **This is a metadata repair only.** No narrative text was altered, reordered relative to itself, or
 deleted; the change is a pure move, and the check beside it is `sort`-based so that line order and
 lines beginning with `-` are both handled correctly.
+
+### Regressed again at pass 252, repaired the same way
+
+Pass 218's repair had reverted: two duplicate `prior_owner:` keys (pass 249 and pass 248) had
+re-entered the frontmatter, and neither is a `work-items.md` schema key. The displaced text is
+preserved verbatim here rather than dropped, in the same order it occupied the frontmatter:
+
+prior_owner: coord-4e3a (pass 249; gate NO; declined the three scheduler-template clauses for the fifty-seventh time; ACTED — found that fence.awk's 34-pass-old "under-reads by 33" was itself a command-substitution reading, corrected the magnitude to 1, and recorded that passes 247/248 had published region counts off by one in all six files. Pass 250 re-derived that correction rather than trusting it and it reproduces exactly, cause included — see the last entry)
+prior_owner: coord-7d19 (pass 248; gate NO; declined the three scheduler-template clauses for the fifty-sixth time; found the pass-247 byte-diff invariant ALREADY FALSE on arrival and repaired it by the push-then-fetch-then-diff order. Pass 249 found a 34-pass-old "under-reads by 33" in fence.awk that was itself a command-substitution reading — see the last entry)
 
 prior_owner: coord-5a2f (pass 220; gate NO — the three scheduler-template clauses (launch/prompt Antonina agents / accumulate on post-milestone-acceptance "exactly as the itinerary requires" / prioritize the canonical approximate-search examples) declined for the fifty-first time, on `## Status: accepted and paused` plus the accepted-state document. Clause 2 is a direct textual conflict: the itinerary's closing paragraph says post-milestone-acceptance "is no longer an automatic accumulation target", so the template's "exactly as the itinerary requires" cannot be honoured by doing what the template says. Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch; main untouched. All five standing facts re-derived, unchanged: census by IDENTITY (work_item:true) = 96 items, 1 blocked / 83 done / 12 superseded, 0 open / 0 working, 0 unparsed frontmatter; 0 non-terminal MadGab agents among 131 MadGab cwd rows of 652 host rows, the 2 host-`running` agents (78e1 qai-proviral, 94a9 assemblyp1) belonging to other repositories and LEFT RUNNING untouched, the 1 stale `idle` row a11d sitting in /tmp and not a MadGab cwd; clue fence = 0 in all six production src/ files under rule 14n's pinned region (comment lines stripped, cut at #[cfg(test)]) with a synthetic control reading 1, so clause 3's no-hard-coding half holds as a STANDING INVARIANT and not as work; 125 registered worktrees, `prune -n -v` empty, exit 0; no local `main` ref (`rev-parse --verify main` exit 128), origin/main 0267ade, HEAD on post-milestone-acceptance in sync with origin. The pass's one durable clarification, closing pass 203's unresolved +1/+2 census delta: the over-count is `docs/work/items/w-0f3a17-shortlist-rule.md`, which carries a full work-item-shaped header — id, state, owner, branch, worktree, parent_item — but `work_item: false`, so it is NOT discoverable and its `state: done` must not be added to the census; a loose `grep '^state:'` over the directory reports 97 state lines against 96 real items for exactly this reason, and the file is a historical front record subordinate to superseded w-0f3a17, not a queue entry. Pass 203's ask (1) is CLEARED and (2) is now explained; pass 219's ask (3) reproduces clean. At-risk state re-derived and safe: audit/* re-fetched FIRST by its real source namespace with NO --prune (exit 0; audit/post-milestone-acceptance advanced d81ed0d..e2f8969, i.e. pass 219's own commit), 205 refs enumerated by bare prefix per 14j with cardinality asserted inline per 14g, baseline rev-list --all --reflog 1,236, both sanctioned exclusion arms agree 88/88 with reflog-only 87, residual 514ed91 held by exactly local refs/heads/scratch-3f8c62-landed with its content durable at origin/recovery/at-risk-2026-09-29 = eaf7487 byte-identical to ls-remote, controls both directions (514ed91 present 1, 0267ade absent 0), 26 recovery/* heads on origin. Recorded rather than promoted to a numbered rule, in the spirit of pass 187's "prefer no entry at all": the long-published "204 audit refs" is not a constant, it is the mirror's cardinality and it advances by one with every pass's own pushed commit, so a pass that asserts 204 literally will abort on its own output — the same "a standing figure is not a standing procedure" shape as rule 14k, one step removed, and worth stating as a delta rule here because 204 has been quoted verbatim for twenty passes. Content sweep deliberately not re-run (closed on content since pass 184; the only population change is this log's own pushed commit). Blocked on the human reopen/confirm decision; next pass: prefer no entry at all, and do NOT assert a literal audit-ref count — read the cardinality inline and record it.)
 prior_owner: coord-7d13 (pass 211; gate NO — the three scheduler-template clauses declined for the forty-second time on `## Status: accepted and paused` plus the accepted-state document; nothing claimed, launched, stopped, prompted, or integrated, no new work item, main untouched. All five standing facts re-derived from the procedure: census 96 = 1 blocked / 83 done / 12 superseded with 0 open / 0 working (published-scope fence-scoped gawk FNR/ENDFILE form over docs/work/items/*.md docs/*.md, gawk exit 0 on GNU Awk 5.3.0, run first with no per-file loop — this pass's own first hand-written variant returned EMPTY, a third live instance of the rule-34 census trap); 0 non-terminal MadGab agents among 131 MadGab cwd rows of 647 host rows, the 6 host-running agents (81b2, 82a1, 12e4, 119a1, 98d2, 94a9) all being other repositories and left running untouched, the 1 stale idle row a11d not a MadGab cwd; 125 worktrees registered, prune -n -v empty, exit 0; main untouched (no local main ref, rev-parse --verify main exit 128, origin/main 0267ade, HEAD post-milestone-acceptance). Rule-14a/14m repair HELD: audit/* re-fetched FIRST by its real source namespace with no --prune (exit 0), 203 heads by the BARE-PREFIX form per 14j with cardinality asserted inline per 14g, +1 tag = 204, recovery/at-risk-2026-09-29 byte-identical to ls-remote full-form vs full-form per 14p (eaf7487), 25 recovery/* heads on origin. At-risk state UNCHANGED and safe with rule-14s per-element prefixing: both arms 88/88 diff-clean, and 14s's cardinality sweep confirms BOTH arms now VARY with the input (1/5/20/50/100/203 refs -> 1015/1009/993/595/493/88); ref-held 1 (514ed91, held by exactly refs/heads/scratch-3f8c62-landed), reflog-only 87, intersection 0, union 88, baseline 1,224 (+1 = pass 210's own pushed commit, on origin and so outside the at-risk set), controls both directions (514ed91 present 1, origin/main 0267ade absent 0); no recovery branch warranted and none created; content sweep not re-run (closed on content since pass 184). THIS PASS'S TWO FINDINGS — (1) NEW RULE 14t: A FENCE THAT ONLY SEARCHES FOR THE ANSWER CANNOT DETECT A HARDCODED QUESTION. The standing no-hard-coding fence has been the clue-words-only regex "(hits|justice|dupe|hid|came)" for 78 passes, and the control passes 209/210 published as reading 1 reads 0 when run verbatim — the synthetic literal they planted, "wreck a nice beach", is a TARGET phrase that regex cannot match at all, so the control was measuring a different fence than the one it was published against. Planted in a production-region copy, "wreck a nice beach", "recognize speech" and "it's just a stupid game" are each INVISIBLE (0) to the standing fence and caught (1) by a corrected one; the natural hard-code shape (an if phrase == "wreck a nice beach" comparison) reads 0 under the standing fence and 2 under the corrected one. So 78 passes of fence 0 are consistent with exactly the phrase-specific hard-coding clause 3 forbids. THE INVARIANT IS UNAFFECTED — the corrected fence reads 0 in all six production regions — but it is now true by measurement rather than by luck. Cheap check: for every string the property names, plant it and confirm the fence reads non-zero; a fence returning 0 for a planted instance of the thing it forbids is not a fence. (2) NEW RULE 14u: the canonical clue is stored DECOMPOSED as ["hits","justice","dupe","hid","came"], so the joined-literal fence cannot match it, and the joined phrase "hits justice dupe hid came" is invisible to BOTH fences (0 under each) — no regex in this log's history would have caught the whole clue hard-coded as one string, the form a developer is most likely to write; the corrected fence must be a disjunction over per-word OR joined OR any canonical target. Rule 14l's lesson (a count carries its population) one level up: A FENCE CARRIES ITS ALPHABET, and the alphabet must be every spelling the property can be violated with. ALSO: rule 14i's glob trap re-entered live (for-each-ref 'refs/remotes/audit/*' read 108 and looked like a repair regression; the bare-prefix form reads 203 heads and comm-matches ls-remote exactly). Blocked on the human reopen/confirm decision)aunched, stopped, prompted, or integrated, no new work item, main untouched. All five standing facts re-derived from the procedure and unchanged: census 96 = 1 blocked / 83 done / 12 superseded with 0 open / 0 working (published-scope fence-scoped gawk, exit 0, no per-file loop); fence 0 in all six production files under rule 14n's pinned region, seventy-seventh consecutive, with pass 209's filter-exercising synthetic control re-run and still reading 1; 0 non-terminal MadGab agents among 131 MadGab cwd rows of 646 host rows, the 2 host-`running` agents (98d2 antonina-98-char, 94a9 assemblyp1-94-cruxmap) being other repositories and left running, 3a8f01 still `stopped` on a superseded front and left stopped; 125 worktrees registered, prune -n -v empty, exit 0; main untouched (no local main ref, rev-parse --verify main exit 128, origin/main 0267ade, HEAD post-milestone-acceptance). Rule-14a/14m repair HELD: audit/* re-fetched FIRST by its real source namespace with no --prune (exit 0), 204 refs = 203 heads + 1 tag with the mirror's name set comm-clean against ls-remote --heads in BOTH directions (no extra, no missing), recovery/at-risk-2026-09-29 = eaf7487 byte-identical to ls-remote full-form, 25 recovery/* heads on origin. At-risk controls: both exclusion arms 1/1 diff-clean (exit 0, stderr empty), reflog-only 87, intersection 0, ref-held 1 (514ed91, held by exactly refs/heads/scratch-3f8c62-landed), baseline 1,223 (+1 = pass 209's own pushed commit, on origin and therefore outside the at-risk set), control 514ed91 present in the arm and origin/main 0267ade absent; no recovery branch warranted and none created; content sweep not re-run (closed on content since pass 184). THIS PASS'S FINDING — NEW RULE 14s: cross-checking two exclusion spellings certifies the SPELLING, never the ARGUMENT LIST. The first reading ran the two sanctioned arms as `git rev-list --all --not $REFS` and `git rev-list --all ^$REFS` over an unquoted newline-joined 203-ref list and read 1 vs 927 — which looks exactly like a rule-14 instrument regression and would have warranted a new recovery branch. It is a SHELL defect, not a repo finding: `^` is a prefix operator, not a flag, so it prefixed only the FIRST expanded word, leaving 202 bare refs that acted as an additional POSITIVE population (+926 commits). Cardinality bisect proves it: as the list grows 1/2/3/4/5/6/10/20/50/100/203 refs, arm 1 falls 927/925/924/922/921/919/915/905/507/405/1 as intended while arm 2 stays FROZEN at 927 for every size, because only ref 1 ever carried the `^`. With per-element prefixing (mapfile -t REFS; "${REFS[@]/#/^}", equivalently --not "${REFS[@]}") the arms agree 1/1 diff-clean. Cheap check that catches it and the form to use from now on: AN ARM THAT DOES NOT VARY WHEN THE INPUT LIST VARIES IS NOT MEASURING THE INPUT — the analogue of rule 14r's control on the at-risk side. No earlier published figure is affected: under the mis-expanded form the inflated arm was always 927, and every pass published the 1.)
@@ -22319,3 +22326,112 @@ you are reading through command substitution or copying a stale usage block); an
 correction published by the immediately preceding pass rather than trusting it**, including any
 correction to the instruments themselves. Do not open a MadGab research front or create a work item
 until a human reopens development.
+
+## Pass 252 (coord-2c58) — gate NO; two findings, one a repair
+
+Started 11:22Z, action window closed ~11:34Z. The three scheduler-template clauses (launch or prompt
+Antonina agents / accumulate on post-milestone-acceptance "exactly as the itinerary requires" /
+prioritize the canonical approximate-search examples without phrase-specific hard-coding) are
+declined for the **fifty-eighth** time, on `## Status: accepted and paused` in
+`docs/skills/itinerary-madgab.md` plus the accepted-state document's operational status. Nothing
+claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch; main
+untouched at 0267ade.
+
+### Finding 1 — the pass-218 frontmatter repair had REGRESSED, and the duplicate keys were live
+
+The frontmatter carried **two** `prior_owner:` keys again (passes 249 and 248), neither of which is
+a `work-items.md` schema key. Repaired the same way pass 218 did: the eight schema keys restored,
+both displaced entries preserved verbatim in the body under a new sub-section, and the
+`sort`-based preservation check applied. Verified in both directions rather than assumed — key
+tally is now 8 distinct keys with no duplicates, `yq` on the frontmatter block exits **0** and
+reads `w-paused-recon / blocked / coord-2c58`, and both displaced strings still occur exactly once
+each in the file (they were 1 each before the edit, so nothing was dropped or duplicated).
+
+**Why this matters beyond bookkeeping.** Pass 218 recorded the repair as durable, and 33 passes
+trusted that and did not re-check. The lesson generalises past YAML: a *recorded repair* is a claim
+about the present, not a record of a past event, exactly as pass 250's re-derivation of pass 249's
+correction showed for measurements. A repair that is never re-verified decays silently, and the
+symptom is invisible because the file still *looks* populated — the duplicate keys are the
+displaced history leaking back into metadata.
+
+One correction to how the defect is measured, because my first probe mis-scoped it. I ran
+`yq` against the **whole file** and got exit 1 ("yaml: line 16: found character that cannot start
+any token"), which reads like the frontmatter is unparseable again. It is not: line 16 is inside the
+Markdown body, and the same whole-file `yq` fails identically on `w-d3f7a1.md`, `w-e086cc.md` and
+`docs/continuation-approximate-search.md`, i.e. on **every** work item, because a Markdown body is
+not YAML. Only `yq` against the frontmatter block alone exits 0, before and after the repair. So
+whole-file `yq` exit 1 certifies nothing about this defect and must not be published as evidence for
+it — the earlier entries' "(`yq` exit 1)" framing inherits this same conflation. The narrow,
+correct probe is: extract lines 2–9, `yq` that.
+
+### Finding 2 — rule 14h fires LIVE, and it fails OPEN in the direction that looks safe
+
+Re-deriving the at-risk set, the two sanctioned cross-check arms **disagreed**: the `--not` arm
+returned the full baseline **1268** (no exclusion applied at all) while the bare-caret arm returned
+the expected **88**. Cause: I built the arm as `--not $REFS` with `$REFS` already `^`-prefixed, and
+`--not` before a `^`-prefixed ref list is a **double negation** — the `^` re-flips the meaning, so
+every exclusion arrives as an *inclusion* and the arm degenerates to an unfiltered baseline. This is
+rule 14h, published in the pass-198 entry, and I re-derived it rather than reading it off.
+
+The new part is the failure direction, and it is the reason this is worth a second entry. Rule 14h
+was previously described as producing a *large over-report*. Here the double negation produced
+**1268 = the entire baseline**, which reads as "nothing is at risk" — the reassuring answer — while
+`stderr` was empty and the exit code was 0. A pass that ran only that arm would have published
+"at-risk set is empty, no recovery needed" on a repository that in fact has 88 at-risk commits. It
+is caught only by running the second arm and noticing the two disagree; agreement is the safety
+property, and a single-arm pass has none. Recorded as a standing instruction: **the at-risk figure
+is never publishable from one arm**, and the `--not` arm must be built from *plain* ref names
+(`--format='%(refname)'`), never from a pre-prefixed caret list.
+
+Re-run in the correct spellings, everything reproduces the standing figures:
+
+- exclusion set 205 refs (204 heads + 1 tag) by the bare-prefix form of rule 14j;
+- both arms **88**, `diff`-clean, both `stderr` empty, explicit positive start supplied (rule 14a);
+- rule 14s's cardinality sweep confirms the corrected `--not` arm VARIES with the input
+  (1/5/20/50/100/203/205 refs → 1225/1054/1038/641/537/90/88) — the double-negated arm was
+  **constant at 1268** across the same sweep, which is the tell, and is why 14s exists;
+- split 88 = 1 ref-held + 87 reflog-only, intersection 87, union 88; `514ed91` present, held by
+  exactly `refs/heads/scratch-3f8c62-landed`; control `0267ade` (origin/main tip) absent 0;
+- baseline `rev-list --all --reflog` = 1268; `recovery/at-risk-2026-09-29` = `eaf7487`,
+  byte-identical to `ls-remote` on the full-form-vs-full-form comparison of rule 14p;
+- `audit/*` re-fetched FIRST per rule 14a (`976eb7f..9363c54`, exit 0, **no** `--prune`).
+
+### The other three standing facts, unchanged
+
+Census **96** = 1 blocked / 83 done / 12 superseded, 0 open / 0 working, via the published-scope
+fence-scoped `gawk` FNR/ENDFILE form. This pass's own first hand-written variant returned a
+**wrong-but-plausible** tally (84 done / 10 superseded) because it read `state:` before
+`work_item: true` had been seen, so it emitted one file's state against another's — a fifth live
+instance of the rule-34 census trap, and a reminder that the order of the two header lines is load-
+bearing. Re-derived with the sanctioned form.
+
+Fence: **0** phrase hits in all six production files, region counts **269/260/464/4242/67/269** in
+the `| wc -l` form, matching `fence.awk`'s header exactly — the pass-249 off-by-one correction
+reproduces on arrival, cause included. Decomposed arm `0-0-0-1-0-0`, the single 1 being
+`src/lib.rs:3597` `.expect("key came from cells")`, the ordinary English past tense adjudicated
+benign at pass 216 and not re-opened. Controls run for **every** string the alphabet names, per
+`fence-alphabet.awk`'s requirement, as CODE not comments: all 6 joined spellings read phrase 1, and
+all 11 single words read decomposed non-zero (2 = the known `came` baseline + the plant), so the
+fence discriminates rather than returning a constant.
+
+Agents: **0** non-terminal MadGab agents among 131 MadGab cwd rows of 680 host rows. The 2
+host-`running` agents (`109a3` skrynia, `98f1` antonina-98) are other repositories and were LEFT
+RUNNING untouched; the 5 `idle` rows are 4 other-repository cwds plus the stale `a11d` in `/tmp`.
+Nothing launched, stopped or prompted.
+
+125 registered worktrees, `prune -n -v` empty, exit 0. No local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` 0267ade, HEAD on post-milestone-acceptance at
+9363c54 in sync with origin. Nothing pushed to `main`.
+
+Content sweep deliberately not re-run (closed on content since pass 184).
+
+### Next pass
+
+Prefer **no entry at all** unless you find something. If you do: **push before you re-fetch**;
+assert the mirror as a byte-`diff` against a fresh `ls-remote --heads`; run a planted-line control
+before believing any 0; publish region counts only as `wc -l < FILE`
+(**269/260/464/4242/67/269**); probe frontmatter with `yq` on **lines 2–9 only**, never on the
+whole file; and **never publish an at-risk figure from a single arm** — build the `--not` arm from
+plain ref names and confirm both arms agree before the number means anything. Re-derive any
+correction or repair published by the immediately preceding pass instead of trusting it. Do not
+open a MadGab research front or create a work item until a human reopens development.
