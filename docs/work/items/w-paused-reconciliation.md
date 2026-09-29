@@ -21627,3 +21627,88 @@ sign the log has reached its terminal value. If an entry is written: use census 
 at-risk durability by **blob-hash equality plus the `COMMIT` pointer**, never by ancestry (rule 14an);
 do not quote a fence marker at column 0 in prose (rule 14am). The item remains blocked on the human
 reopen/confirm decision, and no MadGab research front should be opened until then.
+
+## Pass 243 — coord-1b4e (2026-09-29T10:33Z)
+
+**Gate: NO.** The three scheduler clauses (launch/prompt Antonina agents / accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the canonical
+approximate-search examples) are declined for the fifty-second time, on `## Status: accepted and
+paused` plus the accepted-state document. Nothing claimed, launched, prompted, stopped or
+integrated; no new work item; no recovery branch; `main` untouched. **Clause 2 remains a direct
+textual conflict:** the itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target", so the template's "exactly as the itinerary requires"
+cannot be honoured by doing what the template says. Only a human can retire or correct the
+out-of-repo template. Clause 3's no-hard-coding half holds as a standing invariant, not as work.
+
+Five facts re-derived from the procedure, all unchanged:
+
+- **Census**: **96** work items in the published scope (`docs/*.md` + `docs/work/items/*.md`,
+  101 distinct paths), matched **outside** fences per rule 14al's refinement. **1 blocked /
+  83 done / 12 superseded; 0 open, 0 working.** The blocked one is this item.
+- **Frontmatter parseability**: **97 of 101** files carry a `---` block and **all 97 parse**
+  under `yq` (v4.52.4) when the block is extracted first; the other 4 (`items/README.md`,
+  `REPORT-3f6a21.md`, `accepted-state-2026-09-27.md`, `environment-notes.md`) have no frontmatter
+  and correctly are not work items.
+- **Agents**: 672 host rows, **0 non-terminal MadGab agents**. The single non-`succeeded`/`failed`
+  MadGab row is `3a8f01` at `stopped` with a finish timestamp, on a `superseded` item —
+  terminal, nothing to recover. Host `94a9` (`assemblyp1-94-cruxmap`) is `running` in **another
+  repository**: left running untouched.
+- **Phrase fence**: **0** in all six production `src/` files under rule 14n's region, with all
+  three controls behaving — plant at line 5 **reads 1**; plant inside `mod tests` **reads 0**;
+  plant at line 382, inside the 3,861-line blind span pass 215 closed, **reads 1**; baseline
+  `src/lib.rs` **0**. Region counts 269/464/260/4242/269/67 reproduce exactly. Rules 14y/14z hold.
+- **Refs/worktrees**: no local `main` (`rev-parse --verify main` exit 128); `origin/main` = `0267ade`
+  = `ls-remote refs/heads/main`; HEAD `083b5ad` on `post-milestone-acceptance`, in sync with
+  origin. `audit/*` re-fetched **first**, by its own namespace, **no `--prune`** (exit 0):
+  **204** heads + 1 mirrored tag, exclusion set **205** asserted inline, baseline
+  `rev-list --all --reflog` **1,259** (+1 = pass 242's own pushed commit, on `origin`). Both
+  sanctioned spellings `--not` and per-ref `^` **88/88 diff-clean**; ref-held **1**
+  (`514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`); controls both directions
+  (`514ed91` present, `0267ade` absent). 125 worktrees, `prune -n -v` empty, exit 0;
+  34 non-build dirty rows. **26** `recovery/*` heads on origin. **No recovery branch warranted;
+  none created.**
+
+**At-risk durability verified by blob-hash equality and the `COMMIT` pointer (rule 14an), not by
+ancestry**: `docs/work/recovery/3f8c62-landed/src-lib-rs.blob` on `recovery/at-risk-2026-09-29`
+= `f86907c` = `514ed91:src/lib.rs` exactly, and `COMMIT` names `514ed91741b8…`. The content is
+durable on `origin`; the stored copy has no ancestry relation to the commit it recovers, so an
+ancestry probe would have been the wrong question and a no-answer would have invited a
+redundant recovery branch.
+
+### This pass's finding — a defect in my own first instruments, twice, and the shape they share
+
+Two separate checks in this pass reported a **repo-wide emergency that did not exist**, and both
+were my instrument, not the repository:
+
+1. A frontmatter sweep using `python3` + `yaml` reported **101/101 unparseable**. Cause: `python3`
+   is not installed, so every invocation exited non-zero, and my loop treated *any* non-zero exit
+   as "unparseable" rather than distinguishing "tool missing" from "document malformed". The real
+   count is **0 of 97**.
+2. The same sweep re-run with `yq -e '.work_item' <file>` reported **101/101 unparseable** with
+   `yaml: line 15: found character that cannot start any token`. Cause: `yq` was pointed at the
+   **whole Markdown file**, so it parsed the frontmatter *and then the prose body* as one YAML
+   document. Extracting the `---` block first gives 97/97 clean.
+
+Both instances are the **same class** the item's rules 14i/14k/14n/14q were written about, and
+they point somewhere the log has not recorded: a check that returns a total, uniform, maximally
+alarming result is nearly always the **instrument** failing closed, not the subject failing. A
+malformed-metadata incident in this repository would be **sparse and file-specific** — that is
+what pass 218's real 35-duplicate-key frontmatter looked like. A finding that implicates 100% of
+the population has a far more probable cause in the code producing it, so **a uniform total must
+be re-derived by a second, differently-spelled arm before it is published**; the existing
+cross-check discipline (arms agreeing, controls in both directions) protects against a *wrong
+number*, but nothing yet protects against a *wrong predicate applied to everything*. Recording
+this as **rule 14ao**.
+
+### Next pass
+
+Prefer **no entry at all** — this item's own standing instruction, and now the third consecutive
+pass to reach the same conclusion. This item is 21,629 lines and its `state` is `blocked` on a
+human decision, not on any work a pass can perform; the log has reached its terminal value and
+each additional entry is more likely to introduce a defect (three in this pass alone, all caught)
+than to record a change, since none of the five facts moved. If an entry is written: census arm
+**C** (match `work_item: true` OUTSIDE fences, rule 14al refinement) and assert agreement with arm
+B; extract the frontmatter block before parsing and distinguish a missing tool from a malformed
+document; verify at-risk durability by **blob-hash equality plus the `COMMIT` pointer**, never by
+ancestry (rule 14an); do not quote a fence marker at column 0 in prose (rule 14am). **No MadGab
+research front should be opened, and no work item created, until a human reopens development.**
