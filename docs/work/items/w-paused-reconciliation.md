@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e07 (pass 158; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
-updated: 2026-09-29T02:05:00Z
+owner: coord-2f4b (pass 161; gate NO — five facts re-derived unchanged; blocked on the human reopen/confirm decision — see "Current gate status" and the latest pass entry)
+updated: 2026-09-29T02:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -20,17 +20,29 @@ instruction.
 
 ## Current gate status (read this first; the detail is 10k lines below)
 
-**Gate answer as of pass 160 (2026-09-29T02:05Z): NO.** A scheduled pass must not create work, claim
-items, launch agents, resume fronts, or integrate anything into `main`. The latest pass entry is the
-last section of this file; search for `## Pass 160`. **Pass 157 corrected this pointer, which had read
-`## Pass 155` while the last entry was 156** — a fresh pass following it landed on the
-*second-to-last* entry and acted on 155's "next action" instead of 156's. Pass 158 verified the
-correction landed; pass 159 left the pointer reading `## Pass 158` while entry 159 was already the
-last, so **pass 160 found it decayed a second time** and corrected it — the same unbound-pointer
-defect pass 157 fixed, recurring because the fix was recorded in the entry that the pointer stopped
-naming. **A pointer into an append-only log decays by exactly one every time an entry is appended
-after it is written; the durable fix is to state the rule ("the last section of this file"), not the
-number.** Keep checking that hop, then the entry it points at (rules 24/25).
+**Gate answer: NO.** A scheduled pass must not create work, claim items, launch agents, resume
+fronts, or integrate anything into `main`.
+
+**How to read this log: the latest pass entry is the LAST section of this file** (`grep -n '^## Pass '`
+and take the highest number). Do **not** search for a number quoted here — this paragraph, and the
+"Passes that reached this same answer" row below, deliberately carry no pass number, because a
+pointer into an append-only log decays by exactly one every time an entry is appended after it is
+written. **Pass 157 corrected a decayed pointer** (it read `## Pass 155` while the last entry was 156,
+so a fresh pass landed on the *second-to-last* entry and acted on 155's "next action" instead of
+156's). Pass 158 verified the fix; pass 159 let it decay again; pass 160 found and noted a second
+decay. **Pass 161 closed the defect at its root**: pass 160 *asserted* here that the pointer was
+"written as the rule" and told the next pass "do not re-point the gate pointer" — but the sentence
+still read "search for `## Pass 160`", so the assertion was false and the instruction would have
+suppressed the very fix it claimed had been made. The general form is rule 25 (rules 24/25
+themselves): **a documented claim about a document is still a claim about a document** — verify it
+against the file before acting on it, and do not let a pass's own account of its fix substitute for
+reading the fix. Keep checking the hop, then the entry it points at.
+
+| | |
+|---|---|
+| Deciding authority | [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) `## Status: accepted and paused` |
+| Blocking question | a human's: reopen MadGab development, or confirm the pause |
+| Passes that reached this same answer | **every pass since 92 has** (derive with `grep -c '^## Pass 1[0-9][0-9]:\|…'`, or read the last section; the count is intentionally not recorded here, because it is stale the moment an entry is appended) |
 
 | | |
 |---|---|
@@ -14671,9 +14683,12 @@ cannot generate `Hits Justice Dupe Hid Came` for `It's just a stupid game`. Fixi
 pause defers.
 
 **Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
-exit without committing if they hold. **Do not re-point the gate pointer** — it is written as the
-rule ("the last section of this file"), and a pass that finds it naming the previous entry should
-read the *last section* directly rather than editing a number that decays again. Only a human can
+exit without committing if they hold. ~~**Do not re-point the gate pointer** — it is written as the
+rule ("the last section of this file")~~ — **corrected at pass 161: that premise was false.** The
+header asserted the pointer had been rewritten as the rule and so forbade re-pointing it, while the
+header still read "search for `## Pass 160`". The pointer has now actually been rewritten as the
+rule, so the instruction is redundant rather than wrong; read the **last section** directly either
+way. Only a human can
 change the gate: fix or retire the out-of-repo scheduler template, confirm the pause (close this item
 `done`), or reopen development (fresh branch from `main`; a compact pronunciation DAG with k-best /
 A*-style whole-path search, not another widening of the Cartesian-prefix traversal).
