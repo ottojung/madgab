@@ -16562,3 +16562,73 @@ canonical phrase).
 
 Navigate by the **last** `## Pass ` heading; do not trust a pass number quoted inside any entry, do
 not re-point the gate pointer, and do not combine rule 14's two exclusion spellings.
+
+## Pass 187 (coord-9f3e)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` at the top of the file, unchanged. No work item created or
+claimed, no agent launched/stopped/prompted, no front resumed, **nothing pushed to `main`**
+(`ls-remote origin refs/heads/main` = `0267ade`; `rev-parse --verify main` exits **128**). Only
+this log was committed, on its own home branch, per rule 19's third bullet.
+
+### The invocation's three unexecutable clauses, declined (rule 19)
+
+Identical to passes 92–186 and re-derived, not inherited: (1) "`post-milestone-acceptance` exactly
+as the itinerary requires" — the itinerary says that branch "is **no longer an automatic
+accumulation target**"; (2) "launch or prompt agents / split fronts / recover or assign work" —
+rules 1–2, and with 0 `open` / 0 `working` items any split would be invented work; (3) "prioritize
+the canonical approximate-search examples" — the no-hard-coding half is already an invariant (fence
+below, fifty-fourth consecutive) and the canonical-example half is the *accepted limitation* whose
+only legitimate fix is a whole-path pronunciation-DAG search, which the pause defers.
+
+### Five facts, re-derived
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** / **83 `done`** / **12 `superseded`** = 96, published fence-scoped gawk form, gawk exit **0**. **0 `open`, 0 `working`.** |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** Host **627** data rows; **131** match `madgab` in the cwd column; filtering for `state ∉ {succeeded, failed, stopped}` returns **0**. The **4** host-`running` agents (`31c1` skrynia; `81a1`, `80c1`, `78d3` qai-proviral) are other repositories — **left running**, untouched. |
+| `main` | **untouched**, `0267ade`; no local `main` ref. |
+| Production clue fence | **0** in all six production regions (clue-only regex `wreck a nice beach\|hits justice dupe hid came`, `awk '/#\[cfg\(test\)\]/{exit}{print}'`, per file): `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0 (whole-file **9**, published per rule 25), `wasm.rs` 0, `main.rs` 0. **Fifty-fourth consecutive pass at 0.** |
+| Worktrees | **125 registered**, `prune -n -v` **empty** — **eighteenth** consecutive. |
+
+### At-risk state, and a rule-10 instance caught live
+
+Pass 186 closed both at-risk classes *on content*, so this pass re-ran only the cheap commit-level
+check against pass 186's already-fetched `audit/*` set rather than re-deriving the closed classes.
+Exclusion set **204** refs (unchanged), baseline `rev-list --all --reflog` **1,197** (+1 = pass
+186's own pushed commit). The at-risk set read **2**, against pass 186's **1** — and the extra
+entry was pass 186's *own* log commit `18085b4`, which cannot legitimately be at risk.
+
+Cause: the **`audit/*` ref set was fetched before pass 186 pushed**, so pass 186's own new remote
+head was inside the exclusion *gap* and its tip counted as unreferenced. Re-fetched
+(`'+refs/heads/*:refs/remotes/audit/*'`, `audit/post-milestone-acceptance` advanced
+`5e84691..18085b4`), the set is still **204** refs and the at-risk set drops to **1**:
+`514ed91`, held by local `scratch-3f8c62-landed`, whose non-build content is durable on
+`origin/recovery/at-risk-2026-09-29` — the residual is the commit object, not its content. Unchanged
+from passes 184–186.
+
+This is rule 10 (a narrow/stale remote ref set yields **false positives**, which is the dangerous
+direction because it looks like a safety finding) arriving in a form not yet recorded: the *previous*
+pass's own output is what invalidates the exclusion set it left behind, so a pass that reuses the
+prior exclusion set to "confirm" an unchanged number is measuring its predecessor's push latency.
+Rule 14's cross-check was run on both spellings **before** the population was believed and **after**
+the re-fetch they agree exactly at **1** (`diff` clean); the first reading, 2, agreed across both
+spellings too — which is the point: **agreement between the two rule-14 spellings validates the
+*spelling*, never the *exclusion set*.** A stale set is wrong in both forms identically.
+
+### Next action for the next pass
+
+**Prefer no entry at all.** Both at-risk classes remain closed on content, and the five facts hold.
+If a pass does re-derive the at-risk set, note the new rule above: **re-fetch `audit/*` before
+believing a number, because the previous pass's own commit invalidates the set it left.**
+
+The only threads needing a **human** are unchanged: the residual `514ed91` commit object (rewrite
+it without its 329 build paths including a 129 MB `.rlib`, or accept the content-level recovery as
+sufficient), plus the three out-of-repo options in pass 185's closing paragraph — fix or retire the
+scheduler template, confirm the pause (close this item `done`), or reopen development (fresh branch
+from `main`; compact pronunciation DAG with k-best / A*-style whole-path search, never a hard-coded
+canonical phrase).
+
+Navigate by the **last** `## Pass ` heading; do not trust a pass number quoted inside any entry, do
+not re-point the gate pointer, do not combine rule 14's two exclusion spellings, and do not reuse a
+prior pass's `audit/*` exclusion set without re-fetching it.
