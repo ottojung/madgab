@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-1b7f (pass 180; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,189 baseline, 125/125 worktrees with `prune -n` clean for the eleventh consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row over 7,480 known ids, 0 unreachable, so no durable repair was available); and one new finding — the empty-file sentinel is a **vacuous** control, since `touch`+`hash-object` returns the canonical empty blob `e69de29b…` which is present in any populated repo and so reads as a broken sweep; re-run non-empty (`ad52e9de…`, absent), which is the new rule-25 instance: a control's power depends on a property of the control, and it must be recorded beside the result; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T04:22:00Z
+owner: coord-4f90 (pass 181; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items with 0 open/0 working, 0 non-terminal MadGab agents among 131 MadGab cwd rows of 621 host rows, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,190 baseline, 125/125 worktrees with `prune -n` clean for the twelfth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row over 7,486 known ids, 0 unreachable, so no durable repair was available, with the 33/32 distinct-blob gap re-derived to the same named same-content pair `a0ef0cf`); and one new finding — an orphaned 400-ref `refs/remotes/origin-all/*` namespace makes `merge-base --is-ancestor` unusable for a multi-ref containment test, and the failure is **silent** (exit 128 on every call, which a `!`-style loop reads as a positive containment result and turned 0 real held-only commits into a spurious 94; corrected with `rev-list A --not B…`, which accepts many exclusions) — the new rule-25/rule-22 instance: a per-item test expected to fail is silently inverted when the tool rejects its arguments, so verify exit codes 0/1 on a known-true and known-false instance before trusting a population of answers, and prefer `rev-list --not` for multi-ref containment; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T04:19:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15951,3 +15951,85 @@ change the gate: fix or retire the out-of-repo scheduler template (which keeps a
 clauses that contradict the itinerary), confirm the pause (close this item `done`), or reopen
 development (fresh branch from `main`; a compact pronunciation DAG with k-best / A*-style
 whole-path search, not another widening of the Cartesian-prefix traversal).
+
+## Pass 181 (coord-4f90)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` after a fresh wildcard fetch (`origin/main` still `0267ade`, and
+`audit/post-milestone-acceptance` advanced `58f2784..3412102`, so the refetch was not a no-op). No
+work created, claimed, launched, prompted, resumed or integrated; nothing pushed to `main`; no new
+`recovery/*` branch, because both the commit-level and the file-level check returned zero. No
+Antonina agent launched, stopped or prompted: the 3 host-`running` agents (`78d3`, `80b2`
+`qai-proviral-78/80-*`, `74e3` `antonina-74-globfix`) are other repositories and were left running.
+The invocation's three unexecutable clauses are declined for the reasons on record (rule 19):
+accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" (the itinerary's last
+line says that branch "is no longer an automatic accumulation target"); launch/prompt agents and
+split independent fronts (rules 1–2); and "prioritize the canonical approximate-search examples"
+(case 2 is an accepted known limitation whose fix direction is exactly what the pause defers). The
+"without phrase-specific hard-coding" qualifier is the programme-wide invariant, and the fence
+re-derives it below.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** `antonina agent list` = **621** data rows; **131** match `madgab` in the cwd column, and the non-terminal filter over those returns **nothing**. Host total moved 619 → 621, entirely in other repositories. |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails** ("Needed a single revision"), so no local `main` ref exists. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files' production regions, per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach\|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, `main.rs` 0 (no `#[cfg(test)]` boundary, so its whole file is the region). `lib.rs` whole-file = **9** under that same clue-only regex, published beside the number per rule 25. **Forty-eighth consecutive pass at 0.** |
+| At-risk commits | **7 / 87 / 0**, baseline `rev-list --all --reflog` = **1,190** (1,189 at pass 180; the delta is pass 180's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first → **199** `audit/*`+tag refs, published beside the count it scopes. `rev-list --all --not $REFS` = **7**; `rev-list --reflog --not --all` = **87**; `comm -12` over both `sort -u`ed sides = **0**, so the split is disjoint and the union is **94**; a per-commit `merge-base --is-ancestor` loop (never batched, exactly two args) finds **0** ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin`; remote head census **198**. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **twelfth** consecutive pass. |
+
+**At-risk non-build content: 0, re-derived at file level.** Over the 125 live worktrees, `git status
+--porcelain` (no `--ignored`) gives **37** raw rows; rule 9's amended component filter leaves **34
+non-build rows** from **17** distinct worktrees = **33 hashable files** + **1 directory row**
+(`/workspace/madgab-scratch/examples/`, classified by a `-d` test before the `hash-object`, rule 138).
+All 33 hash via `git hash-object` to blobs present in `rev-list --objects --all --reflog` (**7,486**
+field-1 ids, extracted with `awk '{print $1}' | LC_ALL=C sort -u` per rule 17) → **0 unreachable**, so
+**0 need archiving** and no recovery branch was created. The 33 files hash to **32** distinct blobs,
+and the single duplicated blob is re-derived to a **named pair** exactly as pass 179 established:
+`a0ef0cf` carried by `/workspace/madgab-base-5b1e93::examples/zzz_final_probe.rs` and
+`/workspace/madgab-probe-5b1e93::examples/probe_final.rs`. Same-content pair, not a lost file.
+
+**Rule 22's sensitivity control re-run non-empty and it read absent** (`47220a8b…`), applying pass
+180's rule-25 amendment rather than repeating its degenerate first attempt: a sentinel whose
+canonical empty-blob hash (`e69de29b…`) is present in any populated repo cannot distinguish "sweep is
+insensitive" from "control is degenerate", so the sentinel's **non-emptiness** is now a recorded
+property of the control, not an accident of how it was written. The control still exercises the
+*membership test*, not the *enumeration*; those remain separate obligations.
+
+**This pass's finding: an orphaned `origin-all` ref namespace makes `merge-base --is-ancestor`
+unusable for a multi-ref containment test, and the failure is silent.** `git remote -v` lists only
+`origin`, yet **400** refs remain under `refs/remotes/origin-all/*` — including
+`origin-all/post-milestone-acceptance` still at `58f2784`, one commit behind the real head — left
+behind by an earlier pass's wildcard fetch into a differently-named namespace. They are harmless on
+their own: `git rev-list refs/remotes/origin-all/* --not <all 579 other refs>` returns **0**, so no
+commit is held *only* by the orphan. The defect is the measurement tool. To test "is any at-risk commit
+held only by these refs", this pass first ran a loop of
+`git merge-base --is-ancestor <commit> $(579 refs)`, which **exits 128** ("--is-ancestor takes
+exactly two commits") on *every* iteration; because the loop only counted commits whose
+`merge-base` returned non-zero, an unconditional tool error reads as a positive containment result and
+the pass reported **94 of 94 held only by the orphan** — a wholly spurious "at-risk" finding, on 94
+commits, that a re-derivation with the correct `rev-list --not` form immediately reduced to **0**.
+The general form: **a per-item test that is expected to fail is silently inverted when the tool
+rejects its arguments**, because "not an ancestor" and "the command errored" share an exit code. Two
+countermeasures are now standing. (1) Sanity-check the tool before trusting a population of its
+answers: run one known-true and one known-false instance first, and confirm the exit codes are 0 and
+1 — never 128. (2) Prefer `rev-list A --not B…`, which accepts many exclusion refs and has no
+such ambiguity, over `merge-base --is-ancestor` for anything involving more than one candidate
+ref. This is rule 25 again (a claim about a measurement is still a claim about a measurement) and
+rule 22's own scope: the at-risk *count* is only as good as the tool that produced it, and a control
+for the count (a positive control) is distinct from the control for the file sweep. The 7/87/0 row
+above is unaffected — that one used the sanctioned two-argument form and produced its 0 by a loop in
+which the true answer is the non-zero branch's *success*, not its failure.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
+exit without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the
+last section; do not trust a pass number quoted inside any entry, and do not re-point the gate
+pointer. Treat every number in the "Current gate status" table as a snapshot. If checking the orphan
+namespace again, prefer `rev-list refs/remotes/origin-all/* --not <refs>` (currently **0** held-only)
+and do **not** pass a ref *list* to `merge-base --is-ancestor`. Only a human can change the gate: fix
+or retire the out-of-repo scheduler template (which keeps arriving carrying clauses that contradict
+the itinerary), confirm the pause (close this item `done`), or reopen development (fresh branch from
+`main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another widening of
+the Cartesian-prefix traversal).
