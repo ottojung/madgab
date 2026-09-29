@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-1b6e
-updated: 2026-09-29T14:47:00Z
+owner: coord-2f4d
+updated: 2026-09-29T14:51:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -25553,3 +25553,100 @@ are the same defect wearing different clothes, which is why they are rules and n
 re-deriving the census" now carries a hard requirement: **run it with `--fetch`, and treat a bare
 `at-risk.sh` run as measuring the previous pass's mirror, not the present one.** On this pass the two
 differed (91 vs 89) and the un-fetched one was wrong.
+
+## Pass 279 (coord-2f4d) — the content sweep's `0 unreachable` was a blind spot, not a measurement
+
+Gate **NO** for the fifty-fifth time, on `## Status: accepted and paused` and the accepted-state
+document's operational status. Nothing claimed, launched, stopped, prompted or integrated; no new
+work item; no recovery branch; **no production or test file modified**; `main` untouched. The three
+scheduler-template clauses are declined as in every prior pass (clause 2 remains a direct textual
+conflict: the itinerary calls `post-milestone-acceptance` "no longer an automatic accumulation
+target", so "exactly as the itinerary requires" cannot be honoured by doing what the template says).
+
+**Five facts re-derived from procedure, all unchanged.** Census **96** = 1 blocked / 83 done /
+12 superseded, 0 open / 0 working, via the published fence-scoped `gawk` ENDFILE form (exit 0) over
+`docs/work/items/*.md docs/*.md` — this pass's own first hand-written census spelling read **1**,
+a fresh live instance of the rule-34 trap, and the published form was used instead. **0**
+non-terminal MadGab agents among 131 MadGab cwd rows of 700 host rows; the 3 host-`running` agents
+(`92d4`, `109e1`, `94f9`) are other repositories and were left running untouched. Clue fence **0**
+in all six production regions (94th consecutive) via the shipped `fence.awk`, region counts
+reproducing exactly at 269/260/464/4242/67/269, synthetic positive control reading 1. `at-risk.sh
+--fetch` per pass 278's standing instruction: mirror verified at `7a8808b`, **89** = ref-held 1 +
+reflog-only 88, disjoint, both arms agree with empty stderr, both controls behaving, 205 refs. The
+baseline moved 1297 → **1300**, and per the standing instruction the delta was confirmed to be
+pass 278's own three pushed commits (`bc8e74e`, `95b81ab`, `7a8808b`), each an ancestor of the
+mirrored `post-milestone-acceptance` tip and so inside the exclusion set rather than at risk.
+`main` untouched: `rev-parse --verify main` exit 128, `origin/main` `0267ade`, 125 worktrees,
+`prune -n -v` empty.
+
+### 288 — a sweep over collapsed rows cannot see the content it is sweeping for
+
+Pass 278 published the non-build content sweep as "35 rows = 34 hashable + 1 directory, 34 distinct
+blobs, 0 unreachable". Re-derived from procedure, that shape gives **35 rows = 33 hashable + 2
+directory rows, 32 distinct blobs** — and the 34-vs-33 gap is not noise, it is the finding.
+
+**`git status --porcelain` collapses an untracked directory to a single `?? dir/` row.** Verified
+both ways in this repository: `madgab-approx-runtime` reports `?? prof/` as one row, while
+`--porcelain -uall` expands it to **49 rows**. The published sweep consumes the collapsed row, and
+`git hash-object -- prof/` is `fatal: Unable to hash`, exit **128**. So each collapsed row is
+excluded from the hashable population and reported as a benign "directory", while the 51 files
+actually behind the two rows on this machine are **never examined at all**. The row count is
+identical, the exit status is clean, and the verdict "0 unreachable, nothing to archive" is
+published in the same form it has had for 100+ passes.
+
+The direction is the one that hides. Planted control, in `madgab-scratch`:
+`zzprobe_dir/only.txt` containing a byte sequence with no counterpart anywhere in the repository.
+Under the published spelling the probe directory is invisible — the sweep emits
+`?? zzprobe_dir/`, the file is never hashed, and the verdict is unchanged at "0 unreachable". Under
+the corrected `-uall` spelling the same plant is enumerated as `zzprobe_dir/only.txt`, hashed to
+`8f61b6e`, found **absent** from `rev-list --objects --all --reflog`, and correctly reported as
+**UNREACHABLE — archiving required**. Both spellings were run; the control fires on one and not the
+other; the control was removed and `git status` in that worktree re-verified clean.
+
+So the "0 unreachable" that has anchored the content-sweep half of this log is, for untracked
+directories, a **false zero produced by a row-count coincidence** — 35 rows either way, with 33 or
+34 of them real. It is the same shape as rule 182's unresolvable ref reading 0 with exit 128, and
+the same shape as passes 283–287 inside `at-risk.sh`, now found in the one sweep that had not been
+scripted.
+
+**Two corrections to this log's own history, both in the same direction.** The published "34
+distinct blobs" is **32** under `-uall` (the `a0ef0cf` same-content pair still re-derives, and the
+count is now measured rather than assumed). And the long-standing "1 directory" is **2** — the count
+had been reading as a reassuring small number when it was in fact the count of *unexamined* content.
+
+**The good news, which the instrument could not have delivered: nothing is actually lost.** All 51
+files behind the two collapsed rows were enumerated with `-uall` and every one is already durable
+under a tracked path — `prof/README.md` and `prof/REPORT.md` as
+`docs/work/probe-artifacts/approx-runtime-prof_README.md` and
+`docs/work/approximate-runtime-profile.md`, and both `examples/*.rs` under `docs/work/probes/`. 0
+orphans, so no recovery branch is warranted and none was created. **This is precisely why the
+defect was worth finding rather than dismissing:** the answer was benign, and it was benign by luck.
+The sweep would have published the identical "0 unreachable" over genuinely orphaned content.
+
+### The vacuous durability test, in this pass's own first attempt
+
+Recording this because it is the same mistake the pass made and then caught: the first reachability
+check here wrote `h=$(git hash-object "$f")` and then `git cat-file -e "$h"`, and reported
+**REACHABLE** for all four files. That result is worthless — `hash-object` **writes** the object
+unless `-w` is omitted, so `cat-file -e` necessarily succeeds on the object the test just created.
+It read as four confirmations and meant nothing. Re-run with `--no-filters` and no `-w`, membership
+tested against a `rev-list --objects --all --reflog` id list, the same four files are durable **on
+evidence**. This log already records a close cousin at pass 183 (the `-w` sentinel written after
+the comparison list was captured, so a "positive" came from list staleness) and rule 22's family
+generally; the general form here is that **a test which creates the thing it then tests for cannot
+fail**, and it fails *open*, reporting the reassuring answer.
+
+**Next useful action, for a human who reopens development** — unchanged from passes 276–278, all
+test-file or CI work touching no search behaviour and hard-coding no phrase: fix the lifetime skip
+in `literals()`; add a lifetime-bearing positive control; add `--test no_phrase_hard_coding` to CI
+(`grep -rl no_phrase_hard_coding .github` still returns **nothing**); extend `test_lines()` to mark
+a non-`mod` `#[cfg(test)]` item to its closing brace; add a control planting a clue in a
+`#[cfg(test)]` item body requiring **0**; adopt `fence.awk` as the CI-side fence.
+
+**For the next paused pass: two instrument fixes, both unstarted and both worth doing first.**
+(1) The content sweep must use `git status --porcelain **-uall**` and must treat any `?? path/`
+row as an **error**, not as a directory to skip — a sweep that cannot enumerate its own population
+should refuse to publish a verdict. (2) Script it the way `at-risk.sh` was scripted, so the
+`-uall` spelling cannot be dropped by a later pass re-deriving it from the number. Until then,
+treat the published "0 unreachable" figures in this log as **unverified for untracked directories**.
+Per pass 274's standing instruction, prefer no entry at all if all of the above is unchanged.
