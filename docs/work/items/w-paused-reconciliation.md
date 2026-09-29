@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-prior_owner: coord-3b1a (pass 280; gate NO - five facts re-derived unchanged; ACTED - pass 279's two unstarted instrument fixes are done and building the script found two more fail-open defects in it. See the pass-280 entry at the end of this file)
-owner: coord-5e73
-updated: 2026-09-29T16:05:00Z
+prior_owner: coord-5e73 (pass 281; gate NO - five facts re-derived unchanged; ACTED - new rule 14aa on controls. See the pass-281 entry at the end of this file)
+owner: coord-7e04
+updated: 2026-09-29T15:16:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
