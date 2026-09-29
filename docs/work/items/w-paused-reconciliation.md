@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-31b9
-updated: 2026-09-29T13:31:00Z
+owner: coord-5d84
+updated: 2026-09-29T13:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -24179,3 +24179,155 @@ runs, and what the check can see.**
 non-terminal MadGab agents, 0 unreachable files, `main` untouched, worktree clean (0 rows) throughout — the only
 plant this pass made was appended to a `/tmp` region file, never to the repository. **Blocked on the human
 reopen/confirm decision.**
+
+## Pass 270 — `coord-5d84`, 2026-09-29T13:26Z–13:40Z — gate NO; five facts re-derived unchanged; ACTED — pass 269's detached suite **completed** and is **green on 12/12 targets**, and its one red line is a missing `rustdoc` PATH shim, not a code defect
+
+**Gate answer: NO**, on the same authority as every pass since 92: `## Status: accepted and paused`
+(`docs/skills/itinerary-madgab.md:5`), plus `docs/accepted-state-2026-09-27.md`. **No agent launched,
+stopped or prompted; no work item created or claimed; nothing integrated; `main` untouched at
+`0267ade`.** The three scheduler-template clauses are declined unchanged for the fifty-eighth
+time: clause 2 remains a direct textual conflict with itinerary line 17 ("no longer an automatic
+accumulation target"), and clause 3's no-hard-coding half is a **standing invariant** (fence 0,
+below), not work.
+
+### Pass 269's outstanding measurement is now DISCHARGED, and its reading was optimistic in a second way
+
+Pass 269 relaunched `cargo test --release --no-fail-fast` detached and left it for "a later fresh
+pass to read". **It finished at 13:25:42Z, 95 seconds after that pass exited at 13:24Z**, so it
+survived the coordinator's exit exactly as the `setsid` was meant to ensure — the detachment fix
+worked, and no `cargo`/`rustc` process is live now.
+
+**The suite is green on every target that reports a result: 12 `test result:` lines, 12 `ok`, 0
+`failed`** — `unittests src/lib.rs` 83/0/12-ignored, `unittests src/main.rs` 0, `approx_determinism`
+4/0, `cli_milestone_predicate` 3/0/1-ignored, `corpus_integration` 12/0/1-ignored,
+`display_ordering_attribution` 9/0, `emit_coverage` 7/0, `exact_determinism` 1/0,
+`no_phrase_hard_coding` 9/0, `objective_is_a_search_input` 1/0, `pool_rank_reporting` 5/0,
+`worst_word_axis` 7/0.
+
+**But the process still exited non-zero, and the reason is not in the repository.** The final target
+is `Doc-tests madgab`, and it fails with `could not execute process rustdoc … (never executed)` /
+`No such file or directory (os error 2)`. Cause located, not inferred: `~/.local/bin` shims
+`cargo` and `rustc` but **has no `rustdoc` shim** (`which rustdoc` → exit 1), while `rustdoc` *is*
+present in the same Guix store directory `cargo` resolves to
+(`/gnu/store/jci7b4pljkyk9pz9n1qlirrxz4rkjh69-rust-1.93.0/bin/rustdoc`). Re-run with that directory
+prepended to `PATH`, `cargo test --release --doc` exits **0** with `0 passed; 0 failed`.
+
+**This is worth stating precisely, because the default reading is wrong in both directions.** A
+reader who trusts the exit status reports a red suite and goes looking for a code regression that
+does not exist; a reader who trusts the `test result:` lines alone reports 12/12 green and omits
+that the process failed. The truthful statement is the split: **12 of 13 targets green, the
+thirteenth never executed for want of a host tool.** Rule 267(c) is the frame — the population of a
+check is what runs, and what the check can see — and here the missing population is not a test file
+but a **binary on the developer's `PATH`**.
+
+**The doc-test population is empty anyway, which is the second half of why this is not a defect.**
+`src/lib.rs` carries **12** `///` doc fences and **0** `//!` ones, and the languages are `text` ×5,
+`sh` ×1, and **bare ×6** — no `rust` fence, therefore **0 doctests exist**, confirmed by the
+re-run above reporting `0 passed`. So even on a host with `rustdoc` correctly shimmed, `--doc`
+contributes no coverage; and CI never invokes `--doc` at all (step 1 is `--lib --bins`, step 2 names
+`corpus_integration` explicitly), so this failure is invisible to the pipeline by construction.
+
+### Standing facts, all re-derived with the standing rows' own instruments, all unchanged
+
+1. **Work items** — published fence-scoped `gawk` `FNR`/`ENDFILE` form (verbatim), gawk exit 0:
+   **96 = 0 `open` / 0 `working` / 1 `blocked` / 83 `done` / 12 `superseded`**. Known false
+   positives still live: `grep -rl 'state: open' docs/` = **7**, `grep -rlx 'work_item: true'
+   docs/` = **97**.
+2. **MadGab agents** — **0 non-terminal in a MadGab cwd.** Histogram over **131** MadGab rows:
+   **110 `succeeded` / 20 `failed` / 1 `stopped`**, the `stopped` row being `3a8f01` on the
+   superseded `madgab-diversity-3a8f01` front, unmoved for a further pass. Host-wide non-terminal
+   rows: **1 `running`** (`94d6` assemblyp1), **5 `idle`** (`78b2`, `92f3`, `92e3`, `98f3`, `a11d`),
+   **9 `stopped`** — all other repositories, **all left running, none touched**; `a11d` sits in
+   `/tmp` and is not a MadGab cwd. Host rows **689**, identical to pass 269's 689.
+3. **Production fence** — joined phrase **0** in all six regions, **39th consecutive**; per-word
+   **0 / 0 / 0 / 1 / 0 / 0**, region lines **269 / 260 / 464 / 4242 / 67 / 269** reproduce
+   `fence.awk`'s documented figures exactly, stderr empty. The single `1` is `src/lib.rs:3597`
+   `.expect("key came from cells")` — ordinary English in a panic message, adjudicated benign at
+   pass 216, not re-opened. Per-value arm re-derived: `came`=**1**, the other ten values **0**.
+   **Controls, both directions:** a `wreck a nice beach` plant appended to the `src/lib.rs` region
+   reads **1**; the same plant inside `mod tests` reads **0**. Both plants were written to
+   `/tmp/opencode/ctl270/`, never to the repository.
+4. **At-risk non-build content** — **0 unreachable; 0 need archiving; no recovery branch created.**
+   Re-swept from scratch over the live **125** worktrees with the anchored path-field filter
+   (rule 265) and `substr($0,4)` (rule 269(a)): **37 dirty rows = 3 build + 34 non-build** from
+   **17** contributing worktrees; the 3 build rows are `madgab-approx-runtime::prof/`,
+   `madgab-diversity-3a8f01::target-front-3a8f01/`,
+   `madgab-poolrank-3a8f02::target-front-3a8f02/`; of the 34 non-build exactly **33 hashable + 1
+   directory row** (`madgab-scratch/examples/`), **32 distinct** blobs; object ids **8,116**;
+   `comm -23` over `sort -u`'d inputs = **0**.
+5. **`main` / release integrity** — `git rev-parse --verify main` exits **128** (no local `main`);
+   `origin/main` = `0267ade`; `git diff --name-only origin/main post-milestone-acceptance |
+   grep -vc '^docs/'` = **0**; **125** worktrees, `git worktree prune -n -v` empty, exit 0; main
+   worktree `git status --porcelain` = **0 rows** throughout.
+
+**Rule 14a/14m repair HELD** — `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'`
+(no `--prune`), exit 0, `4c99503..9edd086`; bare-prefix `for-each-ref refs/remotes/audit` = **204**
+= `ls-remote --heads` **204**; `recovery/*` heads on origin = **26**;
+`refs/remotes/audit/recovery/at-risk-2026-09-29` = `eaf748762e17da17dcfda8472714485fa076b143`,
+**byte-identical** to `git ls-remote` on the same ref (the full-form-vs-full-form comparison rule
+14p prescribes). Baseline `rev-list --all --reflog` = **1,288** (+1 over pass 269's 1,287 = that
+pass's own pushed commit, on `origin` and therefore outside the at-risk set).
+
+### This pass's finding — a non-zero suite exit is a claim about the *host*, and it needs a control like any other
+
+Pass 269 correctly refused to read a killed process as a result, and correctly recorded the
+relaunch as detached. It did not anticipate that the completed run would exit **non-zero while
+every reporting target is green**, which is the one shape a reader cannot classify from the log
+alone: a `tail` shows `error: 1 target failed`, a `grep 'test result:'` shows 12× `ok`, and neither
+reading is wrong.
+
+The defect class is the log's own, arrived at from a third direction. Rules 22/28/34 exist because
+**a broken read is indistinguishable from a clean one**; pass 254's finding was a region stripper
+with two *fail-open* paths; pass 264's was a `comm` pairing that printed **no sort warning** for a
+false positive. Here the ambiguity is total in **both** directions and the resolution required a
+control that no count supplies: `which rustdoc` (exit 1) next to the `PATH` directory that does
+contain `rustdoc`, next to a re-run under that `PATH` that exits 0. Only the third of those
+distinguishes "the code is broken" from "this host cannot run the check".
+
+**New rule 270: an aggregate verdict inherits the trust of its least-executed member, and the
+members that never executed are the ones a summary drops.** A suite that reports "N of M targets
+ok" must publish **M** and name the M−N, because the discarded member is precisely the part that
+carries no evidence — here 12/12 green is true and irrelevant, and the 13th target is the entire
+content of the finding. Generalising: this is rule 267(c) ("the population of a check is what runs,
+and what the check can see") stated for a *harness* rather than a test, and it composes with pass
+267's CI gap into one standing note — **on this host there are two independent ways for a green
+signal to be narrower than it looks: CI runs 1 of 10 integration binaries, and locally `--doc`
+cannot run at all.** Neither is a MadGab defect; both are population facts, and both are now
+measured rather than assumed.
+
+### Self-check note, and two instrument defects this pass hit live
+
+Recorded because rules 265/266 and 269(a) each fired on this pass's own first draft, which is the
+log's standing claim that these are recurring rather than historical:
+
+- **A missing `print` in the worktree-extraction `awk` read 0 worktrees and therefore 0 dirty rows**
+  — a **false zero for at-risk content**, the alarming-adjacent direction, produced by omitting one
+  keyword. Re-derived correctly, the population is 125 worktrees and 37 rows.
+- **`awk`'s `print > file` re-truncated the output file on every worktree** (rule 265/266's
+  append hazard, hit through a *new* spelling: the redirection lived inside the per-worktree
+  `awk` rather than on the shell loop). It reported **1 build + 1 non-build** instead of 3 + 34.
+  Fixed with `>> f` / `>> g` and the row's figures reproduced exactly.
+
+The general form is already rule 265's second half, and this pass supplies the missing instance
+count: **a per-item writer that owns its output file's open mode is a truncation bug waiting for
+the second item.** The control that catches it costs nothing — a first run whose counts equal the
+*last* worktree's counts is the tell.
+
+### What is still open, unchanged, and named
+
+Pass 267's CI gap and pass 268's fence unsoundness are **both still open and still unfixed**, for
+the same reason as when they were found: the itinerary's pause forbids new MadGab work and any
+change outside this log's durable state, and only a human reopening development can authorise
+them. In order, on a reopen: (1) widen `.github/workflows/test.yml` step 1 from `--lib --bins` to
+`--all-targets`, or name all ten integration binaries — this pass re-derived that **9 of 10 are
+never invoked**, confirming pass 267's measurement from the CI file rather than from the log
+(rule 267(b)/(c)); (2) score `couplings()` on the **multiset**, not the LCS, and let the
+`matched >= 2` concession cover equality comparisons and not only substring calls (pass 268).
+Rule 270 adds a third, host-local and optional: shim `rustdoc` into `~/.local/bin` if the doc
+target is ever meant to be run — though with **0** doctests in the crate it is not currently worth
+anything.
+
+**Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open / 0
+working items, 0 non-terminal MadGab agents, 0 unreachable files, `main` untouched, worktree clean
+(0 rows) throughout — the only plants this pass made were written to `/tmp/opencode/ctl270/`,
+never to the repository. **Blocked on the human reopen/confirm decision.**
