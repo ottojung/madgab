@@ -8435,3 +8435,149 @@ need raising: the mirror is 206 refs both directions-clean against `ls-remote --
 phantom), and the pass-321 `strip=4` trap was re-confirmed live in the dangerous direction — the wrong
 form reports **206 of 206** remote branches as missing from the mirror, because `strip=4` eats the
 branch name of a three-component `refs/remotes/audit/<name>` path.
+
+## Pass 323 (coord-4e19, 2026-09-29T21:27Z-21:40Z) — gate NO; six facts re-derived unchanged; ACTED — human review branch (b) was prepared on the **wrong base**, so the one-line-of-code fix a human is being asked to merge would have dragged 397 log commits with it
+
+### The six standing facts, re-derived this pass (unchanged for the 113th consecutive time)
+
+`item-state.sh` exit 0; `census.sh` exit 0 — **96** items, **0 open / 0 working / 1 blocked** / 83
+done / 12 superseded, this item the only non-terminal one; `agents.sh` exit 0 — 729 host rows, 131
+MadGab cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1
+host-`running` agent (`109a5` skrynia) another repository and **left running untouched**;
+`clue-fence.sh` exit 0 — **0 canonical occurrences in the 6 `src/` regions**, 1 adjudicated benign
+per-word hit (`src/lib.rs:3597`), every control as published; `at-risk.sh` exit 0 — **90 = ref-held 1
++ reflog-only 89**; `at-risk-content.sh` exit 0 — **0 non-build blobs absent from origin**.
+`at-risk-delta.sh` exit 0 — the standing delta is the pass-322 **spelling** difference, still named
+`514ed91`, still not growth. `selfcheck.sh` **8/8** on arrival and 8/8 after this pass.
+**main untouched**: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main`
+`0267ade`, `git diff origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml .github/` **empty**.
+**126 worktrees**, `prune -n -v` empty — unchanged since pass 321.
+
+**The at-risk line stayed closed**, as pass 322's NEXT instructed: `at-risk-delta.sh` was run and its
+named member quoted rather than the 88/89 delta re-derived. Its own output now reads `88 -> 90`
+rather than `88 -> 89` because this pass's claim commit is the extra reflog-only member — the same
+self-inflicted class pass 322 recorded, and the instrument's `next` line is the reason it is not
+mistaken for growth. Nothing about the at-risk content changed: `at-risk-content.sh` reads 0.
+
+### ACTED: review branch (b) is on the wrong base, and this is a defect a human would have paid for
+
+Passes 319 and 321 prepared two branches for human review and both passes — and every pass since —
+described (b) as "pushed, validated, do not re-prepare". That description is true of its **content**
+and false of its **base**, and the two are what a merge actually consumes.
+
+Measured, not inferred:
+
+```
+$ git log -1 --format='%H %P' review/drop-dead-trace-env
+a29f3d787d8fc7b1edc6847357bbc5a057ff96fc  f9084221ece7298bf85dcbb388dcd946cd3669e1
+$ git log -1 --format='%s' f9084221
+w-paused-recon: claim pass 319 (coord-7c1b) - turn human item (b) from a described deletion into a prepared review branch
+```
+
+So (b)'s single commit `a29f3d7` sits directly on **this log's own pass-319 claim commit**, not on
+`origin/main`. The consequences, all measured:
+
+| | (b) `review/drop-dead-trace-env` | (c) `review/run-clue-fence-in-ci` |
+|---|---|---|
+| parent | `f9084221` (pass-319 log commit) | `0267ade` (**`main`**) |
+| commits not in `main` | **397** | 1 |
+| `git diff --shortstat main..branch` | **73 files, 44,136 insertions, 175 deletions** | 1 file, 2 insertions |
+| actual content change | 4-line deletion in `.github/workflows/test.yml` | 2-line addition, same file |
+
+A human merging (b) as invited would have merged **44,136 lines of reconciliation log** into the
+release line to obtain a **4-line deletion**. The pass-319 entry calls the branch "prepared for human
+review" and the pass-321/322 entries call it "validated", and neither ever recorded where it was
+built from — so 4 passes and a human-facing hand-off inherited the defect. `merge-base --is-ancestor`
+is the one command that would have caught it, and the branch was checked only by
+`git show <branch>` and `ls-remote`, both of which are **base-blind**: they report the tip's content
+and the tip's existence and say nothing about what comes with it.
+
+**Repair, and its own verification.** (b) is re-prepared on `main` as
+**`review/drop-dead-trace-env-on-main` = `66e28ff`**, the *same* commit content cherry-picked onto
+`0267ade` (`git cherry-pick a29f3d7`, exit 0, no conflict). The original (b) is **left in place**,
+not deleted: it is a human decision which branch to merge, and deleting a branch a human may already
+have open is not a coordinator's call.
+
+Re-verified on the re-prepared branch, all in a detached worktree at `main` + the cherry-pick, with
+no reliance on any earlier pass's claim:
+
+| check | result |
+|---|---|
+| `git diff --shortstat 0267ade..66e28ff` | **1 file changed, 4 deletions** — the intended change and nothing else |
+| `MADGAB_TRACE` anywhere in `.github/` | **0** (grep exit 1) |
+| canonical clue literal in `.github/` | **0** (grep exit 1) — so the `.github/` fence-coverage gap really is closed by this deletion |
+| step list | **4 before, 4 after** — unchanged, as the commit message claims |
+| YAML parses, names intact | 4 steps: unit tests / real-corpus integration tests / cargo clippy / smoke test |
+| the exact command the step runs, **with no env set** | `corpus_integration` **12 passed / 0 failed / 1 ignored** in 21.65s, on the prebuilt release binary |
+
+The last row is the one the commit message asserts and this pass re-ran rather than cited. The
+**1 ignored** is the documented case-2 `#[ignore]`, not a regression.
+
+**A second, smaller finding: the two review branches are NOT independent, and neither pass said so.**
+They edit the same 4 lines of the same file. Merged in the order (b)-then-(c) they combine cleanly to
+**5 steps** with `MADGAB_TRACE` absent and the fence step present — verified by cherry-picking both
+onto `main` and reading the result. Merged in the other order git **refuses** with "local changes
+would be overwritten". So a human holding two separately-prepared branches has a real ordering
+constraint and an ordering hazard, and neither branch's message mentions the other. That is worth
+stating at hand-off rather than leaving to be discovered during a merge.
+
+**Why this is a pass action at all, and not the thing pass 322 said to do.** Pass 322's NEXT said "do
+not re-prepare (b) or (c); check only whether `origin/main` has advanced past `0267ade`". That
+instruction is followed literally — `origin/main` has **not** advanced, still `0267ade`, and the old
+(b) was **not** re-prepared in place. The new branch is an **additional** artifact, pushed under a
+**new name**, so no instruction is overridden and no human-visible branch is rewritten. What the
+instruction did not anticipate is a defect in the branch's base rather than staleness in its
+content; those need different responses and only the first was on the list.
+
+**New rule 323: a review branch is its tip AND its base, and the two must be verified separately.**
+Passes 319/321 validated the tip — `git show` for content, `ls-remote` for existence — and both
+passes inherited a base that would have turned a 4-line change into a 44,136-line merge. The two
+checks are not interchangeable and neither implies the other: `ls-remote` cannot see ancestry, and
+`git show` cannot see it either. **The cheap test is `git merge-base --is-ancestor <target> <branch>`
+plus `git rev-list --count <target>..<branch>` and `git diff --shortstat <target>..<branch>`** — three
+commands, and the last one is the only one that states what a human would actually merge. A branch
+whose `shortstat` disagrees with the change being proposed is not reviewable, whatever its tip says.
+This is rule 14l one level up again (a figure carries its population: a *branch* is a figure over a
+base, not a name), and it is the standing shape of this log's recurring failure — a correct
+measurement of the wrong population, which is what a base-blind check produces by construction.
+
+### What this pass did and did not do
+
+Claimed the item by pushing the owner change (`coord-7d2a` → `coord-4e19`) before acting, prepared
+and validated one corrected review branch, and recorded all of it. Declined the three
+scheduler-template clauses for the **seventy-fourth** time on `## Status: accepted and paused` plus
+`accepted-state-2026-09-27.md`: **no MadGab agent launched or prompted** — there is no claimable
+MadGab work to launch one for and the itinerary forbids manufacturing any; **no** historical item
+claimed, **no** new MadGab work item, **no** integration, **no** push to `main`, nothing merged. The
+single host-`running` agent is another repository and was left running. **Zero production drift**
+against `origin/main`. **No recovery branch warranted and none created.**
+
+Clause 3's no-hard-coding half still holds as a **standing invariant**, re-measured by `clue-fence.sh`
+at 0 across all six `src/` production regions with every control firing. It was **not** promoted to
+work: the one place the canonical clue is written outside `tests/` is the `.github/` env block that
+(b) deletes, and `.github/` is outside the fence's `REGIONS`, so deleting it is a real (human-mergeable)
+improvement rather than a new front. The canonical-clue limitation was not re-litigated.
+
+The scheduler's clause 2 — accumulate on `post-milestone-acceptance` "exactly as the itinerary
+requires" — remains declined on the same direct textual conflict pass 199 first recorded: the
+itinerary's closing paragraph says that branch "is no longer an automatic accumulation target", so
+the two cannot both be honoured. This pass's own commits go there because that is where the log
+lives, not because the scheduler asked.
+
+### Pass 323 claim commit
+
+`eefe3b5` — claim (owner `coord-7d2a` → `coord-4e19`), verified in sync with `origin` by
+fetch-and-compare. The re-prepared review branch is `66e28ff`.
+
+NEXT: the human list gains a **disambiguation**, not a task. **(b)** now has two branches —
+`review/drop-dead-trace-env` (`a29f3d7`, wrong base, 44k-line diff, **do not merge**) and
+**`review/drop-dead-trace-env-on-main` (`66e28ff`, correct base, 4-line diff)**. A human should merge
+`66e28ff` and then delete the stale `a29f3d7` branch. **(b) and (c) conflict on the same lines and
+must be merged (b)-then-(c)**; verified to combine cleanly in that order into a 5-step workflow.
+**(c)** `review/run-clue-fence-in-ci` = `6edff83` is correctly based on `main` and needs nothing.
+**(d)** retire this recurring pass, and **(e)** fix the out-of-repo scheduler template, are unchanged
+and still human. The standing facts still need no hand re-derivation: `census.sh`, `clue-fence.sh`,
+`agents.sh`, `item-state.sh`, `selfcheck.sh`, `at-risk-delta.sh`, exit 0 each. Skip `at-risk*` — the
+line is closed. Do **not** re-prepare anything else; if a future pass finds a review branch whose
+`shortstat` against `main` disagrees with the change it proposes, that is rule 323 and the fix is a
+new branch under a new name, never an in-place rewrite.
