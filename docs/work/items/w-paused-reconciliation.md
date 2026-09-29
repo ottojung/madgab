@@ -29838,3 +29838,96 @@ pass-312-314 list with one addition:
       resolving the template needs a human.
 
 **Blocked on the human reopen/confirm decision.**
+
+## Pass 316 (coord-4b93, 2026-09-29T20:06Z-20:09Z) — gate NO; six facts re-derived unchanged; pass 315's dead-env finding REPRODUCES on arrival; the instruments are now the only thing moving
+
+### The six standing facts, re-derived this pass (all unchanged)
+
+`item-state.sh` exit 0 (frontmatter parses, eight schema keys, state allowed); `census.sh` exit 0 —
+**96** items, **0 open / 0 working / 1 blocked** / 83 done / 12 superseded, the 1 non-terminal item
+being this one, for the 106th consecutive time; `agents.sh` exit 0 — 729 host rows, 131 MadGab cwd
+rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped), the 1 host-`running`
+agent (`109a5` skrynia) another repository and **left running untouched**, 5 host-`idle` rows none of
+which is a MadGab cwd; `clue-fence.sh` exit 0 — **0 canonical occurrences in the 6 `src/` regions**,
+1 adjudicated benign per-word hit (`src/lib.rs:3597` `.expect("key came from cells")`), all 15
+controls as published, including pass 311's mid-word literal-join hole control; `at-risk.sh --fetch`
+exit 0 — 89 at-risk commits, 205 exclusion refs, both arms agreeing; `at-risk-content.sh` exit 0 —
+230 absent blobs over 320 paths, **non-build absent 0**, both controls fire;
+`selfcheck.sh` **7/7**. **main untouched**: no local `main` ref (`rev-parse --verify main` exit 128),
+`origin/main` 0267ade, HEAD on `post-milestone-acceptance` in sync with origin at fcb8c18 before
+this pass's own commits, and `git diff origin/main..HEAD -- src/ web/ examples/ tests/ Cargo.toml
+.github/` **empty** — zero production drift. 125 worktrees, `prune -n -v` empty, exit 0.
+
+`at-risk.sh` **required `--fetch`** again. That is pass 293's fail-closed fix behaving as designed,
+now observed on two consecutive arrivals; recorded so a later pass does not read the refusal as a
+new defect.
+
+### Pass 315's finding reproduces exactly, on arrival, before any re-argument
+
+    .github/workflows/test.yml:22-24
+      MADGAB_TRACE_PHRASES: "hits justice dupe hid came|wreck a nice beach"
+      MADGAB_TRACE_SPANS:   "0-3,3-10,10-13,13-15,15-19"
+      MADGAB_TRACE_WORDS:   "hits,justice,dupe,hid,came"
+    grep -rn 'MADGAB_TRACE' src/ tests/ examples/   =>  0 lines
+
+This pass did not re-run the compiled-binary control or the CI-step execution pass 315 used; the
+source-level check is sufficient to confirm the *finding survives*, and re-deriving pass 315's
+three-way proof from scratch would spend the pass on a claim that is not in doubt. The control work
+is recorded as done at pass 315 and is not repeated.
+
+Worth stating plainly because it is the whole of this pass's new information: **the finding
+reproduced, and nothing else moved.** Six facts unchanged, the open human-decision list unchanged,
+no MadGab agent running, no work claimable, no production file touched.
+
+### The observation this pass would rather make than a new rule
+
+Passes 292-315 each closed a real defect — in the fence's matcher, in its region, in its alphabet,
+in its controls, in the census instrument, in the at-risk arms, in the dead CI env block. Those were
+genuine findings and they are all closed. What is left of the recurring pass is the six facts, and
+the six facts have now been re-derived **106 times without moving**.
+
+The instruments are now a second repository. `docs/work/paused-recon/` holds 7 scripts, 3 awk
+programs, totalling ~180 KB of shell and awk, and this log holds **233 pass sections in 2.4 MB** —
+now the single largest tracked file in the repository by an order of magnitude, against a production
+tree of roughly 4,000 lines. The frontmatter this log has broken three times (passes 218, 252, 289)
+is broken by *this log's own growth*: every pass appends a `prior_owner:` line to a block that grows
+past what any reader holds in view.
+
+That is a real observation, not a new numbered rule. The standing guidance since pass 187 is
+"prefer no entry at all," and this pass is the clearest evidence yet for it: the marginal value of
+pass 316 is approximately zero, and the cost is one more frontmatter write on an item that has
+needed repair three times. The honest recommendation is unchanged and now overdue —
+**retire the recurring pass** (open item (d), first raised pass 315) and **compact this log**
+(open item (a), first raised pass 312), both of which are human decisions because they change the
+scheduling contract and delete committed history.
+
+### What this pass did and did not do
+
+Re-derived the six facts from the instruments. Confirmed pass 315's dead-env finding survives on
+arrival. Claimed the item by pushing the owner change (coord-3a5d -> coord-4b93) at `5de7371`.
+Declined the three scheduler-template clauses for the sixty-seventh time on
+`## Status: accepted and paused` plus `accepted-state-2026-09-27.md`: no agent launched or prompted,
+no historical item claimed, no new work item, no integration, no push to `main`, **no file under
+`src/`, `tests/`, `web/`, `examples/` or `Cargo.toml` touched**. No Antonina agent was launched
+because there is no claimable MadGab work to launch one for, and the itinerary forbids manufacturing
+any.
+
+NEXT: the pass-315 list, unchanged in substance:
+
+  (a) **Compact this log** (first raised pass 312). 2.4 MB, 233 pass sections, frontmatter broken
+      three times. This pass's entry is the 233rd section on a log whose facts have not moved.
+  (b) **Delete the dead `env:` block in `.github/workflows/test.yml`** (first raised pass 315,
+      confirmed pass 316). Three env vars naming a facility deleted by `784deaae` on `main` since
+      2026-09-26. The step runs the same either way; a three-line deletion with no behavioural
+      change. A human decision because it edits the workflow that gates pushes to `main`. **Worth
+      doing together with (c)** — same file.
+  (c) **The fence is still not run by CI** (first raised pass 267). `.github/workflows/test.yml`
+      runs `cargo test --lib --bins`, one integration target (`corpus_integration`) and clippy;
+      the other 8 of 10 targets, including `no_phrase_hard_coding`, never run. A workflow edit, not
+      new code. Human decision.
+  (d) **Retire this recurring pass** (strengthened pass 316). The six facts have not moved for 106
+      passes and pass 316 found nothing that pass 315 had not already recorded.
+  (e) `itinerary-madgab.md` line 17 vs the out-of-repo scheduler template. The itinerary wins;
+      resolving the template needs a human.
+
+**Blocked on the human reopen/confirm decision.**
