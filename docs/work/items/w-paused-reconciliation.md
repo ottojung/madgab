@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b19
-updated: 2026-09-29T13:05:00Z
+owner: coord-7f4c
+updated: 2026-09-29T13:16:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23929,3 +23929,104 @@ notice it stopping standing.
 non-terminal MadGab agents, 0 unreachable files, `main` untouched at `0267ade`, worktree restored clean after the
 control plants. **Blocked on the human reopen/confirm decision** — and if that decision is "reopen", rule 267(c)
 names the first concrete piece of work.
+
+## Pass 268 — `coord-7f4c`, 2026-09-29T13:07Z–13:16Z — gate NO; ACTED — pass 267's fence is wired to nothing *and* is order-sensitive; a working hard-code of the classical clue passes it
+
+**Gate answer: NO**, on the same authority as every pass since 92: `## Status: accepted and paused`
+(`docs/skills/itinerary-madgab.md:5`). **No agent launched/stopped/prompted; no work item created or claimed;
+nothing integrated; `main` untouched at `0267ade`.** 0 open, 0 working, 1 blocked (this item); 0 non-terminal
+MadGab agents. The host's 2 `running` rows (`94d6` assemblyp1) and the rest are other repositories, left running.
+
+### Standing facts re-derived, unchanged
+
+census **96** = 0 open / 0 working / 1 blocked / 83 done / 12 superseded; **0** non-terminal MadGab agents;
+no local `main` (`rev-parse --verify main` exit **128**), `origin/main` = `0267ade`; **125** worktrees;
+HEAD = `origin/post-milestone-acceptance` = `cf7666f`; worktree clean (0 rows) before and after this pass's controls.
+
+A **full `cargo test --release --no-fail-fast` was launched this pass** and is **still running** at exit. Its partial
+results are all green and are the first *whole-suite* reading in this log: `unittests src/lib.rs` **83 passed / 0
+failed / 12 ignored**; `unittests src/main.rs` 0/0; `approx_determinism` **4/0**; `cli_milestone_predicate`
+**3 passed / 0 failed / 1 ignored**; `corpus_integration` in progress, its first 12 all `ok` with 1 `ignored`.
+So the 9 unrun tests pass 267 called "a pipeline-coverage defect, not a latent violation" is now **measured, not
+inferred** for the five that finished: none of them is red on the accepted head. The suite is left running for a
+later fresh pass to read.
+
+### This pass's finding — the fence pass 267 found is **not sound**, and its unsoundness is in the dangerous direction
+
+Pass 267's control planted one shape, in canonical order, and the fence went red. **It never planted a hard-code the
+detector would be *expected* to catch in any other spelling.** So this pass planted the near-miss forms, and the
+fence stayed **green (9/9)** on all of them. Measured on `src/approx.rs` (production region; every plant removed
+afterwards, `git status --porcelain` = **0 rows**, `md5sum src/approx.rs` = `2b79a505…` both before and after):
+
+| plant in `src/approx.rs` | holds | fence verdict |
+|---|---|---|
+| `const REVERSED: &[&str] = &["came","hid","dupe","justice","hits"];` compared with `.eq(..)` | **all 5** clue words, reversed | **GREEN** |
+| `const SORTED: &[&str] = &["came","dupe","hid","hits","justice"];` compared with `.eq(..)` | **all 5** clue words, sorted | **GREEN** |
+| `clue.replace(' ', "") == "camehiddupejusticehits"` | all 5, normalized *and* reversed | **GREEN** |
+| `const TABLE = &["hits","justice","dupe","hid"];` + `.eq(..)` (4 of 5, in order) | 4 words | **GREEN** |
+| `const TABLE = &["hid","dupe","justice","hits"];` + `.eq(..)` (4 of 5, rotated) | 4 words | **GREEN** |
+| same `SORTED` array handed to `clue.contains("came dupe hid")` | 3 words, sorted, substring | **RED** `substring-special-case` |
+| `fn recognize_speech(..)` (neutral bodies, canonical-order array) | — | **RED** `identifier-named-after-phrase` |
+
+The first five are **functioning, complete hard-codes of the classical clue** — the exact thing the itinerary
+forbids and the exact thing the known limitation is about. `legacy_lookup_a` returns true for
+`"came hid dupe justice hits"` and nothing else; that is a special case for one example, written by a developer
+under exactly the pressure pass 267 describes, and it ships.
+
+**Root cause, located in the code, not guessed.** `couplings()` (line 176) scores a literal by
+`word_overlap(literal, phrase)` — a **longest common subsequence**, i.e. an *order-sensitive* match — and fires at
+`n >= 2`. LCS is computed and printed (`/tmp/opencode/lcs.js`, the same recurrence as `word_overlap`):
+
+```
+canonical  LCS=5  -> FIRES
+reversed   LCS=1  -> SILENT     <- below the n>=2 floor entirely
+sorted     LCS=2  -> FIRES      <- but see the next row
+prefix4    LCS=4  -> FIRES
+```
+
+`sorted` scoring 2 explains why the bare `SORTED` array is green anyway: `2` clears `couplings`' floor, so the unit
+*does* register a coupling, but it lands in `phrases.partial`, and `detect()` (line 720) filters partials to
+`matched >= 3 || (matched >= 2 && in_substring_call)`. `.eq(` is not in `looks_like_substring_call`'s eleven-method
+list, so a 2-word partial in an equality comparison is dropped. That is why the `contains` variant of the *same*
+array goes red and the `.eq` variant does not — the discriminator is the **method name**, not the coupling.
+
+So there are two independent defects, and the first is the load-bearing one:
+
+1. **Order-sensitivity (fundamental).** The canonical phrases are compared as *sequences*. Any hard-code that
+   reorders the words — reversed, sorted, rotated, or hashed-and-compared — has LCS 1 or 2 and is invisible. A
+   hard-code author has no reason to preserve order: comparing a *sorted* word bag is the natural way to write
+   "is this the example I know?", and it is precisely the natural spelling the fence cannot see.
+2. **The partial floor excludes equality (secondary).** `matched >= 2` is conceded conclusive only inside a
+   substring call. An `==`/`.eq()` comparison against a 2-word partial of a canonical phrase is a *stronger*
+   signal than a `contains`, not a weaker one, and is silently dropped.
+
+Note the symmetry with pass 267's rule 14u, which recorded that the log's own regex "cannot see the decomposed
+array spelling". **The repository fence fixed the decomposition and inherited a worse blind spot in its place**:
+decomposition is now handled, order is not, and `identifier-named-after-phrase` already showed that a hard-code
+need not contain the phrase in order at all. Rule 14u and this finding are the same lesson arriving from opposite
+directions: a fence enumerates the spellings it was shown, and every unenumerated spelling is a false negative.
+
+**Not repaired, deliberately, same reason and same authority as pass 267.** A repair is small and general — score
+`couplings()` on the **multiset** (or a sorted-word comparison) rather than the LCS, and let the `matched >= 2`
+concession stand for equality comparisons, not only for substring calls. It is a change to a *test*, not to
+product behaviour, and the repair makes the fence strictly more sensitive without asserting any new property of
+the search. It is still not made here: the pause forbids new MadGab work and integration outside this log's own
+durable state, and only a human reopening development can authorise it. Recording the defect and the named repair
+is this pass's contribution; the fix is the second act after a reopen, behind pass 267's CI line.
+
+**Rule 268(a): a control must plant the near-misses, not the exemplar.** Pass 267's control was a correct and
+careful measurement that established the fence *fires*; it could not establish the fence *discriminates*, because
+only positive controls were run. Any claim of the form "the fence catches hard-coding" is half a claim until a
+plant in a spelling the detector does not recognise has also been tried and the result reported either way. The
+red rows above are the control for the control: `contains` and `recognize_speech` prove the plants are real and
+the harness does discriminate, so the green rows are false negatives and not a broken experiment.
+**Rule 268(b): a detector built on a *sequence* matcher must have its order-invariance stated and tested.** Here
+the module docs enumerate nine shapes with concrete examples and never mention word order, so a reader — human or
+agent — would reasonably believe the reversed array is covered. **Rule 267(c) extends unchanged and is the frame
+for both defects: the population of a check is what runs *and* what the check can see.** Pass 267 found the fence
+is never run; this pass found that when it is run it is blind. Both are one line of CI and one order-insensitive
+comparison away from closed, and both are named here as the first two acts on a reopen.
+
+**Nothing to recover, nothing to assign, nothing to integrate, nothing to review.** 0 open / 0 working items, 0
+non-terminal MadGab agents, 0 unreachable files, `main` untouched, all six control plants removed and the worktree
+byte-identical. **Blocked on the human reopen/confirm decision.**
