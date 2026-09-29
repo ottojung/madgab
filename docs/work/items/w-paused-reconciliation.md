@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7e5b
-updated: 2026-09-29T08:28:38Z
+owner: coord-3a70
+updated: 2026-09-29T08:42:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -19706,4 +19706,104 @@ warranted; none created.
 **Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
 development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
 template, whose three clauses have now fired fifty-three times against an itinerary that contradicts
+them; and stop committing pass-log frontmatter instead of body sections.
+
+## Pass 223 (coord-3a70)
+
+**Gate: NO**, unchanged, for the fifty-fourth time. The three scheduler-template clauses (launch/prompt
+Antonina agents; accumulate on `post-milestone-acceptance` "exactly as the itinerary requires";
+prioritize the canonical approximate-search examples) were declined on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary's
+closing paragraph says `post-milestone-acceptance` "is no longer an automatic accumulation target".
+Nothing claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch;
+`main` untouched at `0267ade` (no local `main`, `rev-parse --verify main` exit 128).
+
+### Correction — pass 222's census "leak" is NOT a defect, and rule 14ab rests on a reconstruction
+
+Pass 222 published a mechanism ("the form toggles a code-fence flag and never resets it"), a claimed
+reading (95 against a true 96), a "fix" (`FNR == 1 { f = 0; infence = 0 }`), a new rule 14ab, and an
+instruction to leave this file's fence parity at 31 so "the bug stays reproducible". **None of that
+reproduces against the form as published.** Four independent checks, all run this pass:
+
+1. **The published form contains no fence toggle.** The sanctioned census form, quoted verbatim in the
+   "Work items" row and at the pass-141 correction, is
+   `FNR==1&&$0!="---"{nextfile} FNR>1&&$0=="---"{nextfile} FNR==1{next} /^work_item: /{wi=$2} /^state: /{st=$2} ENDFILE{...}`.
+   It never mentions `f`. `grep -c 'f = !f'` over this file at `461eeac` (pass 221) and `505fe57`
+   (pass 220) reads **0** at both — the string enters the file only in pass 222's own prose (`d9b11f1`
+   reads 1, and that single hit *is* the sentence describing the defect).
+2. **Run verbatim, the published form reads 96**, not 95: 1 blocked / 83 done / 12 superseded, gawk
+   exit 0, 0 open / 0 working.
+3. **Injecting the toggle pass 222 describes changes nothing.** Adding `/^```/{f=!f}` to the published
+   form still reads 96. Adding pass 222's own reset *and* the toggle also reads 96. The "leaking 95"
+   and "fixed 96" pair pass 222 verified in both directions does not exist in either form.
+4. **`f` is write-only in the form as described.** No rule in it tests `f`; it is assigned and never
+   read, so it cannot alter the output even if it leaks across files. This is the decisive point and
+   it is structural, not empirical: a variable no condition reads cannot suppress an item.
+
+**Where the 95 really comes from.** `docs/work/items/*.md` **alone** reads 1 / 83 / **11** = 95, and
+`docs/continuation-approximate-search.md` is `work_item: true` / `state: superseded` and sorts in via
+the second glob. That is **rule 14l verbatim** — "the published form's second argument `docs/*.md` is
+LOAD-BEARING" — published at pass 202 and re-affirmed at passes 203/204/220/221. Pass 222 re-derived
+the `items/`-only figure, attributed it to an invented mechanism, and published a rule and a fix for
+it.
+
+**Rule 14ac: a published defect must be demonstrated on the instrument AS PUBLISHED, not on a
+reconstruction of it, and the reconstruction must be shown to differ from the original.** Pass 222
+asserted a flag was present in a form that has never contained it. A "found bug" whose mechanism
+cannot be found in the cited artifact is a finding about the reader's memory of the artifact. Two
+corollaries, both live here: (a) *a variable that no rule reads cannot change a program's output* —
+so a claimed leak of such a variable is refuted by inspection, without running anything; (b) a
+published **fix** must change the reading, or it is not a fix. Pass 222's "verified in both
+directions, 95 leaking / 96 reset" is the specific thing to distrust: both arms were run on
+hand-built forms, so their agreement certified the hand-built spelling and not the published one —
+rule 14s ("cross-checking two exclusion spellings certifies the SPELLING, never the ARGUMENT LIST")
+restated for census instruments.
+
+**Withdrawn:** rule 14ab, and pass 222's instruction to preserve the 31-fence parity. The parity is
+irrelevant to the form, which does not read fences; preserving it "so the leak stays reproducible"
+protects nothing. The parity is left as it stands, untouched, and no pass should read it as load-
+bearing. No prior published count changes — 96 has been correct since pass 141 and pass 222's 95
+never was.
+
+### Standing facts, re-derived not carried
+
+Census **96 = 1 blocked / 83 done / 12 superseded**, 0 open / 0 working, published form verbatim,
+gawk exit 0, and the items/-only scope confirmed at 95 in the same run so the rule-14l delta is
+re-derived from both ends rather than one. Fence via the committed `fence.awk`, region counts
+reproduced exactly (**269 / 260 / 464 / 4242 / 67 / 269**): **0** joined-clue and **0** target hits in
+all six production regions; the per-word regex reads **1** at `src/lib.rs:3597`
+`.expect("key came from cells")` — pass 216's adjudicated non-defect, not re-opened. Agents: **0**
+non-terminal among 131 MadGab cwd rows of 653 host rows (`3a8f01` still `stopped` on a superseded
+front, `3a8f02` `succeeded`, neither restarted); the 2 host-`running` agents (`78e1` qai-proviral,
+`94a9` assemblyp1) belong to other repositories and were **left running, untouched**. Worktrees
+**125** registered, `git worktree prune -n -v` **empty**, exit 0. `main` untouched; HEAD on
+`post-milestone-acceptance` in sync with `origin`.
+
+At-risk, re-derived: `audit/*` re-fetched FIRST by its real source namespace with **no `--prune`**
+(exit 0; `audit/post-milestone-acceptance` advanced `461eeac..d9b11f1`, i.e. pass 222's own commit),
+cardinality read **inline** at **204** and not asserted. Baseline `rev-list --all --reflog` **1,239**.
+Both sanctioned exclusion arms **unmixed** per rule 14h and per-element-prefixed per rule 14s/14b
+(`--not "${R[@]}"` vs `^`-prefixed per ref): agree **1 / 1** `diff`-clean, exit 0 each. Ref-held **1**
+(`514ed91`, held by exactly `refs/heads/scratch-3f8c62-landed`), reflog-only **87**, intersection
+**0**. Both arms were also re-checked under a deliberately wrong spelling — a shell-glued
+`"^${R[@]}"` reads 943 and an unquoted `$(cat refs)` reads 1,152 — which is rule 14b/14s firing live
+again and is why the per-element form is the one quoted. Content durable at
+`origin/recovery/at-risk-2026-09-29` = `eaf7487`; **26** `recovery/*` heads on origin. Content sweep
+not re-run — closed on content since pass 184, and the only population change is this log's own
+commit. No recovery branch warranted; none created.
+
+### Next action
+
+**Prefer a short entry, and commit it as a body section** (pass 221's rule). Then:
+
+1. Run `grep -q '^## Pass <n> ' docs/work/items/w-paused-reconciliation.md` **after** the commit.
+2. Apply rule 14ac: before publishing any defect in an instrument, `grep` the cited artifact for the
+   mechanism and show the reconstruction differs from the original. Rule 14ab is withdrawn; the
+   published census form needs no change.
+3. Do not assert a literal audit-ref cardinality; read it inline (204 here, different next pass).
+4. Expect `lib.rs` per-word `1` at line 3597. Adjudicated; do not re-open.
+
+**Still for a human, unchanged:** confirm the pause and close this item `done`, or reopen MadGab
+development; decide the residual `514ed91` commit object; retire or correct the out-of-repo scheduler
+template, whose three clauses have now fired fifty-four times against an itinerary that contradicts
 them; and stop committing pass-log frontmatter instead of body sections.
