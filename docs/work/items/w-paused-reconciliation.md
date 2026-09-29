@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b7e (pass 178; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 non-terminal MadGab agents among 131 MadGab/619 total, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,187 baseline, 125/125 worktrees with `prune -n` clean for the ninth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row / **33** distinct blobs, up one from pass 177's 32 — churn in a worktree file, not a loss, since all 33 remain reachable; sweep sensitivity demonstrated by a sentinel control that read absent), so no durable repair was available; blocked on the human reopen/confirm decision)
-updated: 2026-09-29T04:05:00Z
+owner: coord-5e40 (pass 179; gate NO — same three contradictory clauses declined; five facts re-derived and unchanged (1/83/12 work items, 0 non-terminal MadGab agents among 131 MadGab/619 total, 0 clue fence hits in all six files' production regions including `main.rs` under the clue-only regex, 7/87/0 at-risk commits over 199 audit refs and a 1,188 baseline, 125/125 worktrees with `prune -n` clean for the tenth consecutive pass); 0 at-risk non-build content at both commit and file level (34 rows / 33 hashable files / 1 directory row / **32** distinct blobs, back down from pass 178's 33 — and the fall is *identified*, not merely tolerated: the one duplicated blob `a0ef0cf` is a same-content pair, `/workspace/madgab-base-5b1e93::examples/zzz_final_probe.rs` and `/workspace/madgab-probe-5b1e93::examples/probe_final.rs`, so 33 files hash to 32 distinct blobs for a reason no loss could produce; sweep sensitivity demonstrated by a sentinel control that read absent), so no durable repair was available; blocked on the human reopen/confirm decision)
+updated: 2026-09-29T04:10:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -15819,6 +15819,70 @@ count that *falls* would instead indicate a lost file and would need acting on.
 (`17c456`) was confirmed **absent** from the 7,468-id set, so the membership test that returns 0 over
 the 33 real files returns 1 over genuinely unreachable content. As at passes 175–177, this control
 exercises the *membership test*, not the *enumeration* — the two are separate obligations.
+
+**Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
+exit without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the
+last section; do not trust a pass number quoted inside any entry. Read the "Current gate status"
+table's gate answer, and treat every number in it as a snapshot. Only a human can change the gate:
+fix or retire the out-of-repo scheduler template (which keeps arriving carrying clauses that
+contradict the itinerary), confirm the pause (close this item `done`), or reopen development (fresh
+branch from `main`; a compact pronunciation DAG with k-best / A*-style whole-path search, not another
+widening of the Cartesian-prefix traversal).
+
+## Pass 179 (coord-5e40)
+
+**Gate answer: NO.** Re-derived from [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md)
+`## Status: accepted and paused` after a fresh wildcard fetch of `origin` (`origin/main` still
+`0267ade`). No work created, claimed, launched, prompted, resumed or integrated; nothing pushed to
+`main`; no new `recovery/*` branch, because both the commit-level and the file-level checks returned
+zero. No Antonina agent launched or stopped: the single host-`running` agent (`94b6`,
+`assemblyp1-94-integrate`) is another repository and was left running. The invocation's three
+unexecutable clauses are declined for the reasons already on record (rule 19): accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires" (the itinerary's last line says that
+branch "is no longer an automatic accumulation target"); launch or prompt Antonina agents and split
+independent fronts (rules 1 and 2); and "prioritize the canonical approximate-search examples"
+(case 2 is an **accepted known limitation** whose fix direction — a compact pronunciation DAG with
+k-best / A*-style whole-path search — is exactly what the pause defers, rule 25). The "without
+phrase-specific hard-coding" qualifier is already the invariant this programme holds, and the
+production fence re-derives it below.
+
+### Five facts, re-derived (not carried forward)
+
+| Fact | Reading |
+|---|---|
+| Work items | **1 `blocked`** (this one) / **83 `done`** / **12 `superseded`** = 96, via the published fence-scoped gawk `FNR`/`ENDFILE` form. **0 `open`, 0 `working`.** Unchanged. |
+| MadGab Antonina agents | **0 non-terminal in a MadGab cwd.** Full `antonina agent list` = **619** data rows; the cwd column filtered for `madgab` returns **131** = 110 `succeeded` + 20 `failed` + 1 `stopped`, and the non-terminal filter over those returns **nothing**. Host `running` = **1** (`94b6`, other repository, left running, untouched). |
+| `main` | **untouched.** `git ls-remote origin refs/heads/main` = `0267ade`; `git rev-parse --verify main` still **fails**, so no local `main` ref exists. HEAD is `post-milestone-acceptance`. |
+| Production clue fence | **0** in all six files' production regions, re-derived per file with `awk '/#\[cfg\(test\)\]/{exit}{print}'` and the clue-only regex `wreck a nice beach|hits justice dupe hid came`: `adjacency.rs` 0, `lexical.rs` 0, `approx.rs` 0, `lib.rs` 0, `wasm.rs` 0, and `main.rs` 0 (no `#[cfg(test)]` boundary, so its whole file is the region; under the *clue+target* regex it reads 2, both `//!` CLI-usage lines quoting a target — one population under two regexes, rule 25). **Forty-sixth consecutive pass at 0.** |
+| At-risk commits | **7 / 87 / 0**, baseline `rev-list --all --reflog` = **1,188** (1,187 at pass 178; the delta is pass 178's own pushed commit, itself on `origin` and so not entering the set), exclusion set re-fetched first → **199** `audit/*` refs, published beside the count it scopes per rule 38. `git rev-list --all --not $REFS` = **7**; `git rev-list --reflog --not --all` = **87**; `comm -12` on both `sort -u`ed sides = **0**, so the split is disjoint and sums to 94; a per-commit `merge-base --is-ancestor` loop (never batched) finds **0** of them are ancestors of `origin/main`. All **20** `recovery/*` branches present on `origin` by `ls-remote`. |
+| Worktrees | **125 registered, 125 live**, `git worktree prune -n -v` **empty** — pass 170's prediction holds for the **tenth** consecutive pass. |
+
+**At-risk non-build content: 0, re-derived at file level.** Over the 125 live worktrees, `git status
+--porcelain` (no `--ignored`) gives **37** raw rows; rule 9's amended component filter
+`*/target/*|*/target-*/*|*/prof/*` leaves **34 non-build rows** from **17** distinct worktrees =
+**33 hashable files** + **1 directory row** (`/workspace/madgab-scratch/examples/`, classified as a
+directory because `[ -d ]` matched before the `hash-object`). All 33 hash via `git hash-object` to
+blobs present in `rev-list --objects --all --reflog` (**7,474** field-1 ids, extracted with
+`awk '{print $1}' | LC_ALL=C sort -u` per rule 17) → **0 unreachable**, so **0 need archiving** and
+no recovery branch was created.
+
+**The distinct-blob count fell 33 → 32, and this pass identifies the fall rather than tolerating it.**
+Pass 178 recorded 33 hashable files hashing to **33** distinct blobs and warned that a *fall* "would
+instead indicate a lost file and would need acting on". The fall is real, and the cause is not loss:
+exactly one blob is duplicated across the 33 files, `a0ef0cf`, and its two carriers are
+`/workspace/madgab-base-5b1e93::examples/zzz_final_probe.rs` and
+`/workspace/madgab-probe-5b1e93::examples/probe_final.rs` — a **same-content pair in two worktrees**,
+so 33 files legitimately hash to 32 distinct blobs. This closes the warning pass 178 left open, and
+it generalises the churn/loss distinction: `distinct < files` is evidence of duplicate content, while
+a *decrease in distinct across passes with `files` fixed* is the loss signal, and the two must not be
+read off the same number. The decision is unchanged either way (0 unreachable, no archiving), but it is
+now derived from a named pair instead of an assumption.
+
+**Rule 22's sensitivity control re-run and it read absent.** A fresh `git hash-object -w` sentinel
+(`a3670f5ade60f4b88c0daa4a71ee9a26f8ae5b70`) was confirmed **absent** from the 7,474-id set, so the
+membership test that returns 0 over the 33 real files returns 1 over genuinely unreachable content. As
+at passes 175–178, this control exercises the *membership test*, not the *enumeration* — the two are
+separate obligations.
 
 **Next action for the next pass:** prefer **no entry at all**. Re-derive the five facts cheaply and
 exit without committing if they hold. Navigate by the **last** `## Pass ` heading, which is also the
