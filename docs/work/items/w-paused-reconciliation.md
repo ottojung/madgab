@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-5b73
-updated: 2026-09-30T22:53:00Z
+updated: 2026-09-30T23:26:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -122,23 +122,37 @@ Pick one and the loop should stop:
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
 
-**Verified 2026-09-30T22:41Z** by a fresh pass that appended no entry and created no instrument.
-All 12 bare gates exit 0 run *concurrently* from the repository root (the 17:41Z `/tmp`-collision
-repair holding), `selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12
-superseded, 0 non-terminal MadGab agents of 131 MadGab rows of 1003 host rows (4 host-`running`,
-all other repositories, left running untouched), fence 0 in all 6 regions, `at-risk` 90, `figures` 0
-defects, `prohibition` 0 defects. `origin/main` `0267ade`, no local `main` (`rev-parse --verify main`
-exit 128), product diff vs `origin/main` empty, 0 of 472 ahead commits touching `src/`, HEAD ==
-`origin/post-milestone-acceptance`, 0 unpushed, 126 worktrees. Nothing claimed, launched, merged or
-pushed to `main`; no agent left running.
+**Verified 2026-09-30T23:26Z** by a fresh pass that appended no entry and created no instrument.
+All 12 bare gates exit 0 run *concurrently* from the repository root (no arrival repair this time:
+bare `at-risk.sh` exited 0 on arrival, so the pass-187 mirror-staleness failure did **not** recur),
+`selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded,
+0 non-terminal MadGab agents of 131 MadGab rows of 1011 host rows (2 host-`running` — `136f5`
+qai-gate and `94f04` assemblyp1 — both other repositories, left running untouched), fence 0 in all 6
+regions, `at-risk` 90 = ref-held 1 + reflog-only 89, `content-sweep` 0 unreachable of 34 distinct
+blobs against 9186 known ids, `figures` 0 defects, `prohibition` 0 defects. `origin/main` `0267ade`,
+no local `main` (`rev-parse --verify main` exit 128), product diff vs `origin/main` empty, 0 of 476
+ahead commits touching `src/`, HEAD == `origin/post-milestone-acceptance`, 0 unpushed, 126 worktrees
+with `worktree prune -n -v` empty. Nothing claimed, launched, merged or pushed to `main`; no agent
+left running.
+
+Two acceptance facts were re-measured by **execution rather than by proxy** this pass, which is the
+one thing the standing gates never do. `cargo test --release --test no_phrase_hard_coding` was run
+directly against the prebuilt binary: **9 passed / 0 failed**, including
+`the_fence_watches_both_canonical_examples` and `the_detector_catches_every_documented_shape` — so the
+no-hard-coding half of clause 3 holds as a *measurement*, not as an inference from an unchanged tree.
+And `cargo test --release --test cli_milestone_predicate -- --ignored` **still FAILS** at
+`canonical_case_two_is_displayed` in 1.53s, so the accepted `Hits Justice Dupe Hid Came` limitation
+is confirmed still red by running the one test that reads the acceptance criterion itself. Neither
+result changed any state; both are recorded so a later pass does not spend its budget re-deriving them.
 
 The three scheduler-template clauses are declined once more, unchanged: there is nothing to launch
 (0 open, 0 working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while
 paused); the `post-milestone-acceptance` accumulation clause still conflicts textually with the
 itinerary, which calls that branch release history and no longer an automatic accumulation target;
-and the canonical-example clause holds as a standing invariant (`clue-fence` 0), with the preserved
-`Hits Justice Dupe Hid Came` limitation not re-litigated. **The next useful action remains a human's:
-retire this scheduled pass, or reopen MadGab explicitly.**
+and the canonical-example clause holds as a standing invariant (`clue-fence` 0 and
+`no_phrase_hard_coding` 9/9, both re-run here), with the preserved `Hits Justice Dupe Hid Came`
+limitation not re-litigated. **The next useful action remains a human's: retire this scheduled pass,
+or reopen MadGab explicitly.**
 
 ### Addendum (coord pass, 2026-09-30T06:05Z) — the last open item is now discharged; still gate NO
 
