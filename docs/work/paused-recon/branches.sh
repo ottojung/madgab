@@ -176,7 +176,7 @@ trap 'rm -f "$prose" /tmp/.branches.$$.missing /tmp/.branches.$$.remoteonly /tmp
 # human list is delimited by its own heading and runs to the next `## ` heading; a
 # record of the past is not an instruction to the future.
 HUMANLIST="$(mktemp)"
-trap 'rm -f "$prose" "$HUMANLIST" /tmp/.branches.$$.missing /tmp/.branches.$$.remoteonly /tmp/.branches.$$.shabad' EXIT
+trap 'rm -f "$prose" "$HUMANLIST" /tmp/.branches.$$.missing /tmp/.branches.$$.remoteonly /tmp/.branches.$$.shabad /tmp/.branches.$$.delremote /tmp/.branches.$$.selfor /tmp/.branches.$$.wtinuse' EXIT
 awk '
   /^## Current gate status/ { inh=1 }
   inh && /^## / && !/^## Current gate status/ { inh=0 }
@@ -933,6 +933,96 @@ echo "branches: adjudicated = ${nsha_lines} line(s) of the '## Current gate stat
 if [ "$remoteonly" -gt 0 ]; then
   echo "branches: ${nbranch} branch name(s); ${remoteonly} resolve REMOTE-ONLY (a local delete will not touch them)"
   echo "branches:   -> $(tr '\n' ' ' <"/tmp/.branches.$$.remoteonly")"
+  echo "branches:   (that count is over EVERY branch the section names; see the delete-list line below for the count over the branches a human is told to DELETE)"
+fi
+
+# --- the DELETE-LIST population (pass 345) ------------------------------------
+# The REMOTE-ONLY figure above is a property of every branch the section NAMES.
+# The human instruction is about a SMALLER set: the branches the DELETE sentence
+# names. Pass 344 read "2 resolve REMOTE-ONLY" and published a delete list naming
+# two remote-only branches -- one of which (`recovery/at-risk-2026-09-29`) is NOT
+# in the delete sentence at all, while `review/run-clue-fence-in-ci`, which IS, was
+# dropped. Both published lists are individually well-formed and the two
+# populations are not the same, which is the whole defect: a count carries its
+# population (rule 14l) and a REMOTE-ONLY classification carries the population it
+# was computed over. Here the two populations are printed side by side so a reader
+# cannot silently swap them, and a remote-only branch that is NOT a deletion
+# candidate is named as such, because that is the one that gets pushed away by
+# mistake.
+# The delete sentence WRAPS across lines in this section (the three names are on
+# two of them), so `grep` per line finds only the first name. Join the block to one
+# line first -- the same reason pass 335's run-evidence check reads across the line
+# break. `[^.]*\.` then runs to the sentence's own period, not to the first line end.
+deletebranches="$(
+  tr '\n' ' ' <"$HUMANLIST" 2>/dev/null \
+    | grep -oE 'delete the [a-z]+ superseded branches[^.]*\.' \
+    | grep -oP '(?<![/.\w-])(review|scratch|recovery|archive|wip|mp2|tmp)/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*(?![/\w-])' \
+    | sed 's/[.,;)]*$//' | sort -u
+)"
+ndelete=0; ndel_remoteonly=0; ndel_foreign=0
+: >"/tmp/.branches.$$.delremote"
+: >"/tmp/.branches.$$.selfor"
+if [ -z "$deletebranches" ]; then
+  echo "branches: DEFECT — the section names a delete list this script could not extract" >&2
+  echo "branches: 0 deletion candidates read is a BROKEN POPULATION, not a clean result (rule 334)" >&2
+  status=1
+else
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    ndelete=$((ndelete + 1))
+    if [ -f "/tmp/.branches.$$.remoteonly" ] && grep -qxF "$b" "/tmp/.branches.$$.remoteonly"; then
+      ndel_remoteonly=$((ndel_remoteonly + 1))
+      printf '%s\n' "$b" >>"/tmp/.branches.$$.delremote"
+    fi
+  done <<EOF
+$deletebranches
+EOF
+  # The OTHER direction, which is the one pass 344 actually got wrong: a branch
+  # that IS remote-only but is NOT in the delete sentence. The loop above can only
+  # see branches it is already iterating, so it can never find this class -- the
+  # same 0-population blind spot pass 336 fixed, one level on. Join the REMOTE-ONLY
+  # set against the delete set from the outside.
+  if [ -f "/tmp/.branches.$$.remoteonly" ]; then
+    while IFS= read -r b; do
+      [ -n "$b" ] || continue
+      printf '%s\n' "$deletebranches" | grep -qxF "$b" && continue
+      printf '%s\n' "$b" >>"/tmp/.branches.$$.selfor"
+      ndel_foreign=$((ndel_foreign + 1))
+    done <"/tmp/.branches.$$.remoteonly"
+  fi
+  # A third property of a deletion candidate, and the only one that blocks the
+  # command rather than changing its form: a branch CHECKED OUT in a live worktree
+  # cannot be deleted by either spelling. `git branch -D` refuses with "used by
+  # worktree", and `git push origin --delete` is a REMOTE operation that succeeds
+  # happily and leaves the local branch and its worktree behind. The standing
+  # section gives a human the commands and never mentions this, and pass 344's
+  # published list would have hit it on `review/run-clue-fence-in-ci`.
+  wt_checked=0; : >"/tmp/.branches.$$.wtinuse"
+  wtlist="$(git worktree list --porcelain 2>/dev/null)"
+  while IFS= read -r b; do
+    [ -n "$b" ] || continue
+    holder="$(printf '%s\n' "$wtlist" | awk -v n="refs/heads/$b" '
+      /^branch / { cur = substr($0, 8) }
+      /^worktree / { wt = substr($0, 10) }
+      cur == n { print wt; exit }')"
+    if [ -n "$holder" ]; then
+      printf '%s -> %s\n' "$b" "$holder" >>"/tmp/.branches.$$.wtinuse"
+      wt_checked=$((wt_checked + 1))
+    fi
+  done <<EOF
+$deletebranches
+EOF
+  if [ "$wt_checked" -gt 0 ]; then
+    echo "branches: BLOCKED — ${wt_checked} deletion candidate(s) are CHECKED OUT in a live worktree; neither \`git branch -D\` nor \`git push origin --delete\` removes the local branch"
+    sed 's/^/branches:   /' "/tmp/.branches.$$.wtinuse"
+  fi
+  echo "branches: delete-list population = ${ndelete} branch(es) the section tells a human to remove; ${ndel_remoteonly} of those are REMOTE-ONLY and need \`git push origin --delete\`"
+  [ "$ndel_remoteonly" -gt 0 ] \
+    && echo "branches:   delete-list REMOTE-ONLY -> $(tr '\n' ' ' <"/tmp/.branches.$$.delremote")"
+  if [ "$ndel_foreign" -gt 0 ]; then
+    echo "branches:   REMOTE-ONLY but NOT in the delete sentence -> $(tr '\n' ' ' <"/tmp/.branches.$$.selfor")"
+    echo "branches:   (a remote-only branch is not thereby a deletion candidate; do not push-delete these as part of this cleanup)"
+  fi
 fi
 echo "branches: ${nshaclaim} branch+sha claim(s) checked against the live commit; ${shabad} tip mismatch(es), ${base_bad} base mismatch(es)"
 echo "branches: ${nclaim} payload claim(s) checked against the live shortstat; ${payload_bad} payload defect(s)"

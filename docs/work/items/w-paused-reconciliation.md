@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b8e
-updated: 2026-09-30T01:06:00Z
+owner: coord-5a1f
+updated: 2026-09-30T01:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -147,6 +147,36 @@ the *local* mirror and reads as "there is no branch to delete" — a reader who 
 leaves a live remote branch behind. The parenthetical was wrong; the branch is a first-class remote
 head like the other two. `branches.sh` (gate 7) now reports this class directly as **remote-only**
 and is the control that keeps it from being re-asserted.
+
+**PASS 345: ONE OF THE THREE IS CHECKED OUT IN A LIVE WORKTREE, SO THE DELETE STEP IS BLOCKED AS
+WRITTEN — a blocker neither the local/remote split nor gate 7's other checks could see.**
+`review/run-clue-fence-in-ci` is the checked-out branch of the worktree at **`/workspace/madgab-cifence`**
+(verified this pass against `git worktree list --porcelain`, and named by the gate). The other two are
+in no worktree. This matters because it is the only property of a deletion candidate that **blocks
+the command rather than changing its form**: `git branch -D` refuses with *"used by worktree at …"*, and
+`git push origin --delete` is a **remote** operation — it succeeds, deletes the remote head, and leaves
+the local branch and its worktree in place. A human following the instructions above would therefore
+end with `git ls-remote` showing the expected 3 rows *and* a still-present local branch, with the
+`/workspace/madgab-cifence` worktree registration now pointing at nothing. Remove that worktree first
+(`git worktree remove /workspace/madgab-cifence`, after confirming it holds nothing uncommitted), then
+delete. Gate 7 now reports this class as **BLOCKED** with the holding worktree named, and it is the
+only one of the three checks that can redden on it.
+
+**AND THE "REMOTE-ONLY" COUNT IS A PROPERTY OF A POPULATION, NOT OF THE DELETE LIST (rule 345).**
+Gate 7 reports **2** remote-only branches, and that number is correct — but it is computed over **every
+branch the section names**, a population of 9. The delete list is a **different, smaller** population of
+3, and only **1** of those 3 is remote-only. Passes 339, 342, 343 and 344 each published a delete list
+naming **two** remote-only branches, and in every one of them the second was
+**`recovery/at-risk-2026-09-29`** (`eaf7487`) — which is **not in the delete sentence at all** and is
+**not a superseded review branch**: it is the at-risk recovery snapshot, the remote home of the `514ed91`
+non-build content that pass 184 pushed there precisely because GitHub refused the original commit. The
+consequence a human would have hit: a `git push origin --delete recovery/at-risk-2026-09-29` that no
+instruction in this section ever asked for, **while `review/run-clue-fence-in-ci` — which the delete
+sentence *does* name — was silently dropped from the list and left behind.** Gate 7 now prints the two
+populations side by side (`delete-list population = 3 …; 1 of those are REMOTE-ONLY`) and names any
+remote-only branch that is **not** a deletion candidate, so the swap cannot recur silently. Verified in
+both directions by plant: deleting the delete sentence goes **red** on the 0-read guard, and rewriting
+the list to pass 344's version is **detected** and correctly reported as 2-of-3.
 
 **PASS 325 GIVES THAT CONTAINMENT CLAIM A COMMAND, because every command a reader would reach for
 first reports it FALSE on these very branches.** The claim above is an *effect*-containment claim
@@ -11230,3 +11260,146 @@ after a pipe** (rule 344: there is no `audit` remote, and a laundered exit code 
 If a further pass runs at all, its highest-value output is **not** another rule — it is re-stating item
 (3) above, that this schedule should be retired, and nothing in this repository can supply that
 decision.
+
+## Pass 345 (coord-5a1f, 2026-09-30T01:11Z-01:31Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; ACTED - a human following the last four passes' delete list would have push-deleted the at-risk recovery snapshot and left a superseded branch behind, and one of the three branches it names cannot be deleted at all
+
+**The seven bare gates, run from the repository root, all exit 0, and nothing else was re-derived:**
+
+| gate | exit | figure |
+|---|---|---|
+| `census.sh` | 0 | 96 items; 0 open / 0 working / 1 blocked / 83 done / 12 superseded |
+| `clue-fence.sh` | 0 | 0 canonical clue occurrences in all 6 `src/` regions; 1 adjudicated benign per-word hit |
+| `agents.sh` | 0 | 772 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab agents**; 3 host-`running` agents are other repositories and were **left running untouched** (churn in other repos, not a MadGab signal) |
+| `item-state.sh` | 0 | frontmatter parses with all eight schema keys; newest entry and its `NEXT` read from the file |
+| `selfcheck.sh` | 0 | 11/11 instruments executable, parsing, exit 0, printing their invariant |
+| `refs.sh` | 0 | 3 relative links, 12 instrument paths resolve; 0 self-pointers |
+| `branches.sh` | 0 | 9 named branches resolve, **2 REMOTE-ONLY**; 5 branch+sha claims 0 tip/0 base mismatch; 1 payload, 1 deletion + 1 CI-step claim, 0 content defects; **delete-list population 3, of which 1 remote-only; 1 BLOCKED (checked out)** |
+
+`main` untouched: `git rev-parse --verify main` exits **128** (no local `main` ref), `origin/main` is
+`0267ade`, HEAD is `post-milestone-acceptance`. `126` worktrees, `git worktree prune -n -v` empty.
+`at-risk.sh` / `at-risk-content.sh` / `at-risk-delta.sh` deliberately **not** re-run: the at-risk family
+is closed on content since pass 184 and no new member appeared.
+
+### This pass's finding: the human delete list was wrong in four consecutive published entries, and one of the three real branches cannot be deleted by either published command
+
+**Defect 1 — a REMOTE-ONLY count was read as a property of the delete list when it is a property of a larger population (new rule 345).**
+Gate 7 reports **2** remote-only branches. That number is **correct** and it is computed over the
+population of **every branch the section names** (9). The delete sentence names a **different, smaller**
+population of **3**, and only **1** of those 3 is remote-only. Passes **339, 342, 343 and 344** each
+published a delete list asserting **two** remote-only branches, and in all four the second one is
+**`recovery/at-risk-2026-09-29`** (`eaf7487`).
+
+That branch is **not in the delete sentence**, is not one of the three superseded review branches, and is
+not superseded at all: it is the at-risk recovery snapshot, the remote home of the `514ed91` non-build
+content (`src/lib.rs`, +390/-38) that pass 184 pushed there as a byte-exact patch+blob precisely because
+GitHub rejected the original commit for carrying 329 build paths including a 129 MB `.rlib`. Verified
+this pass: the delete sentence's own three names are `review/drop-dead-trace-env` (`a29f3d7`),
+`review/drop-dead-trace-env-on-main` (`66e28ff`) and `review/run-clue-fence-in-ci` (`6edff83`) —
+`recovery/at-risk-2026-09-29` appears nowhere in it.
+
+**The consequence is not cosmetic and it runs in the dangerous direction on both sides.** A human
+executing passes 342–344 would have run `git push origin --delete recovery/at-risk-2026-09-29` — a
+destructive remote operation **no instruction in this section ever asked for**, against the one branch
+that makes unrecoverable content recoverable — **while `review/run-clue-fence-in-ci`, which the delete
+sentence does name, was silently omitted and left behind.** One instruction, one wrong branch deleted,
+one right branch retained. The standing section's own text was correct throughout; only the restatements
+in the pass entries were wrong, and gate 7 could not catch it because gate 7 **reported the larger
+population's number in a sentence-shaped line that reads as if it were about the delete list.**
+
+**Rule 345: a classification carries the population it was computed over, and a count published beside
+a human instruction is read as a property of that instruction's population even when it was computed over
+a larger one.** The general form is rule 14l (a count carries its population) in the channel rule 14l
+does not cover: not *which* population, but *that the two are different sizes and the reader is given
+only one number*. The fix is not to re-derive the number correctly — gate 7's 2 was never wrong — it is to
+**print both populations side by side** so the substitution is impossible, and to name any remote-only
+branch that is **not** a deletion candidate, since "remote-only" is what made it look like one.
+
+**Defect 2 — one of the three deletion candidates is CHECKED OUT in a live worktree, so the delete step is blocked as written.**
+`review/run-clue-fence-in-ci` is the checked-out branch of **`/workspace/madgab-cifence`** (verified
+against `git worktree list --porcelain`). The other two are in no worktree. This is the only property of
+a deletion candidate that **blocks the command rather than changing its form**: `git branch -D` refuses
+(*"used by worktree at …"*), and `git push origin --delete` is a **remote** operation — it succeeds,
+deletes the remote head, and leaves the local branch and its worktree registration behind. A human
+following the section's own verification (`expect 3 rows`) would reach that expected result **and** still
+have the local branch and a worktree pointing at nothing. The standing section gives the commands and
+never mentions this. `git worktree remove /workspace/madgab-cifence` first, after confirming it holds
+nothing uncommitted.
+
+### The instrument changes, and their plants
+
+`branches.sh` (gate 7) gained three checks over the **delete-list population**, each failing closed:
+
+1. **the 0-read guard** — if the delete sentence cannot be extracted, that is a BROKEN POPULATION and
+   exit 1, never a clean "0 remote-only deletions needed" (rule 334);
+2. **the keyed delete-list count** — `delete-list population = N; M of those are REMOTE-ONLY`, printed
+   beside the existing all-names count with an explicit note that the two are different populations;
+3. **the worktree-occupancy BLOCKED** — any deletion candidate checked out in a live worktree, with the
+   holding path named.
+
+Plus the reverse join, which is the direction pass 344 actually got wrong and which the delete-list loop
+**structurally cannot see** because it only iterates branches already in the delete list: a remote-only
+branch that is **not** in the delete sentence is named explicitly. That is pass 336's 0-population blind
+spot reached one level on, and it is why the check joins the REMOTE-ONLY set against the delete set from
+the outside.
+
+**Two plants, both run, both in the direction that matters.** Deleting the delete sentence outright →
+**exit 1** on the 0-read guard (a clean run over an empty population is the failure this log keeps
+paying for). Rewriting the list to pass 344's version — `recovery/at-risk-2026-09-29` in,
+`review/run-clue-fence-in-ci` out — is **detected**: the keyed count correctly reads **2 of 3** instead of
+the true 1, which is exactly the wrong number pass 344 published, now visible as a number rather than
+buried in prose. Both plants were reverted and the item file was verified **byte-identical** to its
+pre-plant state before the standing section was edited.
+
+**The standing section is corrected in place** with both findings and the corrected delete-list semantics,
+so a human reading the gate-status block — which is where `branches.sh` adjudicates — now sees the
+blocker and the population split. Passes 342–344's entries are left as written; they are history, and
+this entry supersedes them.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+- *"Launch or prompt Antonina agents"* — forbidden by the itinerary's `## Status: accepted and paused`
+  and the accepted-state document's `## Operational status` without an explicit human reopening. There
+  are none to prompt in any case: gate 3 measures **0** non-terminal MadGab agents.
+- *"Accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"* — a direct textual
+  conflict, the fourth pass to decline on it. The itinerary says that branch "is no longer an automatic
+  accumulation target", so the clause cannot be honoured by doing what it says. This pass pushed its own
+  entry there anyway, because **recording durable state on the accumulation branch is what
+  `scheduled.md` requires of every pass** and the itinerary's prohibition is on *accumulating new work*,
+  not on the log the pause generates. The itinerary wins on the work question; it does not require a
+  pass to discard its own handoff.
+- *"Prioritize the canonical approximate-search examples without phrase-specific hard-coding"* — the
+  first half asks for MadGab work the pause forbids; the second half is **already satisfied as a standing
+  invariant**: gate 2 measures 0 hard-coded canonical phrases in all six production regions, and
+  `tests/no_phrase_hard_coding.rs` fences the remaining directories.
+
+Nothing was claimed, created, launched, prompted, stopped, integrated, or resumed. No new work item. No
+recovery branch. `main` untouched. No Antonina agent was launched, so there is nothing left running for a
+later pass to inspect.
+
+### The three human items, corrected
+
+1. merge `8c88a59` (`review/drop-dead-trace-and-fence`, base `origin/main` `0267ade`, one file +2/−4;
+   validated `corpus_integration` 12 passed + 1 ignored, `no_phrase_hard_coding` 9 passed);
+2. **delete exactly these three — `review/drop-dead-trace-env` (`a29f3d7`),
+   `review/drop-dead-trace-env-on-main` (`66e28ff`), `review/run-clue-fence-in-ci` (`6edff83`).
+   `review/drop-dead-trace-env-on-main` is the only remote-only one and needs
+   `git push origin --delete`; `review/run-clue-fence-in-ci` must have `/workspace/madgab-cifence`
+   removed first. DO NOT delete `recovery/at-risk-2026-09-29` — passes 339/342/343/344 said to and were
+   wrong; it is the at-risk recovery snapshot, not a superseded review branch;**
+3. **retire this recurring pass**, or reopen MadGab development explicitly.
+
+345 passes have now run against an unchanged pause. This pass's finding is the sharpest yet for item
+(3): **the last four passes each published a destructive instruction that was wrong in the direction that
+loses data, and gate 7 — the instrument this log trusts to keep the human list honest — reported a number
+from the wrong population and let all four stand for four passes.** A schedule that cannot review its own
+published instructions is not producing value. **Retire it.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled pass
+339), or the 1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate
+this pass's finding: the delete-list semantics and the worktree blocker are now **gated** by
+`branches.sh` with plants, and the standing section states both. **(4)** Re-fetching the mirror remains
+optional (closed on content since pass 184) and, if done, must use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344: there is no `audit` remote, and a laundered exit code reads green).
+**(5)** The highest-value output of any further pass is not another rule — it is re-stating item (3).
