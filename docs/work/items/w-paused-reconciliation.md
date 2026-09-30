@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3f8b
-updated: 2026-09-30T03:08:00Z
+owner: coord-9d40
+updated: 2026-09-30T03:22:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12496,6 +12496,142 @@ find anything cannot keep being justified by the possibility that it might.
 
 None of the three is a judgement call, and none has been for 266 passes. What would change the
 situation is a human's decision, recorded in the NEXT block above.
+
+## Pass 359 (coord-9d40, 2026-09-30T03:12Z-03:22Z) - gate NO; seven gates 7/7 exit 0 on arrival; ACTED - the handoff reader's BLOCK END was never checked, and it had been printing a false TRUNCATED claim about the newest entry on every run
+
+**NEXT: (1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census
+(96 items / 0 open / 0 working / 1 blocked / 83 done / 12 superseded, unchanged), the at-risk
+composition (settled pass 328 - `at-risk-delta.sh` exit 0, arms **90 / 89**, 208 exclusion refs, the
+single named member `514ed91` is pass 322's settled ref-held spelling difference, NOT growth), the
+worktree population, or the 1295/291 figures. **(3)** Do not re-litigate passes 345-359: the
+delete-list semantics, the worktree blocker on `review/run-clue-fence-in-ci`, the corrected
+`--porcelain --ignored` precondition, the heading-vs-line half of rule 330, the empty-population
+half of rule 351, the rule-350 form boundary, rule 354's name-vs-qualifier half, pass 359's
+block-end repair and its three-plant control, and the five no-defect results (355, 356, 357, 358,
+and the arrival state of this pass) are all stated in the standing section or in these entries.
+**(4)** This pass did **not** re-fetch the audit mirror; re-fetching remains optional and, if done,
+must read its exit code directly rather than after a pipe (rule 344). **(5)** When extending an
+instrument here, plant the new claim against the real defect **and** against a correct instance of
+the same shape before publishing green, print the name the matcher produced before deciding on it
+(rule 354), and **check BOTH ends of a range, not only where it starts** (rule 360). **(6)** The
+highest-value output of a further pass is still not a rule - it is re-stating item (3): **retire
+this recurring pass, or reopen MadGab explicitly.**
+
+### What this pass measured, all from the bare gates, nothing re-derived from a recorded figure
+
+  * **Gate 1 `census.sh` exit 0:** 96 items by identity - **0 open, 0 working, 1 blocked** (this
+    item), 83 done, 12 superseded.
+  * **Gate 2 `clue-fence.sh` exit 0:** **0** canonical clue occurrences across all six production
+    regions (269/260/464/4242/67/269), alphabet derived from
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) (rule 14v). The one
+    per-word hit is the pass-216 adjudicated benign `src/lib.rs:3597 .expect("key came from cells")`.
+    Every plant fired.
+  * **Gate 3 `agents.sh` exit 0:** **0** non-terminal agents in a MadGab cwd (131 MadGab cwd rows
+    of 798 host rows). Five agents are `running` on this host and all five are other repositories
+    (`94f4` assemblyp1, `97b1` skrynia, `127c3` skrynia, `92d7` volodyslav, `124e1` antonina) -
+    **left running and untouched**, for their own passes to inspect. Five are `idle`, including the
+    stale `a11d` row in `/tmp`, which is not a MadGab cwd.
+  * **Gate 4 `item-state.sh` exit 0:** frontmatter parses with all eight schema keys; newest entry
+    on arrival was Pass 358; **stderr now 0 lines, down from 1** - the false TRUNCATED notice this
+    pass found was the only stderr byte the instrument emitted.
+  * **Gate 5 `selfcheck.sh` exit 0:** 11 of 11 instruments executable, parsing, exiting 0, printing
+    their invariant. **(6)** `refs.sh` exit 0: 3 relative links, 12 instrument paths, 0
+    self-pointers, 1 quoted section pointer, 0 broken. **(7)** `branches.sh` exit 0: 5 branch+sha
+    claims with 0 tip and 0 base mismatches; 1 payload claim and 2 test targets reconciled; 1
+    deletion claim and 1 CI-step claim against the live diff, 0 defects; delete-list population 3
+    with 1 remote-only (`review/drop-dead-trace-env-on-main`); `recovery/at-risk-2026-09-29`
+    reported remote-only and **explicitly not a deletion candidate**; `review/run-clue-fence-in-ci`
+    still BLOCKED by the live worktree `/workspace/madgab-cifence`, whose `--porcelain` reads 0
+    while its non-build `--ignored` set is `Cargo.lock` - the rule-346 pairing a human must run
+    before removing it.
+  * **Repository shape:** 126 rows from `git worktree list`, `prune -n -v` empty, exit 0; **0** dirty
+    non-`target` paths here; no local `main` ref (`rev-parse --verify main` exit 128);
+    `origin/main` = `0267ade`; HEAD `post-milestone-acceptance`. **`main` untouched.**
+  * **At-risk:** `at-risk-delta.sh` exit **0**, arms 90 / 89, growth guard quiet at pass 328's
+    settled figure. The one named member `514ed91` is held by `refs/heads/scratch-3f8c62-landed`
+    and is on no origin ref, i.e. the settled spelling difference rather than growth.
+    `at-risk.sh` and `at-risk-content.sh` were **not** re-run: the class has been closed on content
+    since pass 184 and no new member appeared.
+
+### THE FINDING: a reader can be right about where a range starts and wrong about where it ends
+
+On arrival, gate 4 printed to **stderr**:
+
+```
+item-state: next-action block is longer than 40 lines; TRUNCATED at 40 (line 12542)
+```
+
+That claim is **false**, and it is false about the one thing this instrument exists to hand over.
+Pass 358's NEXT label is at line 12502 and its guidance **ends at 12516** - 15 lines, under the cap
+by a factor of nearly three. Line 12542 is not the end of anything; it is 40 lines of arbitrary
+distance from the label, in the middle of the entry's own measurement prose.
+
+**Root cause, and it is the pass-339 defect one level down.** The block's end was matched with
+`/^## /` alone. `##` and `###` are the same property - *the next heading* - read at two depths, and
+matching only the shallower one is a census of the heading depths seen when the rule was written.
+Two facts in this repository made it fire on the live file rather than stay latent: every entry
+since roughly pass 318 puts a `###` subsection **inside itself**, and the newest entry is by this
+log's own rule the **last** section, so for the newest entry there is no following `##` at all. The
+block therefore ran from the label past the entire entry body to EOF, 83 lines, hit the 40-line cap,
+and announced a truncation. The guidance itself was fully printed, so **no content was lost this
+pass** - but the same predicate silently clips any real guidance longer than 40 lines once a `###`
+subsection separates it from the next `##`, and 5 entries in this log have true handoffs of 35-64
+lines. The claim was the dangerous part, not the print: a reader told its handoff was clipped may
+distrust guidance that was in fact complete, and the notice points at a line that is not a boundary.
+
+**Repaired**, and the repair is the generalisation rather than the special case: the end rule is now
+`NR > s && (/^## / || /^### /)`, and it was **factored into `hblock_end()`** so the measurement and
+the control call one implementation. A control that re-derives the rule it polices is a second
+implementation, and a second implementation cannot catch a defect in the first - rule 14q's shape,
+in the direction rule 14q warned about.
+
+**Control 3 plants three shapes, in both directions, and the mutant proves they bite.** Plant A
+plants the real defect (guidance, then a `###` subsection): the block must end at the `###`. Plant B
+plants a following `## Pass`, so the repair cannot be satisfied by matching `###` and nothing else.
+Plant C plants no following heading at all, so the EOF fallback is still covered. Reverting the
+repair in a **copy** and re-running against plant A reads **exit 1** - the control is reachable by
+the defect, not merely consistent with it. The live instrument now reads exit 0 with **0** stderr
+lines and prints Pass 358's handoff whole, ending exactly at its true last line.
+
+**New rule 360: a range predicate needs two controls, and the second one is the one that is
+missing.** Passes 339, 334 and 354 each built a control for *where a match starts* - the label
+predicate, the payload selector, the qualifier. Six label controls, and the **end** of that same
+range had none, so a rule as small as a missing `|| /^### /` sat inside a green instrument for the
+entire life of the block-end feature. The asymmetry is not accidental: the start of a range is
+something you go looking for, so it gets a test, while the end is something you assume is implied.
+Every read of a bounded region is two predicates, and testing one of them certifies neither the
+other nor the pair - a control proves its own predicate fires, and says nothing about the boundary
+that terminates it.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+1. **Launch or prompt Antonina agents / recover, assign, or split fronts.** Declined.
+   `## Status: accepted and paused` in
+   [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) says scheduled orchestrators
+   "must not create new MadGab work items, claim existing historical items, launch MadGab agents, or
+   resume superseded fronts unless a human explicitly asks to reopen MadGab development." No human
+   has. There is also nothing to recover or assign: the census is 0 open / 0 working and no MadGab
+   agent is alive.
+2. **Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires".** Declined, and
+   the conflict is textual rather than a matter of taste: the itinerary's closing paragraph calls
+   that branch "release history after this acceptance and **no longer an automatic accumulation
+   target**", which contradicts this log's own rule 3. **The itinerary wins.** Durable state from
+   this pass is nonetheless committed to the branch actually checked out, because leaving the log
+   unwritten is strictly worse than writing it where every prior pass wrote it; the fix belongs in
+   the out-of-repo scheduler template and is a human task.
+3. **Prioritise the canonical approximate-search examples without phrase-specific hard-coding.**
+   Declined as work; **honoured as a standing invariant.** The no-hard-coding half is measured every
+   pass by gate 2 and read **0** again here across all six production regions, with every plant
+   firing. The prioritisation half is the paused research loop, and the canonical
+   `Hits Justice Dupe Hid Came` limitation is preserved on purpose in
+   [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md), not hidden. The clause
+   is not a request to hard-code a phrase - it asks for the opposite, and gate 2 is what keeps the
+   answer honest.
+
+None of the three is a judgement call, and none has been since pass 92. What would change the
+situation is a human's decision, recorded in the NEXT block above. This pass created no work item,
+claimed nothing, launched no agent, merged nothing, pushed nothing to `main`, created no
+`recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
 
 ## Pass 358 (coord-3f8b, 2026-09-30T03:06Z-03:09Z) - gate NO; seven gates 7/7 exit 0 on arrival; no rule added because this pass found no defect
 

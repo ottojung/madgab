@@ -286,6 +286,54 @@ ctl_got="$(next_label_line "$ctl_dir/item.md" "$(newest_heading "$ctl_dir/item.m
 ctl_got="$(next_label_line "$ctl_dir/item.md" "$(newest_heading "$ctl_dir/item.md")")"
 [ -z "$ctl_got" ] || ctl_bad="$ctl_bad absence->'$ctl_got'(want empty)"
 
+# CONTROL 3: the handoff block's END, i.e. the OTHER half of the same read. The
+# label controls above all assert where the block STARTS; nothing asserted where
+# it STOPS, which is why the pass-359 `^## `-only defect sat here green.
+#
+# The end-line rule is factored into its own function so this control exercises
+# THE SAME code the measurement runs. A control that re-derives the rule is a
+# second implementation, and a second implementation cannot catch a defect in the
+# first -- that is rule 14q's shape (a fabricated control certifies nothing).
+#
+# Both directions, per rule 334/354: a `###` subsection must END the block
+# (plant A -- the defect), a following `## Pass` must still end it (plant B -- so
+# the repair is not satisfied by matching `###` and nothing else), and EOF must
+# still end it when there is no heading at all (plant C).
+hblock_end() { # <file> <label-line>
+  local e
+  e="$(awk -v s="$2" 'NR > s && (/^## / || /^### /) { print NR; exit }' "$1")"
+  [ -n "$e" ] || e=$(( $(wc -l < "$1") + 1 ))
+  printf '%s' "$e"
+}
+{
+  echo "---"; echo "work_item: true"; echo "id: w-ctl"; echo "state: blocked"
+  echo "---"; echo "## Pass 2 (y)"; echo "newest entry"
+  echo "NEXT: run this"; echo "guidance line 2"; echo ""
+  echo "### A subsection inside the same entry"; echo "body the block must NOT print"
+} > "$ctl_dir/item.md"
+ctl_want="$(grep -n '^### A subsection' "$ctl_dir/item.md" | cut -d: -f1)"
+ctl_got="$(hblock_end "$ctl_dir/item.md" 7)"
+[ "$ctl_got" = "$ctl_want" ] || ctl_bad="$ctl_bad plant-A-### ->'$ctl_got'(want $ctl_want)"
+
+{
+  echo "---"; echo "work_item: true"; echo "id: w-ctl"; echo "state: blocked"
+  echo "---"; echo "## Pass 2 (y)"; echo "newest entry"
+  echo "NEXT: run this"; echo "guidance line 2"; echo ""
+  echo "## Pass 3 (z)"; echo "the next entry"
+} > "$ctl_dir/item.md"
+ctl_want="$(grep -n '^## Pass 3' "$ctl_dir/item.md" | cut -d: -f1)"
+ctl_got="$(hblock_end "$ctl_dir/item.md" 7)"
+[ "$ctl_got" = "$ctl_want" ] || ctl_bad="$ctl_bad plant-B-## ->'$ctl_got'(want $ctl_want)"
+
+{
+  echo "---"; echo "work_item: true"; echo "id: w-ctl"; echo "state: blocked"
+  echo "---"; echo "## Pass 2 (y)"; echo "newest entry"
+  echo "NEXT: run this"; echo "guidance line 2"
+} > "$ctl_dir/item.md"
+ctl_want=$(( $(wc -l < "$ctl_dir/item.md") + 1 ))
+ctl_got="$(hblock_end "$ctl_dir/item.md" 7)"
+[ "$ctl_got" = "$ctl_want" ] || ctl_bad="$ctl_bad plant-C-eof ->'$ctl_got'(want $ctl_want)"
+
 if [ -n "$ctl_bad" ]; then
   fail "control: the next-pass label predicate mis-selected:$ctl_bad -- the reader cannot be trusted; refusing"
 fi
@@ -327,12 +375,28 @@ else
     # can clip is a handoff reader that can be quietly wrong in the direction
     # that manufactures work.
     #
-    # The block ends at the next `## ` heading or the end of the file, and is
-    # hard-capped so a malformed log with no next heading cannot print the rest
-    # of a 2.3 MB file.
-    end_line="$(awk -v s="$next_line" '
-      NR > s && /^## / { print NR; exit }
-    ' "$ITEM")"
+    # The block ends at the next `## ` or `### ` heading, or the end of the file,
+    # and is hard-capped so a malformed log with no next heading cannot print the
+    # rest of a 2.3 MB file.
+    #
+    # PASS 359. This used to end at `^## ` ONLY, which is the same closed-
+    # enumeration defect the label predicate above was written for, one level
+    # down: `##` and `###` are the same property ("the next heading") read at
+    # two depths, and matching only the shallower one is a census of heading
+    # depths seen so far. Every entry since ~pass 318 puts a `###` subsection
+    # INSIDE itself, and the newest entry is by the log's own rule the LAST
+    # section, so on the live file the block ran from the NEXT label past the
+    # entire entry body to EOF and hit the 40-line cap -- printing
+    #   "next-action block is longer than 40 lines; TRUNCATED at 40 (line 12542)"
+    # for Pass 358, whose guidance is 16 lines and ends at 12516. A false
+    # TRUNCATED claim is worse than no claim: a reader told its handoff was
+    # clipped may distrust guidance that was in fact complete, and the notice
+    # names a line that is not the end of anything. The guidance WAS fully
+    # printed here, so nothing was lost this pass -- but the same predicate
+    # silently clips any real guidance longer than 40 lines once a `###`
+    # subsection separates it from the next `##`, and 5 entries in this log
+    # have true handoffs of 35-64 lines.
+    end_line="$(hblock_end "$ITEM" "$next_line")"
     [ -n "$end_line" ] || end_line=$(( $(wc -l < "$ITEM") + 1 ))
     if [ "$((end_line - next_line))" -gt 40 ]; then
       end_line=$(( next_line + 40 ))
