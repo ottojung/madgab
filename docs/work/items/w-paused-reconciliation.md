@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e08
-updated: 2026-09-30T02:12:00Z
+owner: coord-3b71
+updated: 2026-09-30T02:33:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -304,7 +304,7 @@ The "template has fired" counter counts scheduler invocations rather than headin
 equal to the heading count (**69**, pass 160); the two are labelled as different quantities rather
 than forced to match — the same unbound-number mistake rules 24/25 are about. The scheduler
 template has fired carrying the same **three** clauses that contradict the itinerary it points at
-(see the newest entry's `The invocation's three standing clauses are declined again` subsection,
+(see the newest entry's §"The invocation's three standing clauses are declined again" subsection,
 below the `## Pass log` heading). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
@@ -11840,3 +11840,105 @@ against a correct instance of the same shape before publishing green — this pa
 went green on the defect it was written for until the plant ran. **(7)** The highest-value output of
 a further pass is still not a rule — it is re-stating item (3): **retire this recurring pass, or
 reopen MadGab explicitly.**
+
+## Pass 351 (coord-3b71, 2026-09-30T02:12Z-02:33Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; ACTED - pass 350's repair left the document's only reader-facing section pointer in a SPELLING its own new check cannot see, so the pointer population was 0 for a reason that had nothing to do with the document being pointer-free, and the same plant that pass 350 recorded as proving the check correct reads GREEN on the real dangling pointer
+
+A fifth identical coordinator invocation inside three hours, carrying the same three clauses as
+every pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven
+exit 0 and every figure reproduces its standing row with no delta: census **96** = 0 open / 0
+working / 1 blocked (this item) / 83 done / 12 superseded, skills-doc fenced-example control
+selector 0 / fence-blind 1; clue fence **0** canonical occurrences across all six production regions
+with every plant firing and 1 adjudicated benign per-word hit; agents **0** non-terminal in a MadGab
+cwd over 131 MadGab cwd rows of 782 host rows = 110 succeeded / 1 stopped / 20 failed, the 4
+host-running agents (125e2, 128b2, 94ec, 109b3) all other repositories and **left running
+untouched**, the 5 idle rows not MadGab cwds; selfcheck 11 of 11 instruments present, parsing,
+exiting 0, printing their invariant; refs 3 relative links and 12 instrument paths resolve, 0
+self-pointers; branches green on 5 branch+sha claims (0 tip, 0 base), 1 payload claim against the
+live shortstat, 1 deletion + 1 CI-step effect claim, 9 names resolved, delete-list population 3 with
+1 remote-only, `recovery/at-risk-2026-09-29` correctly reported remote-only but **not** a deletion
+candidate, and the pass-346 `worktree remove` precondition printing its `--ignored` set for
+`/workspace/madgab-cifence` (`Cargo.lock`, non-build, 0 porcelain paths).
+
+**Nothing created, claimed, resumed, launched, stopped, prompted, integrated or re-fetched.** No new
+work item; no recovery branch (at-risk family closed on content since pass 184, mirror re-fetch
+optional per rule 344's spelling); `main` untouched at `origin/main` `0267ade` with
+`git rev-parse --verify main` still exiting 128; HEAD is `post-milestone-acceptance`. The
+irreversible part of the standing section — the human merge of `review/drop-dead-trace-and-fence`
+and the three branch deletions — was **read, not performed**, and gate 7 re-confirmed every
+precondition for it live.
+
+**THE FINDING. THE INSTRUMENT'S POPULATION WENT TO ZERO BECAUSE OF THE REPAIR THAT PROMPTED IT, AND
+THE PLANT THAT PROVED THE CHECK CORRECT READS GREEN ON THE REAL DEFECT.**
+
+Pass 350 fixed a reader-facing pointer to a section that has never existed, by citing the target
+heading's leading words in BACKTICKS. `refs.sh` — extended in that same pass to check quoted
+section pointers — matches only the `§"..."` form, so the repair moved the document's **only** live
+instance of the class out of the checked spelling. Gate 6 then reported `0 quoted section
+pointer(s) resolve, 0 broken`, which pass 350's own comment above the check read as the correct
+reading of a pointer-free section.
+
+**Decisive measurement, on the real pointer rather than a synthetic one.** Renaming the leading
+words of the heading at line 11405 (the target of the census table's pointer at line 307) leaves the
+pointer **dangling** — and `refs.sh` exits **0**, printing `0 quoted section pointer(s) resolve, 0
+broken`. That is pass 350's defect, reintroduced by an edit, invisible to the check pass 350 built
+and planted for it: with an empty population the plant can only pass, and it passes for the wrong
+reason.
+
+**Fixed by restoring the pointer to the `§"..."` form** the check matches, keeping pass 350's
+correct target name. The check's population is back to **1 resolve / 0 broken**, so it is anchored to
+the real instance rather than kept alive by a plant. Three plants, all run after the repair:
+
+| | planted | expected | result |
+|---|---|---|---|
+| **A** | heading's leading words renamed — the real pointer dangles | RED, exit 1 | **RED, exit 1**, naming the class. *Before the repair this same plant was GREEN, exit 0.* |
+| **B** | nothing (the correct pointer, unplanted) | GREEN, exit 0 | GREEN, `1 quoted section pointer(s) resolve, 0 broken` |
+| **C** | pointer rewritten to `§"Pass 349"` — the excluded append-only log | RED, exit 1 | RED, exit 1, so the excluded set earns its exclusion **at a non-empty population**, which is the condition pass 350's version of plant C could not satisfy |
+
+**`refs.sh`'s 0-reads comment corrected, because it was a claim about this document and it had
+become false.** It read *"after this pass's fix it contains none, and 0 is the correct reading"* —
+true of the `§"..."` form and false of the class, which is the same shape of error as the one pass
+350 diagnosed one pass earlier (a scope claim that names the shape it checks is a shape, not a
+class). It now states the rule the measurement actually supports: **0 is not a defect in itself and
+0 is not a safe resting state either — 0 must be the reading of a document that has no such pointer,
+and the only way to tell those two apart is to plant the defect, because a plant on an empty
+population passes for the wrong reason.**
+
+**New rule 351: a check's population can be emptied by the repair it prompted, and a 0-population
+green is then indistinguishable from a correct one — so a repair that moves an instance of a class
+out of a check's spelling has to hand the instance back inside it.** Rule 334 made 0-read a failure
+mode of a check added to close a prose gap; rule 350 answered with "0 reads is not a defect here,
+the plant keeps it alive"; this is the case that shows the answer is incomplete. The plant is a
+necessary condition for a check, not a sufficient one — it is only evidence while the check has
+something to read. Rule 350's diagnosis was right and its corollary was not carried through: it said
+the matcher must match **leading words**, and then left the pointer in a spelling that has leading
+words in backticks.
+
+**A self-inflicted loss this pass, caused and fully repaired, recorded because the recovery step is
+the transferable part.** After planting A, I reverted the heading with `git checkout -- <item>` — the
+same file that carried the not-yet-committed fix, so the revert silently took the **fix** with it
+and `git diff` came back empty. Detected immediately by re-reading the line rather than trusting the
+revert, and the one-line fix was re-applied. Every later plant reverted with a targeted
+`sed`/`cp` inverse instead. This is pass 202's shape at miniature scale, and it names the specific
+trap: **`git checkout --` is not a plant-revert, it is a whole-file restore, and in a file that is
+itself the work product the two are the same command.**
+
+**The standing gate table needs no edit** — row 6 already names the quoted-section-pointer claim, and
+this pass changed what feeds it, not what it checks. **A count, from the command and not from this
+log: 351 passes against an unchanged pause.** What would change the situation is still a human's:
+**retire this recurring pass, or reopen MadGab development explicitly.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345–351: the delete-list semantics, the worktree blocker, the **precondition**, the heading-vs-line
+half of rule 330, the **empty-population** half of rule 351, and the three consecutive declining
+results are all stated in the standing section or in this entry, and the pointer half is now gated
+by `refs.sh` at population **1**, so plant A is a permanent control. **(4)** If you re-fetch the
+mirror, use `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read
+**directly, never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content
+since pass 184); this pass did not. **(6)** When extending an instrument here, plant the new claim
+against the real defect AND against a correct instance of the same shape before publishing green —
+and re-read the population after any repair, because a green at 0 is the shape of a check that has
+stopped reading. **(7)** The highest-value output of a further pass is still not a rule — it is
+re-stating item (3): **retire this recurring pass, or reopen MadGab explicitly.**

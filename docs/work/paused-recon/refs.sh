@@ -204,10 +204,15 @@ fi
 # makes the opposite call for the opposite reason. Gate 7 condemns 0 claims because
 # the section it reads ASSERTS a merge — the section is supposed to contain one, so
 # its absence is the defect. This section is under no obligation to contain a quoted
-# section pointer; after this pass's fix it contains none, and 0 is the correct
-# reading. What keeps the check from being vacuous is its PLANT, run below: the
-# check is shown to go RED on a planted bad name and GREEN on the real one, which
-# is rule 334's demand — prove red before publishing green.
+# section pointer, so 0 is not a defect ON ITS OWN. But it is not a safe resting
+# state either, and pass 351 measured why: pass 350's own repair to the real pointer
+# left it as a BACKTICKED leading-words citation, which the `§"..."` matcher below
+# cannot see, so the population fell to 0 for a reason that had nothing to do with
+# the document being pointer-free. With the pointer back in the quoted form the
+# population is 1 and the check is anchored to the real instance. So the live rule is
+# not "0 is fine" and not "0 is a defect": it is that 0 must be the reading of a
+# document that has no such pointer, and the way to tell the two apart is to PLANT
+# the defect (below) — a plant on an empty population passes for the wrong reason.
 secptrs=0; badsec=0
 item_headings="$(mktemp)"
 # The resolution set is the file's SECTION headings with the append-only `## Pass `
