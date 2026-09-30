@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-5b73
-updated: 2026-09-30T22:34:00Z
+updated: 2026-09-30T22:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -122,14 +122,23 @@ Pick one and the loop should stop:
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
 
-**Verified 2026-09-30T22:34Z** by a fresh pass that appended no entry and created no instrument.
+**Verified 2026-09-30T22:41Z** by a fresh pass that appended no entry and created no instrument.
 All 12 bare gates exit 0 run *concurrently* from the repository root (the 17:41Z `/tmp`-collision
 repair holding), `selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12
-superseded, 0 non-terminal MadGab agents of 131 MadGab rows, fence 0, `at-risk` 90, `figures` 0
-defects, `prohibition` 0 defects. `origin/main` `0267ade`, no local `main`, product diff vs
-`origin/main` empty, 0 of 471 ahead commits touching `src/`, HEAD == origin, 0 unpushed. Non-build
-dirty sweep over all 126 worktrees: 33 hashable rows, **0 unreachable**. Nothing claimed, launched,
-merged or pushed to `main`; no agent left running.
+superseded, 0 non-terminal MadGab agents of 131 MadGab rows of 1003 host rows (4 host-`running`,
+all other repositories, left running untouched), fence 0 in all 6 regions, `at-risk` 90, `figures` 0
+defects, `prohibition` 0 defects. `origin/main` `0267ade`, no local `main` (`rev-parse --verify main`
+exit 128), product diff vs `origin/main` empty, 0 of 472 ahead commits touching `src/`, HEAD ==
+`origin/post-milestone-acceptance`, 0 unpushed, 126 worktrees. Nothing claimed, launched, merged or
+pushed to `main`; no agent left running.
+
+The three scheduler-template clauses are declined once more, unchanged: there is nothing to launch
+(0 open, 0 working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while
+paused); the `post-milestone-acceptance` accumulation clause still conflicts textually with the
+itinerary, which calls that branch release history and no longer an automatic accumulation target;
+and the canonical-example clause holds as a standing invariant (`clue-fence` 0), with the preserved
+`Hits Justice Dupe Hid Came` limitation not re-litigated. **The next useful action remains a human's:
+retire this scheduled pass, or reopen MadGab explicitly.**
 
 ### Addendum (coord pass, 2026-09-30T06:05Z) — the last open item is now discharged; still gate NO
 
