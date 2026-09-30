@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f04
-updated: 2026-09-30T00:50:00Z
+owner: coord-9e7b
+updated: 2026-09-30T00:55:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10963,3 +10963,70 @@ delete the three superseded branches (**two are REMOTE-ONLY — `review/drop-dea
 `66e28ff` and `recovery/at-risk-2026-09-29` `eaf7487` — so they need `git push origin --delete`;
 a local `git branch -D` cannot touch them**), and retire this recurring pass. Nothing here is
 coordinator-actionable; this pass's defect was in the reading instruments, not in MadGab.
+
+## Pass 342 (coord-9e7b, 2026-09-30T00:52Z-00:56Z) - gate NO; seven gates 7/7 exit 0 on arrival; the invocation's three standing clauses are declined for the same reason as every pass since 92, and this pass adds no rule because it found no defect to rule about
+
+Ran the seven bare gates and nothing else, per pass 341's NEXT (1). All seven exit 0 on arrival,
+so unlike passes 339 and 340 there was no instrument to repair: `census.sh` 0,
+`clue-fence.sh` 0, `agents.sh` 0, `item-state.sh` 0, `selfcheck.sh` 0, `refs.sh` 0,
+`branches.sh` 0.
+
+**The three clauses of the scheduler invocation are declined, and the itinerary is the reason,
+not caution.** The invocation asks to (1) launch or prompt Antonina agents, (2) accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires", and (3) prioritize the canonical
+approximate-search examples without phrase-specific hard-coding. Clause 1 is refused by
+`docs/skills/itinerary-madgab.md` line 7 in as many words — scheduled orchestrators must not launch
+MadGab agents unless a human explicitly reopens development. Clause 2 is a **direct textual
+self-contradiction**, not a nuance: the same document's closing paragraph says
+`post-milestone-acceptance` "is no longer an automatic accumulation target", so the clause's "exactly
+as the itinerary requires" cannot be satisfied by doing what the clause says. This has been recorded
+in these terms since pass 220 and is unchanged. Clause 3 restates the programme's standing goal; the
+`## The preserved limitation (do not re-litigate)` section of this file already names the one
+direction worth pricing if a human reopens it (a qualitatively different whole-path algorithm —
+compact pronunciation DAG with k-best / A*-style search, or a strong backward suffix heuristic),
+explicitly **not** another widening of the Cartesian-prefix traversal, and **never** phrase-specific
+hard-coding. A pass cannot open that front; only a human can.
+
+**Nothing was coordinator-actionable, and that is a measured result rather than an absence of
+looking.** Census 96 = 1 blocked (this item) / 83 done / 12 superseded with **0 open / 0 working**,
+so there was no work to claim, recover, split, or assign. 0 non-terminal MadGab agents across 131
+MadGab-cwd rows of 764 host rows; the 3 host-`running` agents (`126b3` antonina-126-docfix,
+`92b4` volodyslav-92-fixturefix, `125d1` antonina-125-retention) and the 5 `idle` rows are other
+repositories and were left running untouched. `main` untouched: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` `0267ade`, HEAD on `post-milestone-acceptance`.
+The fence is 0 across all six production regions, so clause 3's no-hard-coding half holds as a
+standing invariant rather than as work. `branches.sh` re-adjudicated the human list remotely and
+found 0 tip / 0 base / 0 payload / 0 content defects on `8c88a59`.
+
+**Both populations were printed, as pass 341 added them, and the difference is not a defect:**
+`preamble = 1295` line(s) of this file, `adjudicated = 291` line(s) of the `## Current gate status`
+block, and every branch verdict is decided on the second. Pass 341's NEXT warns not to "fix" the
+difference; it is confirmed present, named, and correctly labelled, and the fail-closed guard held
+(2 remote-only branches still flagged as needing `git push origin --delete`, not a local
+`git branch -D`).
+
+**This pass deliberately records no new numbered rule.** A rule is a durable statement about a
+defect that was found; nothing was found. Passes 337-341 each published one, and the escalation the
+file itself carries has been standing since pass 92: the remaining items are **human** actions —
+
+1. merge `8c88a59` (`review/drop-dead-trace-and-fence`, on base `origin/main` `0267ade`, one file
+   +2/-4, dropping the dead `MADGAB_TRACE_*` env block and running the no-phrase-hard-coding fence as
+   its own CI step; validated: `corpus_integration` 12 passed + 1 ignored, `no_phrase_hard_coding`
+   9 passed);
+2. delete the three superseded branches, **two of which are REMOTE-ONLY** and so need
+   `git push origin --delete`: `review/drop-dead-trace-env-on-main` `66e28ff` and
+   `recovery/at-risk-2026-09-29` `eaf7487`, plus the local `review/drop-dead-trace-env`;
+3. **retire this recurring pass**, or reopen MadGab development explicitly.
+
+A 342nd pass cannot supply any of the three. The honest report is that this loop is now below the
+value of its own reporting: 342 passes have produced a run of instrument repairs, and the last
+several have repaired the instruments rather than MadGab. **The recommendation is to retire the
+schedule, not to pass 343.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, baseline still 90/89 and
+deliberately not bumped — rule 340b), the worktree count (settled pass 339), or the gate list's
+seven rows. **(3)** Do not repair the 1295/291 difference; both are published, named, and correct by
+construction. **(4)** If a further pass runs at all, its highest-value output is **not** another
+rule — it is re-stating item (3) above, that this schedule should be retired, and nothing in this
+repository can supply that decision. **Nothing here is coordinator-actionable.**
