@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T04:18:00Z
+updated: 2026-09-30T04:30:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -37,9 +37,10 @@ instrument. Growing this file is the failure mode, not the success mode.
 
 ### What the standing facts were on 2026-09-30T04:16Z (all exit 0)
 
-`census` 96 work items = **84 done / 12 superseded / 1 blocked**, 0 open, 0 working; the two items
+`census` 96 work items = **83 done / 12 superseded / 1 blocked**, 0 open, 0 working; the two items
 that moved to `superseded` on 2026-09-28 (`w-a02d28`, `w-3a8f02`) account for the drift from the
-83-done figure printed in older entries. `agents` 0 non-terminal MadGab agents (`a11d` is `idle` in
+83-done figure printed in older entries. The `84 done` first printed here did not sum to 96 and has
+been corrected to the re-measured 83 (corrected 2026-09-30T04:30Z; `census.sh` exit 0). `agents` 0 non-terminal MadGab agents (`a11d` is `idle` in
 `/tmp` and is not a MadGab cwd; the host-`running` agents belong to other repositories and were left
 running). `clue-fence` 0 across all six production regions — the no-hard-coding invariant holds.
 `main` untouched: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` `0267ade`.
