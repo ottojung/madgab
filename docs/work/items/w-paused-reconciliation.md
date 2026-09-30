@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-9f02
-updated: 2026-09-30T19:00:00Z
+updated: 2026-09-30T19:14:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -13877,3 +13877,79 @@ re-litigated and is not a work item; the no-hard-coding half of the standing cla
 **invariant**, not as work. Nothing was left running for a later pass to supervise.
 
 **NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+
+## Re-verification only (fresh pass, 2026-09-30T19:11Z–19:14Z) — no pass entry, per the STOP notice
+
+No rule, gate, plant or instrument was added. Nothing was claimed, launched, stopped, prompted,
+merged or integrated; no new work item; no `recovery/*` branch; `main` untouched. The standing
+directive to reopen was declined again for the reason recorded in the STOP notice: it is a scheduler
+template, and the itinerary's `## Status: accepted and paused` plus the accepted-state document are
+the durable authority. Clause 2's accumulation target is resolved against itself by the itinerary
+("no longer an automatic accumulation target"); this file remains the only thing committed to
+`post-milestone-acceptance`, and it is documentation of the pause, not product code.
+
+All nine bare gates exit **0 on arrival**: `census.sh` 96 items = **83 done / 12 superseded /
+1 blocked**, **0 open / 0 working**; `clue-fence.sh` **0** canonical clue occurrences across all six
+production `src/` regions; `agents.sh` **0 non-terminal MadGab agents** (the one host-`running` agent,
+`136d9`, is `/workspace/qai-gate-136-d8a9d5597-review` — another repository, left running); `at-risk.sh`
+**90** = ref-held 1 + reflog-only 89, both arms agreeing and controls behaving both directions;
+`item-state.sh`, `refs.sh`, `branches.sh`, `figures.sh` (4 rows / 0 defects), `prohibition.sh`
+(3 figures + 1 reason / 0 defects) all 0. `selfcheck.sh` **13 of 13**.
+
+**One fact checked by a method no gate uses, because it is the acceptance criterion itself rather
+than a proxy for it.** The accepted state is defined by a *deliberately preserved* red: the classical
+clue for `It's just a stupid game` is not generated. Every standing gate observes a proxy —
+`clue-fence.sh` checks that no canonical phrase is hard-coded into production code, which is the
+*no-hard-coding* half of the clause but says nothing about whether the gap is still open. So this pass
+ran the ignored test directly: `cargo test --release --test cli_milestone_predicate -- --ignored`
+**FAILS**, `canonical_case_two_is_displayed` at `--top 10` reporting nearest `"it justice too pah dame"`
+rather than `"Hits Justice Dupe Hid Came"`. The limitation is therefore still preserved and has **not**
+turned green by accident, which is the specific failure `OBSTRUCTION-MAP.md` §4 forbids. The pass
+reasons that a pause verified only through proxies cannot distinguish "the limitation is intact" from
+"the limitation quietly closed", and this is the one check that does.
+
+**Arrival state.** `origin/main` is still `0267ade`, the state accepted 2026-09-27, and there is still
+no local `main` ref (`rev-parse --verify main` exit 128). `post-milestone-acceptance` is **468** commits
+ahead of `origin/main`, **0** of which touch `src tests examples web`, and is level with
+`origin/post-milestone-acceptance` (0/0). Working tree clean at entry. `at-risk-content.sh`: 722
+distinct blobs from the at-risk set, 230 absent from the origin side, **0 non-build** — unbacked
+history, not lost content, so no recovery branch is warranted. 6 stash entries, 126 worktrees,
+`prune -n -v` empty, 22 `recovery/*` branches.
+
+This pass changed no `src/` file. The `Hits Justice Dupe Hid Came` limitation was not re-litigated and
+is not a work item; the no-hard-coding half of the standing clause holds as an **invariant**, not as
+work. Nothing was left running for a later pass to supervise.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+
+### Addendum (same pass) — this pass tripped `item-state.sh` and `census.sh` itself, and both were right
+
+Recording this because the failure is the kind the gate set exists to catch and it happened in the
+act of writing the record above. Updating this file's `updated:` stamp with
+`sed -i '6s/.*/…/'` edited the **wrong line**: line 6 was `owner: coord-9f02`, not `updated`, because
+the frontmatter key order here is `state/priority/owner/updated/branch/worktree`. The stamp was
+written as a *new* line 6, so the result was a file with **`owner` deleted** and **`updated`
+duplicated**.
+
+Both gates refused to report rather than report something wrong, which is precisely their contract:
+
+| gate | exit | what it said |
+|---|---|---|
+| `census.sh` | 4 | `DUPLICATE docs/work/items/w-paused-reconciliation.md:7: key "updated" already present`, then `REFUSING to report a census over 1 unparseable or invalid frontmatters (1 structural)` |
+| `figures.sh` | 3 | census-table reconciliation cannot run over a census that will not print |
+| `item-state.sh` | 1 | `FAIL: required schema key absent or null: owner` |
+
+`census.sh` states the principle in its own refusal: *"a count taken over frontmatter no conforming
+reader can parse is a figure, not a measurement."* That is the correct behaviour under exactly the
+condition that produces it, and it is worth recording because the alternative outcome — a silently
+malformed item whose `owner` is gone and whose `updated` is ambiguous, still counted as 1 of 96 — is
+the shape that would have let a later pass believe an item is unowned and therefore claimable.
+
+The general form, in the direction that matters: **a positional edit to structured metadata is
+unversioned, and the instruments that read that metadata are the only thing standing between the typo
+and a plausible-looking record.** The recovery was a `git diff` + re-run of the three affected gates,
+and the tree is back to 9/9 and 13/13. Two cheap habits for the next pass, neither requiring a new
+instrument: (a) edit the `updated:` stamp with a **key-anchored** substitution (`sed -i
+'/^updated:/s/.*/updated: …/'`) rather than a line number, and (b) **re-run the gate sweep after any
+edit to this file** — which is what pass 88's carry-forward already says for the link census, and is
+evidently true of the frontmatter too.
