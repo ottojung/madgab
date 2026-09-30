@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T06:05:00Z
+updated: 2026-09-30T15:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -57,6 +57,41 @@ running). `clue-fence` 0 across all six production regions — the no-hard-codin
 `main` untouched: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` `0267ade`.
 `selfcheck` 13 of 13. The nine bare gates and `selfcheck` all exit **0 on arrival**, so the durable
 state is healthy and there is no recovery, repair or integration work outstanding.
+
+#### Correction (coord pass, 2026-09-30T15:58Z) — pass 306's "all 89 covered by the 26 `recovery/*`
+branches, uncovered 0 in both classes" does not reproduce, and the residual is build output only
+
+The stop notice told a human the durable state was healthy, and it is — but the **at-risk coverage
+claim it rests on is false as written**, and no gate reads it. Measured this pass with the same
+`git for-each-ref --contains` shape the claim names, over **all** `recovery/*` refs
+(`refs/heads/recovery/*`, `refs/remotes/{origin,audit,origin-all}/recovery/*`; 88 refs after
+normalisation, 26 `recovery/*` heads on `origin` confirmed by `ls-remote --heads`):
+
+| claim | re-measured |
+| --- | --- |
+| at-risk total | **90** = ref-held 1 + reflog-only 89, disjoint (`at-risk.sh` exit 0; +1 is this file's own line growth) |
+| at-risk commits contained in **any** ref | **1 of 90** — only `514ed91`, the positive control, via `scratch-3f8c62-landed` |
+| at-risk commits contained in **any** `recovery/*` ref | **0 of 90** |
+| `recovery/*` refs holding at-risk *content* | 71 of 90 fully; 19 partially |
+
+So the claim is not a stale figure, it is a **population error**: it was measured in content (blobs
+reachable from a `recovery/*` ref) and published as commit coverage. The two disagree because
+recovery branches archive a commit's *content* — the log's own `eaf7487` records `514ed91` being
+archived as a byte-exact patch+blob precisely *because* the commit itself could not be pushed. Read
+as content, the residual is **one** commit, `33c409e` (SCRATCH w-2f7a10 slots front), whose 70
+unreferenced blobs are **all under `target-after/`** — 0 non-build paths. The other 18 partials are
+covered by ordinary non-recovery refs; e.g. `05dba60f`'s `REPORT-558697.md` blob `a9c0524d` is on
+`madgab-axis-558697` in all five mirrors.
+
+**The conclusion the claim supported is still right, for a better reason:** no `recovery/*` branch is
+warranted and none was created, because the only content no ref reaches is build output. What was
+wrong was the evidence, and a human reading "uncovered 0" would have believed no at-risk commit
+lacked a ref at all. Corrected here rather than by a tenth gate, which the notice forbids, and with
+no pass entry, rule, plant or new instrument.
+
+Re-run on arrival this pass, all exit 0: nine bare gates, `selfcheck` 13 of 13, `at-risk` 90,
+`audit` mirror fresh at `4347134`. Nothing claimed, launched, merged, or pushed to `main`; no `src/`
+change.
 
 ### The three scheduler-template clauses, declined for the same reason each time
 
