@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3e7f
-updated: 2026-09-30T02:59:00Z
+owner: coord-6a4e
+updated: 2026-09-30T03:04:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12402,4 +12402,97 @@ anything cannot keep being justified by the possibility that it might.
    the answer honest.
 
 None of the three is a judgement call, and none has been for 265 passes. What would change the
+situation is a human's decision, recorded in the NEXT block above.
+
+## Pass 357 (coord-6a4e, 2026-09-30T03:02Z-03:06Z) - gate NO; seven gates 7/7 exit 0 on arrival; no rule added because this pass found no defect
+
+Eleventh identical coordinator invocation inside four hours, carrying the same three clauses as every
+pass since 92. Ran the seven bare gates from the repository root and nothing else, per pass 356's NEXT
+(1). All seven exit 0 and every figure reproduces its standing row: census **96** = 0 open / 0 working
+/ 1 blocked (this item) / 83 done / 12 superseded, skills-doc fenced-example control selector 0 /
+fence-blind 1, 1 work-item-shaped header correctly not counted, 49 non-schema-key files listed once
+each; clue fence **0** canonical occurrences across all six production regions with every plant
+firing, the same 1 adjudicated benign per-word hit in `lib.rs:3597` (rule 14x), the same derived
+alphabet of 9 clue words / 2 clue phrases / 2 target phrases read out of the accepted-state document,
+and the same scope note that `examples,web` are fenced by `tests/no_phrase_hard_coding.rs` instead;
+agents **0** non-terminal in a MadGab cwd over 131 MadGab cwd rows of **794** host rows =
+110 succeeded / 1 stopped / 20 failed, the 2 host-`running` agents `124e1`
+(`/workspace/antonina-relint`) and `99c1` (`/workspace/skrynia-apps-99-land`) belonging to other
+repositories and **left running untouched**, the 5 idle rows not MadGab cwds, `3a8f01` still `stopped`
+and left stopped; selfcheck 11 of 11 instruments present, parsing, exiting 0 and printing their
+invariant; item-state frontmatter parses with all eight schema keys; refs 3 relative links and 12
+instrument paths resolve, 0 self-pointers, 1 quoted section pointer and 1 qualified pointer resolve
+with 0 unresolved in the newest entry; branches green on 5 branch+sha claims (0 tip, 0 base
+mismatch), 1 payload claim, 1 deletion + 1 CI-step effect claim, 9 branch names resolved,
+delete-list population 3 with 1 remote-only, `recovery/at-risk-2026-09-29` correctly reported
+remote-only and **not** named as a deletion candidate, and the `review/run-clue-fence-in-ci` worktree
+blocker still live at `/workspace/madgab-cifence` with the corrected `--porcelain --ignored`
+precondition reading `--porcelain` 0 paths and non-build ignored `Cargo.lock` (rule 346).
+
+**The only movement since pass 356 is host churn in other repositories, reported as a snapshot.**
+Host rows read 794 against 793, and the host-`running` set reads 2 against pass 356's 1: `124e1`
+(`/workspace/antonina-relint`) is newly running, while `94ee` and `92d6`, which pass 356 recorded as
+running, are now `succeeded` in the same listing. Nothing was launched, stopped or prompted by this
+pass, no MadGab agent exists to prompt in any case, and per rule 335 a cross-pass disagreement in
+another repository's agent table is not a signal about this repository. The MadGab figures — 131
+MadGab cwd rows, 110/1/20, 0 non-terminal — reproduce exactly.
+
+**No rule and no instrument change this pass, and that is a result rather than an omission.** The
+seven gates are the standing procedure, all are green, and the instruments that could be extended
+were extended deliberately at passes 345-354 with plants. Per rule 335 a check that cannot redden the
+truth will eventually accept a lie, so the correct action when there is nothing measured to fix is to
+change nothing and say so — the same result passes 347, 349, 352, 355 and 356 recorded. This entry
+carries the declining-clauses subsection it promises, so a later pass that writes an entry without
+one turns gate 6 red rather than silently sending the reader to search.
+
+The at-risk mirror was **not** re-fetched: it has been closed on content since pass 184 and
+re-fetching is optional per NEXT (5), and per NEXT (4) when it is done it must use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344). Nothing was claimed, launched, stopped, prompted or integrated; no
+work item was created or claimed (gate 1: 0 open, 0 working); no recovery branch was warranted and
+none was created; `main` untouched at `origin/main` `0267ade` with `git rev-parse --verify main` still
+exiting 128; HEAD on `post-milestone-acceptance` in sync with its origin at entry and at exit, so
+this entry is pushed to the branch every prior pass wrote it to.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339), or the 1295/291 populations. **(3)** Do not re-litigate passes 345-357: the delete-list
+semantics, the worktree blocker, the corrected precondition, the heading-vs-line half of rule 330,
+the empty-population half of rule 351, the branch-qualified-path scoping decision, the rule-350 form
+boundary, rule 354's name-vs-qualifier half, and the three no-defect results (355, 356, 357) are all
+stated in the standing section or in these entries. **(4)** If you re-fetch the mirror, use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content since pass
+184); this pass did not. **(6)** When extending an instrument here, plant the new claim against the
+real defect **and** against a correct instance of the same shape before publishing green, and print
+the name the matcher produced before deciding on it (rule 354). **(7)** The highest-value output of a
+further pass is still not a rule — it is re-stating item (3): **retire this recurring pass, or
+reopen MadGab explicitly.** Eleven passes inside four hours have each concluded that the durable
+state is complete and that the only remaining action is a human's; a pass that cannot be made to
+find anything cannot keep being justified by the possibility that it might.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+1. **Launch or prompt Antonina agents / recover, assign, or split fronts.** Declined. `## Status:
+   accepted and paused` in [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) says
+   scheduled orchestrators "must not create new MadGab work items, claim existing historical items,
+   launch MadGab agents, or resume superseded fronts unless a human explicitly asks to reopen MadGab
+   development." No human has. `docs/work/README.md` says the same of the 0 open / 0 working census.
+2. **Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires".** Declined, and
+   the conflict is textual rather than a matter of taste: the itinerary's closing paragraph calls
+   that branch "release history after this acceptance and **no longer an automatic accumulation
+   target**", which contradicts this log's own rule 3. **The itinerary wins.** Durable state from
+   this pass is nonetheless committed to the branch actually checked out, because leaving the log
+   unwritten is strictly worse than writing it where every one of 356 prior passes wrote it; the
+   fix belongs in the out-of-repo scheduler template and is a human task.
+3. **Prioritise the canonical approximate-search examples without phrase-specific hard-coding.**
+   Declined as work; **honoured as a standing invariant.** The no-hard-coding half is measured on
+   every pass by gate 2 and read **0** again here across all six production regions, with all plants
+   firing. The prioritisation half is the paused research loop, and the canonical
+   `Hits Justice Dupe Hid Came` limitation is preserved on purpose in
+   [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md), not hidden. Note the
+   clause is not a request to hard-code a phrase: it asks for the opposite, and gate 2 is what keeps
+   the answer honest.
+
+None of the three is a judgement call, and none has been for 266 passes. What would change the
 situation is a human's decision, recorded in the NEXT block above.
