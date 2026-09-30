@@ -10871,3 +10871,17 @@ member is accounted for. A future pass that wants the mirror warm before measuri
 script's default quietly does not obey it, which is worth a follow-up line in that row if a human
 wants the default changed — deliberately NOT changed here, because a guard's default is a human
 decision and this pass's remit is coordination, not instrument redesign.
+
+NEXT (supersedes the NEXT above, which belongs to the first half of this pass): **(1)** Run the
+seven bare gates and nothing else. **`at-risk-delta.sh` DOES NOT RE-FETCH BY DEFAULT** — it sets
+`FETCH=0` and the mirror refresh is opt-in behind `--fetch`, so a commit pushed within the last few
+minutes reads as at-risk and fires the growth guard. If the guard exits 3 on a member that is one
+of your OWN commits from this pass, that is rule 340b, not growth: confirm the member is ref-held
+(`git for-each-ref --contains <sha>`) and re-run with `--fetch` before touching anything. **Do not
+bump `PREV_ARMS` to silence it** — the baseline stays **90/89** unless a member is genuinely
+unbacked. **(2)** Do not re-derive the census delta (resolved at pass 338), the at-risk composition
+(settled at pass 328), the worktree count (settled at pass 339), or the gate list's seven rows.
+**(3)** The two remaining human items are unchanged: merge `8c88a59` and delete the three superseded
+branches (**two need `git push origin --delete`; they are remote-only**), and retire this recurring
+pass. **(4)** A human may decide whether `at-risk-delta.sh`'s default should become `--fetch`; that
+is a guard-default change and is deliberately left undone here, not overlooked.
