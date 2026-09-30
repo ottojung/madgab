@@ -151,7 +151,16 @@ INSTRUMENTS=(
   # (NOT CONTAINED, and the bogus-ref refusal) cannot be registered this way at
   # all, because each needs a real pair of branches that differ; they are
   # exercised in the pass-325 entry beside the instrument. (pass 325)
-  "branch-containment.sh::CONTAINED and mergeable::origin/main origin/main origin/main"
+  #
+  # PASS 337: the invariant anchor is now "exit          0", the new verdict
+  # line, and NOT the old "CONTAINED and mergeable" text -- because the defect
+  # this pass fixed is that the verdict was PRINTED and never EXITED, and an
+  # anchor on the printed text would keep passing on the exact instrument that
+  # is broken. This script already asserts exit 0 independently, so the anchor
+  # change is not what catches the regression; it is here so the two assertions
+  # are about the same thing. It also means this registration can now go red if
+  # the exit-code contract is ever undone, which is the correct direction.
+  "branch-containment.sh::exit          0::origin/main origin/main origin/main"
   # refs.sh is registered on its CLEAN line, "cross-references resolve", and
   # takes no arguments here so it measures THIS item, the standing one. That is
   # the coupling pass 325 warned about for branch-containment.sh, and it is

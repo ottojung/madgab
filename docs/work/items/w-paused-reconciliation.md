@@ -162,7 +162,19 @@ docs/work/paused-recon/branch-containment.sh origin/main \
   review/drop-dead-trace-env-on-main review/run-clue-fence-in-ci
 ```
 
-It reports `CONTAINED and mergeable`, names the base check, and gates the verdict on it. The
+It reports `CONTAINED and mergeable`, names the base check, and gates the verdict on it. It now also
+**exits with the verdict** (0 green / 3 `NOT CONTAINED` / 4 base-check-failed / 1 input error) — it
+used to exit 0 on all three verdicts, so the one command this section names as deciding its claim was
+fail-open to any reader who scripted it. Note that this command checks **two of the three** branches
+it deletes, and that is deliberate, not an omission: `review/drop-dead-trace-env` (`a29f3d7`) is
+**not** tree-contained, and passing it makes the instrument print `NOT CONTAINED` and exit 3. That is
+correct and expected — the branch is parented on this log, so merging it into the composed branch
+would carry 397 log commits, which is the very defect the previous paragraph exists to prevent. What
+`a29f3d7` carries that is **unique** is one commit, and that commit is patch-identical (`f26f1057`) to
+the contained `review/drop-dead-trace-env-on-main`, so deleting it loses nothing. "Strictly contained"
+is therefore true in **effect** and false in **tree**; the sentence above claims the former and this
+command demonstrates the latter, so a reader must not add the third branch to the command and read
+the red as a defect. Rule 337.
 remaining human items are unchanged: **retire this recurring pass**, and **fix the out-of-repo
 scheduler template**, which has now fired with three clauses that contradict the itinerary it points
 at.
@@ -10390,3 +10402,125 @@ exits **3**, attribute the new member first (pass 328: enumerate reflog transiti
 non-fast-forward ones; 125 of 1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not
 `.git/logs`). **(4)** Everything else is human, and retiring this recurring pass is still the
 highest-value action available.
+
+## Pass 337 (coord-4a1c, 2026-09-30T00:01Z-00:09Z) — gate NO; seven gates 7/7 exit 0; ACTED — the one instrument the human list NAMES as the command deciding its containment claim exited 0 on all three verdicts, and the claim it decides is "strictly contained", which is false in tree terms for one of the three branches it deletes
+
+### The seven standing gates, re-derived from the instruments, not copied (unchanged)
+
+`census.sh` exit 0 — **96** items, 0 open / 0 working / 1 blocked / 83 done / 12 superseded, the
+fence-scoped gawk form, its fenced-example control reading 0 against a fence-blind 1. `clue-fence.sh`
+exit 0 — 0 canonical clue occurrences across all six production regions, 1 adjudicated benign
+per-word hit, and the whole plant battery firing (decomposed array 8 per-word, mid-word split 1,
+below-`mod tests` 0, `/* */` 1, `//`-in-string 1). `agents.sh` exit 0 — 754 host rows, 131 MadGab
+cwd rows, **0 non-terminal MadGab agents** (110 succeeded / 20 failed / 1 stopped); the 3 host-running
+agents (`109a6` skrynia-109-schema, `92a7` volodyslav-92-familyb, `125a1` antonina-125-storage) are
+other repositories and were left running untouched. `item-state.sh` exit 0. `selfcheck.sh` exit 0 —
+11/11 alive. `refs.sh` exit 0 — 3 links, 12 instrument paths, 0 self-pointers. `branches.sh` exit 0 —
+9 branch names resolve, 2 remote-only, 5 branch+sha claims with 0 tip and 0 base mismatches, 1
+payload claim 0 defects, 1 deletion claim + 1 CI-step claim 0 content defects.
+`at-risk-delta.sh` bare **exit 0** — the growth guard is quiet at arms 90 / published 89, so no
+at-risk member needs attributing and no recovery branch is warranted; none created.
+
+### ACTED: `branch-containment.sh` was fail-open, and it is the one command this section names
+
+The standing section tells a human to run this instrument to decide the containment claim, and every
+one of its verdicts exited **0**:
+
+| case | verdict printed | exit before | exit after |
+|---|---|---|---|
+| green (contained, base ok) | `CONTAINED and mergeable` | 0 | **0** |
+| `NOT CONTAINED` | red, "do not merge either branch" | **0** | **3** |
+| base check fails (rule 323) | red, "DO NOT MERGE THIS BRANCH" | **0** | **4** |
+| usage error / unresolvable ref | input error | 1 | 1 |
+
+So `branch-containment.sh … && merge` was true on the two red verdicts, on a branch the base check
+had just printed `DO NOT MERGE THIS BRANCH` on. This is the refs.sh-v1 shape one level out — a
+verdict that is not in the exit status is a printed opinion — and it is the worst place in this
+repository for it, because this is the only instrument the human list presents as *the* command that
+decides its one remaining prose claim. Passes 325–336 spent six passes building machine checks
+around this claim and never asked whether the check itself could go red. `bash -n` cannot see it and
+neither can reading the file: the exits were correct as code and wrong as a contract. **It was found
+by RUNNING all three verdicts**, which is the pass-298 lesson at the scale of one instrument.
+
+3 and 4 are deliberately distinct: a base failure is a defect in the composed branch and invalidates
+the composition, while a containment difference may be legitimate extra work. Folding them into one
+non-zero would make the status useless for telling them apart — "a count carries its population",
+applied to an exit code.
+
+**Five plants, all firing, all against the live repository, none planted in a throwaway:**
+
+- A green: `origin/main review/drop-dead-trace-and-fence review/drop-dead-trace-env-on-main review/run-clue-fence-in-ci` → 0
+- B red: `… review/drop-dead-trace-and-fence review/drop-dead-trace-env` → 3
+- C red: `origin/main post-milestone-acceptance post-milestone-acceptance` → 4 (contained, mis-based)
+- D input error: an unresolvable constituent → 1
+- E bare, no arguments → 1
+
+Plant C's first spelling was `origin/main review/drop-dead-trace-env review/run-clue-fence-in-ci`,
+which returned **3**, not 4. That is correct, not a defect: `a29f3d7` is *both* mis-based *and* not
+contained, and `NOT CONTAINED` is the more informative verdict, so the ordering is right. It is
+recorded because a plant that returns the wrong code for a right reason is indistinguishable from
+one that returns the wrong code for a wrong reason until you say which.
+
+`selfcheck.sh`'s registration for this instrument was re-anchored from the printed text
+`CONTAINED and mergeable` to the new verdict line `exit          0`. An anchor on the *printed* verdict
+would have kept passing on precisely the instrument that is broken.
+
+### ACTED: "strictly contained" is true in EFFECT and false in TREE, and the section said the former
+
+The section claims all three deleted branches are *"strictly contained in the composed branch and
+none carries anything unique"*, and its command names only **two** of them. That looks like an
+omission. It is not, and the reason is the finding:
+
+Adding the third — `review/drop-dead-trace-env` (`a29f3d7`) — makes the instrument print
+`NOT CONTAINED` and now exit 3, because that branch is parented on this log, so merging it into the
+composed branch pulls in **72 files / 44,136 insertions / 171 deletions** of log. So the claim is
+**false in tree terms**, and true in **effect** terms, and the two are different questions:
+
+- effect: what unique *work* would deleting `a29f3d7` lose? Measured: exactly **one** commit is
+  reachable from `a29f3d7` and not from `post-milestone-acceptance`, and its `git patch-id --stable`
+  is `f26f1057c100e9439a52235dd27e8cbe360527ac` — **byte-identical** to the contained
+  `review/drop-dead-trace-env-on-main`. Its parent is an ancestor of the accumulation branch.
+  Deleting it loses nothing, by measurement rather than by assertion.
+- tree: is the branch's whole tree subsumed? No, and it cannot be, because the log is not on `main`.
+
+The section asserted the effect claim and demonstrated the tree claim, so a reader who completed the
+command the obvious way got a red and no sentence explaining why. The section now says all of this,
+and records that adding the third branch to the command is **not** a defect to be chased.
+
+### Rule 337
+
+**A verdict that is printed and not exited is a printed opinion, and the instrument a section NAMES
+as deciding a claim is the last one that should be assumed to decide it.** Six consecutive passes
+built checks *around* the containment claim — the branch, its tip, its base, its payload, its run
+evidence, its effect — and the check underneath all of them exited 0 for "not contained" and for "do
+not merge". The checks grew toward the claim and never inward toward the instrument, which is the
+same shape as pass 330's decayed pointer and pass 226's stale instrument reference: **the standing
+section's own "run this" command is a pointer, and it decays the way pointers do.**
+
+General form, and it is the counterpart of rule 334/335/336: those three rules are all "a printed
+number is not a check". This is the exit-status half — **a printed verdict is not a check on the
+thing you are about to do.** A gate list that names an instrument has to name its *failure* codes as
+well as its success line, or the naming is decorative.
+
+### What this pass did and did not do
+
+The three scheduler-template clauses (launch/prompt Antonina agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are declined for the sixty-second time, on `## Status: accepted and
+paused` plus the accepted-state document. Clause 2 remains a direct textual conflict: the itinerary
+says `post-milestone-acceptance` "is no longer an automatic accumulation target", so the template's
+"exactly as the itinerary requires" cannot be honoured by doing what the template says. Nothing
+claimed, launched, prompted, stopped or integrated. No new work item. **No merge and no push to
+`main`** — `origin/main` is untouched at `0267ade` and there is still no local `main` ref. No recovery
+branch. The 3 host-running agents belong to other repositories and were left running for their own
+passes to inspect.
+
+### NEXT
+
+Run the seven bare gates and nothing else; `branch-containment.sh` is still **argument-taking** and
+rule 326 stands, but its exit codes are now load-bearing, so a bare run must not be read as a
+verdict. If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328: enumerate
+reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
+`.git/worktrees/*/logs/HEAD`, not `.git/logs`). Everything else is human: merging
+`review/drop-dead-trace-and-fence` (`8c88a59`), retiring this recurring pass, and fixing the
+out-of-repo scheduler template — of which retiring the pass is still the highest value.

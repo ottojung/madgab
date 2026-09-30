@@ -53,6 +53,33 @@
 # the given base" -- it does NOT certify the composed branch is correct or
 # wanted, and a residual is a human judgement (same as at-risk.sh).
 #
+# EXIT CODES (pass 337). This instrument's verdict was PRINTED and never EXITED:
+# every verdict below -- CONTAINED, CONTAINED BUT NOT MERGEABLE, and NOT
+# CONTAINED alike -- exited 0, while a usage error and an unresolvable ref also
+# exit 1. So `branch-containment.sh ... && <do the thing>` was true on all three
+# verdicts, and the one instrument the human list names as the command to decide
+# its containment claim was fail-OPEN to exactly the reader most likely to
+# script it. That is the refs.sh-v1 shape one level out: a verdict that is not
+# in the exit status is a printed opinion, and the standing section's whole
+# point is that the claim it makes is decidable.
+#
+# It was found by RUNNING all three verdicts, not by reading the tail of the
+# file, and `bash -n` cannot see it because the exits were correct as code --
+# they were just wrong as a contract. Two of the three are also RED verdicts a
+# human must not act through:
+#
+#   0  CONTAINED and mergeable        -- the only licence to merge
+#   3  NOT CONTAINED                  -- a real difference; read the diff
+#   4  CONTAINED BUT NOT MERGEABLE    -- base check failed (rule 323)
+#   1  usage / unresolvable ref       -- an input error, not a verdict
+#
+# 3 and 4 are distinct because the two red verdicts want different responses:
+# a base failure is a defect in the composed branch and invalidates the
+# composition, while a containment difference may be legitimate extra work.
+# Folding them together would make the exit code useless for telling them
+# apart, which is the same "a count carries its population" rule applied to an
+# exit status.
+#
 # USAGE
 #   docs/work/paused-recon/branch-containment.sh <base> <composed> <constituent>...
 #
@@ -174,15 +201,25 @@ done
 
 printf 'tree          %s tree %s\n' "$(git rev-parse --short "$COMPOSED")" "${composed_tree:0:7}"
 
+# The exit code is the verdict. Everything printed above is explanation; the
+# only thing a script can branch on is this. See the EXIT CODES block in the
+# header -- all three verdicts used to exit 0.
 if [ "$contained" = 1 ] && [ "$base_ok" = 1 ]; then
   printf 'VERDICT       CONTAINED and mergeable -- the composed branch carries every constituent\n'
   printf "              effect and sits on the release line. A human needs to merge the composed\n"
   printf '              branch ONLY; the constituents carry nothing unique and must not be merged\n'
   printf '              alongside it.\n'
+  bc_status=0
 elif [ "$contained" = 1 ]; then
   printf 'VERDICT       CONTAINED BUT NOT MERGEABLE -- the constituents ARE subsumed, so nothing is\n'
   printf '              lost by not merging them, but the composed branch FAILS the base check above.\n'
   printf '              Do not merge it as it stands; re-prepare it on the release line first.\n'
+  # Not `exit 0`. A CONTAINED-but-mis-based branch is the pass-323 defect, and
+  # the standing section forbids merging it; an exit 0 there is a licence to do
+  # the one thing the base check exists to prevent. The constituent-base report
+  # below is still worth printing, so the status is stashed rather than exited
+  # over outright.
+  bc_status=4
 else
   # Not a failure of the instrument -- a real difference the human must read.
   # Name the paths rather than asserting a verdict about intent.
@@ -190,6 +227,7 @@ else
   printf '              This may be a genuine extra change in the composed branch, or a\n'
   printf '              constituent that edits in a different order. READ THE DIFF before\n'
   printf '              concluding anything; do not merge either branch on this number alone.\n'
+  bc_status=3
 fi
 
 # The constituent-base sanity check, reported rather than enforced: a
@@ -198,6 +236,17 @@ fi
 for c in "${CONSTITUENTS[@]}"; do
   mb=$(git merge-base "$c" "$BASE")
   printf 'constituent   %-40s base=%s (%s commit(s) ahead of %s)\n' \
-    "$(git rev-parse --abbrev-ref "$c" 2>/dev/null || echo "$c")" \
+    "$(git rev-parse --abbrev-ref "$c" 2>/dev/null || "$c")" \
     "${mb:0:7}" "$(git rev-list --count "$mb..$c")" "${BASE:0:7}"
 done
+
+# The verdict, as a status. Set on every path that reached a verdict; the only
+# way to get here without one is a `fail`, which has already exited 1.
+printf 'exit          %s  (%s)\n' "${bc_status:-0}" \
+  "$(case "${bc_status:-0}" in
+      0) printf 'CONTAINED and mergeable' ;;
+      3) printf 'NOT CONTAINED' ;;
+      4) printf 'CONTAINED BUT NOT MERGEABLE (base check failed)' ;;
+      *) printf 'NO VERDICT REACHED -- this is an instrument defect, not a result' ;;
+    esac)"
+exit "${bc_status:-0}"
