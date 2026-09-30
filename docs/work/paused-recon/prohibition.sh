@@ -268,9 +268,9 @@ while read -r c; do
 done <<EOF
 $(git rev-list "${main_sha}..${sha}" 2>/dev/null)
 EOF
-printf 'prohibition: reported  of those %s commit(s), %s touch this log file and %s do not\n' \
+printf 'prohibition: reported  log-commit share of those %s commit(s): %s touch this log file and %s do not\n' \
   "$m_commits" "$log_commits" "$((m_commits - log_commits))"
-printf 'prohibition: reported  the prose says "%s commits"; if it says "log commits" that is a POPULATION claim, and the true log-commits figure is %s\n' \
+printf 'prohibition: reported  commit noun: the prose says "%s commits"; if it says "log commits" that is a POPULATION claim, and the true log-commits figure is %s\n' \
   "$n_commits" "$log_commits"
 printf 'prohibition: scope    the insertion count is the three-dot range; the deleted-line count is the branch OWN single commit (they are different populations)\n'
 printf 'prohibition: not gated  whether a29f3d7 is still the right branch to prohibit (that is the containment claim, branch-containment.sh) and whether the merge has happened (gate 7)\n'
