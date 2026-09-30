@@ -328,13 +328,68 @@ done < <(awk -v lim="$FIRSTPASS" '
     }
   }' "$ITEM" | sed -E 's/^([0-9]+)\t§"/\1\t/; s/"$//')
 
+# --- 5. the newest-entry INSTRUCTION (pass 361) --------------------------------
+# Rules 350/354 decided that a pointer to a heading must RESOLVE, and rule 360
+# made the two readers select the highest pass NUMBER rather than the last
+# heading. Both of those are about machinery. This check is about the sentence a
+# human actually follows, and it exists because pass 360 left it explicitly
+# undone: the standing section read, in bold, "the latest pass entry is the LAST
+# section of this file", which became **half false the moment pass 359's own
+# commit landed the 359 section above the 358 section** — the readers were
+# order-independent, the sentence was not, and nothing policed the sentence.
+#
+# The population is the reader-facing PARAGRAPH that tells a reader how to find
+# the newest entry, located by its own lead-in and delimited by the next blank
+# line. Fail-closed in BOTH directions, per rule 351 and rule 334:
+#   * 0 paragraphs, or more than 1  -> BROKEN POPULATION, this check is refused
+#     rather than passed vacuously;
+#   * the paragraph must name the HIGHEST PASS NUMBER, and must say the append
+#     ORDER is a checked invariant. Both are read out of the paragraph, never
+#     hard-coded from its wording: the two predicates are the corrective clause
+#     and the invariant clause, and either one missing is the defect.
+# The 1-read failure mode is the one that matters: a paragraph carrying a
+# DECISIVE-looking instruction with no correct value, which is the state the
+# document was in for the whole of pass 360.
+newestpara=0; badinstr=0; instr_head=""
+while IFS= read -r start; do
+  [ -n "$start" ] || continue
+  newestpara=$((newestpara + 1))
+  end="$start"
+  n="$(awk -v s="$start" 'NR > s { if ($0 ~ /^[[:space:]]*$/) { print NR; exit } }' "$ITEM" || true)"
+  [ -n "$n" ] && end="$n"
+  para="$(sed -n "${start},${end}p" "$ITEM")"
+  instr_head="$(printf '%s' "$para" | head -1 | cut -c1-60)"
+  # The CLAIM under adjudication is the paragraph's first BOLD clause, not the
+  # whole paragraph. Scoping it to the paragraph is a 1-read FAIL-OPEN: a
+  # compliant sentence later in the same paragraph satisfies the predicate for a
+  # non-compliant lead sentence, which is exactly how the pre-pass-360 wording
+  # survived a plant that replaced only that one line. A plant below now proves
+  # it, in the direction that used to be green.
+  clause="$(printf '%s' "$para" | tr '\n' ' ' | grep -oE '\*\*[^*]+\*\*' | head -1)"
+  if ! printf '%s' "$clause" | grep -qiE 'highest pass number|highest-numbered entry'; then
+    printf 'refs: NEWEST-ENTRY INSTRUCTION does not select the highest pass number (line %s): %s\n' \
+      "$start" "$instr_head" >&2
+    badinstr=$((badinstr + 1))
+  fi
+  if ! printf '%s' "$para" | grep -qiE '\border\b' || ! printf '%s' "$para" | grep -qiE 'check|guard|invariant'; then
+    printf 'refs: NEWEST-ENTRY INSTRUCTION does not state that append ORDER is a checked invariant (line %s): %s\n' \
+      "$start" "$instr_head" >&2
+    badinstr=$((badinstr + 1))
+  fi
+done < <(awk -v lim="$FIRSTPASS" 'NR < lim && tolower($0) ~ /how to read this log/ { print NR }' "$ITEM" || true)
+if [ "$newestpara" -eq 0 ] || [ "$newestpara" -gt 1 ]; then
+  printf 'refs: BROKEN POPULATION — %s reader-facing paragraph(s) matching the newest-entry instruction; a check over nothing is not a pass\n' \
+    "$newestpara" >&2
+  badinstr=$((badinstr + 1))
+fi
+
 # Each defect class sets the verdict. They are NOT folded into $status above,
 # because a first version of this script incremented $badlinks/$badinsts,
 # printed "BROKEN LINK" on stderr, and then still exited 0: the summary block
 # tested $status, which nothing had touched. The plant below caught it, which
 # is the only reason it is known. A detector that reports and does not fail is
 # the same shape as pass 298's instrument that "succeeded on the failure case".
-[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] || [ "$badsec" -gt 0 ] || [ "$badqual" -gt 0 ] && status=1
+[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] || [ "$badsec" -gt 0 ] || [ "$badqual" -gt 0 ] || [ "$badinstr" -gt 0 ] && status=1
 
 # --- summary -------------------------------------------------------------------
 # Printed on BOTH paths: a clean run is never silent, a failing one is never
@@ -345,11 +400,12 @@ if [ "$status" -eq 0 ]; then
   echo "refs: ${links} relative link(s) resolve, ${insts} instrument path(s) resolve, 0 self-pointers"
   echo "refs: ${secptrs} quoted section pointer(s) resolve, 0 broken"
   echo "refs: ${qualptrs} qualified pointer(s) checked against the newest entry (${newest_start:-none}); 0 unresolved in it"
+  echo "refs: newest-entry instruction: ${newestpara} paragraph(s), 0 defect(s)"
   echo "refs: cross-references resolve"
   exit 0
 fi
 
 echo "refs: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
-echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s); ${secptrs} quoted section pointer(s), ${badsec} broken; ${qualptrs} qualified pointer(s), ${badqual} unresolved in the newest entry"
+echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s); ${secptrs} quoted section pointer(s), ${badsec} broken; ${qualptrs} qualified pointer(s), ${badqual} unresolved in the newest entry; newest-entry instruction ${newestpara} para, ${badinstr} defect(s)"
 echo "refs: REFUSING — a pointer that does not resolve sends the next pass to the wrong line" >&2
 exit 1

@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5e93
-updated: 2026-09-30T03:26:00Z
+owner: coord-4f21
+updated: 2026-09-30T03:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -255,8 +255,18 @@ remaining human items are unchanged: **retire this recurring pass**, and **fix t
 scheduler template**, which has now fired with three clauses that contradict the itinerary it points
 at.
 
-**How to read this log: the latest pass entry is the LAST section of this file** (`grep -n '^## Pass '`
-and take the highest number). Do **not** search for a number quoted here — this paragraph, and the
+**How to read this log: the latest pass entry is the entry with the HIGHEST PASS NUMBER, wherever it
+sits in the file** — `grep -nE '^## Pass [0-9]+'` and take the highest number, **not** the last
+heading. The numbered pattern also drops the `## Pass log` section heading, which `^## Pass ` matched.
+**Append order is a SEPARATE invariant and it is CHECKED, not assumed** (rule 360): `item-state.sh`'s
+`order_guard` **fails the gate** when the physically last entry is not the highest-numbered one, and
+`refs.sh` prints `OUT OF APPEND ORDER` on stderr while still adjudicating against the correct entry.
+Those two instruments were repaired at pass 360 after pass 359's own commit landed the 359 section
+above the 358 section, so the sentence this paragraph used to carry — "the latest pass entry is the
+LAST section of this file" — was **half false from that moment on**, and no gate policed the sentence a
+reader actually follows. `refs.sh` now checks this paragraph: the newest-entry instruction must name
+the **highest pass number** and must state that append order is a checked invariant, and the check is
+fail-closed on a 0-read (rule 351, rule 346). Do **not** search for a number quoted here — this paragraph, and the
 "Passes that reached this same answer" row below, deliberately carry no pass number, because a
 pointer into an append-only log decays by exactly one every time an entry is appended after it is
 written. **Pass 157 corrected a decayed pointer** (it read `## Pass 155` while the last entry was 156,
@@ -12834,3 +12844,108 @@ pass, or reopen MadGab explicitly.** What would change the situation is a human'
 this pass created no work item, claimed nothing, launched no agent, merged nothing, pushed nothing
 to `main`, created no `recovery/*` branch, and leaves **nothing running** for a later pass to
 supervise.
+
+## Pass 361 (coord-4f21, 2026-09-30T03:26Z-03:31Z) - gate NO; seven gates 7/7 exit 0 on arrival; ACTED - pass 360's NEXT item (3) is discharged: the standing section's newest-entry sentence now names the highest pass number, and gate 6 polices the sentence itself, not only the two readers behind it
+
+### What this pass measured, all from the bare gates, nothing re-derived from a recorded figure
+
+Gate NO. `census.sh` exit 0: **96** work items, **0 open / 0 working / 1 blocked / 83 done / 12
+superseded**, skills-doc fenced-example control 0 by selector / 1 fence-blind. `clue-fence.sh` exit 0:
+**0** canonical clue occurrences in all six production `src/` regions, 1 adjudicated benign per-word
+hit, every plant still firing. `agents.sh` exit 0: **131** MadGab cwd rows of **800** host rows,
+`{"succeeded":110,"stopped":1,"failed":20}`, **0 non-terminal MadGab agents**; the 2 host-`running`
+agents (`92d7` volodyslav, `124e1` antonina-relint) are other repositories and were **left running
+untouched**. `selfcheck.sh` exit 0: 11 of 11 instruments alive. `refs.sh` exit 0 and `branches.sh`
+exit 0 (9 branches, 5 tip/base claims 0 mismatches, 1 payload claim 0 defects, 1 deletion + 1
+CI-step claim 0 content defects, delete-list population 3 with 1 remote-only,
+`review/run-clue-fence-in-ci` still BLOCKED in `/workspace/madgab-cifence`). `main` untouched: no
+local `main` ref (`rev-parse --verify main` exit 128), `origin/main` = `0267ade`, HEAD
+`post-milestone-acceptance`. Gate 4 reported `latest ## Pass 360` and the file is in append order
+(`item-state.sh` order_guard silent, `refs.sh` silent), so pass 360's readers and its file repair
+both held on arrival and were **not** re-derived.
+
+### THE FINDING: every check in this directory until now has been about the readers, and the sentence a reader follows was checked by none of them
+
+Pass 360 repaired the two readers to select the **highest pass number** and left the standing
+section's bold sentence reading *"the latest pass entry is the LAST section of this file"* — **half
+false from the moment pass 359's own commit landed the 359 section above the 358 section** — and
+recorded that as the one piece of durable prose it left undone (NEXT (3)). This pass did that prose,
+and then found that doing the prose was the easy half.
+
+The class is rule 329/350/354 one level up again: those rules established that a pointer must
+**resolve**, and rule 360 made the newest-entry *selection* order-independent. All four are checks on
+**machinery**. The claim a fresh pass acts on is a **sentence**, and the sentence is a claim about
+this file — so rule 25 applies: a documented claim about a document is still a claim about a
+document. Nothing policed it, and the failure direction is the quiet one, because the sentence reads
+like an instruction rather than like a measurement.
+
+`refs.sh` now carries check 5, `NEWEST-ENTRY INSTRUCTION`. The population is the reader-facing
+**paragraph** whose lead-in is `How to read this log` (located in the ITEM, bounded by the first
+`## Pass ` heading, exactly as the qualifier loop does — an early version located it in the extracted
+prose and its line numbers were then applied to the ITEM, which pointed the check at a paragraph 61
+lines away, so the population is anchored to the real file and not to the extraction). Both
+predicates are read out of the paragraph and hard-coded from nothing:
+
+1. the paragraph's first **bold clause** must select the **highest pass number**;
+2. the paragraph must state that append **order** is a **checked** invariant.
+
+Fail-closed in all three directions, per rules 334/351/346: 0 or >1 matching paragraphs is
+`BROKEN POPULATION` and refuses rather than passing vacuously; a missing clause is a defect that
+**fails the gate** (exit 1), not a report. Scoping predicate 1 to the **bold clause** rather than the
+whole paragraph is itself a repair, and it was found by running the check: with the paragraph as the
+population, a plant that replaced only the one non-compliant line read **GREEN**, because a
+compliant sentence *later in the same paragraph* satisfied the predicate for a non-compliant lead
+sentence. That is the refs.sh v1 shape this script's own header records — a vacuous pass — and it is
+the 1-read fail-open rule 351 exists for, reached by writing the looser scope first.
+
+**Four plants, all in `docs/work/items/` so the relative-link population is unchanged, all run, all
+firing in the intended direction, with the real file green between them:** (A) a full revert to the
+pre-pass-360 paragraph — red on **both** predicates; (B) the compliant bold clause with the two
+order-invariant sentences removed — red on predicate 2 **only**, which is the discrimination the
+paragraph-scoped first version lacked; (C) the lead-in renamed — `0 paragraph(s)`, `BROKEN
+POPULATION`, red; (D) the lead-in duplicated — both predicates reported twice **and** the >1
+population guard, red. The plant file was deleted after each run and `census.sh` re-run green at 96
+afterwards, so no plant left a phantom work item behind.
+
+**Rule 361: a check on the MACHINERY that reads a document is not a check on the CLAIM the document
+makes about itself.** Passes 329, 330, 350, 354 and 360 each hardened one instrument — a pointer's
+resolution, a pointer's name, a pointer's qualifier, a reader's ordering — and the standing section's
+boldest claim about this file sat outside all of them for the whole of that history, false in the
+half that mattered, and every gate green. Rule 25 is the general form; the operational half is that
+the standing section's reader-facing claims are a **population of their own** and need their own
+check, because a reader who is told what to do does not consult the implementation.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+**Gate NO.** (1) *Launch or prompt Antonina agents*: declined on `## Status: accepted and paused`
+plus the accepted-state document. There is nothing to launch — **0 open / 0 working** items, **0
+non-terminal MadGab agents**, and every host-`running` agent belongs to another repository. (2)
+*Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"*: a direct textual
+conflict, as in every pass since 199 — the itinerary says that branch "is no longer an automatic
+accumulation target", so "exactly as the itinerary requires" cannot be honoured by doing what the
+template says; the itinerary wins, and only a human can retire or correct the out-of-repo template.
+This pass's commit goes to that branch because **this log is its own durable record** and the pause
+does not stop the bookkeeping, not because the template's instruction is honoured. (3) *Prioritize the
+canonical approximate-search examples without phrase-specific hard-coding*: the no-hard-coding half
+holds as a **standing invariant**, not as work — `clue-fence.sh` reads 0 across all six production
+regions with its plants firing — and the preserved `Hits Justice Dupe Hid Came` limitation was not
+re-litigated. Nothing was claimed, launched, stopped, prompted or integrated; no new work item; no
+recovery branch created; `main` untouched at `0267ade`.
+
+### NEXT — for a fresh pass
+
+**(1)** Re-run the seven bare gates; expect 7/7 exit 0 and, from gate 4, `latest ## Pass 361`. Gate 6
+now prints one extra clean line, `newest-entry instruction: 1 paragraph(s), 0 defect(s)`; if that
+line is missing, the check was removed rather than passed. **(2)** Do not re-derive this pass's
+finding; the prose is repaired, the check is built, and the four plants are recorded above.
+**(3)** The **other** reader-facing claims in the standing section are unchecked by the same argument
+rule 361 just made: the worktree-removal precondition is policed by gate 7's `--ignored` pairing
+(rule 346), the delete list by its 0-read guard, but the **census table's own row figures** (at-risk
+count, agent counts, worktree count) are prose a gate prints *beside* and never reconciles. A pass
+that wants a genuinely useful act should build that reconciliation rather than a new rule. **(4)** Do
+not re-litigate passes 345–361. **(5)** This pass did not re-fetch the audit mirror; still optional, and
+if done must read its exit code directly rather than after a pipe (rule 344). **(6)** The highest-value
+output of a further pass is still not a rule: **retire this recurring pass, or reopen MadGab
+explicitly.** What would change the situation is a human's decision, and this pass created no work
+item, claimed nothing, launched no agent, merged nothing, pushed nothing to `main`, created no
+`recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
