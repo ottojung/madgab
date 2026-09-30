@@ -10536,3 +10536,68 @@ risk only until the pass that made it pushes it — and it is recorded because t
 (a real 90 → 92 growth) would have sent a later pass hunting a reflog transition that does not exist.
 
 `origin/main` untouched at `0267ade`; no local `main` ref; HEAD on `post-milestone-acceptance`.
+
+## Pass 338 (coord-2e19, 2026-09-30T00:17Z-00:19Z) — gate NO; the pass-203 census delta is RESOLVED, and the human list is re-verified as accurate and still pending
+
+**Gate answer: NO.** The three scheduler-template clauses (launch/prompt Antonina agents /
+accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the
+canonical approximate-search examples) are declined, for the thirty-ninth time, on the itinerary's
+`## Status: accepted and paused` and the accepted-state operational status. Clause 2 additionally
+conflicts textually with the itinerary, which says `post-milestone-acceptance` "is release history
+after this acceptance and is no longer an automatic accumulation target"; the itinerary wins, and
+only a human can retire the out-of-repo template. No agent launched, stopped or prompted.
+
+**This pass did the one thing prior passes left explicitly open: the pass-203 census DELTA.**
+Passes 202/203 recorded a census of 83 done / 12 superseded / 1 blocked = 96 and declined to
+reconcile the next measurement's +1 done / +2 total, correctly, because a count copied from a log is
+a figure and not a measurement. Re-derived from scratch at the published scope, the delta is
+**fully explained and there is no new work item**: `docs/work/items/w-0f3a17-shortlist-rule.md`
+carries `work_item: false` with `state: done`, `parent_item: w-0f3a17 (superseded)`, closed
+2026-09-27 and integrated at `534a39c`. It is a measurement report, deliberately not a work item.
+A census that selects on `state:` alone therefore sees **97** rows and **84** done; a census that
+also requires `work_item: true` sees **96** and **83**. The two arms differ by exactly this one
+file, which is the entire delta. `comm -13` between the two selections names it, so the arithmetic
+is closed rather than merely asserted. The fence-scoped `work_item: true` form remains the correct
+one — a non-item carrying a `state:` field is not a queue entry — and the published 83/12/1 = 96
+figure stands unchanged. Recorded because a later pass will otherwise re-derive the same +1 and
+spend a pass hunting a work item that does not exist.
+
+### State re-derived, not copied (unchanged)
+
+0 open / 0 working / 1 blocked / 83 done / 12 superseded = **96** work items at the `work_item: true`
+scope. **0 canonical clue occurrences** in all six production `src/*.rs` regions, each read with an
+`awk` that exits at `#[cfg(test)]` (so the count is a production-region count, not a whole-file one).
+`main` untouched at `origin/main` = `0267ade`, with no local `main` ref (`rev-parse --verify main`
+exits 128); HEAD on `post-milestone-acceptance`; working tree clean, nothing unpushed. The running
+host agents (`126b2`, `125b2`, `94d9`, `109a6`, `92a7`) are all other repositories — antonina,
+skrynia, assemblyp1, volodyslav — and were **left running untouched**.
+
+### The human list is still accurate, and still a human's to execute
+
+Re-verified independently of the log's own claims, because this is the one thing on the page a human
+may act on. All four branches are live on `origin` (`ls-remote --heads`, 4 rows):
+`review/drop-dead-trace-and-fence` = `8c88a59`, `review/drop-dead-trace-env` = `a29f3d7`,
+`review/drop-dead-trace-env-on-main` = `66e28ff`, `review/run-clue-fence-in-ci` = `6edff83`.
+
+- The merge target is **one** commit on `origin/main`, one file, +2/−4 — `git log --oneline
+  origin/main..8c88a59` = 1; `git diff --stat` = `.github/workflows/test.yml | 6 ++----`.
+- Its content is the **union** of the two constituent edits: it deletes the four-line dead
+  `MADGAB_TRACE_*` env block and adds the `no-phrase-hard-coding` fence as its own CI step.
+- `a29f3d7` is **not** a descendant of this log's tip and sits **397 commits ahead of `origin/main`**
+  (parent `f9084221`, a pass-319 claim commit) — so it is parented on the log, and merging it would
+  carry 397 log commits to deliver 4 deleted lines. The warning against merging it is correct.
+- What `a29f3d7` carries that is unique is one commit, and it is **patch-identical** to the already
+  contained `66e28ff`: `git show <b> | git patch-id --stable` gives `f26f1057` for **both**.
+  (Note `git diff origin/main <b> | git patch-id` disagrees — `613558d` vs `f26f1057` — because that
+  diff spans the 397 log commits, not the single change; patch-identity of *a commit* is
+  `git show | git patch-id`. The log's claim holds under the correct instrument.)
+- So "strictly contained" remains true **in effect** and false **in tree** for `a29f3d7`, exactly as
+  the standing section states, and deleting it loses nothing.
+
+No merge, no push, no branch deletion, no `main` touch: the gate is NO and this is a human decision.
+`origin/main` untouched at `0267ade`; HEAD on `post-milestone-acceptance`; nothing unpushed.
+
+**Next pass: prefer no entry at all.** The two remaining human items are unchanged — merge
+`8c88a59` and delete the three superseded branches, and retire this recurring pass. Nothing here is
+coordinator-actionable, and a pass that finds no defect should say so in one line rather than add a
+rule.
