@@ -211,13 +211,22 @@ CTRL_NEGATIVE=0267ade
 
 fail() { printf 'at-risk.sh: %s\n' "$*" >&2; exit 1; }
 
+# Concurrency: every scratch path below lives in a private mktemp -d, never a
+# fixed /tmp name. A shared name let two simultaneous runs of this instrument
+# (or of it alongside at-risk-delta.sh) read each other's partially-written
+# files, which surfaced as a fabricated "ref cardinality 10 != expected 209"
+# and as selfcheck.sh reporting this instrument DEAD. The bare-gate set is run
+# in parallel by design, so the collision was reachable, not hypothetical.
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
 if [ "${1:-}" = "--fetch" ]; then
   # Rule 14a, amended at pass 202: fetch the mirror by its REAL source namespace
   # and never pass --prune to a mirror.
   # Capture git's own stderr: a bare "fetch failed" is not a diagnosis, and the
   # whole reason this branch exists is that a failure must never be silent.
-  if ! git fetch origin "+${SRC_NS}:${DST_FETCH}" >/tmp/at-risk.fetch 2>&1; then
-    cat /tmp/at-risk.fetch >&2
+  if ! git fetch origin "+${SRC_NS}:${DST_FETCH}" >$TMP/fetch 2>&1; then
+    cat $TMP/fetch >&2
     fail "audit fetch failed -- refusing to report against a stale mirror"
   fi
   # A fetch can exit 0 and fetch NOTHING. The measured instance: a refspec whose
@@ -290,17 +299,17 @@ fi
 # lines, which is the pass-182 false zero wearing a new disguise.
 # ---------------------------------------------------------------------------
 git for-each-ref --format='%(*objectname)%(objectname)' "$DST" "$DST-tag" \
-  > /tmp/at-risk.refs
+  > $TMP/refs
 
-n_refs=$(grep -c . /tmp/at-risk.refs || true)
+n_refs=$(grep -c . $TMP/refs || true)
 [ "$n_refs" -eq "$EXPECT_REFS" ] \
   || fail "ref cardinality $n_refs != expected $EXPECT_REFS -- the enumeration or the mirror moved; confirm the delta is this log's own pushed history, then raise EXPECT_REFS deliberately"
 
 # Every entry must be a bare 40-hex id. This is the check that would have caught
 # the '^(ref)' form: it is malformed, and the run that used it reported 0.
-bad=$(awk '!/^[0-9a-f]{40}$/{n++; if (n==1) first=$0} END{print n+0}' /tmp/at-risk.refs)
+bad=$(awk '!/^[0-9a-f]{40}$/{n++; if (n==1) first=$0} END{print n+0}' $TMP/refs)
 [ "$bad" -eq 0 ] \
-  || fail "$bad malformed exclusion entries, first: $(awk '!/^[0-9a-f]{40}$/{print; exit}' /tmp/at-risk.refs) -- refusing to run (a malformed revision makes rev-list emit 0 rows and exit 128)"
+  || fail "$bad malformed exclusion entries, first: $(awk '!/^[0-9a-f]{40}$/{print; exit}' $TMP/refs) -- refusing to run (a malformed revision makes rev-list emit 0 rows and exit 128)"
 
 # ---------------------------------------------------------------------------
 # The population. `--all --reflog` explicitly, always (rule 14a: a stateless
@@ -314,12 +323,12 @@ bad=$(awk '!/^[0-9a-f]{40}$/{n++; if (n==1) first=$0} END{print n+0}' /tmp/at-ri
 # written to prevent it: `set -e` is not a check, it is an abort, and an abort
 # that carries no diagnosis is indistinguishable from a crash. Each pipeline
 # therefore always completes, and the exit code is examined deliberately.
-git rev-list --all --reflog 2>/tmp/at-risk.err | sort -u > /tmp/at-risk.base || b=$?
+git rev-list --all --reflog 2>$TMP/err | sort -u > $TMP/base || b=$?
 : "${b:=0}"
-[ "$b" -eq 0 ] && [ ! -s /tmp/at-risk.err ] \
-  || { cat /tmp/at-risk.err >&2; fail "baseline rev-list exit $b -- instrument failure, not a result"; }
-[ -s /tmp/at-risk.base ] || fail "empty baseline -- instrument failure, not a zero result"
-base=$(wc -l < /tmp/at-risk.base)
+[ "$b" -eq 0 ] && [ ! -s $TMP/err ] \
+  || { cat $TMP/err >&2; fail "baseline rev-list exit $b -- instrument failure, not a result"; }
+[ -s $TMP/base ] || fail "empty baseline -- instrument failure, not a zero result"
+base=$(wc -l < $TMP/base)
 
 # Two arms in DIFFERENT spelling families (rule 14c): one --not, one per-ref
 # caret. Agreement between two arms of the same family cannot detect a bug they
@@ -332,25 +341,25 @@ base=$(wc -l < /tmp/at-risk.base)
 # way a run that died with `fatal: bad object` reported "exit 0" -- a
 # self-reporting validator that misreports its own instrument is worse than none.
 # `set -o pipefail` is what makes `$?` here the right code rather than sort's.
-git rev-list --all --reflog --not $(cat /tmp/at-risk.refs) 2>/tmp/at-risk.e1 \
-  | sort -u > /tmp/at-risk.arm1 || e1=$?
+git rev-list --all --reflog --not $(cat $TMP/refs) 2>$TMP/e1 \
+  | sort -u > $TMP/arm1 || e1=$?
 : "${e1:=0}"
-git rev-list --all --reflog $(sed 's|^|^|' /tmp/at-risk.refs) 2>/tmp/at-risk.e2 \
-  | sort -u > /tmp/at-risk.arm2 || e2=$?
+git rev-list --all --reflog $(sed 's|^|^|' $TMP/refs) 2>$TMP/e2 \
+  | sort -u > $TMP/arm2 || e2=$?
 : "${e2:=0}"
 
-[ "$e1" -eq 0 ] && [ ! -s /tmp/at-risk.e1 ] || { cat /tmp/at-risk.e1 >&2; fail "arm1 (--not) exit $e1 with stderr -- no number reported"; }
-[ "$e2" -eq 0 ] && [ ! -s /tmp/at-risk.e2 ] || { cat /tmp/at-risk.e2 >&2; fail "arm2 (caret) exit $e2 with stderr -- no number reported"; }
+[ "$e1" -eq 0 ] && [ ! -s $TMP/e1 ] || { cat $TMP/e1 >&2; fail "arm1 (--not) exit $e1 with stderr -- no number reported"; }
+[ "$e2" -eq 0 ] && [ ! -s $TMP/e2 ] || { cat $TMP/e2 >&2; fail "arm2 (caret) exit $e2 with stderr -- no number reported"; }
 
-diff -q /tmp/at-risk.arm1 /tmp/at-risk.arm2 >/dev/null \
+diff -q $TMP/arm1 $TMP/arm2 >/dev/null \
   || fail "arms disagree -- no number reported"
 
-at_risk=$(wc -l < /tmp/at-risk.arm1)
+at_risk=$(wc -l < $TMP/arm1)
 
 # Split: held by no ref at all (reflog-only) vs held by some ref.
-git rev-list --all 2>/dev/null | sort -u > /tmp/at-risk.refsonly
-comm -23 /tmp/at-risk.base /tmp/at-risk.refsonly > /tmp/at-risk.reflogonly
-reflog_only=$(wc -l < /tmp/at-risk.reflogonly)
+git rev-list --all 2>/dev/null | sort -u > $TMP/refsonly
+comm -23 $TMP/base $TMP/refsonly > $TMP/reflogonly
+reflog_only=$(wc -l < $TMP/reflogonly)
 ref_held=$(( at_risk - reflog_only ))
 
 # The split must be a partition of the at-risk set: both parts non-negative and
@@ -360,23 +369,23 @@ ref_held=$(( at_risk - reflog_only ))
 # as though it were a measurement. Assert the arithmetic, do not display it.
 [ "$ref_held" -ge 0 ] && [ "$reflog_only" -ge 0 ] \
   && [ $(( ref_held + reflog_only )) -eq "$at_risk" ] \
-  && [ "$reflog_only" -le "$base" ] && [ "$(wc -l < /tmp/at-risk.refsonly)" -le "$base" ] \
+  && [ "$reflog_only" -le "$base" ] && [ "$(wc -l < $TMP/refsonly)" -le "$base" ] \
   || fail "split is not a partition (ref-held $ref_held, reflog-only $reflog_only, at-risk $at_risk, baseline $base) -- the refs-only population is not nested in the baseline; no number reported"
 
 # Controls. A census that cannot separate these two is a constant, not a
 # measurement, and the whole point of the script is that the number is one.
-grep -q "^$CTRL_POSITIVE" /tmp/at-risk.arm1 \
+grep -q "^$CTRL_POSITIVE" $TMP/arm1 \
   || fail "control $CTRL_POSITIVE absent from the at-risk set -- the exclusion set is too wide; no number reported"
-grep -q "^$CTRL_NEGATIVE" /tmp/at-risk.arm1 \
+grep -q "^$CTRL_NEGATIVE" $TMP/arm1 \
   && fail "control $CTRL_NEGATIVE (origin/main tip) reported at risk -- the exclusion set is broken; no number reported"
 
 printf 'at-risk: %s total = ref-held %s + reflog-only %s (disjoint)\n' \
   "$at_risk" "$ref_held" "$reflog_only"
 printf '  population  baseline(--all --reflog) %s   refs-only(--all) %s   exclusion refs %s\n' \
-  "$base" "$(wc -l < /tmp/at-risk.refsonly)" "$n_refs"
+  "$base" "$(wc -l < $TMP/refsonly)" "$n_refs"
 printf '  arms        --not and per-ref caret agree, both exit 0, both stderr empty\n'
 printf '  controls    %s present, %s absent\n' "$CTRL_POSITIVE" "$CTRL_NEGATIVE"
 printf '  at risk:\n'
-sed 's/^/    /' /tmp/at-risk.arm1
+sed 's/^/    /' $TMP/arm1
 printf '  next        inspect each holder with `git for-each-ref --contains <sha>`;\n'
 printf '              a residual is a HUMAN judgement, not an automatic action.\n'

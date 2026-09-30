@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T17:38:00Z
+updated: 2026-09-30T17:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -180,6 +180,62 @@ file, created no work item, claimed nothing, launched nothing, merged nothing, p
 MadGab explicitly. There is no third option and no further automated item on this repository. A pass
 arriving after this one should not append an entry: read this notice, re-run the bare gates to confirm
 they are still green, and exit.
+
+### Addendum (coord pass, 2026-09-30T17:41Z) — the arrival check was only true when run serially; `at-risk.sh` collided on fixed `/tmp` paths
+
+The STOP notice above tells a pass to re-run the bare gates and confirm they are green. That check
+was **false as a general claim**: the gate set is not concurrency-safe, and `scheduled.md` tells a
+coordinator to exploit parallelism, so the failing arrangement is the *encouraged* one. Found by
+running the gates the way the guide prescribes rather than one at a time.
+
+`at-risk.sh` kept every scratch file at a fixed name (`/tmp/at-risk.refs`, `.base`, `.arm1`, `.arm2`,
+`.err`, `.e1`, `.e2`, `.refsonly`, `.reflogonly`, `.fetch`). Two runs overlapping read each other's
+partially-written files. Live instances this pass, all reproduced and all now gone:
+
+| arrangement | result |
+| --- | --- |
+| 4x `at-risk.sh` + 4x `at-risk-delta.sh` concurrently | `at-risk.sh: ref cardinality 10 != expected 209` — a **fabricated** cardinality, reading a half-written refs list; exit 1 |
+| `selfcheck.sh` + `at-risk.sh` concurrently | `selfcheck` reported `at-risk.sh DEAD exit=1` and printed `REFUSING -- the instrument set is not trustworthy as it stands` |
+| 6x `at-risk.sh` alone, and 2x/3x pairs, alone | exit 0 every time — the collision needs an overlap, so serial runs never showed it |
+
+The instrument was **fail-closed on arrival and only misfires under overlap**, so no published figure
+was corrupted: the `ref cardinality` guard caught the truncated read instead of reporting it, and the
+controls (`514ed91` present, `0267ade` absent) and the `--not`/caret arm agreement were unaffected in
+every serial run. What was false was the standing sentence "all nine bare gates and `selfcheck` exit
+0 on arrival" read as an unconditional property of the set.
+
+Repair, minimal and in the style `at-risk-delta.sh` already uses: all 27 references now resolve inside
+a private `TMP=$(mktemp -d)` with `trap 'rm -rf "$TMP"' EXIT`. No threshold, rule, region, expectation
+or published figure changed. Verified after the repair: 6x `at-risk.sh` + 6x `at-risk-delta.sh`
+concurrently — 12/12 exit 0, empty stderr, all six runs printing the identical
+`at-risk: 90 total = ref-held 1 + reflog-only 89 (disjoint)`; controls still fire; the full 13-gate set
+in parallel all exit 0 (`branch-containment.sh` excepted — it is argument-taking by design and prints
+its usage line bare, as the addendum above already records); `selfcheck` 13 of 13.
+
+`clue-fence.sh` was checked for the same class and is already safe (`mktemp` per file); `branches.sh`
+uses `$$`-scoped names. `at-risk.sh` was the only offender.
+
+Standing facts re-measured on arrival of this pass, unchanged: `census` **96** = 0 open / 0 working /
+1 blocked / 83 done / 12 superseded; `agents` **0** non-terminal MadGab agents (942 host rows, 131
+MadGab rows, all terminal; the one host-`running` agent `136a4` is another repository and was left
+running); `clue-fence` **0** across all six production regions; `at-risk` **90** with 209 exclusion
+refs; `figures` 4 rows / 0 defects; `prohibition` 3 figures + 1 reason / 0 defects; `frontmatter` 97
+blocks, 0 unparsed. `origin/main` is still `0267ade` with no local `main` ref
+(`rev-parse --verify main` exit 128), `git diff origin/main HEAD -- src tests examples web` is
+**empty**, and HEAD equals `origin/post-milestone-acceptance`. 126 worktrees.
+
+**The three scheduler clauses are declined again, unchanged.** (1) Nothing to launch: 0 open, 0
+working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while paused.
+(2) The `post-milestone-acceptance` accumulation clause still conflicts textually with the itinerary,
+which says that branch "is no longer an automatic accumulation target"; the itinerary wins, and only
+a human can fix the out-of-repo template. (3) The canonical-example clause holds as a **standing
+invariant** (`clue-fence` 0) and the preserved `Hits Justice Dupe Hid Came` limitation was not
+re-litigated. This pass changed no `src/` file, created no work item, claimed nothing, launched
+nothing, merged nothing, pushed nothing to `main`, and leaves **nothing running**.
+
+**The next useful action is unchanged and is still a human's:** retire this scheduled pass, or reopen
+MadGab explicitly. This addendum is a repair to an instrument the notice itself tells passes to rely
+on, not a new rule, gate, plant or pass entry, and it adds no new instrument to audit.
 
 ## Where the older pass history went (pass 320)
 
