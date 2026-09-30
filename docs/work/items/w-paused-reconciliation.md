@@ -26,7 +26,9 @@ instrument. Growing this file is the failure mode, not the success mode.
 - 459 commits sat on `post-milestone-acceptance` ahead of `origin/main` when measured at
   2026-09-30T04:36Z; **443 of them touch this one file**. The loop has added **42,789 lines across 22
   files** under `docs/work/items/w-paused-recon*`, `docs/work/paused-recon` and `docs/work/archive`,
-  and grew `docs/work/paused-recon` to **16 shell files totalling 384,726 bytes**, of which
+  and grew `docs/work/paused-recon` to **16 shell files totalling 338,377 bytes** (the whole
+  directory is 20 files / 384,204 bytes; the 384,726 previously quoted for the 16 shell files was
+  the directory total, `du -sb .`, which adds the directory's own 522-byte entry), of which
   `selfcheck.sh` exercises 13; the remaining three (`compact-log.sh`, `content-sweep.sh`, and
   `selfcheck.sh` itself) are one-shot and self-measuring and are exercised by being run. Every
   instrument's entire subject is auditing this log and each other. The figures in this bullet were
