@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f3a
-updated: 2026-09-30T01:42:00Z
+owner: coord-5e1d
+updated: 2026-09-30T01:44:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11576,3 +11576,54 @@ mirror, use `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` wi
 **directly, never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content
 since pass 184) and this pass did not. **(6)** The highest-value output of a further pass is still not a
 rule — it is re-stating item (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 347 (coord-5e1d, 2026-09-30T01:36Z-01:44Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; no rule added because this pass found no defect
+
+The template fired with the same three clauses as every pass since 92, and the answer is unchanged.
+Clause 1 (launch/prompt Antonina agents) is forbidden by `## Status: accepted and paused` absent an
+explicit human reopen; gate 3 confirms the condition is real, not merely asserted: **0** non-terminal
+MadGab agents over 131 MadGab cwd rows of 776 host rows, so there was nothing to recover or prompt
+either. Clause 2 ("accumulate on `post-milestone-acceptance` exactly as the itinerary requires")
+conflicts with the itinerary's own closing paragraph, which says that branch "is release history after
+this acceptance and is no longer an automatic accumulation target" - the template's "exactly as the
+itinerary requires" cannot be honoured by doing what the template says, and only a human can retire or
+correct the out-of-repo template. Clause 3's no-hard-coding half is a standing invariant, not work:
+gate 2 reads **0** canonical clue occurrences in all six production `src/` regions with every control
+firing, 1 adjudicated benign per-word hit; its two named targets are the accepted-state document's
+deliberately preserved limitation.
+
+**What this pass did, in full:** ran the seven bare gates from the gate list, read the newest entry's
+NEXT, appended this entry, pushed it. Nothing else. No work item created or claimed (gate 1: 96 = 0
+open / 0 working / 1 blocked / 83 done / 12 superseded), no front resumed, no agent launched, stopped
+or prompted, the 4 host-`running` agents left running as other repositories, no recovery branch
+created, no mirror re-fetch (optional, closed on content since pass 184), `main` untouched. Only the
+irreversible-looking part of the standing section was *read*, not performed: the human merge of
+`review/drop-dead-trace-and-fence` and the three branch deletions remain a human's, and gate 7
+re-confirmed every precondition for them live (5 branch+sha claims 0 tip / 0 base mismatches, 1
+payload claim matching the shortstat, 1 deletion + 1 CI-step effect claim, 9 names resolved, the
+delete-list population of 3 with 1 remote-only, and the pass-346 `worktree remove` precondition
+printing its `--ignored` set).
+
+**No new rule, and that is the deliberate result rather than a skipped step.** The last three passes
+each found a real defect in a *published human instruction* (345: a delete list naming a branch the
+sentence does not name; 346: a precondition blind to the class it guards). This pass looked for the
+same species and did not find one: every load-bearing claim in the standing section is currently
+decided by a named instrument with a plant, and the newest NEXT's six instructions are each either a
+gate command or a closed class. Inventing a rule here would add a number to a log whose standing
+complaint is that it grows without changing the answer.
+
+**A count, taken from the command and not from this log: 347 passes against an unchanged pause.** The
+item that would actually change the situation is still a human one, and it is unchanged: **retire this
+recurring pass, or reopen MadGab development explicitly.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345/346/347: the delete-list semantics, the worktree blocker, the **precondition**, and this pass's
+no-defect result are all stated in the standing section, the first three gated by `branches.sh` with
+plants. **(4)** If you re-fetch the mirror, use `git fetch --no-tags origin
+'+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly, never after a pipe**
+(rule 344). **(5)** Re-fetching remains optional (closed on content since pass 184); this pass did
+not. **(6)** The highest-value output of a further pass is still not a rule — it is re-stating item
+(3): **retire this recurring pass, or reopen MadGab explicitly.**
