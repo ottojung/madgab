@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3b71
-updated: 2026-09-30T02:33:00Z
+owner: coord-9a4e
+updated: 2026-09-30T02:41:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11942,3 +11942,72 @@ against the real defect AND against a correct instance of the same shape before 
 and re-read the population after any repair, because a green at 0 is the shape of a check that has
 stopped reading. **(7)** The highest-value output of a further pass is still not a rule — it is
 re-stating item (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 352 (coord-9a4e, 2026-09-30T02:36Z-02:41Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; no rule added because this pass found no defect
+
+Sixth identical coordinator invocation inside three hours, carrying the same three clauses as every
+pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven exit 0
+and every figure reproduces its standing row with no delta: census **96** = 0 open / 0 working / 1
+blocked (this item) / 83 done / 12 superseded, skills-doc fenced-example control selector 0 /
+fence-blind 1; clue fence **0** canonical occurrences across all six production regions with every
+plant firing and the same 1 adjudicated benign per-word hit at `src/lib.rs:3597`; agents **0**
+non-terminal in a MadGab cwd over 131 MadGab cwd rows of 787 host rows = 110 succeeded / 1 stopped /
+20 failed, the 2 host-running agents (`82b1` qai-proviral, `125e2` antonina-125) other repositories
+and **left running untouched**, the 5 idle rows not MadGab cwds; selfcheck 11 of 11 instruments
+present, parsing, exiting 0, printing their invariant; refs 3 relative links and 12 instrument paths
+resolve, 0 self-pointers, **1 quoted section pointer resolves at a population of 1**; branches green
+on 5 branch+sha claims (0 tip, 0 base), 1 payload claim against the live shortstat, 1 deletion + 1
+CI-step effect claim, 9 names resolved, delete-list population 3 with 1 remote-only,
+`recovery/at-risk-2026-09-29` reported remote-only but correctly **not** a deletion candidate, and
+the pass-346 `worktree remove` precondition printing its `--ignored` set for `/workspace/madgab-cifence`
+(`Cargo.lock`, non-build, 0 porcelain paths).
+
+**Re-verified the one control pass 351 left standing, because the standing NEXT asks for it and
+because a control that has never been re-run is an assertion rather than a measurement.** Renaming
+the leading words of the heading that the census table's pointer targets, in a scratch copy of the
+item, makes `refs.sh` exit **1** naming `BROKEN SECTION POINTER` on the real pointer. So pass 351's
+plant A is live and RED on the real defect, and the population is 1 rather than 0, which is the
+condition rule 351 says is the only thing that makes the green meaningful. The plant was reverted
+with a targeted inverse on the scratch copy, not with `git checkout --` on the work product — pass
+351's self-inflicted-loss note, honoured.
+
+**Nothing created, claimed, resumed, launched, stopped, prompted, integrated or re-fetched.** No new
+work item; no recovery branch (at-risk family closed on content since pass 184, mirror re-fetch
+optional per rule 344's spelling); `main` untouched at `origin/main` `0267ade` with
+`git rev-parse --verify main` still exiting 128; HEAD is `post-milestone-acceptance` at `d1f10cd`,
+in sync with `origin/post-milestone-acceptance`. The irreversible part of the standing section — the
+human merge of `review/drop-dead-trace-and-fence` and the three branch deletions — was **read, not
+performed**, and gate 7 re-confirmed every precondition for it live.
+
+**One thing measured and deliberately NOT promoted to a rule, recorded because the temptation to
+promote it is the recurring failure here.** The standing section names `docs/work/probe-artifacts/`
+and its `README.md` in backticks, and neither exists at this HEAD: the whole directory is on
+`recovery/probe-scaffolding-2026-09-28` (`0a12e33`/`2408c25`/`3ce5262`), pushed and never merged,
+which the section itself says in the same paragraph. A check that flagged those paths as broken
+would be flagging **correct prose about a branch that is not this branch** — the pass-317 defect,
+`refs.sh`'s own v1/v2 history said a check that condemns correct text is worse than shipping none.
+The section's `docs/...` and backticked item-id spellings were enumerated the same way and resolve
+or are documented-in-place typos (the TYPO row at the census table names `w-5b1e.md` → `w-5b1e93.md`,
+`w-3c5b38.md` → `w-3c5b18.md`, `w-d5c11a2.md` → `w-5c11a2.md`, and `w-3f8c62.md` / `w-4b1e07.md` /
+`w-9e2b41.md` all exist). So `refs.sh`'s population of 1 is the whole of what the class can honestly
+claim, and widening it to fire on branch-qualified paths would make it a false-positive generator.
+
+**A count, from the command and not from this log: 352 passes against an unchanged pause.** What
+would change the situation is still a human's: **retire this recurring pass, or reopen MadGab
+development explicitly.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345–352: the delete-list semantics, the worktree blocker, the **precondition**, the heading-vs-line
+half of rule 330, the **empty-population** half of rule 351, the branch-qualified-path scoping
+decision recorded above, and the four consecutive non-finding results are all stated in the standing
+section or in this entry. **(4)** If you re-fetch the mirror, use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content since pass
+184); this pass did not. **(6)** When extending an instrument here, plant the new claim against the
+real defect AND against a correct instance of the same shape before publishing green — and re-read
+the population after any repair, because a green at 0 is the shape of a check that has stopped
+reading. **(7)** The highest-value output of a further pass is still not a rule — it is re-stating
+item (3): **retire this recurring pass, or reopen MadGab explicitly.**
