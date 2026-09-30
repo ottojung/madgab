@@ -14193,3 +14193,46 @@ If reopened, the direction the accepted-state document names is a qualitatively 
 algorithm (compact pronunciation DAG with k-best / A*-style search, or a strong backward suffix
 heuristic), not another widening of the Cartesian-prefix traversal - and it must stay general, with no
 phrase-specific hard-coding.
+
+### Reconciliation pass, 2026-09-30T23:26Z - green on arrival, no arrival repair, nothing to coordinate
+
+Minimal record under the STOP notice's rule: no pass entry proper, no new rule, gate, plant or
+instrument. The three scheduler-template clauses are declined for the reasons at the head of this file
+and are not restated. Nothing was claimed, launched, prompted, stopped, merged or integrated; no new
+work item; no `recovery/*` branch; no `src/` file touched; `main` untouched; nothing left running.
+
+**No arrival repair was needed** - unlike the 19:22Z, 22:42Z and 22:52Z passes, the audit mirror was
+already level with origin and this branch at `f077136` on arrival, so the pass-187 mirror-refresh step
+was not the load-bearing fact this time. The mirror was nevertheless confirmed cardinality- and
+name-clean against `ls-remote --heads origin` (208 = 208) before the at-risk pair was run.
+
+All thirteen instruments green on arrival. `census.sh` 96 items = **83 done / 12 superseded / 1
+blocked**, **0 open / 0 working** - the figure the pause rests on. `clue-fence.sh` **0** canonical clue
+occurrences across all six production `src/` regions (1 adjudicated benign per-word hit), so the
+no-hard-coding invariant holds as measured. `agents.sh` **0** non-terminal MadGab agents among 131
+MadGab-cwd rows of 1013 host rows; the 3 host-`running` agents (`5d`, `5c`, `94f04`) belong to other
+repositories and were left running untouched. `item-state.sh`, `refs.sh`, `branches.sh`, `figures.sh`,
+`prohibition.sh`, `at-risk.sh`, `at-risk-content.sh`, `at-risk-delta.sh`, `content-sweep.sh` all 0.
+`selfcheck.sh` **13 of 13**. `compact-log.sh` exits 1 by design - the archive
+`docs/work/archive/paused-recon-pass-log.md` already exists, so it refuses to re-split; that is a usage
+line, not a defect. `branch-containment.sh` remains deliberately outside the bare gate list for the
+same reason.
+
+`origin/main` is still `0267ade`, the state accepted 2026-09-27; still no local `main` ref
+(`rev-parse --verify main` exit 128). `post-milestone-acceptance` is **477** commits ahead of
+`origin/main` with **0** of them touching `src tests examples web`, level with
+`origin/post-milestone-acceptance` (0 unpushed). The last commit touching `src/` anywhere is still
+`38e5e87` of 2026-09-27. 126 worktrees, `worktree prune -n -v` empty.
+
+**Preservation sweep** over all 126 worktrees: **20 dirty worktrees, 37 dirty paths**, of which 10
+are modified tracked files; all 10 hashable and **0 unreachable** against 9,198 known object ids from
+`rev-list --all --reflog --objects`. The remainder are untracked probe/example scratch files that
+never entered the object database. No unrecoverable local work exists, so no preservation branch is
+warranted and none was created.
+
+**The accepted limitation is re-measured still red** by execution, not by proxy:
+`cargo test --release --test cli_milestone_predicate -- --ignored` FAILS at
+`tests/cli_milestone_predicate.rs:205`, nearest `"it justice too pah dame"` at `--top 10`, 1.62s off the
+already-built release binary. This remains the only check that reads the acceptance criterion itself.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
