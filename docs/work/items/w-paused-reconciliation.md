@@ -3,11 +3,77 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4e11
-updated: 2026-09-30T04:15:00Z
+owner: coord-4a70
+updated: 2026-09-30T04:18:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
+
+## STOP — this item is a human decision, not a recurring pass
+
+Recorded 2026-09-30T04:16Z by a fresh reconciliation pass. **This notice supersedes every numbered
+pass entry below it for the purpose of what a next pass should do.** Read it, verify the handful of
+facts listed, and exit. Do not append a pass entry; do not add a rule, a gate, a plant or a new
+instrument. Growing this file is the failure mode, not the success mode.
+
+### The situation, measured
+
+- MadGab is **accepted and paused** (`docs/skills/itinerary-madgab.md`,
+  `docs/accepted-state-2026-09-27.md`). The itinerary forbids scheduled orchestrators from creating
+  MadGab work items, claiming historical ones, launching MadGab agents, or resuming superseded fronts.
+- The blocker recorded in this item's frontmatter (`state: blocked`) is **a human reopen/confirm
+  decision**, and it has not been made. It is not a defect to be engineered around.
+- 457 commits sit on `post-milestone-acceptance` ahead of `origin/main`; **441 of them touch this one
+  file**. The loop has added **42,722 lines across 22 files** under `docs/work/items/w-paused-recon*`,
+  `docs/work/paused-recon/` and `docs/work/archive/`, and grew `docs/work/paused-recon/` to 15 shell
+  instruments totalling ~300 KB whose entire subject is auditing this log and each other.
+- **Zero product movement.** `origin/main` is still `0267ade`, the state accepted on 2026-09-27.
+  No `src/` file has changed. The accepted limitation — `Hits Justice Dupe Hid Came` is not generated
+  for `It's just a stupid game` — is preserved deliberately and is *not* a work item.
+- The loop's own repeated conclusion, most recently in pass 365's NEXT (7), is the right one: "the
+  highest-value output of a further pass is still not a rule: **retire this recurring pass, or reopen
+  MadGab explicitly.**" Pass 365 also noted that the eight passes before it added no rule at all.
+  This notice acts on that conclusion instead of restating it.
+
+### What the standing facts were on 2026-09-30T04:16Z (all exit 0)
+
+`census` 96 work items = **84 done / 12 superseded / 1 blocked**, 0 open, 0 working; the two items
+that moved to `superseded` on 2026-09-28 (`w-a02d28`, `w-3a8f02`) account for the drift from the
+83-done figure printed in older entries. `agents` 0 non-terminal MadGab agents (`a11d` is `idle` in
+`/tmp` and is not a MadGab cwd; the host-`running` agents belong to other repositories and were left
+running). `clue-fence` 0 across all six production regions — the no-hard-coding invariant holds.
+`main` untouched: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` `0267ade`.
+`selfcheck` 13 of 13. The nine bare gates and `selfcheck` all exit **0 on arrival**, so the durable
+state is healthy and there is no recovery, repair or integration work outstanding.
+
+### The three scheduler-template clauses, declined for the same reason each time
+
+1. *Launch or prompt Antonina agents* — there is nothing to launch: 0 open, 0 working, 0
+   non-terminal MadGab agents, and the itinerary forbids launching MadGab agents while paused.
+2. *Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires"* — a direct textual
+   conflict. The itinerary says that branch "is release history after this acceptance and is no
+   longer an automatic accumulation target", so the clause cannot be honoured by doing what it says.
+   The itinerary wins. Only a human can retire or correct the out-of-repo scheduler template.
+3. *Prioritize the canonical approximate-search examples without phrase-specific hard-coding* — the
+   no-hard-coding half is a standing invariant (`clue-fence` = 0), not work; the reach half is
+   closed by acceptance, with the limitation preserved on purpose.
+
+### What a human is being asked to decide
+
+Pick one and the loop should stop:
+
+- **Retire the scheduled MadGab pass.** Nothing further is needed; the accepted state stands. This is
+  the recommendation.
+- **Reopen MadGab explicitly.** Then a named human decision is required, and the itinerary's
+  reopening path applies: read `scheduled.md`, `work-items.md`, the accepted-state document and
+  `docs/work/`; work on a fresh focused branch from `main`; validate general behaviour rather than
+  hard-coding canonical phrases; integrate only reviewed changes. The accepted-state document names
+  the promising direction — a qualitatively different complete-path algorithm (compact pronunciation
+  DAG with k-best / A*-style whole-path search, or a strong backward suffix heuristic) — rather than
+  another widening of the existing Cartesian-prefix traversal.
+
+Until one of those happens, **there is no coordination work available on this repository**, and a
+future pass that finds none should say so and exit without writing anything.
 
 ## Where the older pass history went (pass 320)
 
