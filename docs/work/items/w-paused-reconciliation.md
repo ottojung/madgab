@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5e40
-updated: 2026-09-30T00:37:00Z
+owner: coord-7f04
+updated: 2026-09-30T00:50:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10885,3 +10885,81 @@ unbacked. **(2)** Do not re-derive the census delta (resolved at pass 338), the 
 branches (**two need `git push origin --delete`; they are remote-only**), and retire this recurring
 pass. **(4)** A human may decide whether `at-risk-delta.sh`'s default should become `--fetch`; that
 is a guard-default change and is deliberately left undone here, not overlooked.
+
+## Pass 341 (coord-7f04, 2026-09-30T00:42Z-00:50Z) - gate NO; seven gates 7/7 exit 0 on arrival; ACTED - gate 7 adjudicated 291 lines and printed 1295, and the number it computed for the purpose was never printed at all
+
+**Gate NO.** The three scheduler-template clauses declined for the three-hundred-and-forty-first
+time, on `## Status: accepted and paused` plus the accepted-state document — the same three
+instructions to launch/prompt agents, to accumulate on `post-milestone-acceptance` "exactly as the
+itinerary requires", and to prioritize the canonical approximate-search examples. Clause 2 remains a
+direct textual conflict: the itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target", so the template's "exactly as the itinerary requires"
+cannot be honoured by doing what the template says. Nothing claimed, launched, prompted, stopped or
+integrated; no new work item; no Antonina agent touched; no clause-3 fence work, because clause 3's
+no-hard-coding half is a standing invariant (fence 0), not a task. `main` untouched at `0267ade`.
+
+**All six standing facts re-derived from the seven bare gates, unchanged.** Census **96** = 0 open /
+0 working / 1 blocked (this item) / 83 done / 12 superseded. Clue fence **0** across all six
+production regions, with the one adjudicated benign per-word hit (`src/lib.rs:3597`,
+`.expect("key came from cells")` — ordinary English in a panic message) and the trap control live.
+Agents: **0 non-terminal** over 131 MadGab cwd rows of 761 host rows = 110 succeeded / 20 failed /
+1 stopped; the 3 host-`running` agents (`109a8` skrynia, `125d1` antonina-retention, `94d9`
+assemblyp1) are other repositories and were **left running, untouched**. Worktrees 125 linked + 1
+primary, `prune -n -v` empty, all 126 directories on disk — **not** the movement the standing row
+warns about, and rule 339d already settled it. `main` has no local ref (`rev-parse --verify main`
+exits 128); HEAD is `post-milestone-acceptance`, in sync with `origin`.
+
+**THIS PASS'S FINDING: GATE 7 HAS TWO POPULATIONS AND PRINTED ONLY THE ONE IT DID NOT DECIDE ON.**
+`branches.sh` extracts the whole preamble (everything before the first `## Pass `) into `$prose` —
+**1295 lines** — and then carves the human list out of it into `$HUMANLIST` by heading, which is
+**291 lines**. Every claim adjudication since pass 332 runs on `$HUMANLIST`. The summary line
+printed `${nprose}` under the label *"reader-facing section"*, so the instrument announced that it
+had read 1295 lines while its seven verdicts were computed on 291. The label is also the one
+`refs.sh` prints, where 1295 is the correct and intended population — so the same string means
+"what I checked" in one instrument and "what I happened to load" in the other, and a reader
+comparing the two gate lines was comparing two different things under one name.
+
+**The corroborating evidence is in the script itself and is unambiguous.** Line 185 computes
+`nsha_lines` — the size of the adjudicated population, named for exactly this — and
+`grep -n nsha_lines` returns **that one line and nothing else**. The value was measured, given a
+name describing its purpose, and then never read. Every verdict in the block above it was decided on
+a population the script had computed the size of and declined to report. This is rule 14l at its
+most literal: a count carries its population, and here the population the verdict was decided on
+had no published number at all.
+
+**The repair is a print, not a new gate** (pass 340's reasoning, applied again: an eighth
+instrument would make every "seven" in this log stale on arrival). Both populations are now named
+for what they are, and the adjudicated one is stated as the one the verdicts came from. Added with
+it is the **fail-closed guard the print was missing** — `nsha_lines < 5` exits 2, because until now
+a renamed `## Current gate status` heading would have left the human list empty while the script
+went on to print "0 unresolved" and "0 payload defect(s)" from it. That is the refs.sh-v1 shape
+(rule 330's warning, already stated in this file): a check over nothing that exits 0.
+
+**Two plants, run before publishing the green (rule 334), and the first one caught a defect in the
+plant itself.** Renaming the heading now exits **2** with `BROKEN POPULATION — the
+'## Current gate status' block extracted 0 line(s)`, and the unrenamed control stays **0** with
+`adjudicated = 291 line(s)`. The first attempt at the rename plant **passed when it should have
+failed**: the sed was anchored `s/^## Current gate status$/…/` and the heading carries a
+parenthetical, so it renamed nothing and the plant read 0 — a false green produced by the test, not
+by the code. Rule 14q again, in the direction that is hardest to see: a plant that cannot fire
+looks exactly like a plant that passes. The corrected plant is the one above.
+
+**Rule 341: an instrument that has narrowed its population must publish the narrowed one.** The
+general form is pass 340's rule with a different subject — pass 340 found a claim in the document
+that no check read; this pass found a number in the instrument that no reader could reconcile,
+because the instrument had two populations and one name for them. Five passes of gate-7 extensions
+(331–336) each *added* a check and each widened the gap, because every one of them read the
+`$HUMANLIST` it had been given without asking which `$prose` it came from. A check inherits its
+population silently; nothing announces the inheritance except a printed number.
+
+NEXT: **(1)** Run the seven bare gates and nothing else; `branches.sh` now prints both populations
+(`preamble = 1295`, `adjudicated = 291`) and the second is the one its verdicts come from — do not
+"fix" a difference between those two numbers, they are different populations by design, which is
+rule 339d's shape. Do not delete its plants to make a mutation pass. **(2)** Do not re-derive the
+census delta (resolved at pass 338), the at-risk composition (settled at pass 328, baseline still
+**90/89** and deliberately not bumped — rule 340b), the worktree count (settled at pass 339), or the
+gate list's seven rows. **(3)** The two remaining human items are unchanged: merge `8c88a59` and
+delete the three superseded branches (**two are REMOTE-ONLY — `review/drop-dead-trace-env-on-main`
+`66e28ff` and `recovery/at-risk-2026-09-29` `eaf7487` — so they need `git push origin --delete`;
+a local `git branch -D` cannot touch them**), and retire this recurring pass. Nothing here is
+coordinator-actionable; this pass's defect was in the reading instruments, not in MadGab.

@@ -183,6 +183,11 @@ awk '
   inh { print }
 ' "$prose" >"$HUMANLIST"
 nsha_lines="$(wc -l <"$HUMANLIST" | tr -d " ")"
+if [ "$nsha_lines" -lt 5 ]; then
+  echo "branches: BROKEN POPULATION — the '## Current gate status' block extracted $nsha_lines line(s)" >&2
+  echo "branches: every verdict above was computed over nothing; a clean report over an empty population is not a pass" >&2
+  exit 2
+fi
 
 sha_claims="$(
   grep -oP '(?<![/.\w-])(review|scratch|recovery|archive|wip|mp2|tmp)/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*(?![/\w-])[^`]{0,12}`\s*\(?[=]?\s*\(?`\s*[0-9a-f]{7,40}' "$HUMANLIST" 2>/dev/null \
@@ -923,7 +928,8 @@ status=0
 [ "$content_bad" -gt 0 ] && status=1
 [ "$selfcheck_bad" -gt 0 ] && status=1
 
-echo "branches: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
+echo "branches: preamble = ${nprose} line(s) of $(basename "$ITEM")"
+echo "branches: adjudicated = ${nsha_lines} line(s) of the '## Current gate status' block (every verdict above was decided on this, not on the preamble)"
 if [ "$remoteonly" -gt 0 ]; then
   echo "branches: ${nbranch} branch name(s); ${remoteonly} resolve REMOTE-ONLY (a local delete will not touch them)"
   echo "branches:   -> $(tr '\n' ' ' <"/tmp/.branches.$$.remoteonly")"
