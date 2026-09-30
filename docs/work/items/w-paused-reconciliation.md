@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-6a4e
-updated: 2026-09-30T03:04:00Z
+owner: coord-3f8b
+updated: 2026-09-30T03:08:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12496,3 +12496,89 @@ find anything cannot keep being justified by the possibility that it might.
 
 None of the three is a judgement call, and none has been for 266 passes. What would change the
 situation is a human's decision, recorded in the NEXT block above.
+
+## Pass 358 (coord-3f8b, 2026-09-30T03:06Z-03:09Z) - gate NO; seven gates 7/7 exit 0 on arrival; no rule added because this pass found no defect
+
+**NEXT: (1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census
+(96 items / 0 open / 0 working / 1 blocked / 83 done / 12 superseded, unchanged), the at-risk
+composition (settled pass 328 - `at-risk-delta.sh` exit 0, arms **90 / 89**, 208 exclusion refs, the
+single named member `514ed91` is pass 322's settled ref-held spelling difference, NOT growth), the
+worktree population, or the 1295/291 figures. **(3)** Do not re-litigate passes 345-358: the
+delete-list semantics, the worktree blocker on `review/run-clue-fence-in-ci`, the corrected
+`--porcelain --ignored` precondition, the heading-vs-line half of rule 330, the empty-population
+half of rule 351, the rule-350 form boundary, rule 354's name-vs-qualifier half, and the four
+no-defect results (355, 356, 357, 358) are all stated in the standing section or in these entries.
+**(4)** This pass did **not** re-fetch the audit mirror; re-fetching remains optional and, if done,
+must read its exit code directly rather than after a pipe (rule 344). **(5)** When extending an
+instrument here, plant the new claim against the real defect **and** against a correct instance of
+the same shape before publishing green, and print the name the matcher produced before deciding on
+it (rule 354). **(6)** The highest-value output of a further pass is still not a rule - it is
+re-stating item (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+### What this pass measured, all from the bare gates, nothing re-derived from a recorded figure
+
+  * **Gate 1 `census.sh` exit 0:** 96 items by identity - **0 open, 0 working, 1 blocked** (this
+    item), 83 done, 12 superseded; the 96th is `docs/continuation-approximate-search.md`, outside
+    `docs/work/items/`, so the second argument stays load-bearing (rule 14l). The skills-doc fenced
+    example control read 0 under the selector and 1 fence-blind, as it must.
+  * **Gate 2 `clue-fence.sh` exit 0:** **0** canonical clue occurrences across all six production
+    regions (269/260/464/4242/67/269), with the alphabet derived from
+    [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md) rather than from log
+    memory (rule 14v). The one per-word hit is the pass-216 adjudicated benign
+    `src/lib.rs:3597 .expect("key came from cells")`. Every plant fired, including the
+    below-`mod tests` boundary plant reading 0.
+  * **Gate 3 `agents.sh` exit 0:** **0** non-terminal agents in a MadGab cwd. Six agents are
+    `running` on this host and all six are other repositories (`94f4`, `97b1`, `127c3`, `92d7`,
+    `124e1`, `99c1`), **left running and untouched**; five are `idle`, including the stale `a11d`
+    row in `/tmp` that is not a MadGab cwd.
+  * **Gate 4 `item-state.sh` exit 0:** frontmatter parses with all eight schema keys, newest entry
+    on arrival was Pass 357, and the NEXT block above is this entry's.
+  * **Gate 5 `selfcheck.sh` exit 0:** 11 of 11 instruments executable, parsing, exiting 0, printing
+    their invariant. **(6)** `refs.sh` exit 0: 3 relative links, 12 instrument paths, 0
+    self-pointers, 1 quoted section pointer, 0 broken; the qualified pointer resolved **inside this
+    entry**, which is the shape pass 354 repaired and the reason this entry carries the subsection
+    it names. **(7)** `branches.sh` exit 0: 5 branch+sha claims with 0 tip and 0 base mismatches; 1
+    payload claim and 2 test targets reconciled; 1 deletion claim and 1 CI-step claim against the
+    live diff, 0 defects; delete-list population 3 with 1 remote-only
+    (`review/drop-dead-trace-env-on-main`); `recovery/at-risk-2026-09-29` reported remote-only and
+    **explicitly not a deletion candidate**; `review/run-clue-fence-in-ci` still BLOCKED by the live
+    worktree `/workspace/madgab-cifence`, whose `--porcelain` reads 0 while its non-build `--ignored`
+    set is `Cargo.lock` - the rule-346 pairing a human must run before removing it.
+  * **Repository shape:** 126 rows from `git worktree list`, `prune -n -v` empty, exit 0; **0** dirty
+    non-`target` paths here; no local `main` ref (`rev-parse --verify main` exit 128);
+    `origin/main` = `0267ade`; HEAD `post-milestone-acceptance`. **`main` untouched.**
+  * **At-risk:** `at-risk-delta.sh` exit **0**, arms 90 / 89, growth guard quiet at pass 328's
+    settled figure. The one named member `514ed91` is held by `refs/heads/scratch-3f8c62-landed` and
+    is on no origin ref, i.e. the settled spelling difference rather than growth. `at-risk.sh` and
+    `at-risk-content.sh` were **not** re-run: the class has been closed on content since pass 184
+    and no new member appeared, so re-running would produce a seventh identical number.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+1. **Launch or prompt Antonina agents / recover, assign, or split fronts.** Declined.
+   `## Status: accepted and paused` in
+   [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) says scheduled orchestrators
+   "must not create new MadGab work items, claim existing historical items, launch MadGab agents, or
+   resume superseded fronts unless a human explicitly asks to reopen MadGab development." No human
+   has. `docs/work/README.md` says the same of the 0 open / 0 working census. There is also nothing
+   to recover or assign: the census is empty and no MadGab agent is alive.
+2. **Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires".** Declined, and
+   the conflict is textual rather than a matter of taste: the itinerary's closing paragraph calls
+   that branch "release history after this acceptance and **no longer an automatic accumulation
+   target**", which contradicts this log's own rule 3. **The itinerary wins.** Durable state from
+   this pass is nonetheless committed to the branch actually checked out, because leaving the log
+   unwritten is strictly worse than writing it where every prior pass wrote it; the fix belongs in
+   the out-of-repo scheduler template and is a human task.
+3. **Prioritise the canonical approximate-search examples without phrase-specific hard-coding.**
+   Declined as work; **honoured as a standing invariant.** The no-hard-coding half is measured every
+   pass by gate 2 and read **0** again here across all six production regions, with all plants
+   firing. The prioritisation half is the paused research loop, and the canonical
+   `Hits Justice Dupe Hid Came` limitation is preserved on purpose in
+   [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md), not hidden. The clause is
+   not a request to hard-code a phrase - it asks for the opposite, and gate 2 is what keeps the
+   answer honest.
+
+None of the three is a judgement call, and none has been since pass 92. What would change the
+situation is a human's decision, recorded in the NEXT block above. This pass created no work item,
+claimed nothing, launched no agent, merged nothing, pushed nothing to `main`, created no
+`recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
