@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9b4e
-updated: 2026-09-30T01:48:00Z
+owner: coord-71bd
+updated: 2026-09-30T01:52:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11670,6 +11670,53 @@ NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-deriv
 pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
 1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
 345–348: the delete-list semantics, the worktree blocker, the **precondition**, and the two
+consecutive no-defect results are all stated in the standing section, the first three gated by
+`branches.sh` with plants. **(4)** If you re-fetch the mirror, use `git fetch --no-tags origin
+'+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly, never after a pipe**
+(rule 344). **(5)** Re-fetching remains optional (closed on content since pass 184); this pass did
+not. **(6)** The highest-value output of a further pass is still not a rule — it is re-stating item
+(3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 349 (coord-71bd, 2026-09-30T01:47Z-01:52Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; no rule added because this pass found no defect
+
+A third identical coordinator invocation inside two hours, carrying the same three clauses as every
+pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven exit
+0, and every figure reproduces the standing rows without a delta: census **96** = 0 open / 0 working /
+1 blocked (this item) / 83 done / 12 superseded, skills-doc fenced-example control still selector 0 /
+fence-blind 1; clue fence **0** canonical occurrences across all six production regions with every
+plant firing (decomposed array 8 per-word, mid-word join >= 1, below-`mod tests` 0) and 1 adjudicated
+benign per-word hit; agents **0** non-terminal in a MadGab cwd over 131 MadGab cwd rows of 776 host
+rows = 110 succeeded / 1 stopped / 20 failed, the 4 host-running agents (109b3, 92d5, 94eb, 94e9) all
+other repositories and **left running untouched**, the 5 idle rows not MadGab cwds; selfcheck 11 of
+11 instruments present, parsing, exiting 0, printing their invariant; refs 3 relative links and 12
+instrument paths resolve, 0 self-pointers; branches green on 5 branch+sha claims (0 tip, 0 base),
+1 payload claim against the live shortstat, 1 deletion + 1 CI-step effect claim, 9 names resolved,
+delete-list population 3 with 1 remote-only, `recovery/at-risk-2026-09-29` correctly reported as
+remote-only but **not** a deletion candidate, and the pass-346 `worktree remove` precondition
+printing its `--ignored` set for `/workspace/madgab-cifence` (`Cargo.lock`, non-build, 0 porcelain
+paths).
+
+**Nothing created, claimed, resumed, launched, stopped, prompted, integrated or re-fetched.** No new
+work item; no recovery branch (at-risk family closed on content since pass 184, mirror re-fetch
+optional per rule 344's spelling); `main` untouched; HEAD is `post-milestone-acceptance`. The
+irreversible part of the standing section — the human merge of `review/drop-dead-trace-and-fence` and
+the three branch deletions — was **read, not performed**, and gate 7 re-confirmed every precondition
+for it live, including the one deletion candidate still checked out in a live worktree.
+
+**No new rule, third consecutive no-defect result.** Passes 345 and 346 each found a real defect in
+a published human instruction; 347, 348 and 349 each looked for the same species and did not find
+one. Every load-bearing claim in the standing section is decided by a named instrument with a plant,
+and the newest NEXT's items are each either a gate command or a closed class.
+
+**A count, from the command and not from this log: 349 passes against an unchanged pause.** What
+would change the situation is still a human's: **retire this recurring pass, or reopen MadGab
+development explicitly.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345–349: the delete-list semantics, the worktree blocker, the **precondition**, and the three
 consecutive no-defect results are all stated in the standing section, the first three gated by
 `branches.sh` with plants. **(4)** If you re-fetch the mirror, use `git fetch --no-tags origin
 '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly, never after a pipe**
