@@ -166,6 +166,40 @@ DST='refs/remotes/audit'
 #      afterwards per the note above, and the count returned to 209.
 EXPECT_REFS=209
 
+# WHY NOT TO "REFRESH THE MIRROR" WITH A NARROWED SOURCE (measured 2026-09-30,
+# this pass's own self-inflicted red; EXPECT_REFS was NOT raised).
+#
+# A pass wanting to look at the `review/*` branches is tempted to run
+#   git fetch origin 'refs/heads/review/*:refs/remotes/audit/*'
+# instead of the whole-namespace form. That exits 0, looks like a refresh, and
+# SILENTLY QUADRUPLES the mirror: git's refspec `*` matches the pattern's PREFIX,
+# so `refs/heads/review/drop-dead-trace-and-fence` is written to
+# `refs/remotes/audit/drop-dead-trace-and-fence` -- the `review/` component is
+# STRIPPED -- while `refs/remotes/audit/review/drop-dead-trace-and-fence` already
+# exists from the whole-namespace fetch. Four branches become eight refs, the
+# cardinality assertion fires at 213 != 209, and at-risk.sh (and therefore
+# selfcheck, which reports 12 of 13) goes red on a mirror that is otherwise a
+# faithful mirror of origin.
+#
+# The failure is invisible in the fetch output, which reports "[new branch]"
+# exactly as it would for a genuine addition, and the four phantoms are byte-equal
+# to their real counterparts (`bare=8c88a59 review=8c88a59 same=yes` for all
+# four), so nothing looks wrong until the count disagrees. A narrowed source
+# refspec is a MIRROR-CORRUPTING action, not a cheaper refresh.
+#
+# Repair, and it is `update-ref -d`, never a re-fetch: deleting the four phantoms
+# returns the count to 209 and the report to 90 = ref-held 1 + reflog-only 89
+# (disjoint), with both controls behaving (514ed91 present, 0267ade absent). A
+# re-fetch does NOT repair it -- the whole-namespace fetch cannot un-write the
+# stripped names, and re-running the narrowed form reproduces them.
+#
+# Note this is NOT the pass-202 `--prune` shape: nothing was lost, because every
+# phantom's object is still held by its real `review/` mirror ref. The lesson is
+# the mirror's own subject, not the refs: EXPECT_REFS is a cardinality assertion,
+# so a ref that is a faithful duplicate is still a defect in the instrument's
+# input, and the honest response is to fix the input (rule 14m), never to raise
+# the expectation to match a corrupted mirror.
+
 # Known-good / known-bad controls. These are the arms' discriminators: a census
 # that cannot tell these two apart is reporting a constant, not a measurement.
 #   CTRL_POSITIVE 514ed91 -- held by exactly refs/heads/scratch-3f8c62-landed;
