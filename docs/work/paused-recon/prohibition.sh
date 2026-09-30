@@ -69,8 +69,24 @@
 
 set -uo pipefail
 
-ITEM=docs/work/items/w-paused-reconciliation.md
 BASE=origin/main
+
+# RESOLVE THE ROOT FIRST, THEN JOIN THE DEFAULT ITEM TO IT. A coordinator that
+# runs this gate from anywhere but the repository root used to get
+# "BROKEN POPULATION work item docs/work/items/w-paused-reconciliation.md not
+# found" -- a sentence about ITS OWN cwd wearing the costume of a defect in the
+# document it is supposed to audit (pass 317's shape). It fails closed, so it
+# cannot authorise a merge, but it sends the reader to the document instead of
+# to the invocation. figures.sh, item-state.sh, selfcheck.sh and compact-log.sh
+# all resolve the root and none of them has this failure; gate 9 was the only
+# instrument in the directory that assumed where the reader was standing.
+# An explicit argument is honoured as given (absolute, else caller-cwd-relative),
+# exactly as item-state.sh does, so planting a broken population still works.
+CALLER_PWD="$PWD"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+case "$ROOT" in /*) ;; *) ROOT="" ;; esac
+[ -n "$ROOT" ] && cd "$ROOT" || true
+
 fails=0
 broken=0
 
@@ -79,6 +95,17 @@ die_broken() {
   printf 'prohibition: exit 3\n' >&2
   exit 3
 }
+
+ITEM="${1:-}"
+if [ -z "$ITEM" ]; then
+  ITEM=docs/work/items/w-paused-reconciliation.md
+  case "$ROOT" in /*) ITEM="$ROOT/$ITEM" ;; esac
+else
+  case "$ITEM" in
+    /*) ;;
+    *) if [ -f "$CALLER_PWD/$ITEM" ]; then ITEM="$CALLER_PWD/$ITEM"; else ITEM="$ITEM"; fi ;;
+  esac
+fi
 
 [ -f "$ITEM" ] || die_broken "work item $ITEM not found"
 
