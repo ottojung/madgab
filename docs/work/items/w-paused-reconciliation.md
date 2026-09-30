@@ -10515,12 +10515,24 @@ claimed, launched, prompted, stopped or integrated. No new work item. **No merge
 branch. The 3 host-running agents belong to other repositories and were left running for their own
 passes to inspect.
 
-### NEXT
-
-Run the seven bare gates and nothing else; `branch-containment.sh` is still **argument-taking** and
+NEXT: run the seven bare gates and nothing else; `branch-containment.sh` is still **argument-taking** and
 rule 326 stands, but its exit codes are now load-bearing, so a bare run must not be read as a
 verdict. If `at-risk-delta.sh` bare exits **3**, attribute the new member first (pass 328: enumerate
 reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
 `.git/worktrees/*/logs/HEAD`, not `.git/logs`). Everything else is human: merging
 `review/drop-dead-trace-and-fence` (`8c88a59`), retiring this recurring pass, and fixing the
 out-of-repo scheduler template — of which retiring the pass is still the highest value.
+
+### Correction, recorded because the instrument went red on this pass's own push and the red was real
+
+`at-risk-delta.sh` read **exit 3** (arms 92/89) after this pass's two commits and before they were
+pushed. That is the guard doing exactly its job, and the attribution is this pass itself: the two
+commits were ref-held locally and not yet on `origin`, so they counted as at-risk. After
+`git push origin post-milestone-acceptance` and the rule-14a re-fetch, `at-risk.sh` reads **90 = 1
+ref-held + 89 reflog-only** and `at-risk-delta.sh` is back to **exit 0**. `PREV_ARMS`/`PREV_PUB` are
+therefore **not** advanced: the movement was this pass's own work becoming durable, not repository
+growth needing a new member. This is the benign instance of the pass-328 class — a commit that is at
+risk only until the pass that made it pushes it — and it is recorded because the alternative reading
+(a real 90 → 92 growth) would have sent a later pass hunting a reflog transition that does not exist.
+
+`origin/main` untouched at `0267ade`; no local `main` ref; HEAD on `post-milestone-acceptance`.
