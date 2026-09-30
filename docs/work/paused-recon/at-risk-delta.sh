@@ -64,6 +64,41 @@ if [ "$FETCH" -eq 1 ]; then
   # with --prune, or 200+ local-only mirror refs are deleted as "remote-deleted".
   git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*' >/dev/null 2>&1 \
     || { echo "at-risk-delta: DEAD -- audit-mirror fetch failed; no number reported" >&2; exit 1; }
+else
+  # STALENESS GUARD, added because this file was the one instrument of the pair
+  # that lacked it. at-risk.sh grew this check in pass 293 (lines 276-284) for
+  # exactly the reason its header records: an exclusion set that is too NARROW
+  # because the mirror has not picked up the previous pass's own pushed commits
+  # passes every internal check this file also makes -- the two arms still
+  # agree, the partition still sums, both controls still fire, and the ref
+  # COUNT is unchanged by a fast-forward, so rule 14g's cardinality assertion is
+  # blind to staleness by construction. What differs is only the SIZE of the
+  # at-risk set, which is this instrument's whole subject.
+  #
+  # Observed live, not theorised: on 2026-09-30T22:42Z the bare form ran while
+  # the mirror sat one pass behind and read arms 91 / published 89 against a
+  # fresh-mirror 90 / 89. The growth guard below (lines 110-133) correctly
+  # refused to publish it and exited 3 -- fail-closed, so nothing wrong was
+  # published -- but it named the wrong cause. It said "GROWTH ... the 2 named
+  # commit(s) are a SPELLING gap and do NOT explain this", sending the reader
+  # after an identity to attribute for new at-risk history that did not exist.
+  # Re-run with --fetch and the same invocation printed 90 / 89, exit 0. So the
+  # guard stays (it is right to be loud) but staleness is now excluded as a
+  # cause before growth is claimed, so a stale mirror is named as what it is
+  # instead of masquerading as growth.
+  #
+  # Same discipline as at-risk.sh's default path: a stale mirror is a REFUSAL,
+  # not a number, because the alternative is a plausible, wrong,
+  # safety-relevant figure.
+  origin_tip=$(git ls-remote origin refs/heads/post-milestone-acceptance | awk '{print $1}')
+  [ -n "$origin_tip" ] \
+    || { echo "at-risk-delta: DEAD -- could not read origin's post-milestone-acceptance tip; no number reported" >&2; exit 1; }
+  if ! git rev-parse --verify --quiet refs/remotes/audit/post-milestone-acceptance >/dev/null; then
+    echo "at-risk-delta: DEAD -- audit mirror has no post-milestone-acceptance ref -- the exclusion set cannot be trusted; re-run with --fetch" >&2; exit 1
+  fi
+  mirrored_tip=$(git rev-parse refs/remotes/audit/post-milestone-acceptance)
+  [ "$mirrored_tip" = "$origin_tip" ] \
+    || { printf 'at-risk-delta: DEAD -- audit mirror is STALE: mirror at %s, origin at %s -- the arms would be inflated by the previous pass'"'"'s own pushed commits and the growth guard would misreport that inflation as new at-risk history (this is the pass-187 failure, unfixed on this path until now). Re-run with --fetch\n' "$mirrored_tip" "$origin_tip" >&2; exit 1; }
 fi
 
 # --- populations -----------------------------------------------------------
