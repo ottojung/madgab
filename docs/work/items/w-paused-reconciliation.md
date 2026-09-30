@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T04:40:00Z
+updated: 2026-09-30T06:05:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -86,6 +86,65 @@ Pick one and the loop should stop:
 
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
+
+### Addendum (coord pass, 2026-09-30T06:05Z) — the last open item is now discharged; still gate NO
+
+Pass 365's NEXT (3) named exactly one thing still worth adjudicating: *"`branch-containment.sh`'s own
+claim — pass 325 built it, it is argument-taking, and it is deliberately not in the bare gate list."*
+**That claim now verifies, on all four of its documented verdicts, by execution rather than by
+reading the file.** Nothing else changed, and nothing new was created to find this out.
+
+`docs/work/paused-recon/branch-containment.sh` run exactly as the line-319 block prints it:
+
+```sh
+docs/work/paused-recon/branch-containment.sh origin/main \
+  review/drop-dead-trace-and-fence \
+  review/drop-dead-trace-env-on-main review/run-clue-fence-in-ci
+# exit 0 -- CONTAINED and mergeable; base check OK; both constituents contained
+```
+
+The three reds, which are the part no bare gate ever exercises and the part pass 337's exit-code
+repair exists for. Each is a real input, not a fabricated ref:
+
+| Input | Verdict printed | Exit |
+| --- | --- | --- |
+| as printed above | `CONTAINED and mergeable` | **0** |
+| `+ review/drop-dead-trace-env` added as a third constituent | `NOT CONTAINED` — and it names the cause, `a29f3d7` sitting 397 commits off `origin/` | **3** |
+| base given as `review/drop-dead-trace-env` instead of `origin/main` | `CONTAINED BUT NOT MERGEABLE` — `base check FAIL (rule 323)`, with containment still measured and reported | **4** |
+| run with no arguments (the arrival check) | usage line, no verdict | **1** |
+
+So the instrument that the standing section names as *the* command deciding its containment claim is
+**not fail-open**: it is fail-closed on both red verdicts, it separates the two reds that want
+different responses, and its input error is distinguishable from a verdict. The exit-code contract
+documented at its lines 68–80 is the one the code implements. **This item is closed; do not re-adjudicate
+it and do not add it to the bare gate list** — it is argument-taking by design, and running it bare
+means nothing (rule 326).
+
+Standing facts re-measured on arrival of this pass, unchanged: `census` **96** items = 0 open / 0
+working / 1 blocked / 83 done / 12 superseded; `agents` **0** non-terminal MadGab agents (902 host
+rows, 131 MadGab rows, all terminal; 5 idle host agents are other repositories and were left alone);
+`clue-fence` **0** canonical occurrences across all six production regions; `selfcheck` **13** of 13;
+`figures` 4 rows / 0 defects; `prohibition` 3 figures + 1 reason / 0 defects; `branches`, `refs`,
+`frontmatter`, `item-state`, `at-risk`, `at-risk-content`, `at-risk-delta`, `content-sweep` all exit 0.
+`origin/main` is still `0267ade` with no local `main` ref, and `git diff origin/main HEAD -- src tests
+examples web` is **empty** — no product file has ever changed on this branch. HEAD equals
+`origin/post-milestone-acceptance`.
+
+**The three scheduler clauses are declined again, unchanged.** (1) Nothing to launch: 0 open, 0
+working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while paused. (2) The
+`post-milestone-acceptance` accumulation clause still conflicts textually with the itinerary, which
+says that branch "is release history after this acceptance and is no longer an automatic accumulation
+target"; the itinerary wins and only a human can fix the out-of-repo template. This addendum lands
+here because **this log is its own durable record**, not because the clause is honoured. (3) The
+canonical-example clause holds as a **standing invariant** (`clue-fence` 0, plants firing) and the
+preserved `Hits Justice Dupe Hid Came` limitation was not re-litigated. This pass changed no `src/`
+file, created no work item, claimed nothing, launched nothing, merged nothing, pushed nothing to
+`main`, and leaves **nothing running** for a later pass to supervise.
+
+**The next useful action is unchanged and is still a human's:** retire this scheduled pass, or reopen
+MadGab explicitly. There is no third option and no further automated item on this repository. A pass
+arriving after this one should not append an entry: read this notice, re-run the bare gates to confirm
+they are still green, and exit.
 
 ## Where the older pass history went (pass 320)
 
