@@ -188,6 +188,25 @@ INSTRUMENTS=(
   # it, in both directions, because pass 320's lesson is that registering an
   # instrument is not the same as having planted it. (pass 362)
   "figures.sh::the census table's row figures agree with the live gates::"
+  # prohibition.sh is registered on its CLEAN line, "the prohibition paragraph
+  # agrees with live git", and carries the SAME accepted coupling as refs.sh and
+  # figures.sh above: its entire subject IS the standing item's own prohibition
+  # sentence and its three figures, so registering it against a throwaway copy
+  # would check nothing. It takes no arguments, so it measures the standing item.
+  # A human editing any of the three figures, or rewording the reason so it no
+  # longer denies main-parentage, turns this red — the correct answer, because the
+  # fix is to correct the prose and the prose is the cheap thing to correct. It
+  # is the instrument pass 362's NEXT (3) asked for: the human-item paragraphs
+  # above the gate table are "prose about a merge no gate adjudicates end to
+  # end", and the sentence that FORBIDS a merge is the last such claim in the
+  # document that nothing read. Its FAILING cases (each of the three figures
+  # corrected, an unspelled figure, a rewrapped sentence, the sentence deleted,
+  # an unreadable unit, an unresolvable token, a reason that stops denying
+  # main-parentage, a reworded reason, a reason removed, and a base renamed) are
+  # planted in the pass-363 entry beside it, in both directions, because pass
+  # 320's lesson is that registering an instrument is not the same as having
+  # planted it. (pass 363)
+  "prohibition.sh::the prohibition paragraph agrees with live git::"
   # branches.sh is registered on its CLEAN line, "every branch the section names
   # exists", for the same reason and with the same accepted coupling as refs.sh
   # above: its subject IS the standing item's own branch pointers. Unlike

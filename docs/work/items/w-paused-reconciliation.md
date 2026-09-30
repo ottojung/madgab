@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7a3e
-updated: 2026-09-30T03:45:00Z
+owner: coord-af59
+updated: 2026-09-30T03:57:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -127,9 +127,14 @@ inferred: `corpus_integration` 12 passed / 0 failed / 1 ignored, `no_phrase_hard
 `review/drop-dead-trace-env-on-main` (`66e28ff`) and `review/run-clue-fence-in-ci` (`6edff83`) —
 **all three are strictly contained in the composed branch and none carries anything unique.**
 **Do not merge `a29f3d7`**: it is parented on this log rather than on `main`, so it would carry 397
-log commits (44,136 insertions) to deliver 4 deleted lines. Passes 319/321/323 each described that
+commits (44,136 insertions) to deliver 4 deleted lines. Passes 319/321/323 each described that
 branch as prepared and validated, and the base defect survived all three; rule 323 is the check that
-catches it.
+catches it. **`397` is a count of COMMITS, not of "log commits": 381 of them touch this file and 16
+do not** (the instruments, `docs/work/README.md`, the recovery archive, and three work items). Pass
+363 read the word "log" out of this sentence, measured the split, and corrected the figure rather
+than the check — the count was always right and the noun was not, and over-claiming by 16 in a
+sentence whose job is to discourage a merge is the safe direction, which is exactly why nothing
+caught it. `prohibition.sh` (gate 9) now reconciles all three figures and this reason on every pass.
 
 **All three deletions are REMOTE operations, and one of the three is remote-ONLY.** The other two
 also exist as local branches, so a reader who has them checked out may reasonably assume
@@ -358,6 +363,7 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it. **Extended at pass 350: it now also resolves quoted section-NAME pointers into this file's own section headings, and that check found a live dangling pointer in the census table on arrival. Extended again at pass 354: it now also resolves a pointer's QUALIFIER — a pointer that says *which container* it means must resolve inside that container, and that found a live false qualifier in this very section's declining-clauses pointer on arrival** |
 | 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, the payload is checked against the live shortstat, the run-evidence sentence is reconciled against the real test counts, and the merge sentence's two **effect** claims are checked against the live diff — added at pass 331, extended at passes 332/334/335/336, also cheap, and also run it directly |
 | 8 | `docs/work/paused-recon/figures.sh` | **exit 0** | the census table's OWN row figures — the work-item counts, the `origin/main` sha, the HEAD branch, the worktree registration counts, the agent count — reconciled against the gates that measure them, plus the `main` row's own "do not pin HEAD to a SHA" instruction — added at pass 362, discharges pass 361's NEXT (3), and cheap. It prints which rows it does **not** anchor (at-risk, production fence) on both paths, so "not checked" is visible rather than silent |
+| 9 | `docs/work/paused-recon/prohibition.sh` | **exit 0** | the **prohibition** paragraph's own three figures and its stated reason — the commit count, the insertion count, the deleted-line count, and whether the sentence still *denies* `main`-parentage — reconciled against live `git` — added at pass 363, discharges pass 362's NEXT (3), and cheap. No figure or branch is hard-coded. It prints on both paths what it does **not** adjudicate: whether `a29f3d7` is still the right branch to prohibit (that is `branch-containment.sh`) and whether the merge has happened (that is gate 7) |
 
 **Gates 1–7 all READ the standing section; gate 8 is the first one that reads its
 NUMBERS.** That is the whole of pass 361's rule applied one level down: a check on
@@ -365,6 +371,23 @@ the machinery that reads a document is not a check on the claim the document mak
 about itself, and the census table's figures were prose sitting *between* gates
 that printed the live value beside them. If a row figure and a gate ever disagree,
 gate 8 is what says so, and the fix is the figure, not the gate.
+
+**Gate 9 reads the one claim in this section that no gate read at all — the
+prohibition itself.** Gates 1–8 are all about work that might be *done*: a census
+of open items, a fence, a set of agents, pointers, branch names, shas, payloads,
+row figures. The sentence *"Do not merge `a29f3d7` … it would carry 397 log
+commits (44,136 insertions) to deliver 4 deleted lines"* is the section's only
+claim whose whole purpose is to stop something, and it carried **three figures
+and a stated reason that nothing verified**. Its numbers happen to be right today
+— except that `397` is a count of *commits* and the prose calls them *log
+commits*, which over-claims by 16 (see the pass-363 entry) — but "right today by
+hand" is not what any other claim in this section rests on, and a prohibition is
+the claim a human trusts *instead of* re-deriving. Gate 9 therefore checks that
+the branch the prohibition names still exists, that it is still not parented on
+`origin/main`, that all three figures still measure, and that the sentence still
+*denies* `main`-parentage in its own clause. The last of those exists because the
+first version of the check was satisfied by the **imperative's** own "not" — see
+rule 363.
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
 can change without anything in the repository changing: a human who deletes one of the branches named
@@ -13130,3 +13153,179 @@ spelling**, and prove the class by a plant in a spelling the document does not c
 or reopen MadGab explicitly.** What would change the situation is a human's decision, and this pass
 created no work item, claimed nothing, launched no agent, merged nothing, pushed nothing to `main`,
 created no `recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
+
+## Pass 363 (coord-af59, 2026-09-30T03:47Z-03:58Z) - gate NO; nine gates 9/9 exit 0 on arrival after one repair, thirteenth instrument built and green; ACTED - pass 362's NEXT (3) is discharged: gate 9 reads the PROHIBITION's own three figures and its reason, and they were prose in the one sentence whose whole job is to stop a human merging 397 commits
+
+### What this pass measured, from the bare gates, nothing copied from a recorded figure
+
+Gate NO. `census.sh` exit 0: **96** work items, **0 open / 0 working / 1 blocked / 83 done / 12
+superseded**, skills-doc control 0 by selector / 1 fence-blind. `clue-fence.sh` exit 0: **0**
+canonical clue occurrences in all six production regions, 1 adjudicated benign per-word hit, every
+plant firing. `agents.sh` exit 0: **131** MadGab cwd rows of **808** host rows,
+`{"succeeded":110,"stopped":1,"failed":20}`, **0 non-terminal MadGab agents**; the four host-`running`
+agents (`9a01` assemblyp1, `124e2` antonina, `92b5` volodyslav, `109d2` skrynia) are all other
+repositories and were **left running untouched**; 5 host-`idle` rows, none a MadGab cwd.
+`item-state.sh` exit 0: frontmatter parses with all eight schema keys, newest entry `## Pass 362`, file
+in append order. `selfcheck.sh` exit 0: **13** of 13 instruments alive (12 on arrival; this pass adds
+the thirteenth). `refs.sh` exit 0: 3 links, 13 instrument paths, 0 self-pointers, 1 quoted pointer, 1
+qualified pointer, newest-entry instruction 1 paragraph / 0 defects. `branches.sh` exit 0 (9 branches,
+2 remote-only, 5 tip/base claims 0 mismatches, 1 payload claim 0 defects, 1 deletion + 1 CI-step claim
+0 content defects, delete-list population 3 with 1 remote-only, `review/run-clue-fence-in-ci` still
+BLOCKED in `/workspace/madgab-cifence`). `figures.sh` exit 0: **4** rows reconciled, **0** defects,
+`not anchored` line present. `prohibition.sh` exit 0: **4** claims (3 figures + 1 reason), **0**
+defects, with its `not gated` line present. `main` untouched: no local `main` ref
+(`rev-parse --verify main` exit 128), `origin/main` = `0267ade`, HEAD `post-milestone-acceptance`. The
+audit mirror was not re-fetched (NEXT (5), still optional; rule 344 if done).
+
+### THE FINDING, and the act: the prohibition is the last claim in this document that nothing read
+
+Pass 361 made rule 361 (a check on the machinery that reads a document is not a check on the claim the
+document makes about itself). Pass 362 built gate 8 on the census table's figures and correctly named
+the remaining unreconciled prose: "the human-item paragraphs above the gate table, which are prose
+about a merge no gate adjudicates end to end", and told a further pass to look **outside** the standing
+section. This pass did, and the population it found is the sharpest one in the file.
+
+Gates 1–8 are all about work that might be **done**: an open-item census, a fence, a set of live
+agents, pointers, branch names, shas, payloads, effects, row figures. Every one of them adjudicates a
+claim whose failure mode is *wasted or wrong work*. The sentence
+
+> **Do not merge `a29f3d7`**: it is parented on this log rather than on `main`, so it would carry 397
+> log commits (44,136 insertions) to deliver 4 deleted lines.
+
+is the only claim in this document whose entire purpose is to **prevent** an action, and it carried
+**three figures and a stated reason that no instrument had ever read**. Its failure mode is the
+opposite of every other gate's: not wasted work but a human merging 397 commits into a release branch,
+or — far more likely, and far more expensively — a human *not* merging something they should, because
+the sentence they trust instead of re-deriving is wrong. That is rule 4's one useful recurring action
+inverted: a load-bearing number carried by prose.
+
+`prohibition.sh` is gate 9. It locates the block by its own `## Current gate status` heading and the
+sentence by its own `**Do not merge <token>**` grammar, **joins the wrapped lines before extracting**
+(where the prose breaks a line is not part of the claim), reads the branch from the backticked token
+and the three figures from shapes taken from the sentence's own units, and reconciles each against a
+live measurement. **No figure and no branch is hard-coded** (rule 14k): correct 397 to 398 and it goes
+red. It checks four things: the token resolves to a live commit; that commit is **not** parented on
+`origin/main` (the paragraph's own stated reason, which is decidable and was undecided); the commit
+count; the insertion count; and the deleted-line count. The last is read from the branch's **own
+single commit** (`git diff --shortstat <branch>^1 <branch>`), not from the three-dot range, because the
+range also reports 175 deletions for a different population (rule 14l). It prints on both paths what it
+does **not** adjudicate: whether `a29f3d7` is still the right branch to prohibit
+(`branch-containment.sh`) and whether the merge has happened (gate 7).
+
+**And the first figure is FALSE on arrival, in its own population.** The sentence says `397` **log
+commits**. Measured: of the 397 commits in `origin/main..a29f3d7`, **381 touch this log file and 16 do
+not** — the instruments, `docs/work/README.md`, the at-risk recovery archive, and three work items. So
+the number is right and the **noun is wrong**, and the sentence over-claims by 16. The correction is to
+the prose (`397 commits`, with the 381/16 split recorded beside it), **not** to the check: the count
+was always correct and the population word was not. Note the direction — the error over-states the
+danger, so it is *safe*, and that is exactly why 363 passes never caught it and why a green-looking
+prohibition is not the same as a verified one. The gate reports the true split on both paths so the
+over-claim cannot be silently re-introduced, and it deliberately does **not** adjudicate the noun: a
+figure is not a population claim, and `figures.sh` is where population words are reconciled.
+
+**Fourteen plants, all run against the corrected file, all firing in the intended direction.** Red:
+`397`→`398`; `44,136`→`44,137`; `4`→`5`; the sentence deleted (exit 3, BROKEN POPULATION); `44,136
+insertions`→`many insertions` (exit 3); the token→`deadbee` (exit 3, does not resolve); the reason
+reworded to `parented on main` with no denial; the reason reworded to `it is on the log, and it would
+carry 397` so the sentence never names `main`; the base renamed `main`→`trunk`; and a sentence whose
+only `not` is inside the **imperative** (`Do not merge … : it is parented on main; it would carry 397`).
+Green, correctly: the figure unspelled as `44136`; the sentence **rewrapped** mid-figure; the
+`log commits` noun restored; and the reason reworded to `it sits on this log, not on main` — a
+different wording that still denies main-parentage. That last pair is the point of the repair below.
+
+### Rule 363, and the three fail-opens this pass's own instrument contained, all found by RUNNING it
+
+Every other check here is about claims a human might act on wrongly. This rule is about the checks.
+
+**Rule 363: a prohibition is verified by the same standard as an instruction, and a standard applied
+only to instructions leaves the document's most consequential sentence unchecked.** Every gate in this
+directory was built to stop *wasted or wrong work* — an open item, a stale pointer, a bad payload, a
+wrong row figure. The one sentence that exists to stop a **destructive** action was the only
+load-bearing claim with no instrument, and it was the only one whose error would be paid for by a human
+rather than by a pass. A pass that reads "is there anything left to check?" off a list of work-shaped
+claims will keep finding work-shaped claims to check, and will not find this one.
+
+Three defects in this pass's own gate, each found by a plant and not by reading, and each the
+fail-open direction:
+
+(1) **A pattern that cannot cross a spelling is a pattern for one spelling — rule 362, fired on the
+instrument written to implement it.** The reason check selected its clause by the literal word
+`parent`, and the plant that reworded the reason to "it sits on this log, not on `main`" — which denies
+main-parentage exactly as before — went **RED**. A check that condemns a true claim is the pass-317
+direction and is worse than no check, so the repair is to stop naming the verb: the clause is now
+selected by containing the base's name, delimited by the sentence's own commas and full stops.
+(2) **The first version of that repair then had a *new* fail-open of the opposite kind, and it is the
+one worth keeping.** The clause search ran over the whole sentence, and the sentence's first clause is
+the **imperative** — `Do not merge …` — which contains the word *not*. So a sentence reading
+"parented on `main`" with **no denial at all** satisfied the negator search on the instruction and
+went **GREEN**. The window is now the sentence's *assertion*, everything after the instruction's own
+colon, so the carrier of a claim can never supply the evidence for it. This is rules 334/335's shape
+("a number printed beside a claim is not a check") one level up: **a pattern must not be able to match
+the carrier of the claim in order to satisfy the claim.**
+(3) **A ref name is not the word a reader writes, and an extractor that assumes they are spelled alike
+reads a true sentence as an absent one.** The clause was matched against the literal `origin/main`;
+the document says `main`. The gate went **RED on the real, correct sentence** — pass 317's exact
+failure, in the very check written to prevent it. The base's short name is now **derived** from the
+live ref (`${BASE##*/}`), the same discipline as rule 14v's fence alphabet and rule 362's class
+predicate, applied to a ref.
+
+Plus a fourth, in the same family and found the same way: `git diff --shortstat` emits a **leading
+space**, so an anchored `^[0-9]* files? changed, ` is a no-op that returns the whole string. The first
+run read the figure as `73 files changed, 44136` against a claim of `44,136` and went red on a document
+that is exactly right. The variable is now trimmed, which is what `branches.sh` already does at its
+own line 421 and had to be told in a comment. And a fifth, after the prose correction: removing the
+word `log` made the sentence read `397 commits`, and the commit-count pattern required a noun between
+the number and the unit — so **correcting a false figure made the gate refuse to read the sentence**.
+That is the pass-336 lesson at the scale of a check: the fix is to match the *class* of the claim
+(`<n> [optional noun] commits`), not the shape the old wrong sentence happened to have.
+
+Five defects, four of them found only by planting, and the two that would have shipped green are (2) and
+(3) — one accepting a prohibition with a false reason, one rejecting a prohibition that is exactly
+right. Both are the same failure in opposite directions, which is the argument for planting in both
+directions rather than only the alarming one: **a check's green and its red are two different claims
+about the document, and the second pass here found a defect in each.**
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+**Gate NO.** (1) *Launch or prompt Antonina agents*: declined on `## Status: accepted and paused` plus
+the accepted-state document. There is nothing to launch — **0 open / 0 working** items, **0
+non-terminal MadGab agents**, and all four host-`running` agents belong to other repositories.
+Recovering an abandoned item is not available: the only non-terminal MadGab row in this repository is
+`3a8f01`, `stopped` on a superseded front, and it was left stopped, unmoved. (2) *Accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"*: the same direct textual conflict as
+every pass since 199 — the itinerary says that branch "is no longer an automatic accumulation target",
+so the template's instruction cannot be honoured by doing what the template says; the itinerary wins,
+and only a human can retire or correct the out-of-repo template. This pass's commit goes to that branch
+because **this log is its own durable record** and the pause does not stop the bookkeeping, not because
+the template's instruction is honoured. (3) *Prioritize the canonical approximate-search examples
+without phrase-specific hard-coding*: the no-hard-coding half holds as a **standing invariant**, not as
+work — `clue-fence.sh` reads 0 across all six production regions with its plants firing — and the
+preserved `Hits Justice Dupe Hid Came` limitation was not re-litigated. This pass added no hard-coding
+and did not weaken the fence. Nothing was claimed, launched, stopped, prompted or integrated; no new
+work item; no recovery branch created; `main` untouched at `0267ade`.
+
+### NEXT — for a fresh pass
+
+**(1)** Re-run the gates; expect **9/9** exit 0, `selfcheck.sh` reporting **13 of 13** instruments, gate
+8 printing `4 row(s) reconciled, 0 defect(s)` with its `not anchored` line, and gate 9 printing
+`3 figure(s) + 1 reason reconciled, 0 defect(s)` with its `not gated` line. If either of those two lines
+is missing, the check was removed rather than passed. **(2)** Do not re-derive this pass's finding or its
+five defects; the instrument is built, registered, planted fourteen ways in both directions, and the
+reasoning is above. **(3)** Pass 362's NEXT (3) is discharged. The human-item prose now has a gate for
+its **figures and its prohibition** (gate 9) and its **branch, payload and effect claims** (gate 7).
+What remains unreconciled there is prose about the merge that is a judgement rather than a measurement
+— chiefly the *ordering* advice (which of the two local deletions to do first) and the containment
+wording, and a further pass should **not** try to machine-check a judgement; if anything is worth
+adjudicating next it is `branch-containment.sh`'s own claim, which pass 325 built and which is not in
+the bare gate list because it is argument-taking. **(4)** Do not re-litigate passes 345–363. **(5)** The
+audit mirror was not re-fetched this pass; still optional, and if done must read its exit code directly
+rather than after a pipe (rule 344). **(6)** Rule 363 generalises to any future check here, and rules
+362's concrete form is unchanged and is what caught two of this pass's own defects: **prefer a predicate
+over the class of a claim to a predicate over its spelling, and prove the class by a plant in a
+spelling the document does not currently use.** The addition is the second half: **prove the red as
+carefully as the green** — of this pass's five defects, the two that would have shipped green were
+found only because plants were run in both directions. **(7)** The highest-value output of a further
+pass is still not a rule: **retire this recurring pass, or reopen MadGab explicitly.** What would change
+the situation is a human's decision, and this pass created no work item, claimed nothing, launched no
+agent, merged nothing, pushed nothing to `main`, created no `recovery/*` branch, and leaves **nothing
+running** for a later pass to supervise.
