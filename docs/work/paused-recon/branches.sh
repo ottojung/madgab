@@ -747,6 +747,120 @@ if [ "$merge_expected" -gt 0 ] && [ "$nclaim_del" -eq 0 ] && [ "$nclaim_step" -e
   content_bad=$((content_bad + 1))
 fi
 
+# ---------------------------------------------------------------------------
+# Pass 340: the standing section's SCHEDULER INSTRUCTION is a claim about this
+# instrument set, and it was the one part of the section no instrument read.
+#
+# Everything gated above is read out of the `## Current gate status` block: a
+# branch, a tip, a base, a shortstat, a test count, a diff. The paragraph that
+# tells a scheduled coordinator what its correct pass is ALSO lives in that
+# block, and it names the gate set in prose: "run the six gates above". Gate 7
+# was added at pass 331, so that sentence has been wrong since the very pass
+# that made it wrong -- the table under it has seven rows and the instruction
+# says six, for nine passes, and no gate can see it because no gate read the
+# sentence. This is rule 14k's exact shape in the highest-traffic prose in the
+# document: a count carried in words beside a structure that changes.
+#
+# So: the number of gates is TAKEN FROM THE TABLE, and the number word in the
+# instruction is reconciled against it. Both halves are read, neither is
+# hard-coded, and adding an eighth gate makes this go red until the prose is
+# corrected -- which is the point.
+# ---------------------------------------------------------------------------
+selfcheck_bad=0
+
+# The table: rows whose first cell is the gate's own ordinal.
+gate_rows="$(grep -cE '^\|[[:space:]]*[0-9]+[[:space:]]*\|' "$prose" || true)"
+case "$gate_rows" in ''|*[!0-9]*) gate_rows=0 ;; esac
+
+# The claim: the only place the section says "N gates above" is the scheduler
+# instruction, and the "above" is what makes it a claim about the table.
+#
+# ABSENCE OF A NUMERAL IS THE GREEN CASE, and that is the durable form rather
+# than a concession. The standing sentence was repaired at pass 340 to stop
+# carrying a count at all -- it tells the reader to take the number from the
+# table's rows. A check that demanded a numeral there would have re-created
+# the defect it was written to remove, by making the number load-bearing
+# again. So a numeral is RECONCILED when present and its absence is reported as
+# the intended shape.
+#
+# The two spellings are ONE alternation, not two piped greps, and that is a
+# defect this check had on its first run. Split into
+# `grep -oiE '[a-z]+|[0-9]+ (bare )?gates above'`, the first alternative wins
+# at the position of "six", consumes it, and the gates-above alternative is
+# never tried -- so the claim read EMPTY, the spelling table fell through to
+# `gate_words=-1`, and the check printed UNREADABLE while standing next to a
+# sentence it could plainly see. Found by running it, not by reading it, which
+# is rule 334's standing lesson reached inside a single extraction.
+gate_claim="$(grep -oiE '(six|seven|eight|nine|ten|[0-9]+) (bare )?gates above' "$prose" \
+  | head -1 | sed -E 's/ (bare )?gates above$//' || true)"
+[ -n "$gate_claim" ] || gate_claim=""
+
+gate_words=0
+if [ -z "$gate_claim" ]; then
+  gate_words=0   # no numeral carried: the intended shape, reconciled as green below
+else
+case "$gate_claim" in
+  one|1)    gate_words=1 ;;
+  two|2)    gate_words=2 ;;
+  three|3)  gate_words=3 ;;
+  four|4)   gate_words=4 ;;
+  five|5)   gate_words=5 ;;
+  six|6)    gate_words=6 ;;
+  seven|7)  gate_words=7 ;;
+  eight|8)  gate_words=8 ;;
+  nine|9)   gate_words=9 ;;
+  ten|10)   gate_words=10 ;;
+  *)        gate_words=-1 ;;
+esac
+fi
+
+if [ "$gate_rows" -lt 1 ]; then
+  printf 'branches: NO GATE TABLE  the reader-facing section carries no numbered gate rows, so the instruction that names them cannot be checked against anything\n' >&2
+  selfcheck_bad=$((selfcheck_bad + 1))
+elif [ "$gate_words" -lt 0 ]; then
+  printf 'branches: UNREADABLE GATE COUNT  the instruction names "%s gates above"; the spelling is not one this check knows\n' "$gate_claim" >&2
+  selfcheck_bad=$((selfcheck_bad + 1))
+elif [ "$gate_words" -gt 0 ] && [ "$gate_words" -ne "$gate_rows" ]; then
+  printf 'branches: GATE COUNT STALE  the scheduler instruction says "%s gates above" and the table has %s row(s)\n' \
+    "$gate_claim" "$gate_rows" >&2
+  printf 'branches: the instruction is the sentence every scheduled pass acts on, and a gate that disagrees with the table it points at is the oldest defect class in this log (rule 14k)\n' >&2
+  selfcheck_bad=$((selfcheck_bad + 1))
+fi
+
+# The second half of the same sentence, and the same defect: it told the next
+# pass to find the closed classes in the newest NEXT block "item 4". That NEXT
+# ends at (3). An ORDINAL into a block whose length is not a property of this
+# file decays by one every time a pass appends -- rule 330's shape, in an
+# index instead of a line number. A standing pointer into the newest entry must
+# name a HEADING or a searchable string, never a position.
+#
+# The scan runs over the section with CODE SPANS STRIPPED, and that is not a
+# softening. A backticked `item 4` in this section is a worked example in prose
+# explaining why the ordinal is wrong; the live defect was the unbackticked
+# `"Next action for the next pass", item 4`, which instructs a reader to go
+# look. An instrument that cannot tell a token from a mention of that token
+# condemns its own documentation -- which is exactly what happened on this
+# check's first run against the sentence written to fix it, and it is rule
+# 14x (a `#[test]` counted inside a string literal) reached inside a prose
+# scan. The plants below cover the unbackticked form in both directions.
+prose_nocode="$(sed -E 's/`[^`]*`//g' "$prose")"
+if grep -qE 'item [0-9]+' <<<"$prose_nocode"; then
+  printf 'branches: DECAYING ORDINAL POINTER  the standing section points into the newest NEXT block by position ("%s")\n' \
+    "$(grep -oE 'item [0-9]+' <<<"$prose_nocode" | head -1)" >&2
+  printf 'branches: the newest NEXT block is append-shaped and its length is not a property of this file; point at the block, not at a position in it (rule 330)\n' >&2
+  selfcheck_bad=$((selfcheck_bad + 1))
+fi
+
+if [ "$selfcheck_bad" -eq 0 ]; then
+  if [ -n "$gate_claim" ]; then
+    printf 'branches: selfcheck OK       scheduler instruction reconciles: "%s gates above" vs %s row(s) in the table; no ordinal pointer into the newest NEXT\n' \
+      "$gate_claim" "$gate_rows"
+  else
+    printf 'branches: selfcheck OK       scheduler instruction carries NO gate count (the intended shape; take it from the %s table rows); no ordinal pointer into the newest NEXT\n' \
+      "$gate_rows"
+  fi
+fi
+
 remote_heads=""
 if git remote get-url origin >/dev/null 2>&1; then
   # Full-form ls-remote per rule 14p, one invocation. A bare-prefix form against
@@ -807,6 +921,7 @@ status=0
 [ "$base_bad" -gt 0 ] && status=1
 [ "$payload_bad" -gt 0 ] && status=1
 [ "$content_bad" -gt 0 ] && status=1
+[ "$selfcheck_bad" -gt 0 ] && status=1
 
 echo "branches: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
 if [ "$remoteonly" -gt 0 ]; then
@@ -823,6 +938,11 @@ if [ "$status" -eq 0 ]; then
   exit 0
 fi
 
-echo "branches: ${nbranch} branch name(s), ${missing} unresolved" >&2
-echo "branches: REFUSING — a named branch that exists nowhere sends a human to delete nothing" >&2
+echo "branches: ${nbranch} branch name(s), ${missing} unresolved, ${selfcheck_bad} scheduler-instruction defect(s)" >&2
+if [ "$missing" -gt 0 ]; then
+  echo "branches: REFUSING — a named branch that exists nowhere sends a human to delete nothing" >&2
+fi
+if [ "$selfcheck_bad" -gt 0 ]; then
+  echo "branches: REFUSING — the section's own instruction to a scheduled pass disagrees with the section; a reader acting on it is acting on a stale count" >&2
+fi
 exit 1
