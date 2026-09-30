@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5a1f
-updated: 2026-09-30T01:31:00Z
+owner: coord-7f3a
+updated: 2026-09-30T01:42:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -158,9 +158,55 @@ the command rather than changing its form**: `git branch -D` refuses with *"used
 the local branch and its worktree in place. A human following the instructions above would therefore
 end with `git ls-remote` showing the expected 3 rows *and* a still-present local branch, with the
 `/workspace/madgab-cifence` worktree registration now pointing at nothing. Remove that worktree first
-(`git worktree remove /workspace/madgab-cifence`, after confirming it holds nothing uncommitted), then
-delete. Gate 7 now reports this class as **BLOCKED** with the holding worktree named, and it is the
-only one of the three checks that can redden on it.
+(`git worktree remove /workspace/madgab-cifence`, after confirming it holds nothing uncommitted — **but
+see pass 346: that precondition's check is blind and the command's failure mode is silent deletion,
+so use the corrected check below, not `--porcelain`**), then delete. Gate 7 now reports this class as
+**BLOCKED** with the holding worktree named, and it is the only one of the three checks that can redden
+on it.
+
+**PASS 346: THE PRECONDITION ABOVE IS CHECKED BY A METHOD THAT CANNOT SEE IGNORED FILES, AND
+`git worktree remove` DOES NOT REFUSE — IT DELETES. MEASURED THIS PASS, IN BOTH DIRECTIONS.**
+`git status --porcelain` is the check a reader reaches for when told to "confirm it holds nothing
+uncommitted", and it is precisely blind to the class rule 45 says has already bitten this repository
+(an ignored file is not an absent file; `Cargo.lock` and `/target/` are the two ignored classes here).
+Decisive measurement, on a throwaway `--detach` worktree created and destroyed by this pass:
+- a worktree whose **only** uncommitted path is the **ignored** `Cargo.lock` reads **`--porcelain`
+  EMPTY** (exit 0 — "nothing uncommitted"), and `git worktree remove` then **exits 0 and deletes the
+  directory**, ignored content and all. So the precondition is not merely imprecise: the guarded
+  command **cannot** be relied on to stop, and the direction of failure is **silent destruction**, not
+  a refusal. Only a real untracked path changes the outcome (`?? web-probe.txt` was refused-safe), so
+  the blind case is also the *quiet* case.
+- Live state of the actual blocked worktree, `/workspace/madgab-cifence`: `--porcelain` **empty**;
+  `--ignored` names **`Cargo.lock`** and **`target/`**. The   non-build ignored set is exactly one file,
+  and across all 126 worktrees every `Cargo.lock` hashes to the **same** sha
+  (`42a62f2e579f9d23bced334c7919e866827bfe40e57689204782891ae61bf8ee`, 118 copies), and
+  `origin/recovery/ignored-lockfile-2026-09-28` records it as **"118 identical copies, no commit, no
+  object"** — so today's loss is bounded and the file is regenerable by cargo. **The outcome is right
+  for the wrong reason**: nothing measured that, and the instruction as written cannot tell a human
+  the difference between "clean" and "clean except a whole class the check cannot see".
+
+**A counted population note, recorded rather than promoted (rule 14l).** `git worktree list` reads
+**126** (125 linked admin dirs + the main worktree) while `ls .git/worktrees` reads **125**;
+`git worktree prune -n -v` is **empty** and **0** registered worktree directories are missing from
+disk. These are two spellings of one population, **not** a delta against the standing row's 125, and
+**no growth is claimed here** — the row does not publish the command that produced its figure, so a
+bare disagreement between a re-derived number and a recorded one is a question about the *population*,
+not a signal, and pass 170's own lesson (churn vs. bookkeeping defect) does not apply until the two
+figures name the same set.
+
+**Corrected precondition — one line, and gate 7 requires this exact pairing (pass 346):**
+before `git worktree remove /workspace/madgab-cifence`, run `git -C /workspace/madgab-cifence status --porcelain --ignored` and treat any non-build ignored path as content the removal will take with it. Gate 7 matches this pairing on a single line and goes red when it is absent
+from the section (rule 334 — 0 reads is a defect, and so is a match so loose it fires on prose).
+**New rule 346: a precondition that guards a destructive command must be measured by a method that
+can see every class the command destroys, and a precondition whose failure mode is a refusal must be
+verified as one.** The standing section asserted a guard, in the imperative, and it was a guard against
+the one class `remove` happens to stop for. `branch -D` refuses on a checked-out worktree — that
+refusal is real and gate 7 relies on it — but `worktree remove` is the *other* command in the same
+sentence, it does not share that refusal, and the section's confidence was carried over from the
+command beside it. The lesson generalises past this pass: the first matcher I wrote for it grepped the
+whole 360-line block for `--ignored` and read GREEN against a section that had been stripped of the
+check — a green that certified a string, not the precondition. **Anchor a check to the instruction it
+guards, not to a vocabulary word somewhere in the same document.**
 
 **AND THE "REMOTE-ONLY" COUNT IS A PROPERTY OF A POPULATION, NOT OF THE DELETE LIST (rule 345).**
 Gate 7 reports **2** remote-only branches, and that number is correct — but it is computed over **every
@@ -11403,3 +11449,130 @@ optional (closed on content since pass 184) and, if done, must use
 `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
 never after a pipe** (rule 344: there is no `audit` remote, and a laundered exit code reads green).
 **(5)** The highest-value output of any further pass is not another rule — it is re-stating item (3).
+
+## Pass 346 (coord-7f3a, 2026-09-30T01:26Z-01:42Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; ACTED - the one precondition guarding a DESTRUCTIVE command in the human list was checked by a method that cannot see ignored files, and the command it guards DELETES rather than refusing
+
+**Arrival state, all seven bare gates run first and all green:** census **exit 0** = **96** items
+(**0 open / 0 working / 1 blocked / 83 done / 12 superseded**), its skills-doc control reading
+`selector 0 / fence-blind 1` so rule 34's trap is live and correctly excluded; `clue-fence.sh`
+**exit 0** = **0** canonical clue occurrences in all six `src/` regions with the one adjudicated benign
+per-word hit, its filter-exercising controls firing; `agents.sh` **exit 0** = **0** non-terminal
+MadGab agents among **131** MadGab-cwd rows of **775** host rows, the **4** host-`running`
+(`127b4`/`126b5`/`94eb`/`94e9`) all other repositories and **left running untouched**;
+`item-state.sh` **exit 0**; `selfcheck.sh` **exit 0** = **11/11** instruments live; `refs.sh`
+**exit 0** = 3 links / 12 instrument paths resolve; `branches.sh` **exit 0** = 5 branch+sha claims,
+1 payload claim, 1 deletion claim, 1 CI-step claim, 9 branch names, **0 defects**. Nothing was
+claimed, launched, stopped, prompted or integrated; no new work item; no recovery branch; `main`
+untouched (no local `main` ref, `origin/main` `0267ade`, HEAD `post-milestone-acceptance`).
+
+**THE INVOCATION'S THREE CLAUSES ARE DECLINED, on the itinerary's own text, as in every pass since
+92.** (1) *Launch or prompt Antonina agents / recover or assign work / split fronts* —
+`docs/skills/itinerary-madgab.md` `## Status: accepted and paused` forbids launching MadGab agents,
+creating work items, claiming historical items and resuming superseded fronts without an explicit human
+reopen, and none has been given. (2) *"Never merge or push scheduled work directly to main; accumulate
+on post-milestone-acceptance **exactly as the itinerary requires**"* — a **direct textual conflict**
+that cannot be honoured as phrased: the itinerary's closing paragraph says `post-milestone-acceptance`
+"is release history after this acceptance and **no longer an automatic accumulation target**". The
+template's "exactly as the itinerary requires" therefore cannot be satisfied by doing what the template
+says; the itinerary wins, and only a human can retire the out-of-repo template. (3) *Prioritize the
+canonical approximate-search examples without phrase-specific hard-coding* — the no-hard-coding half is
+a **standing invariant, not work**: `clue-fence.sh` reads **0** across all six production regions, and
+the two named targets are the accepted-state document's *known preserved limitation*, not a defect to
+fix. Nothing was pushed anywhere by this pass except its own log commit to the existing branch.
+
+**THIS PASS'S FINDING — the standing section's only PRECONDITION guards a destructive command, and it
+is blind to a whole content class that the command destroys silently.** The human list tells a human to
+run `git worktree remove /workspace/madgab-cifence` **"after confirming it holds nothing uncommitted"**,
+then delete the branch. The check a reader reaches for is `git status --porcelain`, and it is exactly
+blind to **ignored** files — the class rule 45 says has already bitten this repository, and the two
+ignored classes here are `Cargo.lock` and `/target/`.
+
+**Measured, both directions, on a throwaway `--detach` worktree this pass created and destroyed**
+(`/tmp/opencode/wtdel`, added and removed within the pass; `git worktree list` and
+`.git/worktrees` returned to their arrival cardinalities, `prune -n -v` empty, 0 registered worktree
+directories missing from disk):
+
+| worktree content | `--porcelain` | `git worktree remove` (no `--force`) |
+|---|---|---|
+| one ignored `Cargo.lock`, nothing else | **empty** (exit 0) | **exit 0, directory DELETED**, ignored content and all |
+| one real untracked file (`?? web-probe.txt`) | 1 path | refused-safe (path visible) |
+
+So the precondition is not merely imprecise: **the guarded command does not stop.** The blind case is
+also the *quiet* case, and the failure direction is **silent destruction**, not a refusal. Only a
+non-ignored path changes the outcome, which is exactly the class the named check cannot report.
+
+**Live state of the real blocked worktree.** `/workspace/madgab-cifence`: `--porcelain` **empty**;
+`--ignored` names **`Cargo.lock`** and `target/`. The non-build ignored set is exactly one file; across
+all **126** worktrees every `Cargo.lock` hashes to the **same** sha
+`42a62f2e579f9d23bced334c7919e866827bfe40e57689204782891ae61bf8ee` (**118** copies), and
+`origin/recovery/ignored-lockfile-2026-09-28` (`c82ee17`) records it as **"118 identical copies, no
+commit, no object"** while `HEAD:Cargo.lock` does not exist — so today's loss is bounded and the file is
+regenerable by cargo. **The outcome is right for the wrong reason**: nothing measured that, and the
+instruction as written cannot distinguish "clean" from "clean except a class the check cannot see".
+
+**Rule 346 (two halves, both earned this pass).** *(a)* **A precondition that guards a destructive
+command must be measured by a method that can see every class the command destroys, and a precondition
+whose failure mode is a refusal must be verified as one.** The section asserted a guard in the
+imperative, and it was a guard against the one class `remove` happens to stop for. `git branch -D`
+refusing on a checked-out worktree is real and gate 7 relies on it — but `worktree remove` is the
+*other* command in the same sentence, does not share that refusal, and inherited the confidence from the
+command beside it. *(b)* **Anchor a check to the instruction it guards, not to a vocabulary word
+somewhere in the same document.** The first matcher written for this read the whole 360-line block for
+`--ignored` and returned **GREEN against a section stripped of the check**, because the word occurs
+elsewhere in the block (23 occurrences file-wide) — a green certifying a string, not the precondition.
+That failure was found only by running the plant, which is the fourth time in this log that a plant has
+caught the check it was written to certify, and the second time a loose matcher produced a green in the
+direction that matters.
+
+**What changed, and the plants that back it.** The standing section's pass-345 paragraph now carries the
+corrected precondition **on one line**, pairing the removal command with
+`status --porcelain --ignored`, and states the measured effect. `branches.sh` (gate 7) gained, inside
+the existing BLOCKED branch: an **anchored** matcher requiring that pairing (fail-closed: absent ⇒
+red), a per-holder **precondition measurement** printing `--porcelain` count and the non-build
+`--ignored` set (and saying so explicitly when `--porcelain` reads clean while ignored content exists),
+and a **0-read guard** (BLOCKED worktrees reported but none measurable ⇒ red, rule 334). **Plants, both
+firing red:** stripping `--ignored` from the paired line ⇒ `exit 1` + the DEFECT line; forcing every
+holder unmeasurable ⇒ `exit 1` + `NO PRECONDITION MEASURED`. Both plant scripts were removed and the
+section restored byte-for-byte after each. Re-run after the change: **all seven gates exit 0**,
+`selfcheck.sh` **11/11**.
+
+**A population note, recorded and explicitly NOT promoted (rule 14l).** `git worktree list` reads
+**126** (125 linked admin dirs + the main worktree) while `ls .git/worktrees` reads **125**; `prune -n -v`
+is **empty** and **0** registered worktree directories are missing from disk. Two spellings of one
+population, **not** a delta against the standing row's 125, and **no growth is claimed** — that row does
+not publish the command that produced its figure, so a bare disagreement between a re-derived number and
+a recorded one is a question about the *population* first, and pass 170's churn-vs-bookkeeping split does
+not apply until the two figures name the same set. This is pass 339's instruction honoured rather than
+bypassed.
+
+**At-risk state not re-derived** (NEXT item 4: optional, closed on content since pass 184, and the one
+check that has ever found anything is not free of self-inflicted risk). The mirror was **not** re-fetched
+this pass, so no `audit/*` cardinality or `eaf7487` figure is republished here; `branches.sh` did
+consult the remote for gate 7 and reported `recovery/at-risk-2026-09-29` = `eaf7487` **remote-only** and
+correctly flagged as **not** a deletion candidate, which is the class pass 345 established. The only
+ref-side events this pass created were its own worktree add/remove, both fully deregistered.
+
+**Standing facts: six, all re-derived, none copied from pass 345.** (1) census 96 = 0 open / 0 working /
+1 blocked / 83 done / 12 superseded. (2) fence **0** in all six production regions, 1 adjudicated benign
+hit, controls firing. (3) **0** non-terminal MadGab agents; 4 host-running other-repo agents left
+running. (4) 125 linked worktrees + main, prune empty, 0 missing. (5) `main` untouched at
+`origin/main` `0267ade`, no local `main` ref. (6) gate 7 green on 5 sha / 1 payload / 1 deletion /
+1 CI-step / 9 names, with the **new** precondition check green and its 2 plants red.
+
+**A note on this log's own growth, which pass 312 already measured and which this pass reinforces: 346
+passes against an unchanged pause, and this pass's finding is of the same species as pass 345's — a
+*published human instruction that is wrong in the direction that loses data*, surviving because the
+instruments gated the things that were easy to gate.** Item (3) of the standing section's list — retire
+this recurring pass — is the only action left that no amount of further reconciliation can substitute
+for, and it remains the correct one.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled pass
+339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345/346: the delete-list semantics, the worktree blocker, and the **precondition** are all gated by
+`branches.sh` with plants, and the standing section states all three. **(4)** If you re-fetch the
+mirror, use `git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read
+**directly, never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content
+since pass 184) and this pass did not. **(6)** The highest-value output of a further pass is still not a
+rule — it is re-stating item (3): **retire this recurring pass, or reopen MadGab explicitly.**

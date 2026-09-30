@@ -1015,6 +1015,41 @@ EOF
   if [ "$wt_checked" -gt 0 ]; then
     echo "branches: BLOCKED — ${wt_checked} deletion candidate(s) are CHECKED OUT in a live worktree; neither \`git branch -D\` nor \`git push origin --delete\` removes the local branch"
     sed 's/^/branches:   /' "/tmp/.branches.$$.wtinuse"
+    # pass 346: the standing section tells a human to REMOVE a worktree before
+    # deleting the branch, guarded by "confirm it holds nothing uncommitted".
+    # That guard is only as good as the method named for it, and this check
+    # fails closed on the two ways that can go wrong: the section does not pair
+    # the removal instruction with a method able to see IGNORED files (rule 45's
+    # class, and `git worktree remove` deletes it rather than refusing —
+    # measured, both directions), or the instrument itself cannot measure a
+    # single holder (rule 334: 0 reads is a defect, not a pass).
+    #
+    # The matcher is ANCHORED to the instruction it guards: one line carrying
+    # both the removal command and `--ignored`. A whole-block grep for the word
+    # was tried first and read GREEN against a section stripped of the check,
+    # because the word occurs elsewhere in the block — a green that certified a
+    # string rather than the precondition. See rule 346's second half.
+    if ! grep -E 'worktree remove' "$HUMANLIST" | grep -q -- '--ignored'; then
+      printf 'branches: DEFECT — the section tells a human to remove a blocked worktree but no single line pairs that removal with a method that can see IGNORED files; `git worktree remove` does not refuse, it deletes (rule 346)\n' >&2
+      status=1
+    fi
+    wt_measured=0
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      holder="${row#* -> }"
+      [ -d "$holder" ] || continue
+      wt_measured=$((wt_measured + 1))
+      ndirty="$(git -C "$holder" status --porcelain 2>/dev/null | wc -l | tr -d " ")"
+      nign="$(git -C "$holder" status --porcelain --ignored 2>/dev/null | sed -n 's/^!! //p' | grep -vE '(^|/)(target|prof)' | tr '\n' ' ')"
+      echo "branches:   precondition ${holder}: --porcelain ${ndirty} path(s); non-build --ignored: ${nign:-none}"
+      if [ "$ndirty" -eq 0 ] && [ -n "$nign" ]; then
+        echo "branches:   (--porcelain reads CLEAN here; the ignored set above is what \`git worktree remove\` will take with it — check it before removing, rule 346)"
+      fi
+    done <"/tmp/.branches.$$.wtinuse"
+    if [ "$wt_measured" -eq 0 ]; then
+      printf 'branches: NO PRECONDITION MEASURED — %s worktree(s) are reported BLOCKED but none could be measured; the precondition is unadjudicated (rule 334)\n' "$wt_checked" >&2
+      status=1
+    fi
   fi
   echo "branches: delete-list population = ${ndelete} branch(es) the section tells a human to remove; ${ndel_remoteonly} of those are REMOTE-ONLY and need \`git push origin --delete\`"
   [ "$ndel_remoteonly" -gt 0 ] \
