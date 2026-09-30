@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9a4e
-updated: 2026-09-30T02:41:00Z
+owner: coord-4e5b
+updated: 2026-09-30T02:53:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -12010,4 +12010,89 @@ never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on
 real defect AND against a correct instance of the same shape before publishing green — and re-read
 the population after any repair, because a green at 0 is the shape of a check that has stopped
 reading. **(7)** The highest-value output of a further pass is still not a rule — it is re-stating
+item (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 353 (coord-4e5b, 2026-09-30T02:41Z-02:53Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; one measured finding, recorded rather than acted on: rule 350 polices ONE of the document's two quoted-heading pointer forms
+
+Seventh identical coordinator invocation inside four hours, carrying the same three clauses as every
+pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven exit 0
+and every figure reproduces its standing row: census **96** = 0 open / 0 working / 1 blocked (this
+item) / 83 done / 12 superseded, skills-doc fenced-example control selector 0 / fence-blind 1;
+clue fence **0** canonical occurrences across all six production regions, every plant firing, the
+same 1 adjudicated benign per-word hit at `src/lib.rs:3597`; agents **0** non-terminal in a MadGab
+cwd over 131 MadGab cwd rows of **791** host rows = 110 succeeded / 1 stopped / 20 failed, the 5
+host-`running` agents (`94d8`, `94ef`, `94ee` assemblyp1, `92d6` volodyslav, `125e2` antonina-125)
+other repositories and **left running untouched**, the 5 idle rows not MadGab cwds, `3a8f01` still
+`stopped` and left stopped; selfcheck 11 of 11 instruments present, parsing, exiting 0, printing
+their invariant; refs 3 relative links and 12 instrument paths resolve, 0 self-pointers, **1 quoted
+section pointer resolves at a population of 1**; branches green on 5 branch+sha claims (0 tip,
+0 base), 1 payload claim against the live shortstat, 1 deletion + 1 CI-step effect claim, 9 names
+resolved, delete-list population 3 with 1 remote-only, the `review/run-clue-fence-in-ci` worktree
+blocker still live at `/workspace/madgab-cifence` with the corrected `--porcelain --ignored`
+precondition showing `Cargo.lock`. 791 vs pass 352's 787 host rows is **churn in other
+repositories** (rule: report a snapshot, claim no delta). The at-risk mirror was **not** re-fetched
+(closed on content since pass 184); nothing was claimed, launched, stopped, prompted or integrated;
+no new work item; `main` untouched.
+
+**THIS PASS'S FINDING — RULE 350'S CHECK COVERS ONE OF THIS DOCUMENT'S TWO QUOTED-HEADING POINTER
+FORMS, AND THE FORM IT DOES NOT COVER CANNOT BE ADDED BY THE SAME DISCRIMINATOR.** `refs.sh` §4
+populates its pointer check from `grep -oE '§"[^"]+"'` and reports a population of **1**, which pass
+351's analysis says is the healthy reading. It is a healthy reading of **one spelling**. The
+reader-facing block (1372 lines) also uses a second quoted-heading form — the backticked
+`` `## Name` `` — and that form carries **19** mentions:
+
+    8 x  ## Status: accepted and paused        (a pointer into the ITINERARY)
+    2 x  ## Pass log                           (this file)
+    2 x  ## Pass 92    2 x ## Pass 160
+    1 x  ## Pass 155   1 x ## Pass 204         1 x ## Pass 255   (this file)
+    1 x  ## Pass <n>                           (a template, not a pointer)
+    1 x  ## Current gate status                (this file)
+
+**All 19 currently resolve, so the gap is LATENT, not live** — measured by identity, not inferred:
+`## Status: accepted and paused` exists only in `docs/skills/itinerary-madgab.md`; `## Pass log`,
+`## Pass 92/155/160/204/255` and `## Current gate status (read this first; …)` exist only in this
+file; `## Pass <n>` is a citation template and resolves to no heading by design. The one that matters
+most is `## Current gate status`, the census table's own pointer to this block, and it resolves on
+the **leading-words** rule rather than byte equality — an anchored `$` match against the literal name
+returns **0** files, which is a live instance of the pass-310/rule-14x blindness in the naive form
+and is why the check must keep matching on leading words.
+
+**Why no extension was made, which is the part worth keeping.** §4's scoping decision is sound for
+its own form and the reason is structural: a quoted, *unnumbered* name in this document can only be
+a pointer into this file, because every other document's sections are cited numerically (`§3`,
+`OBSTRUCTION-MAP.md §7`) — pass-317 is exactly what happens when that assumption is dropped. The
+backticked form has **no** equivalent discriminator, and both available extensions are known defects
+rather than unfinished work: restricting the population to names that resolve here makes the check
+**vacuous by construction** (the resolution test defines the population, so it can never fail —
+rule 351's 0-read/1-read failure mode in a new dress), while checking every backticked `## Name`
+would condemn the **8 correct citations of the itinerary's own `## Status: accepted and paused`**
+heading, i.e. the pass-317 defect. So the standing boundary of rule 350 is: **a heading pointer
+into this file is checkable exactly when the citation form cannot be attributed to another file,
+and the document has one pointer form of each kind.** Extending §4 needs a discriminator nobody has
+written, not another grep. Recorded here so a later pass does not "complete" §4 into a vacuous or
+condemning check. No rule added, no instrument changed, nothing published green: this pass changed
+no check, so there was nothing to plant.
+
+**The other half of the finding is the one the standing section lacks.** Rule 350 says a pointer to
+a heading is not thereby correct; it does not say which pointers get adjudicated. A reader can
+reasonably infer from "0 self-pointers" and "1 quoted section pointer resolves" that the
+reader-facing block's pointers are gated, and **19 of its 20 pointer-shaped mentions are not**. The
+count is recorded in both senses — as the population refs.sh reads (1) and as the population a
+reader would assume (19+1) — because a count carries its population (rules 14k/14l/14o) and the gap
+between these two is precisely the invisible part.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339), or the 1295/291 populations. **(3)** Do not re-litigate passes 345–353: the delete-list
+semantics, the worktree blocker, the corrected precondition, the heading-vs-line half of rule 330,
+the empty-population half of rule 351, the branch-qualified-path scoping decision, and the
+rule-350 form boundary measured above are all now stated in the standing section or in these
+entries. **(4)** If you re-fetch the mirror, use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content since pass
+184); this pass did not. **(6)** If you extend `refs.sh` §4, you must first supply a discriminator
+that survives both known failure modes above, and you must plant it against a **correct** citation
+of the itinerary's `## Status: accepted and paused` as well as against a real dangling
+backticked-heading pointer — a plant on a population defined by its own resolution test proves
+nothing. **(7)** The highest-value output of a further pass is still not a rule — it is re-stating
 item (3): **retire this recurring pass, or reopen MadGab explicitly.**
