@@ -240,13 +240,85 @@ while IFS= read -r name; do
   fi
 done < <(grep -oE '§"[^"]+"' "$prose" | sed -E 's/^§"//; s/"$//' | sort -u || true)
 
+# --- §"Name" pointer QUALIFIER, added at pass 354 -----------------------------
+# Rule 350 established that "a pointer to a heading is not thereby correct". The
+# loop above decides the NAME. It DROPS THE QUALIFIER, and the standing section
+# carries exactly one qualified pointer, in the one paragraph whose job is to
+# send the reader to the declining-clauses record:
+#
+#   "see the newest entry's §"The invocation's three standing clauses are
+#    declined again" subsection"
+#
+# LIVE DEFECT ON ARRIVAL, measured not inferred: that qualifier is FALSE. The
+# newest entry is pass 353 (line 12015 of 12098) and contains ZERO occurrences of
+# the named subsection; the newest entry that HAS one is pass 350 (line 11765).
+# The loop above still read it GREEN, because the heading exists four times in
+# OLDER entries (passes 343/344/345/350) and leading-words matching cannot tell
+# "the one this pointer names" from "one of the four". That is rule 335's shape
+# one level up: a matcher that cannot distinguish the claim from a coincidental
+# neighbour of the same shape, resolving against a population the claim never
+# named.
+#
+# So when a pointer says WHICH CONTAINER it means, the resolution set is scoped
+# to that container and must resolve there as well as file-wide.
+#
+# The qualifier list is deliberately NARROW — a short list of container words
+# this document actually uses. A qualifier this script cannot decide is IGNORED
+# rather than guessed at, because guessing condemns correct text (pass 317), and
+# pass 353 recorded the same boundary for the backticked `## Name` form: the
+# right move here is one discriminator that survives both known failure modes,
+# not a second grep that fires on prose.
+#
+# The context window is the pointer's own line and the two above it, because the
+# governing qualifier and the pointer it governs sit in one wrapped sentence
+# here. That is a stated limitation, not a claim of generality: a qualifier
+# separated from its pointer by more than two lines would be ignored, and the
+# 0-count below is printed precisely so that "ignored" is visible rather than
+# silent.
+newest_start="$(grep -n '^## Pass ' "$ITEM" | tail -1 | cut -d: -f1)"
+newest_headings="$(mktemp)"
+trap 'rm -f "$slurp" "$prose" "$item_headings" "$newest_headings"' EXIT
+if [ -n "$newest_start" ] && [ "$newest_start" -le "$BODY_LINES" ]; then
+  tail -n "+$newest_start" "$ITEM" | grep -E '^#+ ' \
+    | sed -E 's/^#+ +//' | tr 'A-Z' 'a-z' | tr -s ' ' >"$newest_headings"
+else
+  : >"$newest_headings"
+fi
+qualptrs=0; badqual=0
+while IFS= read -r hit; do
+  [ -n "$hit" ] || continue
+  pline="${hit%%$'\t'*}"
+  pname="${hit#*$'\t'}"
+  [ "$pline" != "$pname" ] || continue
+  ctx="$(sed -n "$(( pline > 2 ? pline - 2 : 1 )),${pline}p" "$ITEM" 2>/dev/null || true)"
+  printf '%s' "$ctx" | grep -qiE '(newest|latest|last|most recent|current)[[:space:]]+entr(y|ies)' || continue
+  qualptrs=$((qualptrs + 1))
+  qneedle="$(printf '%s' "$pname" | tr 'A-Z' 'a-z' | tr -s ' ')"
+  # The container is `grep -n '^## Pass '` LAST, i.e. the highest pass number in
+  # FILE order. In an append-only log those agree; the check takes the file order
+  # because that is what a reader scrolling to the bottom arrives at.
+  if [ -s "$newest_headings" ] \
+     && ! awk -v n="$qneedle" 'index($0, n) == 1 { found = 1 } END { exit !found }' "$newest_headings"; then
+    printf 'refs: BROKEN QUALIFIED POINTER  §"%s"  — the pointer says "the newest entry'"'"'s" subsection, and the newest entry (%s, line %s) has no heading beginning with that name\n' \
+      "$pname" "$(sed -n "${newest_start}p" "$ITEM" | cut -c1-11)" "$newest_start" >&2
+    badqual=$((badqual + 1))
+  fi
+done < <(awk -v lim="$FIRSTPASS" '
+  NR < lim {
+    rest = $0
+    while (match(rest, /§"[^"]+"/)) {
+      printf "%d\t%s\n", NR, substr(rest, RSTART, RLENGTH)
+      rest = substr(rest, RSTART + RLENGTH)
+    }
+  }' "$ITEM" | sed -E 's/^([0-9]+)\t§"/\1\t/; s/"$//')
+
 # Each defect class sets the verdict. They are NOT folded into $status above,
 # because a first version of this script incremented $badlinks/$badinsts,
 # printed "BROKEN LINK" on stderr, and then still exited 0: the summary block
 # tested $status, which nothing had touched. The plant below caught it, which
 # is the only reason it is known. A detector that reports and does not fail is
 # the same shape as pass 298's instrument that "succeeded on the failure case".
-[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] || [ "$badsec" -gt 0 ] && status=1
+[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] || [ "$badsec" -gt 0 ] || [ "$badqual" -gt 0 ] && status=1
 
 # --- summary -------------------------------------------------------------------
 # Printed on BOTH paths: a clean run is never silent, a failing one is never
@@ -256,11 +328,12 @@ if [ "$status" -eq 0 ]; then
   echo "refs: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
   echo "refs: ${links} relative link(s) resolve, ${insts} instrument path(s) resolve, 0 self-pointers"
   echo "refs: ${secptrs} quoted section pointer(s) resolve, 0 broken"
+  echo "refs: ${qualptrs} qualified pointer(s) checked against the newest entry (${newest_start:-none}); 0 unresolved in it"
   echo "refs: cross-references resolve"
   exit 0
 fi
 
 echo "refs: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
-echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s); ${secptrs} quoted section pointer(s), ${badsec} broken"
+echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s); ${secptrs} quoted section pointer(s), ${badsec} broken; ${qualptrs} qualified pointer(s), ${badqual} unresolved in the newest entry"
 echo "refs: REFUSING — a pointer that does not resolve sends the next pass to the wrong line" >&2
 exit 1

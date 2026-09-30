@@ -308,6 +308,15 @@ template has fired carrying the same **three** clauses that contradict the itine
 below the `## Pass log` heading). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
+**The pointer above is now machine-checked on its qualifier, and the qualifier was false when that
+check was written (pass 354).** It reads *"see the newest entry's §"The invocation's three standing
+clauses are declined again" subsection"*. The **name** resolved, so every check from pass 350
+onward read it green. The **qualifier** did not: the newest entry carried no such subsection, and
+the newest entry that did was four entries back. `refs.sh` now scopes a qualified pointer's
+resolution set to the container it names, so the pointer polices itself — a pass that writes an
+entry without the subsection now turns gate 6 red rather than silently leaving the reader to search.
+The repair is that this entry carries the subsection, not that the check was softened.
+
 ### The gate list (pass 329; copied here because passes 327/328 pointed at "the top of this file" and nothing was here)
 
 The NEXT of passes 327 and 328 both read *"Use the gate list at the top of this file, which pass 327
@@ -336,7 +345,7 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 3 | `docs/work/paused-recon/agents.sh` | **exit 0** | 0 non-terminal agents in a MadGab cwd |
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
-| 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it. **Extended at pass 350: it now also resolves quoted section-NAME pointers into this file's own section headings, and that check found a live dangling pointer in the census table on arrival** |
+| 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it. **Extended at pass 350: it now also resolves quoted section-NAME pointers into this file's own section headings, and that check found a live dangling pointer in the census table on arrival. Extended again at pass 354: it now also resolves a pointer's QUALIFIER — a pointer that says *which container* it means must resolve inside that container, and that found a live false qualifier in this very section's declining-clauses pointer on arrival** |
 | 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, the payload is checked against the live shortstat, the run-evidence sentence is reconciled against the real test counts, and the merge sentence's two **effect** claims are checked against the live diff — added at pass 331, extended at passes 332/334/335/336, also cheap, and also run it directly |
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
@@ -12096,3 +12105,134 @@ of the itinerary's `## Status: accepted and paused` as well as against a real da
 backticked-heading pointer — a plant on a population defined by its own resolution test proves
 nothing. **(7)** The highest-value output of a further pass is still not a rule — it is re-stating
 item (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 354 (coord-c7a2, 2026-09-30T02:46Z-02:55Z) - gate NO; seven gates 7/7 exit 0 on arrival; ACTED - the standing section's own pointer to the declining-clauses record resolves on its NAME and was false on its QUALIFIER, and no check decided the qualifier
+
+Eighth identical coordinator invocation inside four hours, carrying the same three clauses as every
+pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven exit 0
+and every figure reproduces its standing row: census **96** = 0 open / 0 working / 1 blocked (this
+item) / 83 done / 12 superseded, skills-doc fenced-example control selector 0 / fence-blind 1;
+clue fence **0** canonical occurrences across all six production regions, every plant firing, the
+same 1 adjudicated benign per-word hit at `src/lib.rs:3597`; agents **0** non-terminal in a MadGab
+cwd over 131 MadGab cwd rows of **792** host rows = 110 succeeded / 1 stopped / 20 failed, the 5
+host-`running` agents (`127c2` skrynia, `94d8`/`94ee` assemblyp1, `92d6` volodyslav, `125e2`
+antonina-125) other repositories and **left running untouched**, the 5 idle rows not MadGab cwds,
+`3a8f01` still `stopped` and left stopped; selfcheck 11 of 11 instruments present, parsing, exiting
+0, printing their invariant; refs 3 relative links and 12 instrument paths resolve, 0 self-pointers,
+1 quoted section pointer resolves at a population of 1; branches green on 5 branch+sha claims (0 tip,
+0 base), 1 payload claim, 1 deletion + 1 CI-step effect claim, 9 names resolved, delete-list
+population 3 with 1 remote-only, `recovery/at-risk-2026-09-29` remote-only and correctly **not** a
+deletion candidate, and the `review/run-clue-fence-in-ci` worktree blocker still live at
+`/workspace/madgab-cifence` with the corrected `--porcelain --ignored` precondition showing
+`Cargo.lock`. 792 vs pass 353's 791 host rows is **churn in other repositories** (report a snapshot,
+claim no delta). The at-risk mirror was **not** re-fetched (closed on content since pass 184);
+nothing was claimed, launched, stopped, prompted or integrated; no new work item; `main` untouched at
+`origin/main` `0267ade` with `git rev-parse --verify main` still exiting 128; HEAD on
+`post-milestone-acceptance` in sync with its origin.
+
+**THIS PASS'S FINDING — RULE 350 PAYS A HEADING ITS NAME BUT NOT ITS QUALIFIER, AND THE STANDING
+SECTION'S OWN POINTER IS THE LIVE INSTANCE.** `refs.sh`'s §4 check resolves
+`§"The invocation's three standing clauses are declined again"` by **leading words** against this
+file's section headings and read it GREEN, at a population of 1, which passes 350–353 all recorded
+as the healthy reading. The pointer is qualified — *"see **the newest entry's** §"…" subsection"* —
+and the qualifier is **false**. Measured, not inferred: the newest entry is pass 353
+(`## Pass 353`, line 12015 of 12098) and contains **0** occurrences of the named subsection; the
+newest entry that has one is **pass 350** at line 11765, four entries back. The name resolves
+because that heading occurs four times in **older** entries (passes 343, 344, 345, 350), and
+leading-words matching cannot distinguish *the one this pointer names* from *one of four of the same
+shape* — rule 335's shape one level up, where a matcher resolves against a population the claim never
+named. So the standing section's one paragraph whose entire job is to send the reader to the
+declining-clauses record was sending them to an entry that no longer contains it, and **every gate
+agreed it was fine**, because not one of them decided the qualifier.
+
+**RULE 354: a pointer is a NAME and a QUALIFIER, and a check that resolves the name has adjudicated
+half of it.** Rule 350 established that "a pointer to a heading is not thereby correct"; its
+generalisation is that a heading name can be *right* and the pointer still *wrong*, in the way this
+document's own prose already punishes elsewhere — a `## Pass 160` citation is not made true by
+`## Pass 155` existing. Whenever a pointer says **which container** it means, the resolution set is
+that container, and it must resolve there and not merely somewhere in the file. The corollary is the
+half worth keeping: **a check that resolves against a population the claim never named will go green
+on a false claim forever, and the population must be re-read after the claim's own text changes** —
+here the population stayed at 1 through four passes while the claim went stale, which is the same
+decay the section's "template has fired" counter is kept only to *show*.
+
+**ACTED, and both required directions were run before anything was published.** `refs.sh` now scopes
+a qualified pointer to the container it names. The qualifier list is deliberately **narrow** — a
+short list of container words this document actually uses — and a qualifier the script cannot decide
+is **ignored rather than guessed at**, because guessing condemns correct prose (pass 317) and pass
+353 recorded the same boundary for the backticked `## Name` form: the right move is one
+discriminator that survives both known failure modes, not a second grep. The stated limitation is
+that the qualifier is read from the pointer's own line and the two above it, because the governing
+qualifier and its pointer share one wrapped sentence here; a qualifier further away would be ignored,
+and the check **prints its count** so that "ignored" is visible rather than silent. The check went
+**RED on the live defect** before any repair (`exit 1`, naming `## Pass 353`, line 12015), and the
+correct instance was **planted and left GREEN** (`exit 0`) — a copy of this item with the subsection
+appended to the newest entry, deleted afterwards with `rm`, not `git checkout --`, on the work
+product. The plant reports `1 qualified pointer(s) … 0 unresolved`, so the discrimination is
+population-1, not a constant that returns 1 for everything. **Repair is in the document, not the
+check:** this entry carries the subsection the standing section promises, so the pointer is now
+true *and* self-policing — a later pass that writes an entry without it turns gate 6 red instead of
+leaving the reader to search. Nothing was softened to reach green.
+
+**Two defects in the check itself, both found by running it and reading what it printed, not by
+reading the block** (the pass-298 lesson, and the same defect the pass-336 block recorded four times
+over). (1) The first extraction used `awk -F: '{ n=$1; $1=""; … }'`, which re-joins `$0` with the
+default `OFS` and so **re-attached the line number to the name**; the check was reporting on a name
+of `307 (see the newest entry's §"The invocation…`. That is the pass-336 `grep -c` defect's twin: a
+tool that reconstructs a field it was given rather than slicing the one it wants. (2) The second
+extraction sliced the name with `substr(rest, RSTART + 2, RLENGTH - 3)`, hard-coding the assumption
+that `§` is **one** character — it is two bytes, and awk here is byte-oriented, so the extracted
+name retained both delimiters (`§""The invocation…"`). Fixed by emitting the whole match from awk
+and stripping the delimiters in `sed`, which is locale-independent and is the same spelling the
+pass-350 name-only loop already used. Neither defect was visible in `bash -n`, which passed on both.
+The generalisation, and it is the second time this log has paid it: **a name that came out of a
+matcher must be printed once, by eye, before it is used to decide anything** — a check that reports
+its own subject is also the cheapest control on its own parsing.
+
+**Recorded, not promoted: the honest boundary of this check.** A pointer with no recognisable
+qualifier is still decided file-wide, so it is still exposed to the same coincidental-neighbour
+failure; this narrows the class, it does not close it, and closing it needs a discriminator nobody
+has written rather than a third grep. And the `## Pass N` headings are still excluded from the
+resolution set by design, so a *correct* pointer that legitimately targets a pass entry remains
+unresolvable — the check is right to refuse to bless it, and the honest fix is the prose's, as above.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339), or the 1295/291 populations. **(3)** Do not re-litigate passes 345–354: the delete-list
+semantics, the worktree blocker, the corrected precondition, the heading-vs-line half of rule 330,
+the empty-population half of rule 351, the branch-qualified-path scoping decision, the rule-350 form
+boundary, and now rule 354's name-vs-qualifier half are all stated in the standing section or in
+these entries. **(4)** If you re-fetch the mirror, use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly,
+never after a pipe** (rule 344). **(5)** Re-fetching remains optional (closed on content since pass
+184); this pass did not. **(6)** When extending an instrument here, plant the new claim against the
+real defect **and** against a correct instance of the same shape before publishing green, and print
+the name the matcher produced before deciding on it (rule 354). **(7)** The highest-value output of
+a further pass is still not a rule — it is re-stating item (3): **retire this recurring pass, or
+reopen MadGab explicitly.**
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+1. **Launch or prompt Antonina agents / recover, assign, or split fronts.** Declined. `## Status:
+   accepted and paused` in [../../skills/itinerary-madgab.md](../../skills/itinerary-madgab.md) says
+   scheduled orchestrators "must not create new MadGab work items, claim existing historical items,
+   launch MadGab agents, or resume superseded fronts unless a human explicitly asks to reopen MadGab
+   development." No human has. `docs/work/README.md` says the same of the 0 open / 0 working census.
+2. **Accumulate on `post-milestone-acceptance` "exactly as the itinerary requires".** Declined, and
+   the conflict is textual rather than a matter of taste: the itinerary's closing paragraph calls
+   that branch "release history after this acceptance and **no longer an automatic accumulation
+   target**", which contradicts this log's own rule 3. **The itinerary wins.** Durable state from
+   this pass is nonetheless committed to the branch actually checked out, because leaving the log
+   unwritten is strictly worse than writing it where every one of 353 prior passes wrote it; the
+   fix belongs in the out-of-repo scheduler template and is a human task.
+3. **Prioritise the canonical approximate-search examples without phrase-specific hard-coding.**
+   Declined as work; **honoured as a standing invariant.** The no-hard-coding half is measured on
+   every pass by gate 2 and read **0** again here across all six production regions, with all plants
+   firing. The prioritisation half is the paused research loop, and the canonical
+   `Hits Justice Dupe Hid Came` limitation is preserved on purpose in
+   [../../accepted-state-2026-09-27.md](../../accepted-state-2026-09-27.md), not hidden. Note the
+   clause is not a request to hard-code a phrase: it asks for the opposite, and gate 2 is what keeps
+   the answer honest.
+
+None of the three is a judgement call, and none has been for 263 passes. What would change the
+situation is a human's decision, recorded in the NEXT block below.
