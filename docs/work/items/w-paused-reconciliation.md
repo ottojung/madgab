@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-5b73
-updated: 2026-09-30T22:41:00Z
+updated: 2026-09-30T22:47:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -198,6 +198,76 @@ file, created no work item, claimed nothing, launched nothing, merged nothing, p
 MadGab explicitly. There is no third option and no further automated item on this repository. A pass
 arriving after this one should not append an entry: read this notice, re-run the bare gates to confirm
 they are still green, and exit.
+
+### Addendum (coord pass, 2026-09-30T22:42Z) — `at-risk-delta.sh` was the one instrument of the at-risk pair with no staleness guard, and a stale mirror read as new at-risk history
+
+The 17:41Z addendum below repaired `at-risk.sh`'s `/tmp` collision. This pass found the
+**other** half of the same pair missing a check it had in the sibling: `at-risk-delta.sh`
+measures the *same* exclusion set, and `at-risk.sh` grew a staleness refusal in pass 293
+(lines 276–284) for a reason that applies identically here, while `at-risk-delta.sh` never
+had it.
+
+Observed live, not theorised. The bare form ran on arrival while the mirror sat one pass
+behind (mirror `ac17567`, origin `cdf178d`) and read **arms 91 / published 89** against a
+fresh-mirror **90 / 89**. Its growth guard (lines 110–133) correctly refused to publish that
+and exited 3, so **nothing wrong was published** — fail-closed held. But it named the wrong
+cause: it printed `GROWTH -- arms 91/89 exceed the recorded 90/89` and told the reader to
+attribute identity to new at-risk history that **does not exist**. Re-run with `--fetch`, the
+same invocation printed 90 / 89 and exit 0. The 91 was this log's own previous pushed commit
+inflated into the at-risk set by a mirror that had not caught up.
+
+The guard is not redundant with `at-risk-delta.sh`'s internal checks, and the file's own
+comment at lines 114–119 already explains why. An exclusion set too narrow because the mirror
+is stale passes every check the file also makes: the two arms still agree, the partition still
+sums, both controls still fire, and the ref **count** is unchanged by a fast-forward — so
+rule 14g's cardinality assertion is blind to staleness by construction. What differs is only
+the **size** of the at-risk set, which is this instrument's entire subject. `at-risk.sh`'s
+header records the same reasoning verbatim for its own pass.
+
+The growth guard stays — being loud is right — but staleness is now excluded as a cause
+before growth is claimed, so a stale mirror is named as what it is instead of masquerading as
+growth. Repair is the staleness refusal in the file's existing inline style; the growth guard
+and every threshold, rule, region and expectation are untouched.
+
+Verified in both directions, not by reading:
+
+| arrangement | result |
+| --- | --- |
+| fresh mirror, bare form | exit **0**, arms 90 / 89, empty stderr |
+| 6x `at-risk-delta.sh` + 4x `at-risk.sh` concurrently | 10/10 exit **0**, all printing the identical first line |
+| mirror `update-ref`'d back to its parent (staleness reproduced) | exit **1**, names both tips, reports **no number** — and the arms inflate to the same **91** the live run saw |
+| `selfcheck.sh` | **13** of 13 |
+
+Mirror restored to `cdf178d` immediately after the simulated-stale run. Committed `e58b1f2e`,
+pushed to `origin/post-milestone-acceptance`.
+
+Standing facts re-measured on arrival, unchanged: `census` **96** = 0 open / 0 working /
+1 blocked / 83 done / 12 superseded; `agents` **0** non-terminal MadGab agents (the 6
+host-`running` agents are all other repositories and were left running untouched; `a11d` is
+`idle` in `/tmp` and is not a MadGab cwd); `clue-fence` **0** across all six production
+regions; `at-risk` **90** = ref-held 1 + reflog-only 89, disjoint, controls both directions;
+`at-risk-content` and `at-risk-delta` 0 non-build blobs absent from origin; `figures` 0
+defects; `prohibition` 0 defects; `frontmatter` 0 unparsed; `branches` 0 unresolved.
+`origin/main` is still `0267ade` with no local `main` ref (`rev-parse --verify main` exit 128)
+and `git diff origin/main HEAD -- src tests examples web` is **empty**. All 12 gates exit 0
+run **concurrently**.
+
+**The three scheduler clauses are declined again, unchanged.** (1) Nothing to launch: 0 open,
+0 working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while paused.
+(2) The `post-milestone-acceptance` accumulation clause still conflicts textually with the
+itinerary, which says that branch "is release history after this acceptance and is no longer
+an automatic accumulation target"; the itinerary wins, and only a human can fix the out-of-repo
+template. (3) The canonical-example clause holds as a **standing invariant** (`clue-fence` 0)
+and the preserved `Hits Justice Dupe Hid Came` limitation was not re-litigated. This pass
+changed no `src/` file, created no work item, claimed nothing, launched nothing, merged
+nothing, pushed nothing to `main`, and leaves **nothing running**.
+
+This is an instrument repair to a gate this notice tells passes to rely on — the same class
+as the 17:41Z repair below, and like it, not a rule, gate, plant, new instrument or pass
+entry.
+
+**The next useful action is unchanged and is still a human's:** retire this scheduled pass, or
+reopen MadGab explicitly.
 
 ### Addendum (coord pass, 2026-09-30T17:41Z) — the arrival check was only true when run serially; `at-risk.sh` collided on fixed `/tmp` paths
 
