@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T15:58:00Z
+updated: 2026-09-30T17:38:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -13754,3 +13754,29 @@ output of a further pass is still not a rule: **retire this recurring pass, or r
 explicitly.** What would change the situation is a human's decision, and this pass created no work
 item, claimed nothing, launched no agent, merged nothing, pushed nothing to `main`, created no
 `recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
+
+---
+
+## Re-verification only (fresh pass, 2026-09-30T17:21Z–17:38Z) — no pass entry, per the STOP notice
+
+No rule, gate, plant or instrument was added. Nothing was claimed, launched, stopped, prompted,
+merged or integrated; no new work item; no `recovery/*` branch; `main` untouched. This section is
+the smallest durable record that the pause still holds and is a **human decision**.
+
+Measured this pass, all exit 0 on arrival: `census` 96 items = **83 done / 12 superseded / 1 blocked**,
+**0 open, 0 working**; `agents` **0 non-terminal MadGab agents** (the single host-`running` agent,
+`136a4`, is in `/workspace/qai-gate-136-d7review` and was left running); `clue-fence` **0 canonical
+clue occurrences across all six production `src/` regions**, its plants firing; `at-risk` 90 total =
+ref-held 1 + reflog-only 89, arms and controls agreeing; `prohibition` 3 figures + 1 reason reconciled,
+0 defects, and gate 9 printing both new shape rows. `selfcheck.sh` **13 of 13**. `origin/main` is
+`0267ade`, the state accepted 2026-09-27. Working tree clean; `post-milestone-acceptance` 0/0 against
+`origin/post-milestone-acceptance`.
+
+`branch-containment.sh` exit 1 with its usage text is **expected**: it is argument-taking and is
+deliberately not in the bare gate list (NEXT 3). `branches.sh` exit 0.
+
+This pass changed no `src/` file. The preserved `Hits Justice Dupe Hid Came` limitation was not
+re-litigated and is not a work item; the no-hard-coding half of the standing clause holds as an
+**invariant**, not as work.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
