@@ -231,7 +231,34 @@ write_fixture() {
 }
 
 # newest_heading <file> -- derived, never assumed.
-newest_heading() { grep -n '^## Pass ' "$1" | tail -1 | cut -d: -f1; }
+# Rule 360: the newest entry is the HIGHEST PASS NUMBER, not the last heading in
+# the file. `tail -1` assumes the file is append-ordered, and a pass that inserts
+# its entry at any anchor other than EOF breaks that assumption silently: the
+# handoff reader then hands the next pass a STALE entry's NEXT, and reports the
+# stale entry's number as "the newest entry". The `## Pass log` section heading
+# has no number, so the numbered pattern also drops a shape `^## Pass ` matched.
+newest_heading() {
+  grep -n '^## Pass [0-9]' "$1" \
+    | sed 's/^\([0-9][0-9]*\):## Pass \([0-9][0-9]*\).*/\2 \1/' \
+    | sort -k1,1n | tail -1 | cut -d' ' -f2
+}
+
+# order_guard <file> -- rule 360. Red when the physically-last entry is not the
+# highest-numbered one, because that is the condition that made a reader wrong
+# about where the newest entry starts and where it ends. Derived, never assumed.
+order_guard() {
+  local last highest
+  last="$(grep -n '^## Pass [0-9]' "$1" | tail -1 | sed 's/^\([0-9]*\):.*/\1/')"
+  highest="$(newest_heading "$1")"
+  if [ -n "$last" ] && [ -n "$highest" ] && [ "$last" != "$highest" ]; then
+    printf 'item-state: OUT OF APPEND ORDER -- the last entry in the file starts at line %s, but the highest-numbered entry starts at line %s.\n' \
+      "$last" "$highest" >&2
+    printf 'item-state:   the handoff below is read from the HIGHEST-NUMBERED entry (correct), but every `tail -1` reader in this repository is reading the other one.\n' >&2
+    printf 'item-state:   fix by moving the higher-numbered section to the end of the file; see rule 360.\n' >&2
+    return 1
+  fi
+  return 0
+}
 
 for ctl_text in \
   'NEXT: do the thing' \
@@ -339,15 +366,20 @@ if [ -n "$ctl_bad" ]; then
 fi
 rm -rf "$ctl_dir"; trap - EXIT
 
-# --- newest entry: the LAST '## Pass ' heading, and its NEXT guidance --------
-# `grep | tail -1` rather than `head -1`: the log's own rule is that the latest
-# entry is the LAST section, and an entry count is a number, not a position.
-last_heading="$(grep -n '^## Pass ' "$ITEM" | tail -1)"
-if [ -z "$last_heading" ]; then
-  fail "no '## Pass ' heading found; the log's own rule (latest entry is the last section) cannot be applied"
+# --- newest entry: the HIGHEST-NUMBERED entry, and its NEXT guidance --------
+# Rule 360. This was `grep -n '^## Pass ' "$ITEM" | tail -1`, i.e. the physically
+# last heading, which is correct only while the file is append-ordered. Pass 359
+# inserted its own entry at an anchor other than EOF, so on arrival the last
+# heading was pass 358 while the newest entry was pass 359 -- and this reader,
+# the one the handoff depends on, reported 358 as "the newest entry" and printed
+# 358's NEXT. The derivation is now order-independent and the condition is stated
+# rather than assumed: order_guard is run first and turns this gate red on it.
+order_guard "$ITEM" || fail "the pass log is not in append order, so 'the latest entry is the last section' is false as written; the newest entry below is read by pass NUMBER, but fix the file order (rule 360)"
+hno="$(newest_heading "$ITEM")"
+if [ -z "$hno" ]; then
+  fail "no '## Pass <n>' heading found; the newest entry cannot be identified by number"
 else
-  hno="${last_heading%%:*}"
-  htext="${last_heading#*:}"
+  htext="$(sed -n "${hno}p" "$ITEM")"
   printf '  %-10s %s\n' latest "$htext (line ${hno})"
 
   # The handoff a pass is required to read: the newest entry's NEXT guidance,

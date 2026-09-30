@@ -275,7 +275,23 @@ done < <(grep -oE '§"[^"]+"' "$prose" | sed -E 's/^§"//; s/"$//' | sort -u || 
 # separated from its pointer by more than two lines would be ignored, and the
 # 0-count below is printed precisely so that "ignored" is visible rather than
 # silent.
-newest_start="$(grep -n '^## Pass ' "$ITEM" | tail -1 | cut -d: -f1)"
+# Rule 360: the newest entry is the HIGHEST PASS NUMBER. This was `tail -1`,
+# which is correct only while the file is append-ordered, and pass 359 inserted
+# its entry at an anchor other than EOF, so this gate adjudicated the standing
+# section's qualified pointer against pass 358 while pass 359 was the newest
+# entry. The numbered pattern also drops the `## Pass log` heading, which
+# `^## Pass ` matched.
+newest_start="$(grep -n '^## Pass [0-9]' "$ITEM" \
+  | sed 's/^\([0-9][0-9]*\):## Pass \([0-9][0-9]*\).*/\2 \1/' \
+  | sort -k1,1n | tail -1 | cut -d' ' -f2)"
+# The disordered condition is reported, not assumed away: if the physically-last
+# entry is not the highest-numbered one, the pointer below is still adjudicated
+# against the right entry, but the file needs the rule-360 move.
+newest_last_line="$(grep -n '^## Pass [0-9]' "$ITEM" | tail -1 | cut -d: -f1)"
+if [ -n "$newest_start" ] && [ -n "$newest_last_line" ] && [ "$newest_start" != "$newest_last_line" ]; then
+  printf 'refs: OUT OF APPEND ORDER -- last entry at line %s, highest-numbered entry at line %s; the qualified pointer is adjudicated against the highest-numbered one (rule 360). Move the higher-numbered section to the end of the file.\n' \
+    "$newest_last_line" "$newest_start" >&2
+fi
 newest_headings="$(mktemp)"
 trap 'rm -f "$slurp" "$prose" "$item_headings" "$newest_headings"' EXIT
 if [ -n "$newest_start" ] && [ "$newest_start" -le "$BODY_LINES" ]; then
