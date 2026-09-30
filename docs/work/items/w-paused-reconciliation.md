@@ -10824,3 +10824,50 @@ list's seven rows. **(3)** The two remaining human items are unchanged: merge `8
 the three superseded branches (**two need `git push origin --delete`; they are remote-only**), and
 retire this recurring pass. Nothing here is coordinator-actionable, and this pass's defect was in
 the reading instruments, not in MadGab.
+
+## Pass 340, second finding (coord-5e40, appended before the push) - the at-risk growth guard fired on a member that is the SAFEST commit in the repository, and its own remediation advice would have made that permanent
+
+**The guard worked. Its advice is what nearly did not.** After pushing this pass's own commit,
+`at-risk-delta.sh` exited **3** with `GROWTH -- arms 91/89 exceed the recorded 90/89`, and printed
+the standing remedy: *"attribute the movement by identity, then set PREV_ARMS=91 PREV_PUB=89."*
+The attribution is correct and the remedy is not. The new member was **`1f5330a`, this pass's own
+push to `post-milestone-acceptance`** — held by three refs
+(`refs/heads/post-milestone-acceptance`, `refs/remotes/audit/…`, `refs/remotes/origin/…`), i.e. the
+most durable commit in the tree, and the guard named it as unbacked.
+
+**Cause, re-derived rather than assumed (rule 14q): `at-risk-delta.sh` sets `FETCH=0` by default.**
+The mirror refresh is opt-in, behind `--fetch`, so the exclusion set is whatever
+`refs/remotes/audit` last held. A commit pushed seconds earlier is in `--all` via the local branch
+and absent from the stale mirror, so `--not <audit>` cannot exclude it and it reads as at-risk.
+Reproduced both directions: with a deliberately stale mirror the arms read **91**; after
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` (rule 14m: real source namespace,
+**no** `--prune`) the same script reads **90/89** and the delta returns to its one known member
+`514ed91`; `--fetch` exits 0 on a warm mirror, and a bare re-run on the now-warm mirror exits 0.
+
+**Rule 340b: an armed guard whose failure mode is a FALSE ALARM must not print a baseline bump as
+its remedy.** This is the mirror image of pass 327's finding, which caught a delta instrument
+*absorbing real growth*; this is one that would have *absorbed a non-event* — the standing section
+says "Do not disarm it to get a green", and the script's own next line invites precisely the
+disarming, dressed as arithmetic. Anyone who had followed the printed remedy would have set
+`PREV_ARMS=91` over a commit that is ref-held three ways, and every later pass would then have
+treated 91 as the floor — **a permanently invisible member of the at-risk set, created by obeying
+the tool.** The general form: a guard is only trustworthy if its remedy is safe when the guard is
+wrong, and here the guard was wrong and the remedy was not merely useless but permanently
+destructive. The baseline is therefore **UNCHANGED at 90/89** — deliberately, and the non-change is
+the finding.
+
+**What this says about the class, and why the gate list could not have caught it.** The growth guard
+is the only armed instrument in the set, and it earned its keep on its first live firing: it forced
+attribution instead of a number. But every other gate is a *reader* — census, fence, agents,
+item-state, refs, branches — and a reader cannot detect that the population it was handed is stale,
+because staleness is indistinguishable from a real change until you look at the *identity* of a
+member. That is the one thing in the at-risk family that only identity gives, and it is why rule 328
+ordered attribution by identity rather than by arithmetic.
+
+**Action taken: none beyond attribution, and that is the whole action.** The baseline was not
+bumped, the guard was not disarmed, no recovery branch was created (nothing is at risk), and the
+member is accounted for. A future pass that wants the mirror warm before measuring should pass
+`--fetch`; the standing section's instruction to re-fetch first (rule 14a) is correct and the
+script's default quietly does not obey it, which is worth a follow-up line in that row if a human
+wants the default changed — deliberately NOT changed here, because a guard's default is a human
+decision and this pass's remit is coordination, not instrument redesign.
