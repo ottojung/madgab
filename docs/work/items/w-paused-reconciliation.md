@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5d3a
-updated: 2026-09-30T01:00:00Z
+owner: coord-2b8e
+updated: 2026-09-30T01:06:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -11097,3 +11097,136 @@ the gate list's seven rows. **(3)** Do not repair the 1295/291 difference; both 
 and correct by construction. **(4)** If a further pass runs at all, its highest-value output is **not**
 another rule — it is re-stating item (3) above, that this schedule should be retired, and nothing in
 this repository can supply that decision.
+
+## Pass 344 (coord-2b8e, 2026-09-30T01:02Z-01:06Z) - gate NO; seven gates 7/7 exit 0; the three invocation clauses declined on the itinerary's own text; ACTED - the standing instruction to "re-fetch the audit mirror first" is unrunnable as written, and the exit code this pass published for it was the exit code of a PIPE
+
+**The seven bare gates, run from the repository root, all exit 0, and nothing else was re-derived:**
+
+| gate | exit | figure |
+|---|---|---|
+| `census.sh` | 0 | 96 items; 0 open / 0 working / 1 blocked / 83 done / 12 superseded |
+| `clue-fence.sh` | 0 | 0 canonical clue occurrences in all 6 `src/` regions; 1 adjudicated benign per-word hit |
+| `agents.sh` | 0 | 770 host rows, 131 MadGab cwd rows, **0 non-terminal MadGab agents**; 7 host-`running` agents (skrynia x2, antonina x2, assemblyp1 x3) are other repositories and were **left running untouched** |
+| `item-state.sh` | 0 | frontmatter parses with all eight schema keys; newest entry and its `NEXT` read from the file |
+| `selfcheck.sh` | 0 | 11/11 instruments executable, parsing, exit 0, printing their invariant |
+| `refs.sh` | 0 | 3 relative links, 12 instrument paths resolve; 0 self-pointers |
+| `branches.sh` | 0 | 9 named branches resolve, **2 REMOTE-ONLY**; 5 branch+sha claims, 0 tip / 0 base mismatch; 1 payload claim, 0 defects; 1 deletion + 1 CI-step claim, 0 defects |
+
+`main` untouched: `git rev-parse --verify main` exits **128** (still no local `main` ref), `origin/main`
+is `0267ade`, HEAD is `post-milestone-acceptance` in sync with `origin` at `99af29d`. Working tree clean
+apart from this entry. `126` worktrees registered, `git worktree prune -n -v` empty, exit 0.
+`at-risk.sh` / `at-risk-content.sh` / `at-risk-delta.sh` deliberately **not** re-run: the at-risk family
+is closed on content since pass 184 and no new member appeared.
+
+### This pass's finding: rule 14a's published fetch is unrunnable as written, and this pass's own exit code for it was measured through a pipe
+
+Two defects, both live, both found by running the instruction rather than reading it.
+
+**(1) There is no `audit` remote.** Every standing entry in this file for the last ~140 passes records
+"`audit/*` re-fetched FIRST by its real source namespace with NO `--prune` (exit 0)". This pass ran
+exactly that — `git fetch --no-prune audit` — and it is a **hard failure**: `fatal: 'audit' does not
+appear to be a git repository`, **exit 128**. This repository has exactly one remote, `origin`
+(`git remote` prints `origin` and nothing else); `refs/remotes/audit/*` is the **local mirror
+namespace** rule 14m created, and it has no remote counterpart to fetch *from* by that name. The
+instruction's own parenthetical is right — the mirror's real source namespace is `refs/heads/*` on
+`origin` — but the prose form in ~140 published entries names a remote that does not exist, so any
+future pass copying it verbatim gets 128 and, if it pipes, reads 0. **The working spelling is the one
+the instruments already use** (`at-risk.sh` / `at-risk-delta.sh` / `at-risk-content.sh` all have it
+literally):
+
+```sh
+git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'
+```
+
+Run bare this pass: **exit 0**, and the mirror is complete — **208** local `refs/remotes/audit` heads
+against **208** on `git ls-remote --heads origin`, matching, so rule 261's "do not widen to the tag
+namespace" and the mirror's completeness both hold. Note **204** is now stale by four: the count is a
+mirror cardinality that grows with the host's branches, exactly the standing "a standing figure is not
+a standing procedure" point, so **do not assert 204 or 208 as an expected value** — read it inline and
+compare against `ls-remote` (rule 14g). The mirror is intact; no fetch repair was needed.
+
+**(2) `exit=$?` after a pipeline reports the LAST element's status, so this pass published "exit 0"
+for a command that failed 128.** This pass's first fetch attempt was written
+`git fetch --no-prune 'refs/heads/*:refs/remotes/audit/*' 2>&1 | tail -3; echo "audit fetch exit=$?"`
+and printed **`audit fetch exit=0`** beside a fetch that had just printed a permission fatal and a
+missing-remote fatal. The shell was not lying: `$?` after a pipeline is `tail`'s status, and `tail`
+succeeded. Demonstrated in four spellings against a deliberately nonexistent remote, all on the same
+command:
+
+| spelling | reported |
+|---|---|
+| `cmd >/dev/null 2>&1; echo "direct exit=$?"` | **128** |
+| `cmd 2>/dev/null \| tail -3; echo "piped exit=$?"` | **0** — wrong |
+| `cmd >/dev/null 2>file; echo "captured exit=$?"` | **128** |
+| `cmd >/dev/null 2>/dev/null; echo "silent exit=$?"` | **128** |
+| `cmd \| tail -3; echo "${PIPESTATUS[0]}"` | **128** — correct |
+
+**Rule 344: an exit code read after a pipeline is the exit code of the last element, so an instrument
+that reports `exit=$?` downstream of a pipe reports the TAIL's success and nothing else.** This is the
+dangerous direction: the wrong reading is always **green**, never red, so it manufactures a passing
+verification out of a failed command — and this log's whole method is a set of commands whose *exit
+code* is the verdict, so a laundering pipe silently converts "this check failed" into "this check
+passed". It is the same shape as rule 262 (two instruments of one spelling agreeing) and rule 14q (a
+control that cannot reproduce), one level down, in the exit-status channel itself: **a status read
+downstream of a pipe certifies the reader, not the thing read.** The safe forms are the three that
+reported 128 above: redirect to a file and read `$?`; discard both streams and read `$?`; or, when a
+pipe is genuinely wanted, read **`${PIPESTATUS[0]}`** and never `$?`. Apply it to any shell line whose
+exit code is being published as a verdict. Note this is *not* a new idea in this log — the same trap is
+recorded as rule 22's "capture every exit code" and as pass 233's `grep -c || echo 0` — but it had
+never been stated for the *reporting* side, and this pass walked into it on the first command it ran.
+
+The finding is worth the pass because the instruction it was found by is a **standing** one. Nothing
+about the repository's state was wrong: the census, fence, agents, worktrees, `main`, and every named
+branch and claim are unchanged. What was wrong is the text this file hands to the next pass, and that
+text was on its face authoritative, freshly restated in pass 343, and 140 passes of published "exit 0"
+sit behind it — none of which could have been produced by the command as spelled.
+
+**The invocation's three standing clauses are declined again, for the same reason and on the same
+text as every pass since 92.**
+
+- *"Launch or prompt Antonina agents"* — the itinerary's `## Status: accepted and paused` and the
+  accepted-state document's `## Operational status` both forbid it without an explicit human
+  reopening. There are no MadGab agents to prompt in any case: gate 3 measures **0** non-terminal
+  MadGab agents, and the 7 host-`running` agents belong to other repositories.
+- *"Accumulate work on `post-milestone-acceptance` exactly as the itinerary requires"* — a direct
+  textual conflict, and the third occurrence of this clause declined on it. The itinerary's closing
+  paragraph says that branch "is release history after this acceptance and **is no longer an
+  automatic accumulation target**", so the clause's own "exactly as the itinerary requires" cannot be
+  honoured by doing what the clause says. The itinerary wins; the scheduler template is out of repo
+  and fixing or retiring it is a human action.
+- *"Prioritize the canonical approximate-search examples without phrase-specific hard-coding"* — the
+  first half asks for MadGab work that the pause forbids, and the second half is **already satisfied
+  as a standing invariant rather than as work**: gate 2 measures 0 hard-coded canonical phrases in all
+  six production regions, and `tests/no_phrase_hard_coding.rs` fences the remaining directories.
+
+Nothing was claimed, created, launched, prompted, stopped, integrated, or resumed. No new work item.
+No recovery branch. `main` untouched.
+
+**Nothing here is coordinator-actionable, and this pass's output is one instruction repair plus the
+standing recommendation repeated.** The three human items are unchanged and still pending:
+
+1. merge `8c88a59` (`review/drop-dead-trace-and-fence`, base `origin/main` `0267ade`, one file
+   +2/-4 — drops the dead `MADGAB_TRACE_*` env block and runs the no-phrase-hard-coding fence as its
+   own CI step; validated: `corpus_integration` 12 passed + 1 ignored, `no_phrase_hard_coding` 9
+   passed);
+2. delete the three superseded branches, **two of which are REMOTE-ONLY** and so need
+   `git push origin --delete`: `review/drop-dead-trace-env-on-main` `66e28ff` and
+   `recovery/at-risk-2026-09-29` `eaf7487`, plus the local `review/drop-dead-trace-env`;
+3. **retire this recurring pass**, or reopen MadGab development explicitly.
+
+344 passes have now run against an unchanged pause. This pass found one real defect, and it was in the
+handoff text rather than in MadGab — which is the sharpest available statement of the standing
+recommendation: **at this point the pass is more likely to find a defect in its own instructions than
+in the repository they describe, and that is a reason to retire it, not a reason to keep running it.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, baseline still 90/89 and deliberately
+not bumped — rule 340b), the worktree count (settled pass 339, now 126 with a clean `prune -n`), or
+the gate list's seven rows. **(3)** Do not repair the 1295/291 difference; both are published, named,
+and correct by construction. **(4)** Re-fetching the mirror is optional — it is closed on content since
+pass 184, and this pass measured it complete (208 local = 208 remote) — but **if you do re-fetch, use
+`git fetch --no-tags origin '+refs/heads/*:refs/remotes/audit/*'` and read its exit code directly, not
+after a pipe** (rule 344: there is no `audit` remote, and a laundered exit code reads green). **(5)**
+If a further pass runs at all, its highest-value output is **not** another rule — it is re-stating item
+(3) above, that this schedule should be retired, and nothing in this repository can supply that
+decision.
