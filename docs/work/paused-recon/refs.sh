@@ -166,13 +166,82 @@ if [ "$selfptr" -gt 0 ]; then
   printf 'refs: %s self-pointer(s) into this file (rule 330: cite a heading, not a line)\n' "$selfptr" >&2
 fi
 
+# --- 4. section-NAME self-pointers (rule 350) ----------------------------------
+# Rule 330 banned one SHAPE of self-pointer (a line number) and rule 330's own
+# generalisation is "cite a HEADING, not a line number". This check exists because
+# that generalisation has a second half nobody had written down: **a pointer to a
+# heading is not thereby correct.** A heading name can be wrong in exactly the way a
+# line number is — and unlike a line number it HAS a correct value, so it is
+# decidable and a check is possible.
+#
+# THIS PASS'S DEFECT, live in the reader-facing section on arrival: the census
+# table's closing paragraph sent the reader to "the latest entry, §"Declined"".
+# No heading in this file has ever been named "Declined" — `grep '^#\+ .*Declined$'`
+# returns 0 rows, and `grep -n '^#\+ .*[Dd]eclined'` returns only PASS HEADINGS that
+# happen to contain the word. The real target is the subsection
+# `### The invocation's three standing clauses are declined again, ...`. So the
+# pointer named a section that has never existed, in the one paragraph whose whole
+# job is to tell the human where the declining-clauses record is.
+#
+# Why it survived: rule 330's check matches the TOKEN `line N`, and this pointer has
+# no number in it. refs.sh's own scope banner claimed "no self-pointer — a line
+# number attributed to THIS file", so the claim was true as written and the reader-
+# facing section still contained a self-pointer. A scope claim that names the one
+# shape it checks is a shape, not a class.
+#
+# WHY ONLY THE QUOTED FORM IS CHECKED, and this is the load-bearing scoping
+# decision rather than a convenience. Two §-forms exist in this document:
+#   * §"Declined"  — a quoted NAME. Unambiguously a pointer INTO THIS FILE.
+#   * §3, §4, §7   — bare NUMBERS, and every one of them points into a DIFFERENT
+#     file: `OBSTRUCTION-MAP.md §3`, `... §4`, a `§7` recommendation. Checking
+#     those against this file's headings would condemn correct citations of another
+#     document — the pass-317 defect (a check that condemns correct text), which
+#     refs.sh's own v1/v2 history says is worse than shipping no check at all.
+# The discriminator is the quotes, and it is structural rather than semantic: a
+# quoted name cannot be a reference to another file's numbering.
+#
+# 0 READS IS NOT A DEFECT HERE, and the reason is worth stating because gate 7
+# makes the opposite call for the opposite reason. Gate 7 condemns 0 claims because
+# the section it reads ASSERTS a merge — the section is supposed to contain one, so
+# its absence is the defect. This section is under no obligation to contain a quoted
+# section pointer; after this pass's fix it contains none, and 0 is the correct
+# reading. What keeps the check from being vacuous is its PLANT, run below: the
+# check is shown to go RED on a planted bad name and GREEN on the real one, which
+# is rule 334's demand — prove red before publishing green.
+secptrs=0; badsec=0
+item_headings="$(mktemp)"
+# The resolution set is the file's SECTION headings with the append-only `## Pass `
+# log entries EXCLUDED — refs.sh's own scope banner already says the log body "is
+# not an instruction to the next pass", so a reader-facing pointer may not target
+# one. Normalised to lower case with runs of space collapsed, so a citation need
+# not reproduce a heading byte-exactly.
+grep -E '^#+ ' "$ITEM" | grep -vE '^#+ Pass [0-9]' \
+  | sed -E 's/^#+ +//' | tr 'A-Z' 'a-z' | tr -s ' ' >"$item_headings"
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  secptrs=$((secptrs + 1))
+  # LEADING-WORDS match, not substring. A citation names a section by its OPENING
+  # words, as every heading in this file is written to be cited. Substring matching
+  # is fail-open here and the plant below proved it on this pass's own defect: with
+  # `grep -F`, the planted §"Declined" resolved against a PASS heading containing the
+  # word "declined" (e.g. "...the three invocation clauses declined on the
+  # itinerary's own text") and the check went GREEN on the exact defect it was built
+  # to catch. That is rule 335's shape one level up — a text matcher that cannot
+  # distinguish the claim from a coincidental neighbour.
+  needle="$(printf '%s' "$name" | tr 'A-Z' 'a-z' | tr -s ' ')"
+  if ! awk -v n="$needle" 'index($0, n) == 1 { found = 1 } END { exit !found }' "$item_headings"; then
+    printf 'refs: BROKEN SECTION POINTER  §"%s"  — no section heading in this file BEGINS with that name\n' "$name" >&2
+    badsec=$((badsec + 1))
+  fi
+done < <(grep -oE '§"[^"]+"' "$prose" | sed -E 's/^§"//; s/"$//' | sort -u || true)
+
 # Each defect class sets the verdict. They are NOT folded into $status above,
 # because a first version of this script incremented $badlinks/$badinsts,
 # printed "BROKEN LINK" on stderr, and then still exited 0: the summary block
 # tested $status, which nothing had touched. The plant below caught it, which
 # is the only reason it is known. A detector that reports and does not fail is
 # the same shape as pass 298's instrument that "succeeded on the failure case".
-[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] && status=1
+[ "$badlinks" -gt 0 ] || [ "$badinsts" -gt 0 ] || [ "$selfptr" -gt 0 ] || [ "$badsec" -gt 0 ] && status=1
 
 # --- summary -------------------------------------------------------------------
 # Printed on BOTH paths: a clean run is never silent, a failing one is never
@@ -181,11 +250,12 @@ fi
 if [ "$status" -eq 0 ]; then
   echo "refs: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
   echo "refs: ${links} relative link(s) resolve, ${insts} instrument path(s) resolve, 0 self-pointers"
+  echo "refs: ${secptrs} quoted section pointer(s) resolve, 0 broken"
   echo "refs: cross-references resolve"
   exit 0
 fi
 
 echo "refs: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
-echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s)"
+echo "refs: ${links} relative link(s), ${badlinks} broken; ${insts} instrument path(s), ${badinsts} missing; ${selfptr} self-pointer(s); ${secptrs} quoted section pointer(s), ${badsec} broken"
 echo "refs: REFUSING — a pointer that does not resolve sends the next pass to the wrong line" >&2
 exit 1

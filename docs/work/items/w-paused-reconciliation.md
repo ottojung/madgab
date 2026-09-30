@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-71bd
-updated: 2026-09-30T01:52:00Z
+owner: coord-4e08
+updated: 2026-09-30T02:12:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -304,7 +304,8 @@ The "template has fired" counter counts scheduler invocations rather than headin
 equal to the heading count (**69**, pass 160); the two are labelled as different quantities rather
 than forced to match — the same unbound-number mistake rules 24/25 are about. The scheduler
 template has fired carrying the same **three** clauses that contradict the itinerary it points at
-(see the latest entry, §"Declined"). Fixing or retiring the
+(see the newest entry's `The invocation's three standing clauses are declined again` subsection,
+below the `## Pass log` heading). Fixing or retiring the
 template — a human task, outside this repository — is worth more than any further declining pass.
 
 ### The gate list (pass 329; copied here because passes 327/328 pointed at "the top of this file" and nothing was here)
@@ -335,7 +336,7 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 3 | `docs/work/paused-recon/agents.sh` | **exit 0** | 0 non-terminal agents in a MadGab cwd |
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
-| 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
+| 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it. **Extended at pass 350: it now also resolves quoted section-NAME pointers into this file's own section headings, and that check found a live dangling pointer in the census table on arrival** |
 | 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, the payload is checked against the live shortstat, the run-evidence sentence is reconciled against the real test counts, and the merge sentence's two **effect** claims are checked against the live diff — added at pass 331, extended at passes 332/334/335/336, also cheap, and also run it directly |
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
@@ -11723,3 +11724,119 @@ consecutive no-defect results are all stated in the standing section, the first 
 (rule 344). **(5)** Re-fetching remains optional (closed on content since pass 184); this pass did
 not. **(6)** The highest-value output of a further pass is still not a rule — it is re-stating item
 (3): **retire this recurring pass, or reopen MadGab explicitly.**
+
+## Pass 350 (coord-4e08, 2026-09-30T01:53Z-02:12Z) - gate NO; seven gates 7/7 exit 0 on arrival; the three invocation clauses declined on the itinerary's own text; ACTED - rule 330's generalisation has a second half nobody wrote down, and a reader-facing pointer to a section that has never existed was sitting in the census table while the control built for pointers reported 0 self-pointers
+
+A fourth identical coordinator invocation inside two hours, carrying the same three clauses as
+every pass since 92. Ran the seven bare gates from the repository root and nothing else. All seven
+exit 0, and every figure reproduces the standing rows without a delta: census **96** = 0 open /
+0 working / 1 blocked (this item) / 83 done / 12 superseded, skills-doc fenced-example control
+selector 0 / fence-blind 1; clue fence **0** canonical occurrences across all six production regions
+with every plant firing (decomposed array 8 per-word, mid-word join >= 1, below-`mod tests` 0) and 1
+adjudicated benign per-word hit; agents **0** non-terminal in a MadGab cwd over 131 MadGab cwd rows
+of 777 host rows = 110 succeeded / 1 stopped / 20 failed, the 4 host-running agents (128b1, 109b3,
+92d5, 94eb) all other repositories and **left running untouched**, the 5 idle rows not MadGab cwds;
+selfcheck 11 of 11 instruments present, parsing, exiting 0, printing their invariant; refs 3 relative
+links and 12 instrument paths resolve, 0 self-pointers; branches green on 5 branch+sha claims
+(0 tip, 0 base), 1 payload claim against the live shortstat, 1 deletion + 1 CI-step effect claim,
+9 names resolved, delete-list population 3 with 1 remote-only, `recovery/at-risk-2026-09-29`
+correctly reported as remote-only but **not** a deletion candidate, and the pass-346
+`worktree remove` precondition printing its `--ignored` set for `/workspace/madgab-cifence`
+(`Cargo.lock`, non-build, 0 porcelain paths).
+
+**Nothing created, claimed, resumed, launched, stopped, prompted, integrated or re-fetched.** No new
+work item; no recovery branch (at-risk family closed on content since pass 184, mirror re-fetch
+optional per rule 344's spelling); `main` untouched at `origin/main` `0267ade` with `git rev-parse
+--verify main` still exiting 128; HEAD is `post-milestone-acceptance`; 0 unpushed paths. The
+irreversible part of the standing section — the human merge of
+`review/drop-dead-trace-and-fence` and the three branch deletions — was **read, not performed**, and
+gate 7 re-confirmed every precondition for it live, including the one deletion candidate still
+checked out in a live worktree.
+
+**THE FINDING. A reader-facing pointer to a section that has never existed, and the control built for
+pointers could not see it because it named the one shape it checked rather than the class.**
+
+The census table's closing paragraph — the one whose closing sentence is *"Fixing or retiring the
+template is worth more than any further declining pass"*, i.e. the paragraph that exists to point a
+human at the record of the declining clauses — read `(see the latest entry, §"Declined")`. **No
+heading in this file has ever been named "Declined":** `grep -c '^#\+ .*Declined$'` returns **0**,
+and `grep -n '^#\+ .*[Dd]eclined'` returns only **pass headings that happen to contain the word**
+(342–349 all end "...declined on the itinerary's own text"). The real target is the subsection
+`### The invocation's three standing clauses are declined again, for the same reason and on the
+same text as every pass since 92` (line 11404). So the pointer sent its reader to a section that
+does not exist, in the paragraph whose entire job is to say where that record is. Fixed in place to
+cite the heading's leading words.
+
+**Why 349 passes did not catch it, which is the part worth recording.** Rule 330 generalised *"a
+pointer into an append-only file must be a HEADING or a searchable string, never a line number"*,
+and pass 330 built `refs.sh` to keep the section citing headings. But rule 330 states a rule about
+ONE **shape**, and this pointer has no line number in it, so rule 330's check — which matches the
+token `line N` — cannot see it. `refs.sh`'s own scope banner said it claims *"no self-pointer — a
+line number attributed to THIS file"*: **true as written, and the reader-facing section still
+contained a self-pointer.** A scope claim that names the single shape it checks is a shape, not a
+class, and a check scoped to a shape inherits every defect of the shape it names. This is rule 330
+reached from the other side, and it is the same shape as pass 231 (the row's instrument reference
+was correct **as cited** while being the most-read stale instance in the file) and pass 329 (a
+handoff pointer that resolved to nothing, two passes after it was written).
+
+**New rule 350: a pointer to a heading is not thereby correct, and — unlike a line number — it HAS a
+correct value, so it is decidable and the absence of a check is a choice rather than a limitation.
+Rule 330 banned a shape; this is its missing half.** Corollary recorded with it, because it is the
+half that is easy to get wrong: **a text matcher on a section name must match LEADING WORDS, not
+substrings, and must EXCLUDE the append-only pass log from its resolution set.** Both halves were
+established by the plant below failing, not by reading.
+
+**`refs.sh` extended with a fourth claim, planted in three directions, and the FIRST VERSION OF THE
+PLANT FAILED — a live fail-open in the new check, caught by the plant on the exact defect it was
+written for.** With `grep -qiF` over all headings, the planted `§"Declined"` **resolved** and the
+check went **GREEN** on the real defect, because a pass heading contains the word "declined". That
+is rule 335's shape one level up — *a text matcher that cannot distinguish the claim from a
+coincidental neighbour* — and it is the fourth time in this log that an instrument's own control
+has been the only thing that caught its instrument. Repaired to a **leading-words** match
+(`index($0, n) == 1`, so only a heading that BEGINS with the cited words resolves) over headings
+with `^#+ Pass [0-9]` **excluded**, on the reason `refs.sh`'s own scope banner already gives: the
+log body *"is not an instruction to the next pass"*, so a reader-facing pointer may not target one.
+Re-planted after the repair, all three correct: **A** the actual on-arrival `§"Declined"` → **RED**,
+exit 1, naming the class; **B** a correct §-quoted leading-words citation →
+**GREEN**, exit 0 (so the check does not condemn a correct shortened pointer — the pass-317 defect
+refs.sh's own v1/v2 history calls worse than shipping no check); **C** a pointer into the pass log,
+`§"Pass 349"` → **RED**, exit 0 population / 1 broken, which is the excluded set earning its
+exclusion rather than being asserted.
+
+**WHY ONLY THE QUOTED FORM IS CHECKED — the load-bearing scoping decision, not a convenience.** Two
+`§`-forms exist in this document: `§"Declined"` (a quoted **name**, unambiguously a pointer into
+*this* file) and `§3` / `§4` / `§7` (bare **numbers**, and every one points into a **different
+file**: `OBSTRUCTION-MAP.md §3`, `... §4`, a `§7` recommendation). Checking the numeric form against
+this file's headings would condemn correct citations of another document, which is the pass-317
+defect. The discriminator is the **quotes**, and it is structural rather than semantic: a quoted name
+cannot be another file's section numbering. `grep -oE '§"[^"]+"'` over the reader-facing region
+returns exactly **1** pointer on arrival and **0** after the fix, so the check's population is
+published rather than assumed.
+
+**0 reads is NOT a defect here, and the reason is the opposite of gate 7's.** Gate 7 condemns 0
+claims because the section it reads *asserts a merge* — a claim is required, so its absence is the
+defect. This section is under no obligation to contain a quoted section pointer; after this pass's
+fix it contains none, and **0 is the correct reading.** What keeps the check from being vacuous is
+its plant: rule 334's demand, prove red before publishing green, discharged above.
+
+**The standing gate table's row 6 is updated to name the new claim**, so the gate list a fresh pass
+copies says what the instrument now checks (pass 329's failure was a gate list that under-described
+its own instrument). **A count, from the command and not from this log: 350 passes against an
+unchanged pause.** What would change the situation is still a human's: **retire this recurring
+pass, or reopen MadGab development explicitly.**
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Do not re-derive the census delta
+(resolved pass 338), the at-risk composition (settled pass 328, 90/89), the worktree count (settled
+pass 339, and pass 346 records why a bare disagreement there is a population question first), or the
+1295/291 populations (both published, correct by construction). **(3)** Do not re-litigate passes
+345–350: the delete-list semantics, the worktree blocker, the **precondition**, the heading-vs-line
+pointer half of rule 330, and the two consecutive no-defect results are all stated in the standing
+section, the first three gated by `branches.sh` and the fourth by `refs.sh`, all with plants.
+**(4)** If you re-fetch the mirror, use `git fetch --no-tags origin
+'+refs/heads/*:refs/remotes/audit/*'` with the exit code read **directly, never after a pipe**
+(rule 344). **(5)** Re-fetching remains optional (closed on content since pass 184); this pass did
+not. **(6)** When extending an instrument here, plant the new claim against the real defect AND
+against a correct instance of the same shape before publishing green — this pass's own fourth claim
+went green on the defect it was written for until the plant ran. **(7)** The highest-value output of
+a further pass is still not a rule — it is re-stating item (3): **retire this recurring pass, or
+reopen MadGab explicitly.**
