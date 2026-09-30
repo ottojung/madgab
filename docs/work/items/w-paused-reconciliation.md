@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-4a70
-updated: 2026-09-30T04:30:00Z
+updated: 2026-09-30T04:40:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -23,10 +23,19 @@ instrument. Growing this file is the failure mode, not the success mode.
   MadGab work items, claiming historical ones, launching MadGab agents, or resuming superseded fronts.
 - The blocker recorded in this item's frontmatter (`state: blocked`) is **a human reopen/confirm
   decision**, and it has not been made. It is not a defect to be engineered around.
-- 457 commits sit on `post-milestone-acceptance` ahead of `origin/main`; **441 of them touch this one
-  file**. The loop has added **42,722 lines across 22 files** under `docs/work/items/w-paused-recon*`,
-  `docs/work/paused-recon/` and `docs/work/archive/`, and grew `docs/work/paused-recon/` to 15 shell
-  instruments totalling ~300 KB whose entire subject is auditing this log and each other.
+- 459 commits sat on `post-milestone-acceptance` ahead of `origin/main` when measured at
+  2026-09-30T04:36Z; **443 of them touch this one file**. The loop has added **42,789 lines across 22
+  files** under `docs/work/items/w-paused-recon*`, `docs/work/paused-recon` and `docs/work/archive`,
+  and grew `docs/work/paused-recon` to **16 shell files totalling 384,726 bytes**, of which
+  `selfcheck.sh` exercises 13; the remaining three (`compact-log.sh`, `content-sweep.sh`, and
+  `selfcheck.sh` itself) are one-shot and self-measuring and are exercised by being run. Every
+  instrument's entire subject is auditing this log and each other. The figures in this bullet were
+  first printed as 457 / 441 / 42,722 lines / 15 files / ~300 KB and were **stale on arrival** of the
+  pass that measured them (2026-09-30T04:36Z); they are self-invalidating, since any commit that
+  corrects them moves the first two again, which is why they are now stamped rather than presented as
+  standing values. Gate 8 anchors the census table and gate 9 the prohibition paragraph, and
+  **neither reads this bullet** — the drift went unnoticed for that reason and is recorded here
+  rather than by adding a tenth gate, which this notice forbids.
 - **Zero product movement.** `origin/main` is still `0267ade`, the state accepted on 2026-09-27.
   No `src/` file has changed. The accepted limitation — `Hits Justice Dupe Hid Came` is not generated
   for `It's just a stupid game` — is preserved deliberately and is *not* a work item.
