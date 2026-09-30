@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7e19
-updated: 2026-09-30T18:34:00Z
+owner: coord-9f02
+updated: 2026-09-30T19:00:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -13836,5 +13836,44 @@ deliberately not in the bare gate list (NEXT 3). `branches.sh` exit 0.
 This pass changed no `src/` file. The preserved `Hits Justice Dupe Hid Came` limitation was not
 re-litigated and is not a work item; the no-hard-coding half of the standing clause holds as an
 **invariant**, not as work.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+
+---
+
+## Re-verification only (fresh pass, 2026-09-30T18:52Z–19:00Z) — no pass entry, per the STOP notice
+
+No rule, gate, plant or instrument was added, and no prior pass entry was re-litigated. Nothing was
+claimed, launched, stopped, prompted, merged or integrated; no new work item; no `recovery/*` branch;
+`main` untouched. Measured this pass, every gate exit 0 on arrival:
+
+- `census.sh` 96 work items = **83 done / 12 superseded / 1 blocked**, **0 open / 0 working**, the
+  non-schema keys listed once each on stderr and correctly uncounted.
+- `clue-fence.sh` **0** canonical clue occurrences across all six production `src/` regions, 1 per-word
+  hit adjudicated benign, plants firing.
+- `agents.sh` 953 host rows / 131 MadGab cwd rows, **0 non-terminal MadGab agents**; the one host-`running`
+  agent (`66a1`, `/workspace/skrynia-apps-66-108-a4c896a-review`) is another repository and was left
+  running; 5 host-`idle` rows, none a MadGab cwd.
+- `at-risk.sh` **90** = ref-held 1 + reflog-only 89, disjoint, controls both directions.
+- `at-risk-content.sh` 722 distinct blobs from the at-risk set, 230 absent from the origin side, and
+  **0 non-build** among them — unbacked history, not lost content, so no recovery branch is warranted.
+- `item-state.sh`, `refs.sh`, `branches.sh`, `figures.sh` (4 rows / 0 defects), `prohibition.sh`
+  (3 figures + 1 reason / 0 defects, printing both `ok reported-*-shape` rows and both sentences with a
+  **single** space after `reported:`, which is the correct spelling per pass 365) all exit 0.
+- `selfcheck.sh` **13 of 13** instruments.
+
+Two further observations, neither an action. `post-milestone-acceptance` is level with
+`origin/post-milestone-acceptance` (0 unpushed) and **467** commits ahead of `origin/main`, of which
+**0** touch `src tests examples web`; `origin/main` is still `0267ade` and there is still no local `main`
+ref (`rev-parse --verify main` exit 128). The non-build dirty-worktree sweep over all **126** worktrees
+found **33** hashable rows and **0** of their object ids unreachable from the known object set (9,690),
+so nothing is unrecoverable and no preservation action is warranted.
+
+`branch-containment.sh` remains argument-taking and outside the bare gate list (NEXT 3), which is
+unchanged and still a judgement for a human, not a pass action.
+
+This pass changed no `src/` file. The preserved `Hits Justice Dupe Hid Came` limitation was not
+re-litigated and is not a work item; the no-hard-coding half of the standing clause holds as an
+**invariant**, not as work. Nothing was left running for a later pass to supervise.
 
 **NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
