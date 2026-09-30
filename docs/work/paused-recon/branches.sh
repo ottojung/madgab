@@ -294,6 +294,12 @@ done
 # ---------------------------------------------------------------------------
 payload_bad=0
 nclaim=0
+# Declared BEFORE the payload loop, because the loop is what fills it. Declaring
+# it after the loop — which is where the content block that reads it sits — wipes
+# the value and the content check silently adjudicates nothing, reporting its own
+# zero-population guard and going red on a section that is exactly right. Found by
+# running, not by reading, and the third defect in this one block.
+payload_branch=""
 
 # Both branches this publishes for are single-commit review branches on
 # origin/main; the loop reuses the base check's scoping so the pass-323
@@ -355,6 +361,16 @@ for mb in $(printf '%s\n' "$sha_claims" | grep '^review/' | cut -f1 | sort -u); 
 
   [ -n "$claim" ] || continue
   nclaim=$((nclaim + 1))
+  # The branch the payload claim was read FOR. The content check below reuses
+  # this rather than re-deriving "a review branch on origin/main", because two
+  # branches qualify as parented on origin/main — the composed merge branch and
+  # `review/run-clue-fence-in-ci`, a constituent the human list tells a human to
+  # DELETE — and the human list asserts the merge sentence's effect for the
+  # first and says nothing about the second. Scoping to "parented on
+  # origin/main" adjudicated the effect claim against a branch it was never made
+  # about, which is a false defect; scoping to the branch the claim is ABOUT is
+  # the same fix the payload check needed for its scoping, one level on.
+  payload_branch="$mb"
 
   # The file count may be spelled as a word; map the published ones. An
   # unrecognised token is NOT defaulted to 1 — it aborts the claim, which the
@@ -552,6 +568,185 @@ if [ "$ntarget" -eq 0 ]; then
   payload_bad=$((payload_bad + 1))
 fi
 
+# ---------------------------------------------------------------------------
+# PAYLOAD CONTENT (rule 336, pass 336). What the shortstat cannot see.
+#
+# The merge sentence has now been gated on its branch, its tip, its base, its
+# FILE COUNT, its insertion and deletion counts, and the existence of the test
+# targets its run evidence names. Every one of those is a COUNT or a NAME. The
+# sentence's two remaining assertions are not:
+#
+#   "it deletes the dead MADGAB_TRACE_* env block"
+#   "and adds the no_phrase_hard_coding fence as a CI step"
+#
+# Both are decidable, and neither was being decided. A branch whose diff is
+# `1 file changed, +2/-4` can be that diff for a hundred unrelated reasons --
+# reformat the file, tighten a clippy lint, bump an action version -- and would
+# pass every check above. That is the same defect rule 323 found for the base
+# and rule 334 found for the payload size, one level in: a claim that has never
+# been measured is a claim that has never been tested, and a human merging on
+# the strength of it is trusting prose.
+#
+# It is also the direction that matters most here. Pass 315 is the finding that
+# these two halves exist: CI configured three MADGAB_TRACE_* variables that the
+# accepted code no longer reads, and the one place the canonical clue is
+# hard-coded outside the tests is the unfenced .github/. A merge that is +2/-4
+# on one file and does neither half leaves both defects live while satisfying
+# every gate in this script.
+#
+# POPULATION, read from the section's own grammar and never hard-coded
+# (rule 14k, and the pass-325 lesson about a hard-coded population wearing a
+# read-from-the-section hat): the two assertions have fixed grammatical shapes.
+#
+#   A  "deletes the dead `<TOKEN>` env block"   -> the token is a name, and
+#      `*` in it is the prose's own glob, not a character to match literally.
+#   B  "adds the `<TARGET>` fence as a CI step" -> the target is a test target,
+#      and the existing NO TARGET CLAIM guard already proves the file exists, so
+#      this check only has to decide whether the DIFF adds the step.
+#
+# Neither is allowed to fall back to a default. An unreadable assertion is a
+# defect, exactly as an unreadable payload claim is (UNPARSED CLAIM above): a
+# check that substitutes a plausible value for a value it could not read
+# manufactures agreement.
+#
+# FAIL-CLOSED ON AMBIGUITY, as everywhere else in this block: two assertion A
+# claims, or two assertion B claims, make the population ambiguous and are
+# reported rather than resolved by picking one.
+# ---------------------------------------------------------------------------
+content_bad=0
+nclaim_del=0
+nclaim_step=0
+
+# --- assertion A: the dead env block is actually gone ----------------------
+# Scoped to the branch the payload claim was read FOR, which is the merge
+# branch. The reason is above, at `payload_branch=`: a second review branch is
+# also parented on origin/main and is a constituent the human list tells a human
+# to delete, so "parented on origin/main" is not the merge branch and running
+# the merge sentence's effect claim against it manufactures a false defect.
+if [ -n "$payload_branch" ]; then
+  mb="$payload_branch"
+  mbmain="$(git rev-parse --verify --quiet 'origin/main^{commit}' 2>/dev/null || true)"
+  [ -n "$mbmain" ] || mbmain=""
+
+  if [ -n "$mbmain" ]; then
+  del_token="$(grep -oE 'deletes the dead `[A-Za-z0-9_*]+` env block' "$HUMANLIST" 2>/dev/null \
+    | head -1 | sed 's/.*`\(.*\)`.*/\1/')"
+  step_token="$(grep -oE 'adds the `[A-Za-z0-9_]+` fence as a CI step' "$HUMANLIST" 2>/dev/null \
+    | head -1 | sed 's/.*`\(.*\)`.*/\1/')"
+
+  # Ambiguity first, before either is used, so a doubled claim cannot be
+  # silently adjudicated by the `head -1` above.
+  #
+  # These count OCCURRENCES, not lines. `grep -c` counts matching LINES, so two
+  # identical claims written on the SAME line — the shape this document's
+  # prose actually takes, since the merge sentence wraps mid-claim — read as 1
+  # and the guard stayed silent. The first version of this line used `grep -coE`
+  # and its own plant (a second claim appended to the same sentence) passed green.
+  # The count that matters for ambiguity is how many times the assertion is
+  # MADE, so it is `grep -o | wc -l`.
+  ndel_all="$(grep -oE 'deletes the dead `[A-Za-z0-9_*]+` env block' "$HUMANLIST" 2>/dev/null | wc -l | tr -d ' ')"
+  ndel_all="${ndel_all:-0}"
+  nstep_all="$(grep -oE 'adds the `[A-Za-z0-9_]+` fence as a CI step' "$HUMANLIST" 2>/dev/null | wc -l | tr -d ' ')"
+  nstep_all="${nstep_all:-0}"
+  if [ "$ndel_all" -gt 1 ] || [ "$nstep_all" -gt 1 ]; then
+    printf 'branches: AMBIGUOUS CONTENT  the human list makes %s deletion claim(s) and %s CI-step claim(s); this check adjudicates one of each and REFUSES to pick (rule 326 class)\n' \
+      "$ndel_all" "$nstep_all" >&2
+    content_bad=$((content_bad + 1))
+    # Not `continue`: this is an `if`, not a loop, so `continue` is a syntax error
+    # at RUNTIME (bash parses the whole file, so `bash -n` does not catch it) and
+    # it would skip the end of the block. Nesting the remainder is the fix.
+  else
+
+  # --- A ---
+  if [ "$ndel_all" -eq 0 ]; then
+    printf 'branches: NO DELETION CLAIM  the human list states no "deletes the dead `<X>` env block" assertion, so the deletion half of the merge sentence is unadjudicated; 0 is also what a broken matcher returns, so this is a defect, not a pass\n' >&2
+    content_bad=$((content_bad + 1))
+  else
+    nclaim_del=$((nclaim_del + 1))
+    # The prose's `*` is a glob covering the three variables, so the decidable
+    # form is the shared PREFIX, read off the token rather than assumed. If a
+    # future edit publishes a token with no `*`, the prefix is the whole token
+    # and the test is exact -- which is the right degradation.
+    del_prefix="${del_token%\*}"
+    [ -n "$del_prefix" ] || { del_prefix="$del_token"; }
+    # Three conditions, and all three are needed. (1) the diff removes at least
+    # one such line, so the claim has not been satisfied by doing nothing;
+    # (2) the diff ADDS none, so it was not renamed into a live form; (3) none
+    # survive in the branch's version of any changed file, so the env block is
+    # gone rather than merely edited once. Condition (3) is the one a deletion
+    # claim is actually about, and it is the only one of the three that a
+    # reformatting diff would fail.
+    del_files="$(git diff --name-only "$mbmain" "$mb" -- 2>/dev/null)"
+    # grep -c exits 1 on no match, and the `|| echo 0` fallback appends a
+    # SECOND line to a count (the pass-335 defect, in a third instrument). Never
+    # let a fallback add a line to a count: filter the stream first and let the
+    # filtered pipeline's own wc do the counting. An earlier draft of this block
+    # counted per changed file with `grep -c ... || echo 0` inside a loop and
+    # hit exactly that, producing a literal two-line value that aborted the
+    # arithmetic with a syntax error -- found by RUNNING the block, not by
+    # reading it, which is the only reason it was found at all.
+    nrem="$(git diff "$mbmain" "$mb" 2>/dev/null | grep '^-' | grep -v '^---' | grep -c "$del_prefix" | head -1)"
+    nadd="$(git diff "$mbmain" "$mb" 2>/dev/null | grep '^+' | grep -v '^+++' | grep -c "$del_prefix" | head -1)"
+    nrem="${nrem:-0}"; nadd="${nadd:-0}"
+    # Survivors: the token anywhere in each changed file AT THE BRANCH TIP.
+    surv=0
+    if [ -n "$del_files" ]; then
+      for f in $del_files; do
+        s="$(git show "$mb:$f" 2>/dev/null | grep -c "$del_prefix" | head -1)"
+        surv=$((surv + ${s:-0}))
+      done
+    fi
+    if [ "$nrem" -eq 0 ]; then
+      printf 'branches: CONTENT MISMATCH  %s  the human list says the merge "deletes the dead %s env block", but the diff removes no line containing %s\n' \
+        "$mb" "$del_token" "$del_prefix" >&2
+      content_bad=$((content_bad + 1))
+    elif [ "$nadd" -gt 0 ]; then
+      printf 'branches: CONTENT MISMATCH  %s  the human list says the merge "deletes the dead %s env block", but the diff also ADDS %s line(s) containing %s -- it renamed the block rather than removing it\n' \
+        "$mb" "$del_token" "$nadd" "$del_prefix" >&2
+      content_bad=$((content_bad + 1))
+    elif [ "$surv" -gt 0 ]; then
+      printf 'branches: CONTENT MISMATCH  %s  the human list says the merge "deletes the dead %s env block", but %s line(s) containing %s survive in the branch at %s\n' \
+        "$mb" "$del_token" "$surv" "$del_prefix" "$(printf '%s' "$mb" | cut -c1-7)" >&2
+      content_bad=$((content_bad + 1))
+    else
+      printf 'branches: content OK       %s  "deletes the dead %s env block": %s line(s) removed, 0 added, 0 survive at the branch tip\n' \
+        "$mb" "$del_token" "$nrem"
+    fi
+  fi
+
+  # --- B ---
+  if [ "$nstep_all" -eq 0 ]; then
+    printf 'branches: NO CI-STEP CLAIM  the human list states no "adds the `<X>` fence as a CI step" assertion, so that half of the merge sentence is unadjudicated; 0 is also what a broken matcher returns, so this is a defect, not a pass\n' >&2
+    content_bad=$((content_bad + 1))
+  else
+    nclaim_step=$((nclaim_step + 1))
+    # The step must be an ADDED line in a file under .github/workflows/ naming
+    # the target. A CI step that was already there is not what this branch
+    # "adds", and a step elsewhere in the repo is not a CI step -- scoping to
+    # the workflow directory is what makes the assertion mean what it says.
+    wf="$(git diff "$mbmain" "$mb" -- .github/workflows/ 2>/dev/null | grep '^+' | grep -v '^+++' | grep -c -- "--test $step_token" | head -1)"
+    wf="${wf:-0}"
+    if [ "$wf" -eq 0 ]; then
+      printf 'branches: CONTENT MISMATCH  %s  the human list says the merge "adds the %s fence as a CI step", but the diff adds no line under .github/workflows/ naming --test %s\n' \
+        "$mb" "$step_token" "$step_token" >&2
+      content_bad=$((content_bad + 1))
+    else
+      printf 'branches: content OK       %s  "adds the %s fence as a CI step": %s added workflow line(s) naming --test %s\n' \
+        "$mb" "$step_token" "$wf" "$step_token"
+    fi
+  fi
+  fi
+fi
+fi
+
+# The same zero-population guard, one level out: a section that names a merge
+# branch but carries neither assertion is the vacuous-pass shape twice over.
+if [ "$merge_expected" -gt 0 ] && [ "$nclaim_del" -eq 0 ] && [ "$nclaim_step" -eq 0 ]; then
+  printf 'branches: NO CONTENT CLAIM  the human list names %s merge branch(es) but asserts nothing about what their diff DOES; the shortstat says how many lines changed and not one thing about them\n' \
+    "$merge_expected" >&2
+  content_bad=$((content_bad + 1))
+fi
+
 remote_heads=""
 if git remote get-url origin >/dev/null 2>&1; then
   # Full-form ls-remote per rule 14p, one invocation. A bare-prefix form against
@@ -611,6 +806,7 @@ status=0
 [ "$shabad" -gt 0 ] && status=1
 [ "$base_bad" -gt 0 ] && status=1
 [ "$payload_bad" -gt 0 ] && status=1
+[ "$content_bad" -gt 0 ] && status=1
 
 echo "branches: reader-facing section = ${nprose} line(s) of $(basename "$ITEM")"
 if [ "$remoteonly" -gt 0 ]; then
@@ -619,10 +815,11 @@ if [ "$remoteonly" -gt 0 ]; then
 fi
 echo "branches: ${nshaclaim} branch+sha claim(s) checked against the live commit; ${shabad} tip mismatch(es), ${base_bad} base mismatch(es)"
 echo "branches: ${nclaim} payload claim(s) checked against the live shortstat; ${payload_bad} payload defect(s)"
+echo "branches: ${nclaim_del} deletion claim(s) and ${nclaim_step} CI-step claim(s) checked against the live diff; ${content_bad} content defect(s)"
 
 if [ "$status" -eq 0 ]; then
   echo "branches: ${nbranch} branch name(s) resolve; 0 unresolved"
-  echo "branches: every branch the section names exists, at the commit it names, on the base it names, with the payload it claims"
+  echo "branches: every branch the section names exists, at the commit it names, on the base it names, with the payload it claims and the effect it claims"
   exit 0
 fi
 

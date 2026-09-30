@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9d2f
-updated: 2026-09-29T23:47:00Z
+owner: coord-3b7e
+updated: 2026-09-29T23:58:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -248,7 +248,7 @@ remove. Do not "fix" the number; ignore it and locate the list by its heading.
 | 4 | `docs/work/paused-recon/item-state.sh` | **exit 0** | this item's frontmatter, newest entry, and its NEXT |
 | 5 | `docs/work/paused-recon/selfcheck.sh` | **exit 0** | every instrument alive, `refs.sh` included |
 | 6 | `docs/work/paused-recon/refs.sh` | **exit 0** | this file's own pointers in the standing section resolve — added at pass 330, and it is cheap, so run it directly rather than trusting gate 5 to have run it |
-| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, and the run-evidence sentence is reconciled against the real test counts — added at pass 331, extended at passes 332/334/335, also cheap, and also run it directly |
+| 7 | `docs/work/paused-recon/branches.sh` | **exit 0** | every branch the standing section names exists, any that is **remote-only** is flagged, every branch published **with a sha** is checked against the live commit and base, the payload is checked against the live shortstat, the run-evidence sentence is reconciled against the real test counts, and the merge sentence's two **effect** claims are checked against the live diff — added at pass 331, extended at passes 332/334/335/336, also cheap, and also run it directly |
 
 Gate 7 is the only one that consults the **remote** (`git ls-remote --heads origin`), so its answer
 can change without anything in the repository changing: a human who deletes one of the branches named
@@ -304,6 +304,71 @@ rewrapping this paragraph could redden a correct section; the check is fail-clos
 right direction. **Rule 335: a number printed beside a claim is not a check, and a count taken with a
 text matcher must be reconciled against the number the document asserts, in the document's own unit.
 A check that cannot redden the truth will eventually accept a lie.**
+
+**Gate 7 now also adjudicates the EFFECT (pass 336).** Every claim above is a **count or a
+name**: branch, tip, base, `1 file`, `+2/−4`, and the existence of two test targets. The
+merge sentence's two remaining assertions are neither, and neither was being decided. The
+first — that the dead `MADGAB_TRACE_*` env block is *removed* — needs **three** conditions,
+not one: the diff removes ≥1 such line, adds **none**, and none survives in the branch's
+version of any changed file. The third is the one a deletion claim is actually about, and the
+first two together are the one a reformatting diff fails. The second — that the
+`no_phrase_hard_coding` fence is *added as a CI step* — requires an **added** line under
+`.github/workflows/` naming that target, so a step that was already there, or one elsewhere in
+the repo, does not satisfy it. Both tokens are read out of this section's own grammar and
+never hard-coded; the prose's `*` is treated as the glob it is, and the decidable form is the
+shared prefix read off the token.
+
+This is the gap that mattered, because it is the direction pass 315 is about. A diff of
+`1 file changed, +2/−4` can be that diff for a hundred unrelated reasons — reformat the file,
+tighten a clippy lint, bump an action version — and it passed every check above. A merge that
+does **neither** half of this sentence leaves both pass-315 defects live: the three
+`MADGAB_TRACE_*` variables CI still configures and the accepted code no longer reads, and the
+one place the canonical clue is hard-coded outside the tests being the unfenced `.github/`. On
+the section as it stands: **1 deletion claim and 1 CI-step claim, 0 defects** (3 lines removed,
+0 added, 0 surviving; 1 added workflow line).
+
+**Six plants, and two of them are the ones that mattered.** Correcting the token to a name that
+survives at the tip; deleting the deletion claim outright; correcting the CI target to a
+misspelling; renaming the env token so the diff removes nothing; doubling the claim on one
+line; and — built as a **real branch**, because the others only edit prose — a commit that
+*renames* `MADGAB_TRACE_PHRASES` to `MADGAB_TRACE_PHRASE_LOGS`, and separately a commit that
+only reformats the workflow file. Both are genuine edits that satisfy or nearly satisfy the
+shortstat, and both are red on **both** halves. Without this check a branch that renames the
+dead env block into a live one is indistinguishable from one that deletes it, and the human
+list would have called it correct. That is the pass-315 defect — CI configuring three
+`MADGAB_TRACE_*` variables the accepted code no longer reads — surviving a merge that a reader
+had every reason to believe fixed it.
+
+**Rule 336: a diff's shape and a diff's effect are different claims, and a check on the first
+is not a check on the second.** A shortstat says how many lines moved; it cannot say what moved.
+Every pass since 334 has gated a merge sentence whose two load-bearing assertions were prose
+between machine checks, and a human merging on the strength of it was trusting prose for the
+part that decides whether the merge achieves anything.
+
+**Building this block found FOUR defects in the block itself, all by running it, and the
+standing lesson is that the run is the test, not the parse.** (1) A per-file counting loop
+carried `grep -c ... || echo 0`, the pass-335 double-line defect in a third instrument, which
+made a value two lines long and aborted the arithmetic with a syntax error — `bash -n` passed,
+because the error was in a *value*, not in the syntax. (2) The loop was scoped to "any review
+branch parented on `origin/main`", which is **two** branches: the merge branch *and*
+`review/run-clue-fence-in-ci`, a constituent this section tells a human to delete. The effect
+claim was adjudicated against a branch it was never made about. It is now scoped to the branch
+the payload claim was read **for**, which the payload loop records — the same scoping defect
+pass 334 fixed, one level on, reached by writing the same wrong scope a second time. (3)
+`payload_branch=""` was declared *after* the loop that fills it, so the content check
+adjudicated nothing and its own zero-population guard correctly reported a section that was
+exactly right. (4) **The ambiguity guard counted lines, not claims**: `grep -c` counts matching
+LINES, and this document's merge sentence *wraps mid-claim*, so a second assertion written on
+the same line read as 1 and the guard stayed silent. Its own plant — a second claim appended to
+the same sentence, which is exactly the shape this prose takes — passed green. Counts of how
+many times an assertion is MADE must count occurrences (`grep -o | wc -l`); `grep -c` answers a
+different question. Defect (4) is the most interesting of the four, because it is the
+**fail-closed guard failing open**: the mechanism whose entire job is to catch a population it
+did not identify, silently accepting one.
+
+Reading all four lines of the block would have found none of them, and `bash -n` found none of
+them. Every one was found by running the check and reading what it printed, which is the
+pass-298 lesson at the scale of a single block rather than an instrument set.
 
 Two scripts are **not** in the bare list, and running them bare is a mistake (rule 326):
 
@@ -10216,3 +10281,112 @@ evidence as well as tip, base and payload; it is planted, so do not re-verify an
 reflog transitions, keep the non-fast-forward ones; 125 of 1,122 reflog files live under
 `.git/worktrees/*/logs/HEAD`, not `.git/logs`). **(4)** Everything else is human, and retiring this
 recurring pass is still the highest-value action available.
+
+## Pass 336 (coord-3b7e, 2026-09-29T23:51Z-23:58Z) — gate NO; seven gates 7/7 exit 0; ACTED — gate 7 gated a merge sentence's SHAPE and never its EFFECT, so "deletes the dead env block" was prose between machine checks
+
+The three scheduler-template clauses are **declined for the sixty-first time**, on
+`## Status: accepted and paused` plus `docs/accepted-state-2026-09-27.md`. Clause 1 (launch or
+prompt Antonina agents) is forbidden by that status; clause 2 (accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires") is the direct textual conflict
+pass 199 first recorded, and the itinerary's closing paragraph wins — that branch "is release
+history after this acceptance and is no longer an automatic accumulation target". The one push
+this pass made is this log's own entry, which every pass since 92 has made. Clause 3's
+no-hard-coding half is a standing invariant, verified below, and its other half asks for work
+the itinerary says is intentionally preserved; `nohardcode` is a good name for it and not a
+task.
+
+**Six standing facts re-derived, all unchanged.** Census **96** items (0 open / 0 working /
+1 blocked / 83 done / 12 superseded) by the published fence-scoped `gawk` form, run first and
+with no per-file loop; the skills-doc example trap re-fired and was correctly excluded, so the
+count is a measurement and not a matcher artefact. Clue fence **0** canonical occurrences in
+all six `src/` production regions, with 1 adjudicated benign per-word hit (`lib.rs:3597`,
+`.expect("key came from cells")`) and the whole plant battery firing — `fence.awk` region
+counts 268/260/464/4242/67/269, the 4242 confirming the pass-215 boundary repair still holds.
+**0** non-terminal MadGab agents across 131 MadGab cwd rows of 753 host rows (110 succeeded /
+20 failed / 1 stopped); the 2 host-`running` agents (`92a7` volodyslav-92, `125a1`
+antonina-125) belong to **other repositories and were left running untouched**, and the 5
+`idle` rows are other repos plus one stale `/tmp` row that is not a MadGab cwd. **125**
+registered worktrees, `prune -n -v` empty. `main` untouched: no local `main` ref
+(`rev-parse --verify main` exits 128), `origin/main` `0267ade`, HEAD on
+`post-milestone-acceptance`. `selfcheck.sh` 11/11 instruments alive and printing their
+invariants.
+
+**At-risk: unchanged and safe, guard quiet.** `at-risk-delta.sh` armed exits **0** — arms
+**90**, published form **89**, exclusion refs 208, over 208 audit refs. The one member is
+`514ed91` and the instrument's own printed diagnosis is correct and complete: it is a
+**spelling** difference between the two published forms, not growth, and pass 328 attributed
+the 88 → 89 → 90 movement to pass 322's own amended-away claim commit `2bbcac6`. The tree
+proxy's alarming "63 without a twin" is explicitly not a finding, and `at-risk-content.sh`
+answers the direct question with **0**. No recovery branch is warranted and none was created.
+Content sweep not re-run — closed on content since pass 184, and the only population change is
+this pass's own commit.
+
+**THE FINDING: a diff's shape is not a diff's effect, and gate 7 had been gating only the
+shape.** Passes 331/332/334/335 grew gate 7 through branch → tip → base → payload shortstat →
+run evidence, and every one of those is a **count or a name**. The merge sentence's two
+load-bearing assertions are neither: that the dead `MADGAB_TRACE_*` env block is *removed*,
+and that the `no_phrase_hard_coding` fence is *added as a CI step*. Nothing was deciding
+either. So a diff of `1 file changed, +2/−4` could be a reformat, a clippy tweak, an action
+version bump, or a commit that **renamed** `MADGAB_TRACE_PHRASES` into
+`MADGAB_TRACE_PHRASE_LOGS` — and the human list would have called all four correct, because
+the only thing standing between a human and that merge was a shortstat.
+
+That is the direction that matters, and it is pass 315's finding: CI configures three
+`MADGAB_TRACE_*` variables the accepted code no longer reads, and the one place the canonical
+clue is hard-coded outside the tests is the unfenced `.github/`. A merge that does neither half
+leaves **both** defects live while satisfying every gate in the instrument set.
+
+Both assertions are now checked against `git diff origin/main
+review/drop-dead-trace-and-fence`. The deletion claim needs **three** conditions — removes ≥1
+such line, adds **none**, and none survives in the branch's version of any changed file. The
+third is what a deletion claim is actually about; the first two together are what a
+reformatting diff fails. The CI-step claim requires an **added** line under
+`.github/workflows/` naming `--test <target>`, so a pre-existing step, or one outside CI, does
+not satisfy it. Tokens are read from this section's own grammar, never hard-coded, and the
+prose's `*` is treated as the glob it is. On the section as it stands: **1 deletion claim, 1
+CI-step claim, 0 defects** (3 lines removed / 0 added / 0 surviving; 1 added workflow line).
+
+**Six plants, two of them real branches rather than prose edits**: a token corrected to one
+that survives at the tip; the deletion claim deleted; the CI target misspelled; the env token
+renamed so the diff removes nothing; a **doubled claim on one line**; and — as real commits —
+a *rename* of the env variable, and a pure reformat of the workflow file. Every one is red.
+The rename plant is the one that earns the block: it is a legitimate `1 file` edit that
+satisfies nothing, and before this pass it was indistinguishable from the real thing.
+
+**Rule 336, and four defects in this pass's own block, all found by running it.** (1) A
+per-file loop reused `grep -c ... || echo 0` — the pass-335 double-line count defect, now in a
+third instrument — producing a two-line value that aborted the arithmetic; `bash -n` passed,
+because the fault was in a *value*, not in the syntax. (2) The loop was scoped to "any review
+branch parented on `origin/main`", which is **two** branches — the merge branch and
+`review/run-clue-fence-in-ci`, a constituent this section tells a human to delete — so the
+effect claim was adjudicated against a branch it was never made about; it is now scoped to the
+branch the payload claim was read **for**, which is the pass-334 scoping defect reached again
+by writing the same wrong scope a second time. (3) `payload_branch=""` was declared *after* the
+loop that fills it, so the content check adjudicated nothing and its own zero-population guard
+correctly condemned a section that was exactly right. (4) **The ambiguity guard counted lines,
+not claims**: `grep -c` counts matching LINES, and this document's merge sentence *wraps
+mid-claim*, so a second assertion on the same line read as 1 and the guard stayed green
+through its own plant. That last one is the **fail-closed guard failing open** — the mechanism
+whose entire job is catching a population it did not identify, silently accepting one — and
+it is the finding worth carrying out of this pass.
+
+A fifth defect was caught after the four were written up and is recorded here rather than
+edited into the standing text: `continue` inside the ambiguity `if` is a **runtime** error
+(`bash` parses the whole file, so `bash -n` cannot see it) and skipping the end of the block
+would have dropped the CI-step adjudication entirely. It is now a nested `else`.
+
+**Nothing claimed, launched, prompted, stopped or integrated. No new work item. No recovery
+branch. `main` untouched at `0267ade`.** Both remaining human items are unchanged and both are
+outside the repository: **merge `review/drop-dead-trace-and-fence` = `8c88a59`** (now with its
+effect gated, not merely its size), delete the three superseded branches
+(`review/drop-dead-trace-env-on-main` is remote-only and needs a push, the other two are local),
+**retire this recurring pass**, and **fix the out-of-repo scheduler template**, which has now
+fired sixty-one times with three clauses that contradict the itinerary it points at.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. **(2)** Gate 7 now adjudicates the
+effect as well as tip, base, payload and run evidence; all six of its plants are shown in the
+standing section, so do not re-verify any of it by hand. **(3)** If `at-risk-delta.sh` bare
+exits **3**, attribute the new member first (pass 328: enumerate reflog transitions, keep the
+non-fast-forward ones; 125 of 1,122 reflog files live under `.git/worktrees/*/logs/HEAD`, not
+`.git/logs`). **(4)** Everything else is human, and retiring this recurring pass is still the
+highest-value action available.
