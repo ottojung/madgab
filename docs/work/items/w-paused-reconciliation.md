@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-9f02
-updated: 2026-09-30T19:31:00Z
+updated: 2026-09-30T20:44:30Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -13986,5 +13986,53 @@ agents belong to other repositories and were left running); `item-state.sh`, `re
 `origin/post-milestone-acceptance`. The preserved `Hits Justice Dupe Hid Came` limitation re-measured
 **still red** (`cargo test --release --test cli_milestone_predicate -- --ignored` FAILS at
 `--top 10`, nearest `"it justice too pah dame"`), so the accepted state has not quietly closed.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+
+### Re-verification pass, 2026-09-30T20:41Z-20:45Z - gate NO; all gates green on arrival with NO arrival repair; nothing changed, nothing claimed, nothing launched
+
+Minimal entry by design: the STOP notice at the head of this file says growing this file is the
+failure mode, and this pass found nothing to repair, so this is the shortest record that still lets
+a later pass skip re-deriving the facts.
+
+The three scheduler-template clauses (launch/prompt Antonina agents; accumulate on
+`post-milestone-acceptance` "exactly as the itinerary requires"; prioritize the canonical
+approximate-search examples) are **declined again** on `## Status: accepted and paused`
+(`docs/skills/itinerary-madgab.md`) plus `docs/accepted-state-2026-09-27.md`. Clause 2 remains a
+direct textual conflict: the itinerary's closing paragraph says `post-milestone-acceptance` "is no
+longer an automatic accumulation target", so "exactly as the itinerary requires" cannot be satisfied
+by doing what the clause says. Nothing was claimed, launched, prompted, stopped, merged or
+integrated; no new work item; no `recovery/*` branch; no src file touched; `main` untouched.
+
+**All thirteen instruments exit 0 on arrival with no repair this pass** - unlike pass 293 and the
+2026-09-30T19:22Z pass, `at-risk.sh` did **not** need the audit mirror refreshed first. Mirror and
+origin are both at `8ac1618` and the mirror's name set is cardinality- and name-clean against
+`ls-remote --heads origin` (208 = 208), so the pass-187 "refresh the mirror before running the gate"
+step was already satisfied on arrival. `census.sh` 96 items = 83 done / 12 superseded / 1 blocked,
+**0 open / 0 working**. `clue-fence.sh` **0** canonical clue occurrences in all six production `src/`
+regions (both plants firing, so the zero is measured). `agents.sh` **0** non-terminal MadGab agents
+among 131 MadGab-cwd rows of 977 host rows; the 4 host-`running` agents (136e5 qai-gate, 92fc
+volodyslav, 94f04 and 94f02 assemblyp1) belong to other repositories and were left running untouched.
+`item-state.sh`, `refs.sh`, `branches.sh`, `figures.sh` (4 rows / 0 defects) and `prohibition.sh`
+(3 figures + 1 reason / 0 defects) all 0. `selfcheck.sh` **13 of 13**.
+`branch-containment.sh` still requires arguments and is deliberately outside the bare gate list, so
+its bare `exit 1` is a usage line, not a defect.
+
+`origin/main` is still `0267ade`; there is no local `main` ref (`rev-parse --verify main` exit 128);
+`post-milestone-acceptance` is **470** commits ahead of `origin/main` with **0** touching `src/`,
+level with `origin/post-milestone-acceptance` (0 unpushed); the last commit touching `src/` anywhere
+is still `38e5e87` of 2026-09-27, the accepted state. 126 worktrees, `worktree prune -n -v` empty.
+
+A preservation sweep was run over all 126 worktrees (the one thing worth doing when nothing else is):
+**19 dirty worktrees, 37 dirty paths, 33 hashable, 0 unreachable** against 9,156 known object ids from
+`rev-list --all --reflog --objects`. No unrecoverable local work exists, so no preservation branch is
+warranted and none was created.
+
+The accepted limitation is re-measured **still red**, not quietly closed:
+`cargo test --release --test cli_milestone_predicate -- --ignored` FAILS at `--top 10`, nearest
+`"it justice too pah dame"`. The most promising reopened direction remains the one the accepted-state
+document names - a whole-path algorithm (compact pronunciation DAG with k-best / A*-style search or a
+backward suffix heuristic), not another widening of the Cartesian-prefix traversal - and it must stay
+general, with no phrase-specific hard-coding.
 
 **NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
