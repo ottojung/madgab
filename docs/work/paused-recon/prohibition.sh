@@ -268,10 +268,47 @@ while read -r c; do
 done <<EOF
 $(git rev-list "${main_sha}..${sha}" 2>/dev/null)
 EOF
-printf 'prohibition: reported  log-commit share of those %s commit(s): %s touch this log file and %s do not\n' \
-  "$m_commits" "$log_commits" "$((m_commits - log_commits))"
-printf 'prohibition: reported  commit noun: the prose says "%s commits"; if it says "log commits" that is a POPULATION claim, and the true log-commits figure is %s\n' \
-  "$n_commits" "$log_commits"
+# Pass 365. These two lines are the ONLY place the 381/16 split exists anywhere in
+# this repository, they print on BOTH paths always, and pass 364 proved that a
+# printf format string is invisible to every document plant -- fourteen of them
+# all read rc, none read the sentence. So the sentence is built here, gated, and
+# only then printed (rule 364: an instrument's own output text is part of what
+# it asserts, and pass 364's own NEXT named a double space after "reported" as
+# the regression signal while quoting the double-spaced form as correct, so the
+# criterion could not discriminate).
+line_share=$(printf 'reported: log-commit share of those %s commit(s): %s touch this log file and %s do not' \
+  "$m_commits" "$log_commits" "$((m_commits - log_commits))")
+line_noun=$(printf 'reported: commit noun; the prose says "%s commits"; if it says "log commits" that is a POPULATION claim, and the true log-commits figure is %s' \
+  "$n_commits" "$log_commits")
+for _l in share noun; do
+  eval "_t=\$line_$_l"
+  case "$_t" in
+    'reported: '?*)
+      # Shortest-prefix strip, so a SECOND space survives in _r and is visible.
+      # A pattern that searched the whole line for '  ' would not catch it: the
+      # defect this pass repairs is adjacent to the label, and plant A (see the
+      # pass-365 entry) proved that form reads GREEN on exactly this case.
+      _r=${_t#reported: }
+      case "$_r" in
+        ' '*)
+          printf 'prohibition: DEFECT reported-%s-shape -- the label is followed by two spaces, so the word after it reads as a missing value: %s\n' \
+            "$_l" "$_t" >&2
+          fails=$((fails + 1))
+          ;;
+        *)
+          printf 'prohibition:   ok   reported-%s-shape  %s\n' "$_l" "$_r"
+          ;;
+      esac
+      ;;
+    *)
+      printf 'prohibition: DEFECT reported-%s-shape -- the sentence does not begin with the "reported:" label: %s\n' \
+        "$_l" "$_t" >&2
+      fails=$((fails + 1))
+      ;;
+  esac
+done
+printf 'prohibition: %s\n' "$line_share"
+printf 'prohibition: %s\n' "$line_noun"
 printf 'prohibition: scope    the insertion count is the three-dot range; the deleted-line count is the branch OWN single commit (they are different populations)\n'
 printf 'prohibition: not gated  whether a29f3d7 is still the right branch to prohibit (that is the containment claim, branch-containment.sh) and whether the merge has happened (gate 7)\n'
 

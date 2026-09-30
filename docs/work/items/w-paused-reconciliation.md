@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-2b7e
-updated: 2026-09-30T04:09:00Z
+owner: coord-4e11
+updated: 2026-09-30T04:15:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -13458,3 +13458,127 @@ words between the numbers. **(7)** The highest-value output of a further pass is
 human's decision, and this pass created no work item, claimed nothing, launched no agent, merged
 nothing, pushed nothing to `main`, created no `recovery/*` branch, and leaves **nothing running** for
 a later pass to supervise.
+
+## Pass 365 (coord-4e11, 2026-09-30T04:11Z-04:16Z) - gate NO; nine gates 9/9 exit 0 on arrival; ACTED - pass 364's own regression criterion could not discriminate, because it quoted as the expected form the very string it named as the failure signal, and the double space it diagnosed as "the whole of it" was still there
+
+### What this pass measured, from the bare gates, nothing copied from a recorded figure
+
+Gate NO. `census.sh` exit 0: **96** work items, **0 open / 0 working / 1 blocked / 83 done / 12
+superseded**, skills-doc control 0 by selector / 1 fence-blind. `clue-fence.sh` exit 0: **0** joined
+and **0** per-word canonical hits in all six production regions, 1 per-word hit adjudicated benign
+(`src/lib.rs:3597`), 118 statement-forms scanned, every plant firing. `agents.sh` exit 0: **131**
+MadGab cwd rows of **815** host rows, `{"succeeded":110,"stopped":1,"failed":20}`, **0 non-terminal
+MadGab agents**; the three host-`running` agents (`128c1` antonina, `129b1` antonina, `109d2`
+skrynia-apps) are other repositories and were **left running untouched**; 5 host-`idle` rows, none a
+MadGab cwd. `item-state.sh` exit 0: frontmatter parses with all eight schema keys, newest entry
+`## Pass 364` at line 13333. `selfcheck.sh` exit 0: **13** of 13 instruments alive. `refs.sh` exit 0:
+3 relative links, 14 instrument paths, 0 self-pointers, 1 quoted pointer, 1 qualified pointer, all
+resolve, newest-entry instruction 1 paragraph / 0 defects. `branches.sh` exit 0: 9 branch names, 5
+tip/base claims 0 mismatches, 1 payload claim 0 defects, 1 deletion + 1 CI-step claim 0 content
+defects. `figures.sh` exit 0: **4** rows reconciled, **0** defects, `not anchored` line present.
+`prohibition.sh` exit 0: **3** figures + **1** reason reconciled, **0** defects, `not gated` line
+present. `main` untouched: no local `main` ref (`rev-parse --verify main` exit 128), `origin/main` =
+`0267ade`, HEAD `post-milestone-acceptance`. The audit mirror was not re-fetched (NEXT (5), still
+optional; rule 344 if done).
+
+Host rows moved 811 -> 815 with the MadGab rows unchanged at 131 and still 0 non-terminal. That is
+churn in another repository's population, reported as a snapshot and not acted on.
+
+### THE FINDING: pass 364 handed the next pass a test that cannot fail and cannot pass
+
+Pass 364's NEXT (1) reads, in one breath: the two `reported` lines *"should read `reported  log-commit
+share of those ...` and `reported  commit noun: the prose says ...`. A double space after `reported`
+means the repair has regressed."* The quoted expectation and the named failure signal are the **same
+string**: both spell the label as `reported` followed by **two** spaces. So the criterion cannot
+discriminate in either direction — a fresh pass that applies it literally must report a regression on
+a correctly repaired instrument, and one that applies it sensibly must ignore the sentence that tells
+it what to look for. There was no third option, because the two halves of the instruction disagree.
+
+The instrument agreed with the criterion and disagreed with the prose. Line 271/273 read
+`prohibition: reported  log-commit share of those 397 commit(s): …` — two spaces — so the sanctioned
+output *is* the shape the standing text calls a regression.
+
+**This is not a new observation, it is pass 364's own, unfinished.** Pass 364's entry names the double
+space as the defect in its own words — *"The double space after `reported` is the whole of it"* — and
+then, eleven lines later, records the post-repair green as *"**both `reported` lines present and
+grammatical**"*. The repair changed the two dropped words; the thing the pass had diagnosed was never
+removed, and the sentence that reported success was read as success. The generalisation is rule 364's
+own, applied to the pass that wrote it: **a repair is not done when the word is back, and a pass that
+names a defect must leave a check that reads red on the defect it named.** A pass that reports its own
+diagnosis as fixed, without a plant against the diagnosis, has not discharged anything.
+
+### The act, and the three plants
+
+`prohibition.sh` lines 271/273 now build each sentence into a variable, gate its **shape**, and only
+then print it, so the output text is inside what the instrument asserts (rule 364 applied as a check
+rather than as a maxim). Shape: the sentence must begin with `reported: ` and the character after that
+prefix must not be a space. The word `share` and the clause `commit noun;` are the labels pass 364
+restored, unchanged in wording.
+
+- **Plant A (red, and it is the finding itself):** reinserting the second space after `reported:` →
+  `DEFECT reported-share-shape -- the label is followed by two spaces, so the word after it reads as a
+  missing value`, `rc=1`.
+- **Plant B (red):** deleting the `reported: ` label from the noun sentence →
+  `DEFECT reported-noun-shape -- the sentence does not begin with the "reported:" label`, `rc=1`.
+- **Plant C (red, the sensitivity control):** `397` → `398` in the standing prohibition paragraph →
+  `DEFECT commit-count claimed 398 measured 397`, `rc=1`. The new shape check did not blunt the gate
+  it sits beside; both are live in the same run.
+
+Baseline: `rc=0`, both shape lines `ok`, both sentences printed on the passing path. Full suite after
+the edit: **9/9** exit 0, `selfcheck.sh` **13 of 13**. `git status` after the third plant showed
+`prohibition.sh` as the only modified path, so no plant text survived.
+
+### A defect in the check this pass wrote, caught by its own plant — the same class, one level down
+
+The first version of the shape guard searched the **whole line** for a double space
+(`'reported: '?*'  '*`). **Plant A did not fire: it read `rc=0` on precisely the string it exists to
+catch**, because the defect sits *adjacent to the label* and the remainder of the sentence contains
+no double space to find. A whole-line scan is the general check for a typo and the wrong check for
+this defect, and it would have shipped green — the identical false zero pass 363 shipped, one layer
+down and eight passes later. The repair is the shortest-prefix strip `${_t#reported: }`, which leaves
+the second space *in the remainder* where the `case` can see it. Recorded because the generalisation
+is the standing one and this instance is fresh: **anchor a check to the position of the thing it
+guards, not to its mere presence elsewhere in the string** (pass 346's rule, again).
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+**Gate NO.** (1) *Launch or prompt Antonina agents*: declined on `## Status: accepted and paused` plus
+the accepted-state document. There is nothing to launch — **0 open / 0 working** items, **0
+non-terminal MadGab agents**, and all three host-`running` agents belong to other repositories. No
+recovery is available either: the only non-terminal MadGab row is `3a8f01`, `stopped` on a superseded
+front, and it was left stopped, unmoved. (2) *Accumulate on `post-milestone-acceptance` "exactly as
+the itinerary requires"*: the same direct textual conflict as every pass since 199 — the itinerary says
+that branch "is release history after this acceptance and is no longer an automatic accumulation
+target", so the template's instruction cannot be honoured by doing what the template says; the
+itinerary wins, and only a human can retire or correct the out-of-repo template. This pass's commit
+goes to that branch because **this log is its own durable record** and the pause does not stop the
+bookkeeping, not because the template's instruction is honoured. (3) *Prioritize the canonical
+approximate-search examples without phrase-specific hard-coding*: the no-hard-coding half holds as a
+**standing invariant**, not as work — `clue-fence.sh` reads 0 across all six production regions with
+its plants firing — and the preserved `Hits Justice Dupe Hid Came` limitation was not re-litigated.
+This pass changed no `src/` file at all. Nothing was claimed, launched, stopped, prompted or
+integrated; no new work item; no `recovery/*` branch created; `main` untouched at `0267ade`.
+
+### NEXT — for a fresh pass
+
+**(1)** Re-run the nine bare gates; expect **9/9** exit 0, `selfcheck.sh` **13 of 13**, and gate 9
+printing two NEW rows — `ok   reported-share-shape` and `ok   reported-noun-shape` — plus the two
+sentences as `reported: log-commit share of those 397 commit(s): 381 touch this log file and 16 do
+not` and `reported: commit noun; the prose says "397 commits"; …`. **The regression signal is now
+discriminating and it is the other way round from pass 364's: a `DEFECT reported-*-shape` line, or a
+DOUBLE space after `reported:`, is the regression — a single space is correct.** Do not copy pass
+364's NEXT (1) spelling; it is superseded by this one and it was self-contradictory. **(2)** Do not
+re-derive this pass's finding or its three plants; the reasoning is above and all three are named.
+Note for whoever reads the history: the whole-line `'  '` guard recorded above is **withdrawn** — it
+read green on plant A and must not be reinstated. **(3)** Pass 364's NEXT (3) remains discharged; the
+only thing still worth adjudicating is `branch-containment.sh`'s own claim — pass 325 built it, it is
+argument-taking, and it is deliberately not in the bare gate list. **(4)** Do not re-litigate passes
+345–365. **(5)** The audit mirror was not re-fetched this pass; still optional, and if done must read
+its exit code directly rather than after a pipe (rule 344). **(6)** Rule 364 stays the broad one: run
+each instrument once and read its output **as prose**, and — this pass's addition — **plant a check
+against the defect the pass itself just named**, because a pass that diagnoses a defect and reports it
+repaired without such a plant has repaired the words and left the shape. **(7)** The highest-value
+output of a further pass is still not a rule: **retire this recurring pass, or reopen MadGab
+explicitly.** What would change the situation is a human's decision, and this pass created no work
+item, claimed nothing, launched no agent, merged nothing, pushed nothing to `main`, created no
+`recovery/*` branch, and leaves **nothing running** for a later pass to supervise.
