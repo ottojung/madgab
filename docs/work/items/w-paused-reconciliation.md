@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-4a1c
-updated: 2026-09-30T00:09:00Z
+owner: coord-7b31
+updated: 2026-09-30T00:29:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -10601,3 +10601,135 @@ No merge, no push, no branch deletion, no `main` touch: the gate is NO and this 
 `8c88a59` and delete the three superseded branches, and retire this recurring pass. Nothing here is
 coordinator-actionable, and a pass that finds no defect should say so in one line rather than add a
 rule.
+
+## Pass 339 (coord-7b31, 2026-09-30T00:22Z-00:34Z) - gate NO; seven gates 5/7 on arrival, and the two red ones were the SAME defect; ACTED - a reader that says "no handoff" when a handoff is present had taken down the whole instrument set, over a pair of asterisks
+
+**Gate answer: NO.** The three scheduler-template clauses (launch/prompt Antonina agents /
+accumulate on `post-milestone-acceptance` "exactly as the itinerary requires" / prioritize the
+canonical approximate-search examples) are declined, for the fortieth time, on the itinerary's
+`## Status: accepted and paused` and the accepted-state operational status. Clause 2 still conflicts
+textually with the itinerary, which says that branch "is release history after this acceptance and
+is no longer an automatic accumulation target"; the itinerary wins. No agent launched, stopped or
+prompted; the 4 host-running agents (other repositories) were left running untouched. Nothing
+integrated, no work item created, `main` untouched.
+
+### The gates were 5/7 on arrival, and the two red ones were one defect
+
+Gates 4 (`item-state.sh`) and 5 (`selfcheck.sh`) both exited **1**; 1/2/3/6/7 exited 0. They were
+not two findings. `selfcheck.sh` reported `item-state.sh DEAD` and then `REFUSING - the instrument
+set is not trustworthy as it stands`, because gate 5 runs gate 4. **One failing reader cascaded into
+a verdict that every standing fact in this log is unmeasured** - the second time in this file's
+history that an instrument failure has been allowed to disclaim the facts rather than just itself.
+
+The cause is a one-line predicate, and it is the failure class this script was written to prevent.
+`item-state.sh` located a pass's handoff with `/^(NEXT|### Next pass)/` - a **closed enumeration of
+the two spellings that had been written when it was authored**. Pass 338 wrote a third,
+`**Next pass: prefer no entry at all.**`, so the predicate matched nothing and the reader exited 1
+with "the handoff is unreadable". **The handoff was there, at line 10600, and it said to prefer no
+entry at all.** The reader reported absence where there was presence, and the two statements the
+script exists to keep apart - "no handoff was left" and "the handoff is spelled differently" - had
+become indistinguishable.
+
+The general form, and it is the same shape as rules 9, 10, 11, 14, 17, 22, 27, 35 and 44 one level
+up: **a predicate written as a list of the spellings observed so far is a census, not a rule.** It
+passes until the first spelling nobody thought of, and it then fails in the direction that looks
+exactly like the absence it exists to detect. The repair matches the **property** - a line that
+opens a next-pass handoff under any Markdown decoration - by stripping leading `#`/`*`/space and
+testing the first undecorated token sequence with a real boundary, rather than adding the third
+spelling to the list. All three spellings that occur in this file today now resolve: `NEXT:` (30
+entries), `### Next pass` (1), `**Next pass:**` (1, pass 338's).
+
+### Three controls, and two of them caught a defect in the repair itself
+
+The predicate is now the load-bearing part of the script and it is the part that was wrong, so it
+gets a control set, and **the controls call the same `next_label_line()` function rather than a
+second copy of the regex** (rule 262: a control written from a re-spelling of the pattern certifies
+the re-spelling). Six positive controls (every sanctioned spelling, plus `#### NEXT -` and
+`  * **Next pass** -`, plus a bare `NEXT`), one near-miss that must not match, one decorated label
+that must, and one entry with no label at all so the fail-closed path stays reachable.
+
+Writing them caught two defects **in the repair, before publication**, and both are the file's own
+lessons recurring in new guises:
+
+* **`\b` is not a word boundary in GNU Awk** - it is BACKSPACE (word boundaries are `\<` and `\>`).
+  The first version of the fix used it, so the predicate matched **nothing**, on every entry, and the
+  controls reported all six positives as 0-read. Replaced with an explicit
+  `([^A-Za-z0-9_]|$)` boundary class. **Rule 339a: a regex feature's availability is a property of
+  the interpreter, and `\b` is the specific one that fails silently in gawk - it is not a syntax
+  error, it is a character class that never occurs in the input.**
+* **The near-miss control could not fail.** It planted `the next passes all went fine, and NEXTWORD
+  is a word` and expected no match - but that line does not *begin* with `NEXT`, so it would not
+  have matched a prefix-anchored predicate either. A mutant with the token boundary **deleted** read
+  **green straight through it**. The line now starts with the bait (`NEXTWORD is a word, and the
+  next passes went fine`). **Rule 339b: a control has to be reachable by the defect it is meant to
+  catch; a negative control whose bait is not at the position the predicate anchors on certifies
+  nothing, and it is the one control whose green looks like a passing grade.**
+
+### The green was proved red three ways first (rule 334), on throwaway copies
+
+| mutant | change | expected | got |
+|---|---|---|---|
+| 1 | revert to the old `/^(NEXT\|### Next pass)/` enumeration | red | **rc=1**, names exactly the 3 spellings the live bug lost |
+| 2 | delete the token boundary | red | **rc=1**, `near-miss->'11'(want empty)` |
+| 3 | restore the `\b` this pass originally shipped | red | **rc=1**, all 6 positives 0-read |
+
+Mutant 1 is the strong one: it reproduces pass 338's defect exactly, from the other direction, and
+the controls name it. Every mutant was run as a **copy under `/tmp`**, never by editing the live
+instrument - and two attempts to build a mutant in place failed mid-sequence and briefly left the
+working instrument broken; it was restored from a copy taken before the first edit and re-verified
+(`rc=0`) each time. Worth recording because the first two attempts used `sed`/`perl`/`python3` to
+build the mutant, **none of which exist on this host**, and a `sed` expression errored *after* a
+succeeding `cp` in the same command line, so the broken copy was installed regardless. **Rule 339c:
+in a multi-step shell command, put the mutation LAST and verify each step; a failing earlier step
+does not stop the pipeline.**
+
+Also re-verified, not assumed: invocation-independence. `item-state.sh` resolves its own root, so
+it returns `rc=0` from the repo root **and** from `docs/`; from an unrelated linked worktree it
+fails closed with `item file not found` naming that worktree, which is correct - a different
+worktree is a different tree and may not carry this file.
+
+### Standing facts, re-derived (unchanged; two of them need their population stated)
+
+* **Census 96** = 0 open / 0 working / 1 blocked / 83 done / 12 superseded, `work_item: true` scope.
+  The pass-203/338 delta stays **RESOLVED**: `w-0f3a17-shortlist-rule.md` is `work_item: false`,
+  and the two selection arms differ by exactly that one file.
+* **0 canonical clue occurrences** in all six production `src/*.rs` regions (joined and per-word),
+  `lib.rs` 1 adjudicated benign per-word hit. **Clause 3's no-hard-coding half is a standing
+  invariant, not work** - it is re-derived, never re-litigated.
+* **0 non-terminal agents** in any registered worktree, over 131 MadGab cwd rows of 758 host rows
+  (110 succeeded / 20 failed / 1 stopped). The rule-271 blind spot is still **latent, not live**:
+  all 8 ID-named worktrees are registered and hold 0 agent rows of any state.
+* **`main` untouched**: `origin/main` = `0267ade`, no local `main` ref (`rev-parse --verify main`
+  fails), HEAD on `post-milestone-acceptance`, working tree clean apart from this pass's own two
+  files, nothing unpushed.
+* **Worktrees: the standing row's 125 is CORRECT and this pass's 126 is a different population, not
+  a regression.** The row warned that anything but 125/125 "is a signal, not volatility" - so this
+  pass treated 126 as a signal and traced it: `git worktree list --porcelain` prints **126** rows
+  because it includes the **primary** worktree, while `.git/worktrees/` holds **125** admin
+  directories. 125 linked + 1 primary = 126. `git worktree prune -n -v` is still **empty**, and all
+  126 directories exist on disk. **Rule 339d, and this is rule 14l at its most trivial: the two
+  numbers are both correct and differ by exactly the primary worktree, so "the count moved" and "the
+  population moved" are different claims and only one of them is a signal.** Recorded because the
+  next pass will otherwise re-trace this, or worse, "fix" a 125 that was never broken.
+* Audit mirror **208** heads (bare-prefix enumeration, cardinality asserted per rule 14g) and **26**
+  `recovery/*` heads on `origin`; both are this log's own durable output growing, not churn.
+
+### The human list is unchanged and still a human's to execute
+
+Gate 7 exit 0: the merge target is `8c88a59`, one commit on `0267ade`, one file, +2/-4, payload and
+both effect claims (3 lines removed / 1 CI step added) checked against the live diff, both test
+targets resolving (13 and 9 `#[test]`). **Two of the three branches slated for deletion are
+REMOTE-ONLY** (`recovery/at-risk-2026-09-29`, `review/drop-dead-trace-env-on-main`) - a local
+`git branch -D` cannot remove them, so the delete step needs `git push origin --delete`. That is
+gate 7 earning its place, and it is a human step. No merge, no push, no branch deletion, no `main`
+touch.
+
+NEXT: **(1)** Run the seven bare gates and nothing else. Gate 4's control set now covers the
+next-pass label predicate, so if a future pass changes that predicate, `item-state.sh` will refuse
+rather than read silently - do not delete the controls to make a mutation pass. **(2)** Do not
+re-derive the census delta (resolved at pass 338), the at-risk composition (settled at pass 328),
+or the worktree count (settled here: 125 linked + 1 primary). **(3)** The two remaining human items
+are unchanged: merge `8c88a59` and delete the three superseded branches (**two of them need
+`git push origin --delete`; they are remote-only**), and retire this recurring pass. Nothing here is
+coordinator-actionable, and the defect this pass fixed was in the reading instruments, not in
+MadGab.
