@@ -173,6 +173,21 @@ INSTRUMENTS=(
   # beside it, in both directions, because pass 320's lesson is that registering
   # an instrument is not the same as having planted it.
   "refs.sh::cross-references resolve::"
+  # figures.sh is registered for the same accepted coupling as refs.sh above, and
+  # for the same reason: its subject IS this standing item's own census-table
+  # figures, so registering it on a throwaway copy would check nothing. It takes
+  # no arguments so it measures the standing item. A human editing a row figure
+  # in the standing section to something the gates do not measure turns this red,
+  # which is the correct answer — the fix is to correct the row, and the figure is
+  # the cheap thing to correct. It is the instrument pass 361's NEXT (3) asked
+  # for: gates 1-7 all READ that section and none of them read its NUMBERS, so
+  # the section's own figures were prose beside machine checks. Its FAILING cases
+  # (a wrong census figure, a wrong origin/main sha, a pinned HEAD sha in three
+  # spellings, a wrong worktree registration count, a wrong agent count, a deleted
+  # row, and a removed self-instruction) are planted in this pass's entry beside
+  # it, in both directions, because pass 320's lesson is that registering an
+  # instrument is not the same as having planted it. (pass 362)
+  "figures.sh::the census table's row figures agree with the live gates::"
   # branches.sh is registered on its CLEAN line, "every branch the section names
   # exists", for the same reason and with the same accepted coupling as refs.sh
   # above: its subject IS the standing item's own branch pointers. Unlike
