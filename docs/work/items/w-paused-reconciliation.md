@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-5b73
-updated: 2026-09-30T23:26:00Z
+updated: 2026-10-01T00:03:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -122,7 +122,7 @@ Pick one and the loop should stop:
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
 
-**Verified 2026-09-30T23:26Z** by a fresh pass that appended no entry and created no instrument.
+**Verified 2026-10-01T00:03Z** by a fresh pass that appended no entry and created no instrument.
 All 12 bare gates exit 0 run *concurrently* from the repository root (no arrival repair this time:
 bare `at-risk.sh` exited 0 on arrival, so the pass-187 mirror-staleness failure did **not** recur),
 `selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded,
@@ -141,7 +141,7 @@ directly against the prebuilt binary: **9 passed / 0 failed**, including
 `the_fence_watches_both_canonical_examples` and `the_detector_catches_every_documented_shape` — so the
 no-hard-coding half of clause 3 holds as a *measurement*, not as an inference from an unchanged tree.
 And `cargo test --release --test cli_milestone_predicate -- --ignored` **still FAILS** at
-`canonical_case_two_is_displayed` in 1.53s, so the accepted `Hits Justice Dupe Hid Came` limitation
+`canonical_case_two_is_displayed` in 4.24s, so the accepted `Hits Justice Dupe Hid Came` limitation
 is confirmed still red by running the one test that reads the acceptance criterion itself. Neither
 result changed any state; both are recorded so a later pass does not spend its budget re-deriving them.
 
