@@ -3,9 +3,10 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c40
-updated: 2026-10-01T04:36:00Z
-prior_owner: coord-7f21 (2026-10-01T03:56Z; ownership stamp only, in commit f92b2ad)
+owner: coord-5e08
+updated: 2026-10-01T05:08:00Z
+prior_owner: coord-9c40 (2026-10-01T04:36Z; ownership stamp only, in commit 76d277d)
+prior_prior_owner: coord-7f21 (2026-10-01T03:56Z; ownership stamp only, in commit f92b2ad)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -14324,3 +14325,49 @@ origin), `at-risk-delta.sh` (72 no-ref-reached blobs, all controls firing) and `
 already-built release binary. This remains the only check that reads the acceptance criterion itself.
 
 **NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+
+### Reconciliation pass, 2026-10-01T05:00Z-05:08Z - all gates green on arrival, nothing to coordinate
+
+Minimal record under the STOP notice's rule: no pass entry proper, no new rule, gate, plant or
+instrument. The three scheduler-template clauses are declined for the reasons at the head of this file
+and are not restated. Nothing was claimed, launched, prompted, stopped, merged or integrated; no new
+work item; no `recovery/*` branch; no `src/` file touched; `main` untouched; nothing left running.
+
+**No arrival repair was needed.** The audit mirror was already level with origin, so `at-risk.sh`
+exited 0 on arrival (`audit mirror verified fresh against origin (no fetch needed)`) and the
+pass-187 mirror-refresh step did not fire.
+
+All thirteen instruments exit 0 on arrival. `census.sh` 96 items = **83 done / 12 superseded /
+1 blocked**, **0 open / 0 working** - the figure the pause rests on, unchanged. `clue-fence.sh`
+**0** canonical clue occurrences across all six production `src/` regions (1 adjudicated benign
+per-word hit at `src/lib.rs:3597`, every plant firing). `agents.sh` **0 non-terminal MadGab agents**
+of 131 MadGab-cwd rows of 1071 host rows; **0** host-`running` agents this pass (5 host-`idle` rows,
+none a MadGab cwd), all other-repository agents left untouched. `item-state.sh`, `refs.sh`,
+`branches.sh`, `figures.sh` (4 rows / 0 defects), `prohibition.sh` (3 figures + 1 reason / 0 defects,
+both `ok reported-*-shape` rows present and single-spaced, the correct spelling per pass 365),
+`frontmatter.sh`, `at-risk-content.sh` (**0** non-build blobs absent from origin), `at-risk-delta.sh`
+(arms 90 / published 89 / 208 exclusion refs, delta 1 = the known reflog-only spelling difference, both
+controls firing) and `content-sweep.sh` (35 hashable rows / 34 distinct blobs, **0** unreachable) all 0.
+`selfcheck.sh` **13 of 13**. `branch-containment.sh` exercised on its self-referential registration
+(origin/main against itself) exits **0** with the containment verdict printed.
+
+`origin/main` is still `0267ade`, the state accepted 2026-09-27; still no local `main` ref
+(`rev-parse --verify main` -> `fatal: Needed a single revision`). `post-milestone-acceptance` is
+**494** commits ahead of `origin/main` with **0** of them touching `src tests examples web`, level with
+`origin/post-milestone-acceptance` (0 unpushed). 126 worktrees, `git worktree prune -n -v` empty,
+working tree clean at entry.
+
+**The accepted limitation is re-measured still red** by execution, not by proxy:
+`cargo test --release --test cli_milestone_predicate -- --ignored` FAILS at
+`tests/cli_milestone_predicate.rs:205` (`canonical_case_two_is_displayed`), nearest
+`"it justice too pah dame"` at `--top 10`, 1.41s off the already-built release binary, and
+`tests/no_phrase_hard_coding.rs` is **9 passed / 0 failed** in 0.01s - so the no-hard-coding invariant
+holds as a measurement on both paths, and the one test that reads the acceptance criterion itself is
+still red on purpose.
+
+Ahead commits moved **493 -> 494** (this file's own growth) and host agent rows **1058 -> 1071** with
+the MadGab share unchanged at 131 and the non-terminal MadGab count still **0**. Neither is a
+programme signal; they are the self-invalidating drift the STOP notice warns about.
+
+**NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
+Retiring it is still the recommendation.
