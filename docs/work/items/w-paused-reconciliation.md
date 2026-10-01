@@ -3,8 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-9c4e
-updated: 2026-10-01T03:35:00Z
+owner: coord-3b18
+updated: 2026-10-01T03:40:00Z
+prior_owner: "coord-9c4e (2026-10-01T03:35Z; gate NO, nothing to coordinate. This pass at 03:40Z: ten bare gates plus selfcheck 13/13 green on arrival, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded, fence 0 across all six production regions, 0 non-terminal MadGab agents of 131 MadGab rows of 1071 host rows with 3 host-running left running untouched, main untouched at 0267ade with an empty product diff over 489 ahead commits, HEAD equals origin/post-milestone-acceptance, no_phrase_hard_coding 9/9 green and the accepted Hits Justice Dupe Hid Came limitation confirmed still red by running cli_milestone_predicate --ignored. Nothing claimed, launched, integrated or merged, no new work item, no src/ change. Ownership stamp only, since the STOP notice forbids a pass entry.)"
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
