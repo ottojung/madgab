@@ -4,7 +4,7 @@ id: w-paused-recon
 state: blocked
 priority: normal
 owner: coord-7c41
-updated: 2026-10-01T00:08:00Z
+updated: 2026-10-01T00:35:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -122,30 +122,37 @@ Pick one and the loop should stop:
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
 
-**Verified 2026-10-01T00:08Z** by a fresh pass that appended no entry and created no instrument.
+**Verified 2026-10-01T00:35Z** by a fresh pass that appended no entry and created no instrument.
 Nine bare gates run from the repository root — `census`, `clue-fence`, `agents`, `item-state`,
 `selfcheck`, `refs`, `branches`, `figures`, `prohibition` — all exit **0 on arrival with no arrival
 repair**; `selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded,
-0 non-terminal MadGab agents of 131 MadGab rows of 1021 host rows (5 host-`running` — `141d`,
-`d14`, `63`, `62`, `94f04` — all other repositories, left running untouched), fence 0 in all 6 regions
-with 1 adjudicated benign per-word hit, `figures` 0 defects, `prohibition` 0 defects.
+0 non-terminal MadGab agents of 131 MadGab rows of 1023 host rows (3 host-`running` — `d14`,
+`62`, `94f04` — all other repositories, left running untouched; `141d` has since gone terminal),
+fence 0 in all 6 regions, `figures` 0 defects, `prohibition` 0 defects.
 `origin/main` `0267ade`, no local `main` (`rev-parse --verify main` exit 128), product diff vs
-`origin/main` empty, 0 of 479 ahead commits touching a product path (`src tests examples web
+`origin/main` empty, 0 of 480 ahead commits touching a product path (`src tests examples web
 Cargo.toml`), HEAD == `origin/post-milestone-acceptance` with 0 unpushed, 126 worktrees with
-`worktree prune -n -v` empty. The slow at-risk family (`at-risk.sh`, `at-risk-content.sh`,
-`content-sweep.sh`, `at-risk-delta.sh`) was **not re-run this pass** — it is unchanged since
-00:03Z, its population did not move, and the budget was better spent on the two acceptance facts
-below — so its 90 = ref-held 1 + reflog-only 89 is carried forward from the 00:03Z measurement,
-not re-derived here. Nothing claimed, launched, merged or pushed to `main`; no agent left running.
+`worktree prune -n -v` empty. Unlike the 00:08Z pass, the slow at-risk family **was** re-run here,
+so its figures are fresh rather than carried: `at-risk.sh` exit **0** at **90** = ref-held 1 +
+reflog-only 89 (disjoint), and `at-risk-delta.sh` exit **0** at arms 90 / published 89 / 208
+exclusion refs, delta 1 = `514ed91`, the known spelling difference. Nothing claimed, launched,
+merged or pushed to `main`; no agent left running.
 
-Two acceptance facts were re-measured by **execution rather than by proxy** this pass, which is the
-one thing the standing gates never do. `no_phrase_hard_coding` was run directly against the prebuilt
-release test binary: **9 passed / 0 failed**, so the no-hard-coding half of clause 3 holds as a
-*measurement*, not as an inference from an unchanged tree. And `cli_milestone_predicate --ignored`
-**still FAILS** at `canonical_case_two_is_displayed` in 1.73s, so the accepted
-`Hits Justice Dupe Hid Came` limitation is confirmed still red by running the one test that reads the
-acceptance criterion itself. Neither result changed any state; both are recorded so a later pass does
-not spend its budget re-deriving them.
+One class of misreading this pass tripped and cleared, so the next pass need not re-trip it:
+**piping a gate into `head` reports the observer's exit, not the instrument's.** `at-risk-delta.sh |
+head -8` returns **141** (SIGPIPE) while printing a perfectly healthy first section; the same script
+invoked bare, with stdout redirected to a file, exits **0** with empty stderr and its full 25 lines.
+141 here is the reader's pipe, not a red verdict — the same shape as the exit-code trap pass 337
+recorded, seen from the other end.
+
+Two acceptance facts were re-measured by **execution rather than by proxy** this pass, which is
+the one thing the standing gates never do. `no_phrase_hard_coding` was run directly against the prebuilt
+release test binary: **9 passed / 0 failed** in 0.01s, so the no-hard-coding half of clause 3 holds
+as a *measurement*, not as an inference from an unchanged tree. And `cli_milestone_predicate
+--ignored` **still FAILS** at `canonical_case_two_is_displayed` in 1.71s (nearest surfaced clue
+`it justice too pah dame`), so the accepted `Hits Justice Dupe Hid Came` limitation is confirmed
+still red by running the one test that reads the acceptance criterion itself. Neither result changed
+any state; both are recorded so a later pass does not spend its budget re-deriving them.
 
 The three scheduler-template clauses are declined once more, unchanged: there is nothing to launch
 (0 open, 0 working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while
