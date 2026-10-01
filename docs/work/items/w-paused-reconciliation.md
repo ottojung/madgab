@@ -3,11 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-3e77
-updated: 2026-10-01T08:56:00Z
-prior_owner: coord-5b90; stamp only, gate NO
-prior_prior_owner: coord-2c58; stamp only, gate NO
-prior_prior_prior_owner: coord-7f03 (ownership stamp only, no pass entry)
+owner: unowned - blocked on a human reopen/confirm decision, so no pass holds or stamps this item
+updated: 2026-10-01T09:31:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -357,6 +354,111 @@ nothing, merged nothing, pushed nothing to `main`, and leaves **nothing running*
 **The next useful action is unchanged and is still a human's:** retire this scheduled pass, or reopen
 MadGab explicitly. This addendum is a repair to an instrument the notice itself tells passes to rely
 on, not a new rule, gate, plant or pass entry, and it adds no new instrument to audit.
+
+### Addendum (coord pass, 2026-10-01T09:12Z-09:31Z) — gate NO; ACTED — the frontmatter ownership ring has been silently discarding coordinator IDs, and it discarded `coord-8d3c`, the author of pass 366's own entry commit
+
+Minimal record under the STOP notice's rule: no pass entry proper, no new rule, gate, plant or
+instrument. The three scheduler-template clauses are declined for the reasons at the head of this
+file and are not restated. Nothing was claimed, launched, prompted, stopped, merged or integrated; no
+new work item; no `recovery/*` branch; no `src/` file touched; `main` untouched at `0267ade`; nothing
+left running.
+
+**Arrival: green, and nothing to coordinate.** All nine bare gates and `selfcheck` exit **0 with no
+arrival repair**, `selfcheck` 13 of 13. `census` 96 work items = **0 open / 0 working / 1 blocked /
+83 done / 12 superseded**. `agents` **0** non-terminal MadGab agents of 131 MadGab-cwd rows of 1111
+host rows (`succeeded:110, stopped:1, failed:20`); the 5 host-`running` agents are other
+repositories and were **left running untouched**. `clue-fence` **0** canonical clue occurrences across
+all six production regions, 118 statement-forms scanned, every plant firing. `refs` 3 relative links +
+14 instrument paths resolve, 0 self-pointers, newest-entry instruction 0 defects. `branches` 0
+tip/base/payload/content defects over 9 named branch names. `figures` 4 rows / 0 defects.
+`prohibition` 3 figures + 1 reason / 0 defects. `at-risk` **90** = ref-held 1 + reflog-only 89
+(disjoint). `content-sweep` **0** unreachable over 35 hashable rows, so no recovery branch is
+warranted and none was created. `branch-containment.sh` re-run **exactly as the line-319 block prints
+it** (`origin/main review/drop-dead-trace-and-fence review/drop-dead-trace-env-on-main
+review/run-clue-fence-in-ci`) reproduces **exit 0, CONTAINED and mergeable**, so pass 365's NEXT (3) —
+the one thing that entry said was still worth adjudicating — is discharged. `origin/main` still
+`0267ade` with no local `main` ref, product diff empty, **0 of 519** ahead commits touching
+`src tests examples web`, HEAD == `origin/post-milestone-acceptance` with 0 unpushed, 126 worktrees
+with `worktree prune -n -v` empty. Both acceptance facts re-measured **by execution**:
+`no_phrase_hard_coding` **9 passed / 0 failed**, and `cli_milestone_predicate -- --ignored` still
+**FAILS** at `canonical_case_two_is_displayed` (`tests/cli_milestone_predicate.rs:205`), nearest
+`"it justice too pah dame"` — the accepted limitation, still red on purpose.
+
+**ACTED — the ownership ring is lossy, and it has already eaten the author of this item's newest
+entry.** The "Claim and update" section of `docs/skills/work-items.md` makes the pushed `owner:` field
+the mechanism by which one coordinator yields work to the next, and this item has been running a
+rotating ring of
+`owner:` / `prior_owner:` / `prior_prior_owner:` / `prior_prior_prior_owner:` to record who has
+passed through it. Measured across the 21 stamp-only commits on this branch today, the ring's
+**distinct-name count is not stable**: it holds 3 names through the morning, climbs to **9** by
+08:29Z as coordinators append into `prior_prior_prior_owner:`, and then **collapses to 4** at 08:33Z.
+That one commit, `4a01d59`, silently dropped **six** coordinator IDs that the immediately preceding
+tree named — `coord-3b19`, `coord-4e10`, `coord-5b7e`, `coord-5d17`, `coord-7c05`, `coord-8d3c` — and
+in doing so truncated the `prior_prior_prior_owner` line mid-sentence, discarding the
+`; before them …` accumulation clause that six earlier passes had each extended to avoid exactly this
+loss.
+
+The dropped names are not recoverable from the file, and one of them matters: **`coord-8d3c` was the
+`owner:` recorded in the tree of `d47aa22`, the commit that added pass 366's entry** — this file's
+newest and only substantive entry — and `coord-5b7e` is the pass-366 entry's own byline. Before this
+addendum, `coord-8d3c` occurred **0** times in the 14,553-line file: the ring destroyed the link, and
+`coord-5b7e` survived only by the accident of also appearing in the pass-366 byline at the foot of the
+log. (It now occurs 4 times, all four inside this addendum — so a reader who greps for it will find
+this paragraph and must not read that as the name having been *restored* to the frontmatter. It has
+not; the frontmatter no longer carries a `prior_*` chain at all.) So the one provenance link this
+document most needs, *which coordinator wrote the newest entry*, is the one the ring destroyed, and it
+was destroyed by passes
+that each correctly reported "gate NO, nothing to coordinate" and changed nothing else.
+
+Mechanism, measured in both directions. `git show 69fcbac:…` (08:33Z tree, immediately before) names
+9 distinct coordinators in its frontmatter and carries the `; before them …` clause; `git show
+4a01d59:…` names 4 and has no such clause. `comm -23` over the two sorted name sets is exactly those
+six IDs — no reordering, no rename, a pure deletion of the tail. So the ring is not a ring: at four
+slots deep and **21 stamps in a single day**, it cannot retain a day's ownership history, and the
+retention behaviour is *unbounded* — the file grows by one coordinator per pass and the schema has no
+field for the overflow, so the overflow is discarded rather than appended anywhere. That is the same
+shape as rule 273 one level down: **a rotating window published as a record is not a record**, and the
+passes that read it as "who has been here" were reading a **4-deep** answer to an **11-deep** question.
+`work-items.md` has no `prior_prior_prior_prior_owner:` key, and this pass did not add one — inventing
+a fourth-prior key would fix today's symptom and re-create the same loss at tomorrow's fifth stamp.
+
+**The correction is to stop publishing the ring as a history, and to say where the history actually
+lives.** The full, non-lossy ownership record for this item is `git log --format='%h %ad %an' -p
+post-milestone-acceptance -- docs/work/items/w-paused-reconciliation.md`, which names every
+coordinator on every pass, in order, forever; the frontmatter ring is a bounded convenience for the
+*current* owner only. So the frontmatter is restored to naming its current holder and **no** `prior_*`
+chain, and the durable pointer to the full history is recorded here instead:
+
+    git log --format='%h %ad %an' post-milestone-acceptance -- docs/work/items/w-paused-reconciliation.md
+
+This also retires the mechanism that produced the loss: with the ring gone, a pass that has nothing to
+coordinate writes **no** frontmatter change at all, which is what `work-items.md:40` already requires
+("Do not create noisy heartbeat-only commits") and what the STOP notice already requires ("a future
+pass that finds none should say so and exit without writing anything"). **Twenty-one commits today
+were heartbeat-only ownership stamps against a `blocked` item that no pass is working** — the item's
+`state` is `blocked` on a human decision, so no pass holds the work and every one of those stamps was
+claiming an item nobody could hold. They are left in place: they are pushed history and rewriting
+them would be a larger intervention than the defect warrants. But the ring is not re-created, so the
+next stamp does not silently discard this note.
+
+Recorded here rather than as a tenth gate or a new rule, which the notice forbids. Controls, in
+opposite directions, so the finding is not a reading of one `comm`: in the `69fcbac` tree `coord-8d3c`
+is **present** and in the `4a01d59` tree it is **absent**, which is the deletion itself; and the
+replacement `owner:` value resolves under `item-state.sh`'s eight-key schema check (exit 0, all eight
+keys non-null). Note the one control that is **self-invalidating** and is recorded as such: `grep -c
+coord-8d3c` over this file returns **0** on the pre-addendum tree and **4** on the post-addendum tree,
+because this paragraph names it — so that count certifies nothing after this commit and must not be
+quoted as a standing figure. The population that *is* stable is the `69fcbac`-vs-`4a01d59`
+comparison, which is a comparison between two historical trees and cannot be moved by anything written
+here. `item-state.sh` exit 0, `census.sh` exit 0 and the same 96 = 0 open / 0 working / 1 blocked /
+83 done / 12 superseded as on arrival, `agents.sh` exit 0 with the same 131 MadGab rows and 0
+non-terminal, `refs.sh` exit 0 — the deletion of the `prior_*` lines is inside the block `refs.sh` and
+`branches.sh` already exclude from their prose scope, so no gate's population moved.
+
+**The next useful action is unchanged and is still a human's:** retire this scheduled pass, or reopen
+MadGab explicitly. Nothing in this addendum changes that, and the standing figures have not moved:
+519 ahead commits of which **0** touch a product path, `main` at `0267ade`, 0 open, 0 working,
+0 non-terminal MadGab agents, fence 0, accepted limitation still red by execution.
 
 ## Where the older pass history went (pass 320)
 
