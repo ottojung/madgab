@@ -379,10 +379,12 @@ review/run-clue-fence-in-ci`) reproduces **exit 0, CONTAINED and mergeable**, so
 the one thing that entry said was still worth adjudicating — is discharged. `origin/main` still
 `0267ade` with no local `main` ref, product diff empty, **0 of 519** ahead commits touching
 `src tests examples web`, HEAD == `origin/post-milestone-acceptance` with 0 unpushed, 126 worktrees
-with `worktree prune -n -v` empty. Both acceptance facts re-measured **by execution**:
-`no_phrase_hard_coding` **9 passed / 0 failed**, and `cli_milestone_predicate -- --ignored` still
+with `worktree prune -n -v` empty. Both acceptance facts re-measured **by execution** against the
+prebuilt release test binaries: `no_phrase_hard_coding` **9 passed / 0 failed**, and
+`cli_milestone_predicate --ignored` still
 **FAILS** at `canonical_case_two_is_displayed` (`tests/cli_milestone_predicate.rs:205`), nearest
-`"it justice too pah dame"` — the accepted limitation, still red on purpose.
+`"it justice too pah dame"` — the accepted limitation, still red on purpose. (The bare-binary
+spelling is `--ignored`; see the correction below for why `-- --ignored` must not be used here.)
 
 **ACTED — the ownership ring is lossy, and it has already eaten the author of this item's newest
 entry.** The "Claim and update" section of `docs/skills/work-items.md` makes the pushed `owner:` field
@@ -459,6 +461,88 @@ non-terminal, `refs.sh` exit 0 — the deletion of the `prior_*` lines is inside
 MadGab explicitly. Nothing in this addendum changes that, and the standing figures have not moved:
 519 ahead commits of which **0** touch a product path, `main` at `0267ade`, 0 open, 0 working,
 0 non-terminal MadGab agents, fence 0, accepted limitation still red by execution.
+
+### Addendum (coord pass, 2026-10-01T20:53Z-20:58Z) — the newest entry's re-measurement command is a **false green** run verbatim; `-- --ignored` against the prebuilt binary runs **0 tests** and exits **0**
+
+Minimal correction record under the STOP notice's rule: no pass entry proper, no rule, no new gate,
+plant or instrument. The three scheduler-template clauses are declined for the reasons at the head of
+this file and are not restated. Nothing was claimed, launched, prompted, merged or integrated; no new
+work item; no `recovery/*` branch; no `src/` file touched; `main` untouched at `0267ade`; nothing left
+running.
+
+**Arrival: green, and still nothing to coordinate.** All nine bare gates and `selfcheck` exit **0 with
+no arrival repair**, `selfcheck` 13 of 13, `content-sweep` 0 unreachable. `census` **96** = **0 open /
+0 working / 1 blocked / 83 done / 12 superseded**. `agents` **0** non-terminal MadGab agents of 131
+MadGab-cwd rows of 1142 host rows (`succeeded:110, stopped:1, failed:20`); the 3 host-`running`
+agents (`136b9`, `146b1`, `92d1`) are other repositories and were **left running untouched**.
+`clue-fence` **0** canonical clue occurrences across all six production regions, all plants firing,
+the one per-word hit at `src/lib.rs:3597` still the pass-216 adjudicated `.expect("key came from
+cells")`. `at-risk` **90** = ref-held 1 + reflog-only 89 (disjoint), `at-risk-content` and
+`at-risk-delta` exit 0, `refs`/`branches`/`figures`/`prohibition`/`frontmatter` exit 0.
+`branch-containment.sh` run **exactly as the line-319 block prints it** reproduces **exit 0,
+CONTAINED and mergeable**. `origin/main` still `0267ade`, no local `main` ref (`rev-parse --verify
+main` exit 128), product diff empty, HEAD == `origin/post-milestone-acceptance` with 0 unpushed, 126
+worktrees. So the standing conclusion is unchanged: **there is no coordination work on this
+repository**, and the next useful action is still a human's.
+
+**The finding: pass 366's own re-measurement line is a fail-open command, and it fails open in the
+dangerous direction.** That entry reports both acceptance facts "re-measured **by execution**" and
+prints the milestone one as:
+
+> `cli_milestone_predicate -- --ignored` still **FAILS** at `canonical_case_two_is_displayed`
+
+The `-- --ignored` spelling is the **cargo** form, correct after `cargo test --test
+cli_milestone_predicate`. It is **wrong for the thing the sentence claims it did**, because the
+sentence and its neighbour both say the binaries were invoked **directly** ("run directly against the
+prebuilt release test binary"). Against the prebuilt binary, libtest has no cargo to strip the first
+`--`, so `--ignored` arrives as a **positional test-name filter**, matches nothing, and the run
+**exits 0**. Measured this pass, same binary, three forms:
+
+| form | tests run | result | exit |
+| --- | --- | --- | --- |
+| `cli_milestone_predicate-c1f570a047ba936a -- --ignored` | **0** of 4 | `ok. 0 passed … 4 filtered out` | **0** |
+| `cli_milestone_predicate-c1f570a047ba936a --ignored` | **1** | `FAILED … canonical_case_two_is_displayed` | **101** |
+| `cargo test --release --test cli_milestone_predicate -- --ignored` | **1** | `FAILED … canonical_case_two_is_displayed` | **101** |
+
+Mechanism confirmed rather than assumed, with `--list` so no assertion is involved:
+`… -- --ignored --list` prints **0 tests** and exits 0, while `… canonical_case_two_is_displayed
+--list` prints **1 test** — so the token after the bare `--` is being consumed as a *filter string*,
+exactly like any other positional argument. No gate reads this line, so the defect was invisible to
+every instrument in `docs/work/paused-recon`, which is the same blind spot the 15:58Z correction
+recorded in a different place.
+
+**Why it matters even though the reported conclusion is true.** The limitation *is* still red — forms
+2 and 3 both show it, with nearest surfaced clue `"it justice too pah dame"` at
+`tests/cli_milestone_predicate.rs:205`, matching the entry verbatim. But the published sentence tells
+a later reader to re-run a command that **returns 0 and runs nothing** while claiming to be a
+measurement of the acceptance criterion. A reader who trusted it would record the canonical
+limitation as *resolved* — the precise failure the STOP notice exists to prevent, and the direction
+opposite to the one this programme is careful about everywhere else. The accepted-state document
+records the limitation as deliberately unresolved, so this is a **reporting** defect, not a state
+defect: no product behaviour, no `src/` line, and no gate verdict changes.
+
+**Correction, in place rather than as an addendum.** The line is edited at its source (above) to print
+the form that reproduces — `--ignored` against the prebuilt binary — with the surrounding sentence
+corrected to name direct-binary invocation for both facts, and the substitution called out inline so
+the trap is visible at the point of use. This is the same class as the 15:58Z and 17:41Z repairs:
+correct the claim where a reader meets it, add no tenth gate, which this notice forbids.
+
+`no_phrase_hard_coding` needs no correction and was re-run by execution this pass: **9 passed / 0
+failed** in 0.03s, so clause 3's no-hard-coding half stands as a measurement. Scope was checked in
+both directions so the repair is not partial: of the 36 occurrences of `-- --ignored` under `docs/`,
+**35 are `cargo test`-qualified and correct**; the single unqualified one was this line.
+
+**The three scheduler clauses are declined again, unchanged.** (1) Nothing to launch: 0 open, 0
+working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while paused.
+(2) The `post-milestone-acceptance` accumulation clause still conflicts textually with the
+itinerary, which calls that branch release history and no longer an automatic accumulation target;
+the itinerary wins, and only a human can correct the out-of-repo template. (3) The canonical-example
+clause holds as a **standing invariant** (`clue-fence` 0, `no_phrase_hard_coding` 9/9, both re-run
+here), and the preserved `Hits Justice Dupe Hid Came` limitation was re-confirmed still red by
+running the one test that reads the acceptance criterion — not re-litigated.
+
+**The next useful action is unchanged and is still a human's:** retire this scheduled pass, or reopen
+MadGab explicitly.
 
 ## Where the older pass history went (pass 320)
 
