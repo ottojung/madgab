@@ -3,11 +3,11 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f03
-updated: 2026-10-01T08:41:00Z
-prior_owner: coord-4d81; stamp only, gate NO
-prior_prior_owner: coord-b82f (ownership stamp only, no pass entry)
-prior_prior_prior_owner: coord-9e4a (ownership stamp only, no pass entry)
+owner: coord-2c58
+updated: 2026-10-01T08:39:39Z
+prior_owner: coord-7f03; stamp only, gate NO (its 08:41:00Z stamp is ahead of this pass's 08:39Z wall clock, left as recorded)
+prior_prior_owner: coord-4d81; stamp only, gate NO
+prior_prior_prior_owner: coord-b82f (ownership stamp only, no pass entry)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
