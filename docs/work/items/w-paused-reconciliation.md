@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-8d3c
-updated: 2026-10-01T07:10:00Z
-prior_owner: coord-f3b8 (2026-10-01T07:01Z; ownership stamp only, in commit 77dfbc0)
+owner: coord-5b7e
+updated: 2026-10-01T07:35:00Z
+prior_owner: coord-8d3c (ownership stamp only, pass 366 entry at the end of this file)
 prior_prior_owner: coord-9d63 (2026-10-01T06:47Z; ownership stamp only, in commit 2ace2e9)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
@@ -14424,3 +14424,129 @@ is **0** by direct count, which is the number that matters and the only one any 
 
 **NEXT is unchanged and is a human decision: retire this recurring pass, or reopen MadGab explicitly.**
 Retiring it is still the recommendation.
+
+## Pass 366 (coord-5b7e, 2026-10-01T07:27Z-07:35Z) - gate NO; nine gates 9/9 exit 0 on arrival; ACTED - the pass-305 anti-misread rule cannot be applied, because the figures it was written to disambiguate now live in a second file that the rule does not name
+
+### What this pass measured, from the bare gates, nothing copied from a recorded figure
+
+Gate NO. `census.sh` exit 0: **96** work items, **0 open / 0 working / 1 blocked / 83 done / 12
+superseded**, skills-doc control 0 by selector / 1 fence-blind, 50 non-schema headers listed once each
+on stderr and correctly not counted. `clue-fence.sh` exit 0: **0** joined and **0** per-word canonical
+hits across all six production regions, 1 per-word hit adjudicated benign (`src/lib.rs:3597`), 118
+statement-forms scanned, all plants firing. `agents.sh` exit 0: **131** MadGab cwd rows of **1094**
+host rows, `{succeeded:110, stopped:1, failed:20}`, **0 non-terminal MadGab agents**; the 5
+host-`running` agents (`92b9` volodyslav, `94b05` assemblyp1, `13403` qai, `142a2` kawun, `145a2`
+skrynia-apps) are other repositories and were **left running untouched**; 5 host-`idle` rows, none a
+MadGab cwd. `selfcheck.sh` exit 0: **13 of 13** instruments alive. `refs.sh`, `branches.sh`,
+`figures.sh` (4 rows / 0 defects), `prohibition.sh` (3 figures + 1 reason / 0 defects, both
+`ok reported-*-shape` rows present and **single**-spaced - the correct spelling per pass 365),
+`content-sweep.sh`, `at-risk.sh --fetch` all exit 0.
+
+`main` untouched: no local `main` ref (`rev-parse --verify main` -> `fatal: Needed a single revision`,
+exit 128), `origin/main` **0267ade** - the state accepted 2026-09-27 - HEAD `4658d0c` on
+`post-milestone-acceptance`, 0/0 vs origin. **Zero release drift**, re-run verbatim from pass 301:
+`git diff --quiet origin/main HEAD -- src tests examples web Cargo.toml Cargo.lock README.md .github`
+rc=0, and `git status --porcelain` over those same shipped paths is empty - so the accepted release is
+still byte-identical to the accumulation tip, and this pass's later commit cannot have changed that.
+126 worktrees, `git worktree prune -n -v` empty, exit 0. at-risk **90** = ref-held 1 + reflog-only 89,
+disjoint, `EXPECT_REFS` 209, baseline(--all --reflog) 1484 / refs-only 1395, controls both directions
+(514ed91 present, 0267ade absent), mirror re-fetched per rule 14a with no `--prune`, exit code read
+directly per rule 344. No recovery branch warranted and none created.
+
+### ACTED - the "compare like with like" rule names no file, and the archive it forgot now holds every figure it disambiguates
+
+Pass 305 recorded, as this log's standing caution, that a pass comparing its own figures to the log's
+must **compare like with like** because the at-risk line is `TOTAL = ref-held + reflog-only`, and that
+reading a component as a total manufactures a false delta which rule 14m then obliges the pass to
+investigate. That rule is correct and it is still load-bearing. It is also, as written, **not
+applicable**, because of the split pass 320 introduced.
+
+**This pass made the error the rule exists to prevent, in its first sixty seconds, and recovered only
+by re-deriving the figure a second way.** Running `at-risk.sh --fetch` returned **90 = ref-held 1 +
+reflog-only 89**. Grepping this item for its last published at-risk figure returned nothing matching the
+`**N**` spelling, and grepping the **archive** returned `at-risk **89**` fifteen times. So for about a
+minute this pass held two candidate live figures - 89 and 90 - from two files, both of which look
+authoritative, both of which are in this log, and neither of which the rule tells it to prefer. That is
+the pass-305 failure mode with the roles reversed: not a component read as a total, but a **stale total
+read as a live one**, because the durable total moved to a second file on 2026-09-29 and the rule still
+points at "the log" as if that were one place.
+
+The mechanism is measurable and it is not subtle once named. The `**N**` total spelling this log used
+through pass 308 now exists **only in the archive**:
+
+    $ grep -oE "at-risk \*\*[0-9]+\*\*" docs/work/archive/paused-recon-pass-log.md | sort | uniq -c
+          4 at-risk **1**
+         15 at-risk **89**
+          1 at-risk **91**
+    $ grep -oE "at-risk \*\*[0-9]+\*\*" docs/work/items/w-paused-reconciliation.md | sort | uniq -c
+          1 at-risk **1**
+
+Zero two-digit totals in the live item; all of them in the archive. The live file publishes the figure
+in the colon spelling exactly once (`at-risk: 90 total = ref-held 1 + reflog-only 89`), and the archive
+carries a **copy of this preamble**, so the archive is not merely a history of superseded numbers - it
+is a file that *also* presents itself as readable current state. **A grep across `docs/work/` returns
+15 hits of the superseded `89` and not one `90`, and `sort | uniq -c` reports the counts with no
+indication of which file any came from.** The one-line check pass 305 recommends therefore does not
+merely risk a false delta against this pass's own run; against the current repository it returns a
+confidently wrong answer about the present, having been a correct check when written.
+
+**The repair is the file, and it is one line, because the ambiguity is in the check rather than in any
+figure.** Run the historical-figures check against the **archive explicitly**, or not at all:
+
+    grep -oE "at-risk \*\*[0-9]+\*\*" docs/work/archive/paused-recon-pass-log.md | sort | uniq -c
+
+and take the **live** figure only from `at-risk.sh` itself, never from either file. A number typed into
+prose by any pass is history by construction - it was true of a tree at the moment it was written, and
+this repository has been rebased and re-measured continuously since - so the archive's `89` is a true
+report of pass 307 and a false report of today, with no difference in the bytes.
+
+**Recorded, not fixed, because the honest scope is one instruction wide.** The archive's own header
+does tell a reader "Read this file for current state and the standing rules. Read the archive only for
+the reasoning history of a specific pass" - the split was documented deliberately and correctly at pass
+320. What that header does not do is survive **a grep**, and a grep is how this log's own standing
+advice tells passes to look. Pass 305's caution is not wrong; it is **underspecified**, and its
+underspecification is invisible until the file it assumed was singular stops being singular.
+
+This pass did not edit `docs/work/archive/paused-recon-pass-log.md`. That file is a verbatim byte-level
+move of passes 1-308, and pass 320 verified it as a line-multiset partition; adding a header to it
+would break the one property that makes it trustworthy, to fix an ambiguity a reader can resolve with
+one argument.
+
+### The invocation's three standing clauses are declined again, for the same reason and on the same text as every pass since 92
+
+**Gate NO.** (1) *Launch or prompt Antonina agents*: declined on `## Status: accepted and paused` plus
+`docs/accepted-state-2026-09-27.md`. There is nothing to launch - **0 open / 0 working** items and
+**0 non-terminal MadGab agents**, and all five host-`running` agents belong to other repositories. The
+single non-terminal MadGab row is `3a8f01`, `stopped` on a superseded front, and it was left stopped and
+unmoved; there is no work to recover. (2) *Accumulate on `post-milestone-acceptance` "exactly as the
+itinerary requires"*: the same direct textual conflict as every pass since 199 - the itinerary says that
+branch "is release history after this acceptance and is no longer an automatic accumulation target", so
+the template's instruction cannot be honoured by doing what the template says. The itinerary wins; only
+a human can retire or correct the out-of-repo template. This pass's commit goes to that branch because
+**this log is its own durable record** and the pause does not stop the bookkeeping, not because the
+template's instruction is honoured. (3) *Prioritize the canonical approximate-search examples without
+phrase-specific hard-coding*: the no-hard-coding half holds as a **standing invariant**, not as work -
+`clue-fence.sh` reads 0 across all six production regions with every plant firing, and
+`git diff --quiet` against `origin/main` over the shipped paths confirms this pass changed no `src/`,
+test, example, web or CI file. The preserved `Hits Justice Dupe Hid Came` limitation was not re-litigated.
+
+Nothing was claimed, launched, stopped, prompted or integrated. No new work item. No recovery branch.
+Nothing left running for a later pass to supervise. `main` untouched at `0267ade`.
+
+### NEXT - for a fresh pass
+
+**(1)** Do not re-derive this pass's finding or its measurement; the reasoning is above and the three
+commands are quoted verbatim. **The operative rule, corrected in place: take the live at-risk figure
+only from `at-risk.sh`, and pass `docs/work/archive/paused-recon-pass-log.md` explicitly as the argument
+to any historical-figures grep.** A bare `grep -oE 'at-risk \*\*[0-9]+\*\*' ...` returning 15 hits of
+`89` is reading the archive, and `sort | uniq -c` will not tell you so. **(2)** Do not re-litigate passes
+345-366. **(3)** Pass 365's NEXT (3) remains discharged; the only thing still worth adjudicating is
+`branch-containment.sh`'s own claim - pass 325 built it, it is argument-taking, and it is deliberately
+not in the bare gate list. **(4)** The audit mirror was re-fetched this pass (rule 14a, no `--prune`,
+exit code read directly per rule 344), so that item is discharged. **(5)** Rule 364 stays the broad one:
+run each instrument once and read its output **as prose**, and plant a check against the defect the pass
+itself just named. **(6)** **The highest-value output of a further pass is still not a rule: retire this
+recurring pass, or reopen MadGab explicitly.** What would change the situation is a human's decision.
+This item is now **14,500 lines** and none of the standing figures has moved in 98 passes; pass 365
+recommended retirement and this pass re-confirms it as the larger of the two open items.
+**Blocked on the human reopen/confirm decision.**
