@@ -3,9 +3,9 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-7f21
-updated: 2026-10-01T03:56:00Z
-prior_owner: coord-5d9e (2026-10-01T03:52Z; full note preserved verbatim in commit 97a0434)
+owner: coord-4b17
+updated: 2026-10-01T04:09:00Z
+prior_owner: coord-7f21 (2026-10-01T03:56Z; ownership stamp only, in commit f92b2ad)
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
