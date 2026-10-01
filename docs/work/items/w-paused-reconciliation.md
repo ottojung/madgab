@@ -3,8 +3,8 @@ work_item: true
 id: w-paused-recon
 state: blocked
 priority: normal
-owner: coord-5b73
-updated: 2026-10-01T00:03:00Z
+owner: coord-7c41
+updated: 2026-10-01T00:08:00Z
 branch: post-milestone-acceptance
 worktree: /workspace/madgab
 ---
@@ -122,28 +122,30 @@ Pick one and the loop should stop:
 Until one of those happens, **there is no coordination work available on this repository**, and a
 future pass that finds none should say so and exit without writing anything.
 
-**Verified 2026-10-01T00:03Z** by a fresh pass that appended no entry and created no instrument.
-All 12 bare gates exit 0 run *concurrently* from the repository root (no arrival repair this time:
-bare `at-risk.sh` exited 0 on arrival, so the pass-187 mirror-staleness failure did **not** recur),
-`selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded,
-0 non-terminal MadGab agents of 131 MadGab rows of 1011 host rows (2 host-`running` — `136f5`
-qai-gate and `94f04` assemblyp1 — both other repositories, left running untouched), fence 0 in all 6
-regions, `at-risk` 90 = ref-held 1 + reflog-only 89, `content-sweep` 0 unreachable of 34 distinct
-blobs against 9186 known ids, `figures` 0 defects, `prohibition` 0 defects. `origin/main` `0267ade`,
-no local `main` (`rev-parse --verify main` exit 128), product diff vs `origin/main` empty, 0 of 476
-ahead commits touching `src/`, HEAD == `origin/post-milestone-acceptance`, 0 unpushed, 126 worktrees
-with `worktree prune -n -v` empty. Nothing claimed, launched, merged or pushed to `main`; no agent
-left running.
+**Verified 2026-10-01T00:08Z** by a fresh pass that appended no entry and created no instrument.
+Nine bare gates run from the repository root — `census`, `clue-fence`, `agents`, `item-state`,
+`selfcheck`, `refs`, `branches`, `figures`, `prohibition` — all exit **0 on arrival with no arrival
+repair**; `selfcheck` 13/13, census 96 = 0 open / 0 working / 1 blocked / 83 done / 12 superseded,
+0 non-terminal MadGab agents of 131 MadGab rows of 1021 host rows (5 host-`running` — `141d`,
+`d14`, `63`, `62`, `94f04` — all other repositories, left running untouched), fence 0 in all 6 regions
+with 1 adjudicated benign per-word hit, `figures` 0 defects, `prohibition` 0 defects.
+`origin/main` `0267ade`, no local `main` (`rev-parse --verify main` exit 128), product diff vs
+`origin/main` empty, 0 of 479 ahead commits touching a product path (`src tests examples web
+Cargo.toml`), HEAD == `origin/post-milestone-acceptance` with 0 unpushed, 126 worktrees with
+`worktree prune -n -v` empty. The slow at-risk family (`at-risk.sh`, `at-risk-content.sh`,
+`content-sweep.sh`, `at-risk-delta.sh`) was **not re-run this pass** — it is unchanged since
+00:03Z, its population did not move, and the budget was better spent on the two acceptance facts
+below — so its 90 = ref-held 1 + reflog-only 89 is carried forward from the 00:03Z measurement,
+not re-derived here. Nothing claimed, launched, merged or pushed to `main`; no agent left running.
 
 Two acceptance facts were re-measured by **execution rather than by proxy** this pass, which is the
-one thing the standing gates never do. `cargo test --release --test no_phrase_hard_coding` was run
-directly against the prebuilt binary: **9 passed / 0 failed**, including
-`the_fence_watches_both_canonical_examples` and `the_detector_catches_every_documented_shape` — so the
-no-hard-coding half of clause 3 holds as a *measurement*, not as an inference from an unchanged tree.
-And `cargo test --release --test cli_milestone_predicate -- --ignored` **still FAILS** at
-`canonical_case_two_is_displayed` in 4.24s, so the accepted `Hits Justice Dupe Hid Came` limitation
-is confirmed still red by running the one test that reads the acceptance criterion itself. Neither
-result changed any state; both are recorded so a later pass does not spend its budget re-deriving them.
+one thing the standing gates never do. `no_phrase_hard_coding` was run directly against the prebuilt
+release test binary: **9 passed / 0 failed**, so the no-hard-coding half of clause 3 holds as a
+*measurement*, not as an inference from an unchanged tree. And `cli_milestone_predicate --ignored`
+**still FAILS** at `canonical_case_two_is_displayed` in 1.73s, so the accepted
+`Hits Justice Dupe Hid Came` limitation is confirmed still red by running the one test that reads the
+acceptance criterion itself. Neither result changed any state; both are recorded so a later pass does
+not spend its budget re-deriving them.
 
 The three scheduler-template clauses are declined once more, unchanged: there is nothing to launch
 (0 open, 0 working, 0 non-terminal MadGab agents, and the itinerary forbids MadGab agents while
